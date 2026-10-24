@@ -6,6 +6,8 @@ import type { PresetId } from './config';
 import type { Speed } from './time';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
+import type { VillageView } from '../sim/view';
+import type { BuildingId, UnitId } from './gameData';
 
 export type Command =
   | { type: 'newWorld'; preset: Exclude<PresetId, 'custom'>; name: string; seed?: number }
@@ -17,7 +19,13 @@ export type Command =
   | { type: 'save'; slot: string }
   | { type: 'load'; slot: string }
   | { type: 'deleteSave'; slot: string }
-  | { type: 'listSaves' };
+  | { type: 'listSaves' }
+  | { type: 'build'; villageId: number; building: BuildingId }
+  | { type: 'cancelBuild'; villageId: number; jobId: number }
+  | { type: 'research'; villageId: number; unit: UnitId }
+  | { type: 'cancelResearch'; villageId: number }
+  | { type: 'recruit'; villageId: number; unit: UnitId; count: number }
+  | { type: 'cancelRecruit'; villageId: number; jobId: number };
 
 export interface Snapshot {
   worldName: string;
@@ -30,6 +38,8 @@ export interface Snapshot {
   suspended: boolean;
   queueSize: number;
   log: LogEntry[];
+  /** The player's village, fully computed for display. */
+  village: VillageView | null;
 }
 
 export type WorkerMessage =

@@ -1,11 +1,14 @@
 import { useEffect } from 'preact/hooks';
-import { autoPause, notice, togglePause } from './store';
-import { ClockPanel } from './panels/ClockPanel';
-import { EventsPanel } from './panels/EventsPanel';
-import { LogPanel } from './panels/LogPanel';
-import { NewWorldPanel } from './panels/NewWorldPanel';
-import { SavesPanel } from './panels/SavesPanel';
 import { formatGameTime } from '../shared/time';
+import { TopBar } from './components/TopBar';
+import { Nav } from './components/Nav';
+import { autoPause, notice, screen, snapshot, togglePause } from './store';
+import { DebugScreen } from './screens/DebugScreen';
+import { MainScreen } from './screens/MainScreen';
+import { OverviewScreen } from './screens/OverviewScreen';
+import { RecruitScreen } from './screens/RecruitScreen';
+import { SmithScreen } from './screens/SmithScreen';
+import { StartScreen } from './screens/StartScreen';
 
 /** Spacebar toggles pause, except while typing in a field. */
 function useSpacebarPause(): void {
@@ -23,32 +26,46 @@ function useSpacebarPause(): void {
   }, []);
 }
 
+function CurrentScreen() {
+  switch (screen.value) {
+    case 'overview':
+      return <OverviewScreen />;
+    case 'main':
+      return <MainScreen />;
+    case 'smith':
+      return <SmithScreen />;
+    case 'debug':
+      return <DebugScreen />;
+    default:
+      return <RecruitScreen building={screen.value} />;
+  }
+}
+
 export function App() {
   useSpacebarPause();
   const paused = autoPause.value;
   const n = notice.value;
+  const hasWorld = snapshot.value?.village != null;
 
   return (
     <>
-      <header class="topbar">
-        <h1>Tribal Feud</h1>
-        <span class="tag">fase 1 · debug</span>
-      </header>
-
+      <TopBar />
       {paused && (
         <div class="banner">
           Auto-pause · {formatGameTime(paused.time)} · {paused.text}
         </div>
       )}
       {n && <div class={`notice ${n.level}`}>{n.text}</div>}
-
-      <main class="grid">
-        <ClockPanel />
-        <NewWorldPanel />
-        <EventsPanel />
-        <SavesPanel />
-        <LogPanel />
-      </main>
+      {hasWorld ? (
+        <div class="layout">
+          <Nav />
+          <main class="content">
+            <CurrentScreen />
+          </main>
+        </div>
+      ) : (
+        <StartScreen />
+      )}
     </>
   );
 }

@@ -2,7 +2,8 @@
 
 Singleplayer strategy game with Tribal Wars mechanics, played against 200+ bots that run their own guilds, wars and betrayals.
 
-Status: **phase 1 (foundation)**. A ticking game clock, an event queue, seeded RNG, `WorldConfig` and saves. No villages yet.
+Status: **phase 2 (one village)**. Buildings with a 5-slot build queue, resource production, storage, farm space,
+building requirements, smithy research and recruitment, all with Tribal Wars values. No map, combat or bots yet.
 
 ## Running it
 
@@ -29,11 +30,15 @@ Then open the URL Vite prints (usually http://localhost:5173).
 src/
   shared/    types and helpers used by both sides
     config.ts     WorldConfig, presets, validation
+    gameData.ts   building and unit tables (TW values), copied into WorldConfig
     protocol.ts   messages between UI and worker
     time.ts       time units, speeds, formatting
   sim/       simulation (runs in the Web Worker)
     state.ts      WorldState: everything that gets saved
     simulation.ts pure core: advance the clock, process events
+    formulas.ts   TW formulas: costs, build/recruit times, production, storage, farm, points
+    village.ts    village rules: build queue, requirements, smithy, recruitment
+    view.ts       read-only village view sent to the UI
     eventQueue.ts min-heap on game time
     rng.ts        seeded RNG (sfc32)
     save.ts       save format + versioning/migrations
@@ -43,7 +48,9 @@ src/
   ui/        main thread: Preact + signals (later also the canvas map)
     store.ts      worker connection; snapshot/saves/notices as signals
     App.tsx       layout
-    panels/       one component per panel
+    screens/      one component per game screen (overview, HQ, barracks, ...)
+    components/   shared bits (top bar, nav, cost)
+    panels/       debug panels (new world, saves, events, log)
 ```
 
 ## Core rules

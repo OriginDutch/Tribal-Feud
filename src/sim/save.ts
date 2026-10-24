@@ -1,10 +1,12 @@
-import type { WorldState } from './state';
+import { defaultTables } from '../shared/config';
+import { HUMAN_ID, type WorldState } from './state';
+import { createVillage } from './village';
 
 /**
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export interface SaveData {
   version: number;
@@ -21,7 +23,18 @@ export interface SaveMeta {
 }
 
 /** MIGRATIONS[n] upgrades a save from version n to n + 1. */
-const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {};
+const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
+  // v1 (phase 1) had no villages: add the game tables, a player and a starting village.
+  1: (data) => {
+    const state = data.state as WorldState & Partial<Pick<WorldState, 'players' | 'villages' | 'nextId'>>;
+    state.config = { ...defaultTables(), ...state.config };
+    state.players = [{ id: HUMAN_ID, name: 'Jij', isBot: false }];
+    state.nextId = 1;
+    const village = createVillage(state.config, state.nextId++, HUMAN_ID, 'Jouw dorp', 500, 500, state.time);
+    state.villages = { [village.id]: village };
+    return { ...data, version: 2, state };
+  },
+};
 
 export function toSaveData(state: WorldState, now: number): SaveData {
   // structuredClone so later mutations of the live state never leak into a stored save
@@ -32,7 +45,7 @@ export function fromSaveData(raw: unknown): WorldState {
   if (typeof raw !== 'object' || raw === null || !('version' in raw) || !('state' in raw)) {
     throw new Error('Ongeldige save.');
   }
-  let data = raw as SaveData;
+  let data = structuredClone(raw) as SaveData;
   if (data.version > SAVE_VERSION) {
     throw new Error(`Save is van een nieuwere versie (${data.version}) dan dit spel (${SAVE_VERSION}).`);
   }
@@ -41,5 +54,5 @@ export function fromSaveData(raw: unknown): WorldState {
     if (!migrate) throw new Error(`Geen migratie van saveversie ${data.version}.`);
     data = migrate(data);
   }
-  return structuredClone(data.state);
+  return data.state;
 }

@@ -2,6 +2,7 @@ import { MINUTE, type Speed } from '../shared/time';
 import { peek, pop, push } from './eventQueue';
 import { nextInt } from './rng';
 import { addLog, type GameEvent, type LogEntry, type WorldState } from './state';
+import { onBuildDone, onRecruitTick, onResearchDone } from './village';
 
 /**
  * Pure simulation core. No timers, no DOM, no worker APIs:
@@ -20,8 +21,18 @@ export function schedule(state: WorldState, delayMs: number, event: GameEvent): 
   push(state.queue, state.time + delayMs, event);
 }
 
-function handle(state: WorldState, event: GameEvent): LogEntry {
+/** Handles one event. Returns a log entry for debug events; game events log themselves. */
+function handle(state: WorldState, event: GameEvent): LogEntry | null {
   switch (event.kind) {
+    case 'build':
+      onBuildDone(state, event.villageId, event.jobId);
+      return null;
+    case 'recruit':
+      onRecruitTick(state, event.villageId, event.jobId);
+      return null;
+    case 'research':
+      onResearchDone(state, event.villageId, event.jobId);
+      return null;
     case 'test': {
       const entry: LogEntry = { time: state.time, text: `Test-event: ${event.label}` };
       if (event.autoPause) entry.autoPause = true;
@@ -48,8 +59,9 @@ export function advance(state: WorldState, realDtMs: number): AdvanceResult {
     pop(state.queue);
     state.time = next.time;
     const entry = handle(state, next.event);
-    addLog(state, entry);
     result.processed++;
+    if (!entry) continue;
+    addLog(state, entry);
     if (entry.autoPause) {
       state.paused = true;
       result.autoPaused = entry;

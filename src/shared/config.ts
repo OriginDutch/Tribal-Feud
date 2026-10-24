@@ -4,6 +4,16 @@
  * Mechanics and bot layers read from it; nothing is hardcoded elsewhere.
  */
 
+import {
+  DEFAULT_BUILDINGS,
+  DEFAULT_UNITS,
+  type BuildingDef,
+  type BuildingId,
+  type Res,
+  type UnitDef,
+  type UnitId,
+} from './gameData';
+
 export type ResearchMode = 'simple' | 'levels3' | 'levels10';
 export type PaladinMode = 'off' | 'on' | 'items';
 export type NobleCostMode = 'coins' | 'packages';
@@ -47,9 +57,28 @@ export interface WorldConfig {
     /** Share of all villages your guild must own, 0..1. */
     villageShare: number;
   };
+
+  /** Building table (costs, factors, times, points, requirements). */
+  buildings: Record<BuildingId, BuildingDef>;
+  /** Unit table (costs, stats, recruit times, research). */
+  units: Record<UnitId, UnitDef>;
+
+  village: {
+    /** Building levels a new village starts with; missing = minLevel. */
+    startLevels: Partial<Record<BuildingId, number>>;
+    startResources: Res;
+    buildQueueSlots: number;
+    /** Share of the cost returned when cancelling a build or recruit order. */
+    cancelRefund: number;
+    /** TODO(open question): smithy research time not found yet; base seconds at world speed 1. */
+    researchTime: number;
+  };
 }
 
-const BASE: Omit<WorldConfig, 'name' | 'seed' | 'preset'> = {
+type GameplayTables = 'buildings' | 'units' | 'village';
+type PresetValues = Omit<WorldConfig, 'name' | 'seed' | 'preset' | GameplayTables>;
+
+const BASE: PresetValues = {
   worldSpeed: 1,
   unitSpeed: 1,
   churches: false,
@@ -78,7 +107,7 @@ const BASE: Omit<WorldConfig, 'name' | 'seed' | 'preset'> = {
 };
 
 /** Preset contents are placeholders until the presets are designed. */
-export const PRESETS: Record<Exclude<PresetId, 'custom'>, Omit<WorldConfig, 'name' | 'seed' | 'preset'>> = {
+export const PRESETS: Record<Exclude<PresetId, 'custom'>, PresetValues> = {
   classic: { ...BASE },
   speed: { ...BASE, worldSpeed: 5, unitSpeed: 2 },
   hardcore: {
@@ -90,7 +119,21 @@ export const PRESETS: Record<Exclude<PresetId, 'custom'>, Omit<WorldConfig, 'nam
   },
 };
 
-export type ConfigOverrides = Partial<Omit<WorldConfig, 'barbarians' | 'bots' | 'winCondition'>> & {
+export function defaultTables(): Pick<WorldConfig, GameplayTables> {
+  return {
+    buildings: structuredClone(DEFAULT_BUILDINGS),
+    units: structuredClone(DEFAULT_UNITS),
+    village: {
+      startLevels: { main: 1, wood: 1, stone: 1, iron: 1, farm: 1, storage: 1 },
+      startResources: [500, 500, 500],
+      buildQueueSlots: 5,
+      cancelRefund: 0.9,
+      researchTime: 3600,
+    },
+  };
+}
+
+export type ConfigOverrides = Partial<Omit<WorldConfig, 'barbarians' | 'bots' | 'winCondition' | GameplayTables>> & {
   barbarians?: Partial<WorldConfig['barbarians']>;
   bots?: Partial<WorldConfig['bots']>;
   winCondition?: Partial<WorldConfig['winCondition']>;
@@ -106,6 +149,7 @@ export function createConfig(
   const hasOverrides = Object.keys(overrides).length > 0;
   return {
     ...base,
+    ...defaultTables(),
     ...overrides,
     name,
     seed,

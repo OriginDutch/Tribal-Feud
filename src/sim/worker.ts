@@ -9,7 +9,9 @@ import { deleteSave, getSave, listSaves, putSave } from '../storage/saveStore';
 import { randomSeed } from './rng';
 import { fromSaveData, toSaveData } from './save';
 import { advance, schedule, scheduleRandom, setPaused, setSpeed } from './simulation';
-import { createWorld, type WorldState } from './state';
+import { createWorld, playerVillage, type WorldState } from './state';
+import { villageView } from './view';
+import { cancelBuild, cancelRecruit, cancelResearch, queueBuild, recruit, startResearch } from './village';
 
 /** Minimal typing for the worker global, so the project only needs the DOM lib. */
 const ctx = self as unknown as {
@@ -50,6 +52,10 @@ function snapshot(): Snapshot | null {
     suspended,
     queueSize: state.queue.heap.length,
     log: state.log.slice(-SNAPSHOT_LOG_LINES),
+    village: (() => {
+      const v = playerVillage(state);
+      return v ? villageView(state, v) : null;
+    })(),
   };
 }
 
@@ -153,8 +159,41 @@ async function handle(cmd: Command): Promise<void> {
     case 'listSaves':
       await postSaves();
       break;
+    case 'build':
+    case 'cancelBuild':
+    case 'research':
+    case 'cancelResearch':
+    case 'recruit':
+    case 'cancelRecruit': {
+      if (!state) return;
+      const error = villageAction(state, cmd);
+      if (error) notice(error, 'error');
+      break;
+    }
   }
   postSnapshot();
+}
+
+type VillageCommand = Extract<
+  Command,
+  { type: 'build' | 'cancelBuild' | 'research' | 'cancelResearch' | 'recruit' | 'cancelRecruit' }
+>;
+
+function villageAction(s: WorldState, cmd: VillageCommand): string | null {
+  switch (cmd.type) {
+    case 'build':
+      return queueBuild(s, cmd.villageId, cmd.building);
+    case 'cancelBuild':
+      return cancelBuild(s, cmd.villageId, cmd.jobId);
+    case 'research':
+      return startResearch(s, cmd.villageId, cmd.unit);
+    case 'cancelResearch':
+      return cancelResearch(s, cmd.villageId);
+    case 'recruit':
+      return recruit(s, cmd.villageId, cmd.unit, cmd.count);
+    case 'cancelRecruit':
+      return cancelRecruit(s, cmd.villageId, cmd.jobId);
+  }
 }
 
 ctx.onmessage = (e: MessageEvent<Command>) => {
