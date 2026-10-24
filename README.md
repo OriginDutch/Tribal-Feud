@@ -37,6 +37,7 @@ src/
   shared/    types and helpers used by both sides
     config.ts     WorldConfig, presets, validation
     gameData.ts   building and unit tables (TW values), copied into WorldConfig
+    quests.ts     quest chains (official TW construction line + own farming line)
     protocol.ts   messages between UI and worker
     time.ts       time units, speeds, formatting
   sim/       simulation (runs in the Web Worker)
@@ -50,6 +51,7 @@ src/
     combat.ts     battle formula (pure): wall, rams, catapults, spies, luck, morale
     movement.ts   attacks, returns, loot, reports
     mapView.ts    map and movement data for the UI
+    quests.ts     quests, building rewards, claiming
     eventQueue.ts min-heap on game time
     rng.ts        seeded RNG (sfc32)
     save.ts       save format + versioning/migrations

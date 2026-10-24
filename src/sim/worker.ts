@@ -14,6 +14,8 @@ import { villageView } from './view';
 import { mapData, movementViews } from './mapView';
 import { sendAttack } from './movement';
 import { HUMAN_ID, addLog } from './state';
+import { claimAllRewards, claimReward, demandStatus } from './quests';
+import type { QuestsView } from '../shared/protocol';
 import { UNIT_IDS, type UnitCounts } from '../shared/gameData';
 import { cancelBuild, cancelRecruit, cancelResearch, queueBuild, recruit, settle, startResearch } from './village';
 
@@ -70,6 +72,27 @@ function snapshot(): Snapshot | null {
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
     marchFactor: state.config.worldSpeed * state.config.unitSpeed * state.config.marchSpeed,
+    quests: questsView(state),
+  };
+}
+
+function questsView(s: WorldState): QuestsView {
+  return {
+    chains: s.config.quests.chains.map((chain) => {
+      const done = s.questProgress[chain.id] ?? 0;
+      const quest = chain.quests[done];
+      return {
+        id: chain.id,
+        name: chain.name,
+        done,
+        total: chain.quests.length,
+        current: quest
+          ? { title: quest.title, text: quest.text, demands: quest.demands.map((d) => demandStatus(s, d)), reward: quest.reward }
+          : null,
+      };
+    }),
+    rewards: s.rewards,
+    buildingReward: s.config.quests.buildingReward,
   };
 }
 
@@ -196,6 +219,18 @@ async function handle(cmd: Command): Promise<void> {
         if (n > 0) units[u] = n;
       }
       state.farmTemplates[cmd.template] = units;
+      break;
+    }
+    case 'claimReward': {
+      if (!state) return;
+      const error = claimReward(state, cmd.id);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'claimAllRewards': {
+      if (!state) return;
+      const error = claimAllRewards(state);
+      if (error) notice(error, 'error');
       break;
     }
     case 'debugGive': {

@@ -7,6 +7,7 @@ export function Nav() {
 
   const items: { id: Screen; label: string; building?: string }[] = [
     { id: 'overview', label: 'Overzicht' },
+    { id: 'quests', label: 'Opdrachten' },
     { id: 'main', label: 'Hoofdgebouw', building: 'main' },
     { id: 'barracks', label: 'Kazerne', building: 'barracks' },
     { id: 'stable', label: 'Stal', building: 'stable' },
@@ -20,6 +21,7 @@ export function Nav() {
     { id: 'debug', label: 'Log & debug' },
   ];
   const unread = snapshot.value?.unreadReports ?? 0;
+  const rewardCount = snapshot.value?.quests.rewards.length ?? 0;
 
   return (
     <nav class="nav">
@@ -37,6 +39,7 @@ export function Nav() {
             <span>{item.label}</span>
             {lvl !== null && <span class="lvl">{lvl > 0 ? lvl : '—'}</span>}
             {item.id === 'reports' && unread > 0 && <span class="badge">{unread}</span>}
+            {item.id === 'quests' && rewardCount > 0 && <span class="badge good">{rewardCount}</span>}
           </button>
         );
       })}

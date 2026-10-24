@@ -9,7 +9,7 @@ import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'farm' | 'reports' | 'debug';
+export type Screen = 'overview' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'farm' | 'reports' | 'quests' | 'debug';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);

@@ -9,6 +9,8 @@ import type { SaveMeta } from '../sim/save';
 import type { VillageView } from '../sim/view';
 import type { BuildingId, UnitCounts, UnitId } from './gameData';
 import type { Report } from '../sim/movement';
+import type { DemandStatus, PendingReward } from '../sim/quests';
+import type { Res } from './gameData';
 
 export type Command =
   | { type: 'newWorld'; preset: Exclude<PresetId, 'custom'>; name: string; seed?: number; overrides?: ConfigOverrides }
@@ -33,6 +35,8 @@ export type Command =
   | { type: 'getMap' }
   | { type: 'getReports' }
   | { type: 'markReportsRead'; ids: number[] | 'all' }
+  | { type: 'claimReward'; id: number }
+  | { type: 'claimAllRewards' }
   /** Debug cheats for testing. */
   | { type: 'debugGive'; units?: UnitCounts; resources?: number };
 
@@ -86,6 +90,19 @@ export interface Snapshot {
   farmTemplates: { A: UnitCounts; B: UnitCounts };
   /** worldSpeed * unitSpeed * marchSpeed, to preview travel times. */
   marchFactor: number;
+  quests: QuestsView;
+}
+
+export interface QuestsView {
+  chains: {
+    id: string;
+    name: string;
+    done: number;
+    total: number;
+    current: { title: string; text: string; demands: DemandStatus[]; reward: { res?: Res; units?: UnitCounts } } | null;
+  }[];
+  rewards: PendingReward[];
+  buildingReward: { maxLevel: number; share: number };
 }
 
 export type WorkerMessage =

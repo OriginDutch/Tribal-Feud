@@ -4,6 +4,7 @@ import { nextInt } from './rng';
 import { addLog, type GameEvent, type LogEntry, type WorldState } from './state';
 import { onBuildDone, onRecruitTick, onResearchDone } from './village';
 import { onArrive } from './movement';
+import { checkQuests } from './quests';
 
 /**
  * Pure simulation core. No timers, no DOM, no worker APIs:
@@ -64,6 +65,7 @@ export function advance(state: WorldState, realDtMs: number): AdvanceResult {
     state.time = next.time;
     const entry = handle(state, next.event);
     result.processed++;
+    checkQuests(state);
     if (!entry) continue;
     addLog(state, entry);
     if (entry.autoPause) {

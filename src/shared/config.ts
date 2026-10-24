@@ -13,6 +13,7 @@ import {
   type UnitDef,
   type UnitId,
 } from './gameData';
+import { defaultQuests, type QuestConfig } from './quests';
 
 export type ResearchMode = 'simple' | 'levels3' | 'levels10';
 export type PaladinMode = 'off' | 'on' | 'items';
@@ -92,6 +93,8 @@ export interface WorldConfig {
   buildings: Record<BuildingId, BuildingDef>;
   /** Unit table (costs, stats, recruit times, research). */
   units: Record<UnitId, UnitDef>;
+  /** Quest chains and the reward per finished building. */
+  quests: QuestConfig;
 
   village: {
     /** Building levels a new village starts with; missing = minLevel. */
@@ -105,7 +108,7 @@ export interface WorldConfig {
   };
 }
 
-type GameplayTables = 'buildings' | 'units' | 'village';
+type GameplayTables = 'buildings' | 'units' | 'village' | 'quests';
 type PresetValues = Omit<WorldConfig, 'name' | 'seed' | 'preset' | GameplayTables>;
 
 const BASE: PresetValues = {
@@ -171,6 +174,7 @@ export function defaultTables(): Pick<WorldConfig, GameplayTables> {
   return {
     buildings: structuredClone(DEFAULT_BUILDINGS),
     units: structuredClone(DEFAULT_UNITS),
+    quests: defaultQuests(),
     village: {
       startLevels: { main: 1, wood: 1, stone: 1, iron: 1, farm: 1, storage: 1, place: 1 },
       startResources: [500, 500, 500],

@@ -1,6 +1,8 @@
 import { PRESETS, defaultTables } from '../shared/config';
 import { UNIT_IDS, type UnitId } from '../shared/gameData';
 import { generateMap } from './map';
+import { defaultQuests } from '../shared/quests';
+import { checkQuests } from './quests';
 import { HUMAN_ID, type WorldState } from './state';
 import { createVillage } from './village';
 
@@ -8,7 +10,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export interface SaveData {
   version: number;
@@ -64,6 +66,17 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     state.farmTemplates ??= { A: { light: 5 }, B: { spear: 10 } };
     generateMap(state);
     return { ...data, version: 4 };
+  },
+  // v4 (phase 3) had no quests: add them; quests already done complete on the next check.
+  4: (data) => {
+    const state = data.state;
+    const config = state.config as Partial<WorldState['config']> & WorldState['config'];
+    config.quests ??= defaultQuests();
+    state.questProgress ??= {};
+    state.rewards ??= [];
+    state.stats ??= { plunders: 0, loot: 0, rewardsClaimed: 0 };
+    checkQuests(state);
+    return { ...data, version: 5 };
   },
 };
 

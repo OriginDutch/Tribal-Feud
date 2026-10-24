@@ -5,6 +5,7 @@ import { seedRng, type RngState } from './rng';
 import type { UnitCounts } from '../shared/gameData';
 import { generateMap } from './map';
 import type { Movement, Report } from './movement';
+import { checkQuests, type PendingReward, type QuestStats } from './quests';
 import { createVillage, type Village } from './village';
 
 /** Everything that can be scheduled in game time. Grows per phase. */
@@ -60,6 +61,11 @@ export interface WorldState {
   /** Last report id per target village (for the farm assistant). */
   lastReportByTarget: Record<number, number>;
   farmTemplates: FarmTemplates;
+  /** Index of the current quest per chain. */
+  questProgress: Record<string, number>;
+  /** Rewards waiting to be claimed. */
+  rewards: PendingReward[];
+  stats: QuestStats;
   /** Next free id for villages, jobs, movements and reports. */
   nextId: number;
 }
@@ -85,11 +91,15 @@ export function createWorld(config: WorldConfig): WorldState {
     reports: [],
     lastReportByTarget: {},
     farmTemplates: { A: { light: 5 }, B: { spear: 10 } },
+    questProgress: {},
+    rewards: [],
+    stats: { plunders: 0, loot: 0, rewardsClaimed: 0 },
     nextId: 1,
   };
   const village = createVillage(config, nextId(state), HUMAN_ID, 'Jouw dorp', 500, 500, 0);
   state.villages[village.id] = village;
   generateMap(state);
+  checkQuests(state);
   return state;
 }
 
