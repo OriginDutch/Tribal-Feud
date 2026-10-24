@@ -40,7 +40,10 @@ src/
     worker.ts     worker loop, commands, autosave
   storage/
     saveStore.ts  IndexedDB save slots
-  ui/        main thread: DOM + (later) canvas map
+  ui/        main thread: Preact + signals (later also the canvas map)
+    store.ts      worker connection; snapshot/saves/notices as signals
+    App.tsx       layout
+    panels/       one component per panel
 ```
 
 ## Core rules
