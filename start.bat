@@ -24,14 +24,21 @@ goto start
 :install
 echo.
 echo === Packages installeren ===
+echo (Draait de game nog in een ander venster? Sluit dat eerst, anders zitten bestanden op slot.)
 call npm ci
-if errorlevel 1 (
-  echo.
-  echo npm ci mislukt.
-  pause
-  exit /b 1
-)
+rem niet op errorlevel vertrouwen: controleer of vite er echt staat
+if not exist node_modules\.bin\vite.cmd goto installfailed
 copy /y package-lock.json node_modules\.tribal-feud-lock >nul
+goto start
+
+:installfailed
+echo.
+echo Installeren is mislukt, de game wordt niet gestart.
+echo Meestal draait de game nog in een ander venster, of je virusscanner houdt een bestand vast.
+echo Sluit andere vensters met de game en probeer start.bat opnieuw.
+echo.
+pause
+exit /b 1
 
 :start
 echo.
