@@ -2,6 +2,9 @@ import type { WorldConfig } from '../shared/config';
 import type { Speed } from '../shared/time';
 import { createQueue, type EventQueue } from './eventQueue';
 import { seedRng, type RngState } from './rng';
+import type { UnitCounts } from '../shared/gameData';
+import { generateMap } from './map';
+import type { Movement, Report } from './movement';
 import { createVillage, type Village } from './village';
 
 /** Everything that can be scheduled in game time. Grows per phase. */
@@ -10,7 +13,8 @@ export type GameEvent =
   | { kind: 'random'; label: string }
   | { kind: 'build'; villageId: number; jobId: number }
   | { kind: 'recruit'; villageId: number; jobId: number }
-  | { kind: 'research'; villageId: number; jobId: number };
+  | { kind: 'research'; villageId: number; jobId: number }
+  | { kind: 'arrive'; movementId: number };
 
 export interface LogEntry {
   time: number;
@@ -26,6 +30,13 @@ export interface Player {
 
 /** The human player always has id 0. */
 export const HUMAN_ID = 0;
+/** Owner id of barbarian villages. */
+export const BARBARIAN = -1;
+
+export interface FarmTemplates {
+  A: UnitCounts;
+  B: UnitCounts;
+}
 
 /**
  * The complete world. Plain data only: this object is what gets saved.
@@ -42,7 +53,14 @@ export interface WorldState {
   log: LogEntry[];
   players: Player[];
   villages: Record<number, Village>;
-  /** Next free id for villages and jobs. */
+  /** Troops on the road. */
+  movements: Record<number, Movement>;
+  /** Reports for the human player, newest last. */
+  reports: Report[];
+  /** Last report id per target village (for the farm assistant). */
+  lastReportByTarget: Record<number, number>;
+  farmTemplates: FarmTemplates;
+  /** Next free id for villages, jobs, movements and reports. */
   nextId: number;
 }
 
@@ -63,10 +81,15 @@ export function createWorld(config: WorldConfig): WorldState {
     log: [{ time: 0, text: `Wereld "${config.name}" aangemaakt (seed ${config.seed}).` }],
     players: [{ id: HUMAN_ID, name: 'Jij', isBot: false }],
     villages: {},
+    movements: {},
+    reports: [],
+    lastReportByTarget: {},
+    farmTemplates: { A: { light: 5 }, B: { spear: 10 } },
     nextId: 1,
   };
   const village = createVillage(config, nextId(state), HUMAN_ID, 'Jouw dorp', 500, 500, 0);
   state.villages[village.id] = village;
+  generateMap(state);
   return state;
 }
 

@@ -52,3 +52,19 @@ export function nextInt(st: RngState, min: number, max: number): number {
 export function randomSeed(): number {
   return (Math.random() * 4294967296) >>> 0;
 }
+
+/**
+ * Stateless hash of a few integers to a float in [0, 1).
+ * For lazy, order-independent randomness (e.g. barbarian growth step N of village V):
+ * the result depends only on the inputs, not on when it is computed.
+ */
+export function hashFloat(...parts: number[]): number {
+  let h = 0x811c9dc5;
+  for (const p of parts) {
+    h = Math.imul(h ^ (p >>> 0), 0x01000193) >>> 0;
+    h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
+    h = Math.imul(h ^ (h >>> 12), 0x297a2d39) >>> 0;
+    h = (h ^ (h >>> 15)) >>> 0;
+  }
+  return h / 4294967296;
+}

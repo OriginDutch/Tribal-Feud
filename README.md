@@ -2,8 +2,9 @@
 
 Singleplayer strategy game with Tribal Wars mechanics, played against 200+ bots that run their own guilds, wars and betrayals.
 
-Status: **phase 2 (one village)**. Buildings with a 5-slot build queue, resource production, storage, farm space,
-building requirements, smithy research and recruitment, all with Tribal Wars values. No map, combat or bots yet.
+Status: **phase 3 (map and barbarians)**. One village with the full Tribal Wars economy, plus a map with ~200
+(still inactive) bot villages and ~3000 growing barbarian villages, attacks with the TW battle formula, loot,
+reports and a farm assistant. Bots start thinking in phase 5.
 
 ## Running it
 
@@ -44,6 +45,11 @@ src/
     formulas.ts   TW formulas: costs, build/recruit times, production, storage, farm, points
     village.ts    village rules: build queue, requirements, smithy, recruitment
     view.ts       read-only village view sent to the UI
+    map.ts        world generation: bots and barbarians around 500|500
+    barbarians.ts lazy, deterministic barbarian growth
+    combat.ts     battle formula (pure): wall, rams, catapults, spies, luck, morale
+    movement.ts   attacks, returns, loot, reports
+    mapView.ts    map and movement data for the UI
     eventQueue.ts min-heap on game time
     rng.ts        seeded RNG (sfc32)
     save.ts       save format + versioning/migrations

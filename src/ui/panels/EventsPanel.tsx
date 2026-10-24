@@ -5,7 +5,7 @@ export function EventsPanel() {
   const s = snapshot.value;
   return (
     <section class="panel">
-      <h2>Events</h2>
+      <h2>Events & cheats</h2>
       <div class="stack">
         <button disabled={!s} onClick={() => send({ type: 'scheduleTest', delayMs: 10 * MINUTE, autoPause: false })}>
           Test-event over 10 min
@@ -15,6 +15,12 @@ export function EventsPanel() {
         </button>
         <button disabled={!s} onClick={() => send({ type: 'scheduleRandom' })}>
           Willekeurig event (seeded RNG)
+        </button>
+        <button disabled={!s} onClick={() => send({ type: 'debugGive', resources: 5000 })}>
+          Cheat: +5000 van elke grondstof
+        </button>
+        <button disabled={!s} onClick={() => send({ type: 'debugGive', units: { axe: 200, light: 50, spy: 5, ram: 10, catapult: 10 } })}>
+          Cheat: aanvalsleger (200 bijl, 50 LC, 5 verk., 10 ram, 10 kata)
         </button>
       </div>
       {s && <div class="muted">{s.queueSize} event(s) in de queue</div>}

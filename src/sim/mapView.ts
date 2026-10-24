@@ -1,0 +1,58 @@
+/** Map, movement and report data for the UI. Computed in the worker. */
+import type { MapData, MapVillage, MovementView } from '../shared/protocol';
+import { growBarbarian, villagePoints } from './barbarians';
+import { BARBARIAN, HUMAN_ID, playerVillage, type WorldState } from './state';
+
+export function mapData(state: WorldState): MapData {
+  const own = playerVillage(state);
+  const reportsById = new Map(state.reports.map((r) => [r.id, r]));
+  const villages: MapVillage[] = [];
+  for (const v of Object.values(state.villages)) {
+    if (v.owner === BARBARIAN) growBarbarian(state, v, state.time);
+    const kind = v.owner === HUMAN_ID ? 'own' : v.owner === BARBARIAN ? 'barb' : 'bot';
+    const mv: MapVillage = {
+      id: v.id,
+      x: v.x,
+      y: v.y,
+      name: v.name,
+      owner: v.owner,
+      ownerName: v.owner === BARBARIAN ? 'Barbaren' : (state.players[v.owner]?.name ?? '?'),
+      kind,
+      points: villagePoints(state.config, v),
+    };
+    const reportId = state.lastReportByTarget[v.id];
+    const report = reportId !== undefined ? reportsById.get(reportId) : undefined;
+    if (report) {
+      mv.last = {
+        time: report.time,
+        result: report.result,
+        loot: report.loot ? report.loot[0] + report.loot[1] + report.loot[2] : 0,
+      };
+      if (report.scouted) mv.last.scouted = report.scouted.res;
+    }
+    villages.push(mv);
+  }
+  return { ownVillageId: own?.id ?? -1, villages };
+}
+
+export function movementViews(state: WorldState): MovementView[] {
+  const views: MovementView[] = [];
+  for (const m of Object.values(state.movements)) {
+    if (m.owner !== HUMAN_ID) continue;
+    const from = state.villages[m.from];
+    const to = state.villages[m.to];
+    if (!from || !to) continue;
+    const view: MovementView = {
+      id: m.id,
+      kind: m.kind,
+      from: { id: from.id, name: from.name, x: from.x, y: from.y },
+      to: { id: to.id, name: to.name, x: to.x, y: to.y },
+      sent: m.sent,
+      arrives: m.arrives,
+      units: m.units,
+    };
+    if (m.loot) view.loot = m.loot;
+    views.push(view);
+  }
+  return views.sort((a, b) => a.arrives - b.arrives);
+}

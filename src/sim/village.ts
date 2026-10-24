@@ -69,11 +69,16 @@ export interface Village {
   /** Resources at `resAt`; read through currentResources(). */
   res: Res;
   resAt: number;
+  /** Units at home. */
   units: Record<UnitId, number>;
+  /** Units of this village that are on the road (they still use farm space). */
+  outside: Record<UnitId, number>;
   researched: UnitId[];
   buildQueue: BuildJob[];
   recruitQueues: Record<RecruitBuilding, RecruitJob[]>;
   research: ResearchJob | null;
+  /** Barbarian villages only: how far lazy growth has progressed. */
+  growth?: { step: number; since: number };
 }
 
 // --- creation ---------------------------------------------------------------
@@ -105,6 +110,7 @@ export function createVillage(
     res: [...config.village.startResources],
     resAt: time,
     units,
+    outside: { ...units },
     researched: UNIT_IDS.filter((u) => config.units[u].research === null),
     buildQueue: [],
     recruitQueues,
@@ -166,7 +172,7 @@ export function plannedLevel(v: Village, b: BuildingId): number {
 export function popUsed(config: WorldConfig, v: Village): number {
   let used = 0;
   for (const b of BUILDING_IDS) used += buildingPopTotal(config.buildings[b], plannedLevel(v, b));
-  for (const u of UNIT_IDS) used += v.units[u] * config.units[u].pop;
+  for (const u of UNIT_IDS) used += (v.units[u] + v.outside[u]) * config.units[u].pop;
   for (const b of RECRUIT_BUILDINGS) {
     for (const job of v.recruitQueues[b]) used += (job.total - job.done) * config.units[job.unit].pop;
   }
@@ -349,7 +355,7 @@ function paladinsOwned(state: WorldState, owner: number): number {
   let n = 0;
   for (const v of Object.values(state.villages)) {
     if (v.owner !== owner) continue;
-    n += v.units.knight;
+    n += v.units.knight + v.outside.knight;
     for (const job of v.recruitQueues.statue) n += job.total - job.done;
   }
   return n;

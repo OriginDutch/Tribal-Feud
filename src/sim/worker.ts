@@ -11,7 +11,11 @@ import { fromSaveData, toSaveData } from './save';
 import { advance, schedule, scheduleRandom, setPaused, setSpeed } from './simulation';
 import { createWorld, playerVillage, type WorldState } from './state';
 import { villageView } from './view';
-import { cancelBuild, cancelRecruit, cancelResearch, queueBuild, recruit, startResearch } from './village';
+import { mapData, movementViews } from './mapView';
+import { sendAttack } from './movement';
+import { HUMAN_ID, addLog } from './state';
+import { UNIT_IDS, type UnitCounts } from '../shared/gameData';
+import { cancelBuild, cancelRecruit, cancelResearch, queueBuild, recruit, settle, startResearch } from './village';
 
 /** Minimal typing for the worker global, so the project only needs the DOM lib. */
 const ctx = self as unknown as {
@@ -62,6 +66,10 @@ function snapshot(): Snapshot | null {
       const v = playerVillage(state);
       return v ? villageView(state, v) : null;
     })(),
+    movements: movementViews(state),
+    unreadReports: state.reports.filter((r) => !r.read).length,
+    farmTemplates: state.farmTemplates,
+    marchFactor: state.config.worldSpeed * state.config.unitSpeed * state.config.marchSpeed,
   };
 }
 
@@ -164,6 +172,52 @@ async function handle(cmd: Command): Promise<void> {
       break;
     case 'listSaves':
       await postSaves();
+      break;
+    case 'sendAttack':
+      if (!state) return;
+      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      {
+        const error = sendAttack(state, cmd.from, cmd.to, cmd.units, cmd.catapultTarget);
+        if (error) notice(error, 'error');
+      }
+      break;
+    case 'sendFarm': {
+      if (!state) return;
+      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      const error = sendAttack(state, cmd.from, cmd.to, state.farmTemplates[cmd.template]);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'setFarmTemplate': {
+      if (!state) return;
+      const units: UnitCounts = {};
+      for (const u of UNIT_IDS) {
+        const n = Math.floor(cmd.units[u] ?? 0);
+        if (n > 0) units[u] = n;
+      }
+      state.farmTemplates[cmd.template] = units;
+      break;
+    }
+    case 'debugGive': {
+      if (!state) return;
+      const v = playerVillage(state);
+      if (!v) return;
+      settle(state.config, v, state.time);
+      if (cmd.resources) for (const i of [0, 1, 2] as const) v.res[i] += cmd.resources;
+      for (const u of UNIT_IDS) v.units[u] += Math.max(0, Math.floor(cmd.units?.[u] ?? 0));
+      addLog(state, { time: state.time, text: 'Debug: troepen/grondstoffen toegevoegd.' });
+      break;
+    }
+    case 'getMap':
+      if (state) post({ type: 'map', map: mapData(state) });
+      return;
+    case 'getReports':
+      if (state) post({ type: 'reports', reports: state.reports });
+      return;
+    case 'markReportsRead':
+      if (!state) return;
+      for (const r of state.reports) if (cmd.ids === 'all' || cmd.ids.includes(r.id)) r.read = true;
+      post({ type: 'reports', reports: state.reports });
       break;
     case 'build':
     case 'cancelBuild':

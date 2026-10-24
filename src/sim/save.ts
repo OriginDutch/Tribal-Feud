@@ -1,4 +1,6 @@
-import { defaultTables } from '../shared/config';
+import { PRESETS, defaultTables } from '../shared/config';
+import { UNIT_IDS, type UnitId } from '../shared/gameData';
+import { generateMap } from './map';
 import { HUMAN_ID, type WorldState } from './state';
 import { createVillage } from './village';
 
@@ -6,7 +8,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export interface SaveData {
   version: number;
@@ -41,6 +43,27 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     config.buildSpeed ??= 1;
     config.recruitSpeed ??= 1;
     return { ...data, version: 3 };
+  },
+  // v3 (phase 2) had one village and no map: add map settings, troop movements and generate the world around it.
+  3: (data) => {
+    const state = data.state;
+    const base = PRESETS.classic;
+    const config = state.config as Partial<WorldState['config']> & WorldState['config'];
+    config.marchSpeed ??= 1;
+    config.map ??= structuredClone(base.map);
+    config.combat ??= structuredClone(base.combat);
+    config.barbarians = { ...base.barbarians, ...config.barbarians };
+    for (const v of Object.values(state.villages)) {
+      if (!v.outside) {
+        v.outside = Object.fromEntries(UNIT_IDS.map((u) => [u, 0])) as Record<UnitId, number>;
+      }
+    }
+    state.movements ??= {};
+    state.reports ??= [];
+    state.lastReportByTarget ??= {};
+    state.farmTemplates ??= { A: { light: 5 }, B: { spear: 10 } };
+    generateMap(state);
+    return { ...data, version: 4 };
   },
 };
 

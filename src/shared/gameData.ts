@@ -110,3 +110,27 @@ export const DEFAULT_UNITS: Record<UnitId, UnitDef> = {
 };
 
 export const RES_NAMES = ['Hout', 'Leem', 'IJzer'] as const;
+
+/** Combat class of a unit: which defense value it attacks against. */
+export type UnitClass = 'infantry' | 'cavalry' | 'archer';
+export const UNIT_CLASS: Record<UnitId, UnitClass> = {
+  spear: 'infantry',
+  sword: 'infantry',
+  axe: 'infantry',
+  archer: 'archer',
+  spy: 'cavalry',
+  light: 'cavalry',
+  marcher: 'archer',
+  heavy: 'cavalry',
+  ram: 'infantry',
+  catapult: 'infantry',
+  knight: 'cavalry',
+  snob: 'infantry',
+};
+
+export type UnitCounts = Partial<Record<UnitId, number>>;
+
+/** Buildings catapults can target (the hiding place can't be hit). */
+export const CATAPULT_TARGETS: readonly BuildingId[] = BUILDING_IDS.filter((b) => b !== 'hide');
+/** Buildings catapults can't destroy below level 1. */
+export const MIN_LEVEL_ONE: readonly BuildingId[] = ['main', 'farm', 'storage'];

@@ -3,6 +3,7 @@ import { peek, pop, push } from './eventQueue';
 import { nextInt } from './rng';
 import { addLog, type GameEvent, type LogEntry, type WorldState } from './state';
 import { onBuildDone, onRecruitTick, onResearchDone } from './village';
+import { onArrive } from './movement';
 
 /**
  * Pure simulation core. No timers, no DOM, no worker APIs:
@@ -32,6 +33,9 @@ function handle(state: WorldState, event: GameEvent): LogEntry | null {
       return null;
     case 'research':
       onResearchDone(state, event.villageId, event.jobId);
+      return null;
+    case 'arrive':
+      onArrive(state, event.movementId);
       return null;
     case 'test': {
       const entry: LogEntry = { time: state.time, text: `Test-event: ${event.label}` };

@@ -48,10 +48,34 @@ export interface WorldConfig {
   nightBonus: boolean;
 
   barbarians: {
-    /** Max points a barbarian village grows to. Placeholder, still to be decided. */
+    /** Max points a barbarian village grows to. */
     growthCap: number;
-    /** Relative growth speed. 1 = default. Placeholder. */
+    /** Relative growth speed. 1 = default. */
     growthRate: number;
+    /** Points range a barbarian village starts with. */
+    startPointsMin: number;
+    startPointsMax: number;
+    /** Game hours between two growth steps (one building level) at growthRate 1 and world speed 1. */
+    growthIntervalHours: number;
+  };
+
+  /** Extra speed-up of troop movement (on top of worldSpeed and unitSpeed). */
+  marchSpeed: number;
+
+  map: {
+    barbarianCount: number;
+    /** Share of fields inside the village circle that hold a village. */
+    density: number;
+    /** Minimum distance between two player (or bot) villages. */
+    minPlayerDistance: number;
+  };
+
+  combat: {
+    baseDefense: number;
+    wallDefensePerLevel: number;
+    wallFactor: number;
+    /** Luck range, e.g. 0.25 = between -25% and +25%. */
+    luckRange: number;
   };
 
   bots: {
@@ -103,9 +127,23 @@ const BASE: PresetValues = {
   luck: true,
   nightBonus: false,
   barbarians: {
-    // TODO(open question): barbarian points cap.
     growthCap: 3000,
     growthRate: 1,
+    startPointsMin: 30,
+    startPointsMax: 300,
+    growthIntervalHours: 3,
+  },
+  marchSpeed: 1,
+  map: {
+    barbarianCount: 3000,
+    density: 0.3,
+    minPlayerDistance: 3,
+  },
+  combat: {
+    baseDefense: 20,
+    wallDefensePerLevel: 50,
+    wallFactor: 1.037,
+    luckRange: 0.25,
   },
   bots: {
     count: 200,
@@ -134,7 +172,7 @@ export function defaultTables(): Pick<WorldConfig, GameplayTables> {
     buildings: structuredClone(DEFAULT_BUILDINGS),
     units: structuredClone(DEFAULT_UNITS),
     village: {
-      startLevels: { main: 1, wood: 1, stone: 1, iron: 1, farm: 1, storage: 1 },
+      startLevels: { main: 1, wood: 1, stone: 1, iron: 1, farm: 1, storage: 1, place: 1 },
       startResources: [500, 500, 500],
       buildQueueSlots: 5,
       cancelRefund: 0.9,
@@ -143,8 +181,12 @@ export function defaultTables(): Pick<WorldConfig, GameplayTables> {
   };
 }
 
-export type ConfigOverrides = Partial<Omit<WorldConfig, 'barbarians' | 'bots' | 'winCondition' | GameplayTables>> & {
+export type ConfigOverrides = Partial<
+  Omit<WorldConfig, 'barbarians' | 'bots' | 'winCondition' | 'map' | 'combat' | GameplayTables>
+> & {
   barbarians?: Partial<WorldConfig['barbarians']>;
+  map?: Partial<WorldConfig['map']>;
+  combat?: Partial<WorldConfig['combat']>;
   bots?: Partial<WorldConfig['bots']>;
   winCondition?: Partial<WorldConfig['winCondition']>;
 };
@@ -165,6 +207,8 @@ export function createConfig(
     seed,
     preset: hasOverrides ? 'custom' : preset,
     barbarians: { ...base.barbarians, ...overrides.barbarians },
+    map: { ...base.map, ...overrides.map },
+    combat: { ...base.combat, ...overrides.combat },
     bots: { ...base.bots, ...overrides.bots },
     winCondition: { ...base.winCondition, ...overrides.winCondition },
   };
@@ -188,6 +232,8 @@ export function validateConfig(c: WorldConfig): string[] {
   if (!(c.productionMultiplier > 0)) errors.push('Productie-multiplier moet groter dan 0 zijn.');
   if (!(c.buildSpeed > 0)) errors.push('Bouwsnelheid moet groter dan 0 zijn.');
   if (!(c.recruitSpeed > 0)) errors.push('Rekruteersnelheid moet groter dan 0 zijn.');
+  if (!(c.marchSpeed > 0)) errors.push('Loopsnelheid moet groter dan 0 zijn.');
+  if (!(c.map.density > 0 && c.map.density <= 1)) errors.push('Dichtheid moet tussen 0 en 1 liggen.');
   if (!Number.isInteger(c.bots.count) || c.bots.count < 0) errors.push('Aantal bots moet een geheel getal >= 0 zijn.');
   if (!(c.winCondition.villageShare > 0 && c.winCondition.villageShare <= 1)) {
     errors.push('Winvoorwaarde moet tussen 0 en 1 liggen.');

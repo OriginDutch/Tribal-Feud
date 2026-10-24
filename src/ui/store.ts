@@ -4,11 +4,12 @@
  */
 import { signal } from '@preact/signals';
 import type { RecruitBuilding } from '../shared/gameData';
-import type { Command, Snapshot, WorkerMessage } from '../shared/protocol';
+import type { Command, MapData, Snapshot, WorkerMessage } from '../shared/protocol';
+import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'main' | RecruitBuilding | 'smith' | 'debug';
+export type Screen = 'overview' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'farm' | 'reports' | 'debug';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);
@@ -16,6 +17,12 @@ export const saves = signal<SaveMeta[]>([]);
 export const autoPause = signal<LogEntry | null>(null);
 export const notice = signal<{ text: string; level: 'info' | 'error' } | null>(null);
 export const screen = signal<Screen>('overview');
+export const mapData = signal<MapData | null>(null);
+export const reports = signal<Report[]>([]);
+/** Target picked on the map, prefilled in the rally point. */
+export const placeTarget = signal<{ x: number; y: number } | null>(null);
+/** Village selected on the map. */
+export const selectedVillage = signal<number | null>(null);
 
 const worker = new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' });
 
@@ -42,6 +49,12 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
     case 'saves':
       saves.value = msg.saves;
       break;
+    case 'map':
+      mapData.value = msg.map;
+      break;
+    case 'reports':
+      reports.value = msg.reports;
+      break;
     case 'notice':
       showNotice(msg.text, msg.level);
       break;
@@ -60,4 +73,10 @@ export function togglePause(): void {
   if (!s) return;
   autoPause.value = null;
   send({ type: 'setPaused', paused: !s.paused });
+}
+
+/** Opens the rally point with a target filled in. */
+export function attackVillage(x: number, y: number): void {
+  placeTarget.value = { x, y };
+  screen.value = 'place';
 }

@@ -13,8 +13,13 @@ export function Nav() {
     { id: 'garage', label: 'Werkplaats', building: 'garage' },
     { id: 'statue', label: 'Standbeeld', building: 'statue' },
     { id: 'smith', label: 'Smederij', building: 'smith' },
+    { id: 'place', label: 'Verzamelplaats', building: 'place' },
+    { id: 'map', label: 'Kaart' },
+    { id: 'farm', label: 'Farm-assistent' },
+    { id: 'reports', label: 'Rapporten' },
     { id: 'debug', label: 'Log & debug' },
   ];
+  const unread = snapshot.value?.unreadReports ?? 0;
 
   return (
     <nav class="nav">
@@ -31,6 +36,7 @@ export function Nav() {
           >
             <span>{item.label}</span>
             {lvl !== null && <span class="lvl">{lvl > 0 ? lvl : '—'}</span>}
+            {item.id === 'reports' && unread > 0 && <span class="badge">{unread}</span>}
           </button>
         );
       })}

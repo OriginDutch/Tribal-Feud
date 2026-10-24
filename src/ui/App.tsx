@@ -9,6 +9,10 @@ import { OverviewScreen } from './screens/OverviewScreen';
 import { RecruitScreen } from './screens/RecruitScreen';
 import { SmithScreen } from './screens/SmithScreen';
 import { StartScreen } from './screens/StartScreen';
+import { MapScreen } from './screens/MapScreen';
+import { PlaceScreen } from './screens/PlaceScreen';
+import { FarmScreen } from './screens/FarmScreen';
+import { ReportsScreen } from './screens/ReportsScreen';
 
 /** Spacebar toggles pause, except while typing in a field. */
 function useSpacebarPause(): void {
@@ -36,6 +40,14 @@ function CurrentScreen() {
       return <SmithScreen />;
     case 'debug':
       return <DebugScreen />;
+    case 'map':
+      return <MapScreen />;
+    case 'place':
+      return <PlaceScreen />;
+    case 'farm':
+      return <FarmScreen />;
+    case 'reports':
+      return <ReportsScreen />;
     default:
       return <RecruitScreen building={screen.value} />;
   }
