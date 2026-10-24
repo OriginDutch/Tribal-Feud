@@ -13,7 +13,8 @@ if errorlevel 1 (
   pause
 )
 
-rem npm install alleen als package-lock.json veranderd is sinds de vorige install
+rem npm ci alleen als package-lock.json veranderd is sinds de vorige install.
+rem npm ci (niet npm install) laat package-lock.json ongemoeid, zodat git pull niet vastloopt.
 if not exist node_modules goto install
 if not exist node_modules\.tribal-feud-lock goto install
 fc /b package-lock.json node_modules\.tribal-feud-lock >nul 2>&1
@@ -23,10 +24,10 @@ goto start
 :install
 echo.
 echo === Packages installeren ===
-call npm install
+call npm ci
 if errorlevel 1 (
   echo.
-  echo npm install mislukt.
+  echo npm ci mislukt.
   pause
   exit /b 1
 )
