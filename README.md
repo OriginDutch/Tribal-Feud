@@ -7,7 +7,12 @@ building requirements, smithy research and recruitment, all with Tribal Wars val
 
 ## Running it
 
-Requires Node.js.
+Requires Node.js and git.
+
+**Windows:** double-click `start.bat`. It pulls the latest version, runs `npm install` only when
+dependencies changed, starts the dev server and opens the game in your browser.
+
+Manually:
 
 ```bash
 npm install
