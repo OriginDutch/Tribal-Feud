@@ -1,7 +1,16 @@
 @echo off
 rem Tribal Feud starter: haalt de nieuwste versie op, installeert alleen als het nodig is, en start de game.
+
+rem git pull kan dit bestand zelf vervangen terwijl het draait, en daar raakt cmd van in de war.
+rem Daarom draait het script vanuit een kopie in %TEMP%.
+if /i not "%~1"=="--from-temp" (
+  copy /y "%~f0" "%TEMP%\tribal-feud-start.bat" >nul
+  "%TEMP%\tribal-feud-start.bat" --from-temp "%~dp0"
+  exit /b
+)
+
 title Tribal Feud
-cd /d "%~dp0"
+cd /d "%~2"
 
 echo.
 echo === Nieuwste versie ophalen ===
