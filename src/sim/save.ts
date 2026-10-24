@@ -6,7 +6,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface SaveData {
   version: number;
@@ -33,6 +33,14 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     const village = createVillage(state.config, state.nextId++, HUMAN_ID, 'Jouw dorp', 500, 500, state.time);
     state.villages = { [village.id]: village };
     return { ...data, version: 2, state };
+  },
+  // v2 had no separate multipliers: keep old worlds exactly as they were (all 1).
+  2: (data) => {
+    const config = data.state.config as Partial<WorldState['config']> & WorldState['config'];
+    config.productionMultiplier ??= 1;
+    config.buildSpeed ??= 1;
+    config.recruitSpeed ??= 1;
+    return { ...data, version: 3 };
   },
 };
 

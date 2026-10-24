@@ -15,6 +15,10 @@ export function OverviewScreen() {
       <h2>
         {v.name} <span class="muted">({v.x}|{v.y}) · {num(v.points)} punten</span>
       </h2>
+      <p class="muted">
+        Wereld: snelheid ×{s.multipliers.world} · productie ×{s.multipliers.production} · bouwen ×{s.multipliers.build} ·
+        rekruteren ×{s.multipliers.recruit}
+      </p>
       <div class="grid">
         <section class="panel">
           <h3>Productie per uur</h3>

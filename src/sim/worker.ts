@@ -51,6 +51,12 @@ function snapshot(): Snapshot | null {
     paused: state.paused,
     suspended,
     queueSize: state.queue.heap.length,
+    multipliers: {
+      world: state.config.worldSpeed,
+      production: state.config.productionMultiplier,
+      build: state.config.buildSpeed,
+      recruit: state.config.recruitSpeed,
+    },
     log: state.log.slice(-SNAPSHOT_LOG_LINES),
     village: (() => {
       const v = playerVillage(state);
@@ -102,7 +108,7 @@ function tick(): void {
 async function handle(cmd: Command): Promise<void> {
   switch (cmd.type) {
     case 'newWorld': {
-      const config = createConfig(cmd.preset, cmd.name.trim() || 'Naamloze wereld', cmd.seed ?? randomSeed());
+      const config = createConfig(cmd.preset, cmd.name.trim() || 'Naamloze wereld', cmd.seed ?? randomSeed(), cmd.overrides);
       const errors = validateConfig(config);
       if (errors.length > 0) {
         notice(errors.join(' '), 'error');

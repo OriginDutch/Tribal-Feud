@@ -12,7 +12,8 @@ import {
   storageCapacity,
 } from './formulas';
 
-const config = createConfig('classic', 'x', 1);
+// productionMultiplier 1 = plain TW numbers, so the official tables apply
+const config = createConfig('classic', 'x', 1, { productionMultiplier: 1 });
 const B = config.buildings;
 
 // Expected values are copied from the official Tribal Wars tables (see design doc sources).
@@ -64,9 +65,16 @@ describe('formulas match the official TW tables', () => {
   });
 
   it('world speed divides all times', () => {
-    const fast = createConfig('classic', 'x', 1, { worldSpeed: 2 });
+    const fast = createConfig('classic', 'x', 1, { worldSpeed: 2, productionMultiplier: 1 });
     expect(buildTimeMs(fast, B.main, 5, 1)).toBe(Math.round(buildTimeMs(config, B.main, 5, 1) / 2));
     expect(recruitTimeMs(fast, config.units.spear, 1)).toBe(Math.round(recruitTimeMs(config, config.units.spear, 1) / 2));
+  });
+
+  it('separate multipliers only touch their own part', () => {
+    const c = createConfig('classic', 'x', 1, { productionMultiplier: 10, buildSpeed: 4, recruitSpeed: 2 });
+    expect(Math.round(productionPerHour(c, 1))).toBe(300);
+    expect(buildTimeMs(c, B.main, 5, 1)).toBe(Math.round(buildTimeMs(config, B.main, 5, 1) / 4));
+    expect(recruitTimeMs(c, config.units.spear, 1)).toBe(Math.round(recruitTimeMs(config, config.units.spear, 1) / 2));
   });
 
   it('recruit time drops with building level', () => {

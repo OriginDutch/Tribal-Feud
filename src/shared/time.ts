@@ -3,7 +3,7 @@ export const MINUTE = 60 * SECOND;
 export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 
-export const SPEEDS = [1, 2, 5, 10] as const;
+export const SPEEDS = [1, 2, 5, 10, 25, 50] as const;
 export type Speed = (typeof SPEEDS)[number];
 
 export function isSpeed(n: number): n is Speed {

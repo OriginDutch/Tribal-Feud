@@ -30,6 +30,12 @@ export interface WorldConfig {
   worldSpeed: number;
   /** Multiplies troop movement speed. 1 = normal world. */
   unitSpeed: number;
+  /** Extra multiplier on resource production only (on top of worldSpeed). */
+  productionMultiplier: number;
+  /** Extra speed-up of building and smithy research (on top of worldSpeed). */
+  buildSpeed: number;
+  /** Extra speed-up of recruiting (on top of worldSpeed). */
+  recruitSpeed: number;
 
   churches: boolean;
   flags: boolean;
@@ -81,6 +87,10 @@ type PresetValues = Omit<WorldConfig, 'name' | 'seed' | 'preset' | GameplayTable
 const BASE: PresetValues = {
   worldSpeed: 1,
   unitSpeed: 1,
+  // No quest rewards (yet): without them the TW early game is far too slow.
+  productionMultiplier: 10,
+  buildSpeed: 1,
+  recruitSpeed: 1,
   churches: false,
   flags: false,
   research: 'simple',
@@ -175,6 +185,9 @@ export function validateConfig(c: WorldConfig): string[] {
   const errors: string[] = [];
   if (!(c.worldSpeed > 0)) errors.push('Wereldsnelheid moet groter dan 0 zijn.');
   if (!(c.unitSpeed > 0)) errors.push('Unitsnelheid moet groter dan 0 zijn.');
+  if (!(c.productionMultiplier > 0)) errors.push('Productie-multiplier moet groter dan 0 zijn.');
+  if (!(c.buildSpeed > 0)) errors.push('Bouwsnelheid moet groter dan 0 zijn.');
+  if (!(c.recruitSpeed > 0)) errors.push('Rekruteersnelheid moet groter dan 0 zijn.');
   if (!Number.isInteger(c.bots.count) || c.bots.count < 0) errors.push('Aantal bots moet een geheel getal >= 0 zijn.');
   if (!(c.winCondition.villageShare > 0 && c.winCondition.villageShare <= 1)) {
     errors.push('Winvoorwaarde moet tussen 0 en 1 liggen.');

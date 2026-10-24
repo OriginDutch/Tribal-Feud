@@ -54,10 +54,13 @@ describe('new village', () => {
     expect(v.researched.sort()).toEqual(['knight', 'snob', 'spear', 'sword']);
   });
 
-  it('produces 30 per hour at level 1 and stops at the storage cap', () => {
-    const { s, v } = setup();
+  it('produces 30 per hour at level 1 (x10 by default) and stops at the storage cap', () => {
+    const { s, v } = setup({ productionMultiplier: 1 });
     run(s, HOUR);
     expect(currentResources(s.config, v, s.time).map(Math.round)).toEqual([530, 530, 530]);
+    const fast = setup();
+    run(fast.s, HOUR);
+    expect(currentResources(fast.s.config, fast.v, fast.s.time).map(Math.round)).toEqual([800, 800, 800]);
     run(s, 100 * HOUR);
     expect(currentResources(s.config, v, s.time)).toEqual([1000, 1000, 1000]);
   });
@@ -243,6 +246,18 @@ describe('saves', () => {
     run(b, 3 * HOUR);
     expect(b).toEqual(a);
     expect(playerVillage(b)?.units.spear).toBe(20);
+  });
+
+  it('migrates a phase-2 save without changing its speed', () => {
+    const { s } = setup();
+    const old = JSON.parse(JSON.stringify(toSaveData(s, 0)));
+    old.version = 2;
+    delete old.state.config.productionMultiplier;
+    delete old.state.config.buildSpeed;
+    delete old.state.config.recruitSpeed;
+    const migrated = fromSaveData(old);
+    expect(migrated.config.productionMultiplier).toBe(1);
+    expect(migrated.config.buildSpeed).toBe(1);
   });
 
   it('migrates a phase-1 save', () => {

@@ -2,7 +2,7 @@
  * Typed messages between the UI (main thread) and the simulation worker.
  * The UI only sends commands; the worker is the single source of truth and sends state back.
  */
-import type { PresetId } from './config';
+import type { ConfigOverrides, PresetId } from './config';
 import type { Speed } from './time';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
@@ -10,7 +10,7 @@ import type { VillageView } from '../sim/view';
 import type { BuildingId, UnitId } from './gameData';
 
 export type Command =
-  | { type: 'newWorld'; preset: Exclude<PresetId, 'custom'>; name: string; seed?: number }
+  | { type: 'newWorld'; preset: Exclude<PresetId, 'custom'>; name: string; seed?: number; overrides?: ConfigOverrides }
   | { type: 'setSpeed'; speed: Speed }
   | { type: 'setPaused'; paused: boolean }
   | { type: 'setVisible'; visible: boolean }
@@ -37,6 +37,8 @@ export interface Snapshot {
   /** Tab hidden: time stops without touching the player's pause/speed choice. */
   suspended: boolean;
   queueSize: number;
+  /** World speed settings, for display. */
+  multipliers: { world: number; production: number; build: number; recruit: number };
   log: LogEntry[];
   /** The player's village, fully computed for display. */
   village: VillageView | null;

@@ -30,13 +30,13 @@ export function buildTimeMs(config: WorldConfig, def: BuildingDef, level: number
   // For level 1, 14 / 0 = Infinity, so the exponent clamps to -13 like in TW.
   const exponent = Math.max(-13, level - 1 - 14 / (level - 1));
   const seconds = def.buildTime * 1.18 * def.buildTimeFactor ** exponent * 1.05 ** -mainLevel;
-  return Math.round((seconds * 1000) / config.worldSpeed);
+  return Math.round((seconds * 1000) / (config.worldSpeed * config.buildSpeed));
 }
 
-/** Resource production per hour of one resource building (already times world speed). */
+/** Resource production per hour of one resource building (times world speed and production multiplier). */
 export function productionPerHour(config: WorldConfig, level: number): number {
   if (level <= 0) return 0;
-  return 30 * 1.163118 ** (level - 1) * config.worldSpeed;
+  return 30 * 1.163118 ** (level - 1) * config.worldSpeed * config.productionMultiplier;
 }
 
 export function storageCapacity(level: number): number {
@@ -61,11 +61,11 @@ export function buildingPoints(def: BuildingDef, level: number): number {
 /** Recruit time for ONE unit, given the level of its building. */
 export function recruitTimeMs(config: WorldConfig, unit: UnitDef, buildingLevel: number): number {
   const seconds = (2 / 3) * unit.buildTime * 1.06 ** -buildingLevel;
-  return Math.round((seconds * 1000) / config.worldSpeed);
+  return Math.round((seconds * 1000) / (config.worldSpeed * config.recruitSpeed));
 }
 
 /** Smithy research time. Placeholder formula until real values are found. */
 export function researchTimeMs(config: WorldConfig, smithLevel: number): number {
   const seconds = config.village.researchTime * 1.06 ** -smithLevel;
-  return Math.round((seconds * 1000) / config.worldSpeed);
+  return Math.round((seconds * 1000) / (config.worldSpeed * config.buildSpeed));
 }
