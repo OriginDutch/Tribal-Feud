@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tribal Feud</title>
+    <link rel="stylesheet" href="/src/ui/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Tribal Feud</h1>
+      <span class="tag">fase 1 · debug</span>
+    </header>
+
+    <div id="banner" class="banner" hidden></div>
+    <div id="notice" class="notice" hidden></div>
+
+    <main class="grid">
+      <section class="panel" id="panel-clock">
+        <h2>Klok</h2>
+        <div id="world-name" class="muted">Geen wereld geladen</div>
+        <div id="clock" class="clock">—</div>
+        <div id="clock-status" class="muted"></div>
+        <div class="row">
+          <button id="btn-pause" class="primary" disabled>Start</button>
+          <div id="speeds" class="speeds"></div>
+        </div>
+        <p class="hint">Spatie = pauze/start. De tijd stopt vanzelf als dit tabblad verborgen is.</p>
+      </section>
+
+      <section class="panel" id="panel-world">
+        <h2>Nieuwe wereld</h2>
+        <label>Naam <input id="in-name" type="text" value="Wereld 1" maxlength="40" /></label>
+        <label>Preset
+          <select id="in-preset">
+            <option value="classic">Classic</option>
+            <option value="speed">Speed</option>
+            <option value="hardcore">Hardcore</option>
+          </select>
+        </label>
+        <label>Seed <input id="in-seed" type="number" placeholder="leeg = willekeurig" min="0" /></label>
+        <button id="btn-new">Nieuwe wereld</button>
+      </section>
+
+      <section class="panel" id="panel-events">
+        <h2>Events</h2>
+        <div class="stack">
+          <button id="btn-test" disabled>Test-event over 10 min</button>
+          <button id="btn-test-pause" disabled>Auto-pause event over 10 min</button>
+          <button id="btn-random" disabled>Willekeurig event (seeded RNG)</button>
+        </div>
+        <div id="queue" class="muted"></div>
+      </section>
+
+      <section class="panel" id="panel-saves">
+        <h2>Saves</h2>
+        <button id="btn-save" disabled>Opslaan</button>
+        <ul id="saves" class="saves"></ul>
+      </section>
+
+      <section class="panel wide" id="panel-log">
+        <h2>Log</h2>
+        <ol id="log" class="log"></ol>
+      </section>
+    </main>
+
+    <script type="module" src="/src/ui/main.ts"></script>
+  </body>
+</html>
