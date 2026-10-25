@@ -11,12 +11,33 @@ const VISIBLE = 2;
  */
 export function QuestToasts() {
   const toasts = snapshot.value?.quests.toasts ?? [];
-  if (toasts.length === 0) return null;
+  const rewards = snapshot.value?.quests.rewards ?? [];
+  if (toasts.length === 0 && rewards.length === 0) return null;
+  const total = rewards.reduce((sum, r) => [sum[0] + r.res[0], sum[1] + r.res[1], sum[2] + r.res[2]] as [number, number, number], [0, 0, 0] as [number, number, number]);
   const shown = toasts.slice(-VISIBLE).reverse();
   const hidden = toasts.length - shown.length;
 
   return (
     <div class="toasts">
+      {rewards.length > 0 && (
+        <div class="toast reward-bar">
+          <div class="toast-head">
+            <strong>🎁 {rewards.length} {rewards.length === 1 ? 'beloning' : 'beloningen'} klaar</strong>
+          </div>
+          <div class="toast-body">
+            <Cost cost={total} />
+            <button
+              class="small primary"
+              tabIndex={-1}
+              title="Haalt alles op in het dorp waar je nu bent, zolang het in de opslag past"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => send({ type: 'claimAllRewards' })}
+            >
+              Alles ophalen
+            </button>
+          </div>
+        </div>
+      )}
       {shown.map((t) => (
         <div key={t.id} class="toast">
           <div class="toast-head">
