@@ -5,6 +5,7 @@ import { ARCHETYPE_NAMES } from '../shared/botProfiles';
 import { createWorld, villagesOf, BARBARIAN } from './state';
 import { advance, setPaused } from './simulation';
 import { villagePoints } from './barbarians';
+import { push } from './eventQueue';
 const SEED = Number(process.env.SEED ?? 4);
 const DAYS = (process.env.DAYS ?? '2,3,3.5').split(',').map(Number);
 const FILE = process.env.OUT ?? '/tmp/dist.txt';
@@ -13,10 +14,18 @@ it('t', () => {
   const difficulty = (process.env.DIFF ?? 'hard') as 'easy' | 'normal' | 'hard';
   // tuning: DIFFDEF='{"turnRate":0.5,"villagesPerTurn":3,"conquestCooldownHours":48}'
   if (process.env.DIFFDEF) Object.assign(DIFFICULTIES[difficulty], JSON.parse(process.env.DIFFDEF));
-  const label = process.env.DIFFDEF ? `${difficulty} ${process.env.DIFFDEF}` : difficulty;
+  const label = (process.env.DIFFDEF ? `${difficulty} ${process.env.DIFFDEF}` : difficulty) + (process.env.REF ? ` ref${process.env.REF}m` : '');
   const s = createWorld(createConfig('classic', 'x', SEED, { worldSpeed: 20, productionMultiplier: 1, bots: { difficulty } }));
   setPaused(s, false);
   const H = 3600000;
+  // REF=<game minutes>: the human plays as a reference player (account manager + farm
+  // assistant, checking in every REF game minutes, all villages at once)
+  const REF = process.env.REF ? Number(process.env.REF) : 0;
+  if (REF > 0) {
+    const human = s.players[0]!;
+    human.bot = { archetype: (process.env.REFTYPE ?? 'farmer') as 'farmer', activity: 1, nextTurn: 0, farmLog: {}, outgoing: [], reference: { interval: REF * 60000 } };
+    push(s.queue, 0, { kind: 'botTurn', playerId: 0 });
+  }
   const bots = s.players.filter((p) => p.isBot);
   let t0 = performance.now();
   let attacksOnYou = 0;
@@ -53,7 +62,7 @@ it('t', () => {
     const humanAttacks = attacksOnYou;
     const pts = bots.map((p) => villagesOf(s, p.id).reduce((a, v) => a + villagePoints(s.config, v), 0)).sort((a, b) => a - b);
     const conqueredPlayers = s.conquests?.player ?? 0;
-    out(`${label} seed ${SEED} day ${day}: villages ${counts.reduce((a, b) => a + b, 0)} · p10 ${q(0.1)} med ${q(0.5)} p90 ${q(0.9)} max ${q(1)} · one-village bots ${counts.filter((c) => c === 1).length} · barbs ${barbs} · attacks on you ${humanAttacks} · your villages ${villagesOf(s, 0).length} · player villages taken ${conqueredPlayers} (of which retaken within 6h ${quickFlips}/${flips}) · points med ${pts[100]} top ${pts[199]} · ${((performance.now() - t0) / 1000).toFixed(0)}s`);
+    out(`${label} seed ${SEED} day ${day}: villages ${counts.reduce((a, b) => a + b, 0)} · p10 ${q(0.1)} med ${q(0.5)} p90 ${q(0.9)} max ${q(1)} · one-village bots ${counts.filter((c) => c === 1).length} · barbs ${barbs} · attacks on you ${humanAttacks} · your villages ${villagesOf(s, 0).length} (${villagesOf(s, 0).reduce((a, v) => a + villagePoints(s.config, v), 0)} p) · player villages taken ${conqueredPlayers} (of which retaken within 6h ${quickFlips}/${flips}) · points med ${pts[100]} top ${pts[199]} · ${((performance.now() - t0) / 1000).toFixed(0)}s`);
     const byArch: Record<string, number[]> = {};
     for (const p of bots) (byArch[ARCHETYPE_NAMES[p.bot!.archetype]] ??= []).push(villagesOf(s, p.id).length);
     out('   ' + Object.entries(byArch).map(([k, l]) => `${k} ${(l.reduce((a, b) => a + b, 0) / l.length).toFixed(1)}`).join(', '));

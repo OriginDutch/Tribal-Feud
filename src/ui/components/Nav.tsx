@@ -10,6 +10,7 @@ export function Nav() {
   const items: { id: Screen; label: string; building?: string }[] = [
     { id: 'overview', label: 'Overzicht' },
     { id: 'villages', label: `Dorpen (${snapshot.value?.villages.length ?? 1})` },
+    { id: 'manager', label: 'Accountmanager' },
     { id: 'quests', label: 'Opdrachten' },
     { id: 'main', label: 'Hoofdgebouw', building: 'main' },
     { id: 'barracks', label: 'Kazerne', building: 'barracks' },

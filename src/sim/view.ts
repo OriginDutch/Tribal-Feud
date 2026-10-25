@@ -3,6 +3,7 @@
  * The UI never computes game rules itself: it only shows what is in here.
  */
 import { loyaltyNow } from './movement';
+import type { VillageManager } from './manager';
 import { maxMintable, mintBlocker, nextNobleNeed, noblesAllowed, slotsUsed } from './nobles';
 import { BUILDING_IDS, RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type RecruitBuilding, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import {
@@ -104,6 +105,7 @@ export interface VillageView {
   supportHere: SupportView[];
   /** This village's troops standing elsewhere. */
   supportAway: SupportView[];
+  manager: VillageManager | null;
 }
 
 export interface SupportView {
@@ -237,6 +239,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
       return origin ? [{ origin: brief(state, origin), host: brief(state, v), units }] : [];
     }),
     supportAway: supportAwayOf(state, v),
+    manager: v.manager ?? null,
   };
 }
 

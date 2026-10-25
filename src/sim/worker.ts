@@ -16,7 +16,8 @@ import { villageView } from './view';
 import { incomingViews, mapData, movementViews } from './mapView';
 import { conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendSupport } from './movement';
 import { BARBARIAN } from './state';
-import { mintCoins } from './nobles';
+import { maxMintable, mintBlocker, mintCoins } from './nobles';
+import { allTemplates, deleteTemplate, findTemplate, saveTemplate, setManager } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
 import type { OwnVillageRow, QuestsView, RankingRow } from '../shared/protocol';
@@ -88,6 +89,10 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
         recruiting,
         units,
         loyalty: Math.floor(loyaltyNow(config, v, s.time)),
+        manager: v.manager
+          ? [findTemplate(s, v.manager.template)?.name, v.manager.troops ? 'troepen' : undefined].filter(Boolean).join(' · ') || 'aan'
+          : null,
+        maxMint: mintBlocker(s, v) === null ? maxMintable(s, v) : 0,
       };
     });
 }
@@ -119,6 +124,7 @@ function snapshot(): Snapshot | null {
     incoming: incomingViews(state),
     protectionEndsAt: protectionEndsAt(state),
     alertMode: state.alertMode ?? 'perVillage',
+    templates: allTemplates(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
     marchFactor: state.config.worldSpeed * state.config.unitSpeed * state.config.marchSpeed,
@@ -322,6 +328,32 @@ async function handle(cmd: Command): Promise<void> {
       if (!target) return;
       conquer(state, target, HUMAN_ID);
       addLog(state, { time: state.time, text: `Debug: ${target.name} (${target.x}|${target.y}) overgenomen.` });
+      break;
+    }
+    case 'setManager': {
+      if (!state) return;
+      const error = setManager(state, cmd.villageId, cmd.manager);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'setManagerAll': {
+      if (!state) return;
+      for (const v of villagesOf(state, HUMAN_ID)) {
+        const error = setManager(state, v.id, cmd.manager);
+        if (error) return notice(error, 'error');
+      }
+      break;
+    }
+    case 'saveTemplate': {
+      if (!state) return;
+      const error = saveTemplate(state, cmd.template);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'deleteTemplate': {
+      if (!state) return;
+      const error = deleteTemplate(state, cmd.id);
+      if (error) notice(error, 'error');
       break;
     }
     case 'setAlertMode':

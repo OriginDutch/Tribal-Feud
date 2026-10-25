@@ -6,6 +6,7 @@ import type { BarbType, BonusKind } from './barbarianTypes';
 import type { ConfigOverrides, PresetId } from './config';
 import type { Speed } from './time';
 import type { AlertMode, LogEntry } from '../sim/state';
+import type { BuildTemplate, VillageManager } from '../sim/manager';
 import type { SaveMeta } from '../sim/save';
 import type { VillageView } from '../sim/view';
 import type { BuildingId, UnitCounts, UnitId } from './gameData';
@@ -41,6 +42,10 @@ export type Command =
   | { type: 'claimAllRewards'; villageId?: number }
   | { type: 'selectVillage'; id: number }
   | { type: 'setAlertMode'; mode: AlertMode }
+  | { type: 'setManager'; villageId: number; manager: VillageManager | null }
+  | { type: 'setManagerAll'; manager: VillageManager | null }
+  | { type: 'saveTemplate'; template: BuildTemplate }
+  | { type: 'deleteTemplate'; id: string }
   | { type: 'mintCoins'; villageId: number; count: number }
   | { type: 'sendSupport'; from: number; to: number; units: UnitCounts }
   | { type: 'returnSupport'; hostId: number; originId: number }
@@ -117,6 +122,8 @@ export interface Snapshot {
   /** Game time when beginner protection ends. */
   protectionEndsAt: number;
   alertMode: AlertMode;
+  /** Build templates: the presets first, then the player's own. */
+  templates: BuildTemplate[];
   unreadReports: number;
   farmTemplates: { A: UnitCounts; B: UnitCounts };
   /** worldSpeed * unitSpeed * marchSpeed, to preview travel times. */
@@ -141,6 +148,10 @@ export interface OwnVillageRow {
   /** Units at home. */
   units: UnitCounts;
   loyalty: number;
+  /** Account manager in short ("Economie · troepen"), or null when off. */
+  manager: string | null;
+  /** Coins this village can mint right now (0 if it can't). */
+  maxMint: number;
 }
 
 export interface QuestsView {

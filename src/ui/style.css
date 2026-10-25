@@ -263,3 +263,5 @@ tr.current td { background: var(--panel-2); }
 .incoming { border-color: var(--danger); }
 .incoming h3 { color: var(--danger); }
 .badge.danger { background: var(--danger); }
+
+.tag-on { background: var(--good); color: var(--accent-text); border-radius: 4px; padding: 0 6px; font-size: 12px; font-weight: 600; }

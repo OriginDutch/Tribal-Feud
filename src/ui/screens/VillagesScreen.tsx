@@ -29,6 +29,7 @@ export function VillagesScreen() {
             <col style={{ width: '110px' }} />
             <col style={{ width: '200px' }} />
             <col style={{ width: '90px' }} />
+            <col style={{ width: '170px' }} />
           </colgroup>
           <thead>
             <tr>
@@ -39,6 +40,7 @@ export function VillagesScreen() {
               <th class="right">Toestemming</th>
               <th>Bouwt</th>
               <th class="right">Rekruteert</th>
+              <th>Beheer</th>
             </tr>
           </thead>
           <tbody>
@@ -69,6 +71,18 @@ export function VillagesScreen() {
                   )}
                 </td>
                 <td class="right mono">{v.recruiting > 0 ? num(v.recruiting) : <span class="muted">—</span>}</td>
+                <td class="nowrap">
+                  <span class={v.manager ? '' : 'muted'}>{v.manager ?? 'handmatig'}</span>
+                  {' '}
+                  <button
+                    class="small"
+                    disabled={v.maxMint === 0}
+                    title={v.maxMint > 0 ? `Sla ${v.maxMint} munt(en) in dit dorp` : 'Geen adelshoeve of te weinig grondstoffen'}
+                    onClick={() => send({ type: 'mintCoins', villageId: v.id, count: v.maxMint })}
+                  >
+                    +{v.maxMint} munt
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

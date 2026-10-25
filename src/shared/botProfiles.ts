@@ -117,3 +117,10 @@ export const BOT_PROFILES: Record<Archetype, BotProfile> = {
     defensePerPoint: 0.12,
   },
 };
+
+/** Build orders the player can give a village (account manager), same as the bots use. */
+export const BUILD_PRESETS: { id: string; name: string; steps: [BuildingId, number][] }[] = [
+  { id: 'preset:economy', name: 'Economie (zoals Farmer)', steps: [...OPENING, ...MID_ECONOMY, ...ENDGAME] },
+  { id: 'preset:offense', name: 'Offensief (zoals Rusher)', steps: [...OPENING, ...MID_OFFENSE, ...ENDGAME] },
+  { id: 'preset:defense', name: 'Defensief (zoals Turtle)', steps: [...OPENING, ...MID_DEFENSE, ...ENDGAME] },
+];

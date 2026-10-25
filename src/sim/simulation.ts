@@ -6,6 +6,7 @@ import { onBuildDone, onRecruitTick, onResearchDone } from './village';
 import { onArrive } from './movement';
 import { checkQuests } from './quests';
 import { onBotTurn } from './bots';
+import { onManagerCheck } from './manager';
 
 /**
  * Pure simulation core. No timers, no DOM, no worker APIs:
@@ -41,6 +42,9 @@ function handle(state: WorldState, event: GameEvent): LogEntry | null {
       return null;
     case 'botTurn':
       onBotTurn(state, event.playerId);
+      return null;
+    case 'manager':
+      onManagerCheck(state);
       return null;
     case 'test': {
       const entry: LogEntry = { time: state.time, text: `Test-event: ${event.label}` };

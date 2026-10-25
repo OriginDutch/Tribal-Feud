@@ -1,3 +1,4 @@
+import type { BuildTemplate } from './manager';
 import type { Intel } from './intel';
 import type { WorldConfig } from '../shared/config';
 import type { Speed } from '../shared/time';
@@ -19,7 +20,8 @@ export type GameEvent =
   | { kind: 'recruit'; villageId: number; jobId: number }
   | { kind: 'research'; villageId: number; jobId: number }
   | { kind: 'arrive'; movementId: number }
-  | { kind: 'botTurn'; playerId: number };
+  | { kind: 'botTurn'; playerId: number }
+  | { kind: 'manager' };
 
 export interface LogEntry {
   time: number;
@@ -39,6 +41,12 @@ export interface BotState {
   outgoing: number[];
   /** Next village to look at when the bot has more villages than it handles per turn. */
   cursor?: number;
+  /**
+   * Reference player (balance simulations only): plays like a player with the account
+   * manager, checking in every `interval` game ms and handling all villages each time,
+   * with no difficulty limits.
+   */
+  reference?: { interval: number };
   /** When this bot last took a village (for the difficulty's conquest cooldown). */
   lastConquest?: number;
   /** Village this bot is nobling. */
@@ -103,6 +111,10 @@ export interface WorldState {
   current?: number;
   /** An alert raised during an event (incoming attack, village lost): it auto-pauses the game. */
   alert?: LogEntry;
+  /** The player's own build templates (account manager). */
+  templates?: BuildTemplate[];
+  /** Time of the scheduled account-manager check. */
+  managerAt?: number;
   /** World statistics: villages taken from barbarians and from players. */
   conquests?: { barbarian: number; player: number };
   /** When to auto-pause for attacks (default: the first attack per attacking village). */

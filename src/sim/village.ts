@@ -1,3 +1,4 @@
+import type { VillageManager } from './manager';
 /**
  * Village simulation: resources, building queue, requirements, smithy and recruitment.
  *
@@ -101,6 +102,8 @@ export interface Village {
   bonus?: BonusKind;
   /** Troops of other villages stationed here, per village they come from. */
   support?: Record<number, UnitCounts>;
+  /** Account manager settings (player villages). */
+  manager?: VillageManager;
   /** Noble packages stored here (packages worlds). */
   packages?: number;
   /** Loyalty at `loyaltyAt`; regenerates over time. Missing = 100. */

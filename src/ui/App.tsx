@@ -16,6 +16,7 @@ import { ReportsScreen } from './screens/ReportsScreen';
 import { QuestsScreen } from './screens/QuestsScreen';
 import { RankingScreen } from './screens/RankingScreen';
 import { VillagesScreen } from './screens/VillagesScreen';
+import { ManagerScreen } from './screens/ManagerScreen';
 import { stepVillage } from './components/VillageSwitcher';
 
 /** Spacebar toggles pause, except while typing in a field. */
@@ -64,6 +65,8 @@ function CurrentScreen() {
       return <RankingScreen />;
     case 'villages':
       return <VillagesScreen />;
+    case 'manager':
+      return <ManagerScreen />;
     default:
       return <RecruitScreen building={screen.value} />;
   }

@@ -74,10 +74,10 @@ export function onBotTurn(state: WorldState, playerId: number): void {
   const bot = player?.bot;
   if (!player || !bot || bot.nextTurn !== state.time) return; // stale event
 
-  if (shouldAbandon(state, player)) abandonAndRestart(state, player);
+  if (!bot.reference && shouldAbandon(state, player)) abandonAndRestart(state, player);
   // like a player, a bot looks at a few villages per turn, taking turns
   const villages = villagesOf(state, playerId);
-  const per = Math.max(1, difficulty(state).villagesPerTurn);
+  const per = bot.reference ? Infinity : Math.max(1, difficulty(state).villagesPerTurn);
   if (villages.length <= per) {
     for (const v of villages) villageTurn(state, player, v);
   } else {
@@ -91,7 +91,8 @@ export function onBotTurn(state: WorldState, playerId: number): void {
 
   // next turn, with a little jitter
   const jitter = 0.8 + nextFloat(state.rng) * 0.4;
-  bot.nextTurn = state.time + Math.max(MINUTE, Math.round(turnInterval(state, bot.activity) * jitter));
+  const interval = bot.reference ? bot.reference.interval : turnInterval(state, bot.activity);
+  bot.nextTurn = state.time + Math.max(MINUTE, Math.round(interval * jitter));
   push(state.queue, bot.nextTurn, { kind: 'botTurn', playerId });
 }
 
@@ -100,7 +101,7 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   const profile = BOT_PROFILES[player.bot.archetype];
   // coins and noblemen come first once there is an academy; while saving, buildings wait too
   const saving = nobleTurn(state, player, v, profile, [0, 0, 0]);
-  const reserve = build(state, v, profile, saving ? nobleNeed(state, v) : [0, 0, 0]);
+  const reserve = autoBuild(state, v, profile.buildOrder, saving ? nobleNeed(state, v) : [0, 0, 0]);
   research(state, v, profile);
   // saving: only the most needed defense, no other troops
   recruitDefense(state, v, profile, reserve, saving ? 0.5 : 1);
@@ -175,8 +176,8 @@ export function abandonAndRestart(state: WorldState, player: Player): Village {
 // --- building ---------------------------------------------------------------
 
 /** The first build step that isn't done yet (counting queued levels). */
-function nextStep(v: Village, profile: BotProfile): [BuildingId, number] | null {
-  for (const step of profile.buildOrder) {
+function nextStep(v: Village, order: readonly (readonly [BuildingId, number])[]): readonly [BuildingId, number] | null {
+  for (const step of order) {
     if (plannedLevel(v, step[0]) < step[1]) return step;
   }
   return null;
@@ -194,19 +195,26 @@ function fallbackStep(state: WorldState, v: Village): BuildingId | null {
 }
 
 /**
- * Keeps the build queue busy. Returns the resources the bot wants to keep for its next
- * building, so recruiting doesn't eat them.
+ * Keeps the build queue busy along a build order (bots, and the player's account manager).
+ * Returns the resources to keep for the next building, so recruiting doesn't eat them.
  */
-function build(state: WorldState, v: Village, profile: BotProfile, keep: Res = [0, 0, 0]): Res {
+export function autoBuild(
+  state: WorldState,
+  v: Village,
+  order: readonly (readonly [BuildingId, number])[],
+  keep: Res = [0, 0, 0],
+  /** strict: follow the order exactly (no balancing pits, nothing after its last step). */
+  strict = false,
+): Res {
   const { config } = state;
   // bots keep at most 2 jobs queued: enough to stay busy without locking up resources
   for (let guard = 0; guard < 4 && v.buildQueue.length < 2; guard++) {
-    const step = nextStep(v, profile);
-    let target: BuildingId | null = step ? step[0] : fallbackStep(state, v);
+    const step = nextStep(v, order);
+    let target: BuildingId | null = step ? step[0] : strict ? null : fallbackStep(state, v);
     if (!target) break;
 
     // keep the three resources in balance: a pit that falls behind goes first
-    const scarce = scarcePit(state, v);
+    const scarce = strict ? null : scarcePit(state, v);
     if (scarce) target = scarce;
 
     // the economy comes first: a full storage or farm blocks everything else
@@ -239,8 +247,8 @@ function build(state: WorldState, v: Village, profile: BotProfile, keep: Res = [
   }
 
   // keep what the next building needs (a short resource first), so troops don't eat it
-  const step = nextStep(v, profile);
-  const b = scarcePit(state, v) ?? (step ? step[0] : fallbackStep(state, v));
+  const step = nextStep(v, order);
+  const b = strict ? (step ? step[0] : null) : (scarcePit(state, v) ?? (step ? step[0] : fallbackStep(state, v)));
   if (!b) return [0, 0, 0];
   const level = plannedLevel(v, b) + 1;
   return level <= config.buildings[b].maxLevel ? buildingCost(config.buildings[b], level) : [0, 0, 0];
@@ -446,7 +454,7 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
   if (!bot || !isOperational(config, v, 'snob')) return false;
   // the difficulty decides how soon after a conquest a bot goes for the next village
   const cooldown = ((difficulty(state).conquestCooldownHours * (1.5 - bot.activity)) * 3_600_000) / config.worldSpeed;
-  if (bot.lastConquest !== undefined && state.time - bot.lastConquest < cooldown) return false;
+  if (!bot.reference && bot.lastConquest !== undefined && state.time - bot.lastConquest < cooldown) return false;
   const queued = v.recruitQueues.snob.reduce((n, j) => n + j.total - j.done, 0);
   const nobles = v.units.snob + v.outside.snob + queued;
 
