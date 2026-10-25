@@ -22,6 +22,8 @@ export const reports = signal<Report[]>([]);
 export const ranking = signal<RankingRow[]>([]);
 /** Target picked on the map, prefilled in the rally point. */
 export const placeTarget = signal<{ x: number; y: number } | null>(null);
+/** "Kijk op de kaart": a player (by id) or the owner of the village at x|y. */
+export const mapFocus = signal<{ owner?: number; x?: number; y?: number } | null>(null);
 /** Village selected on the map. */
 export const selectedVillage = signal<number | null>(null);
 
@@ -83,4 +85,10 @@ export function togglePause(): void {
 export function attackVillage(x: number, y: number): void {
   placeTarget.value = { x, y };
   screen.value = 'place';
+}
+
+/** Opens the map on a player's villages (or on the village at x|y and its owner). */
+export function showOnMap(target: { owner?: number; x?: number; y?: number }): void {
+  mapFocus.value = { ...target };
+  screen.value = 'map';
 }

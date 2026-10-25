@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { MapVillage } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
-import { attackVillage, mapData, selectedVillage, send, snapshot } from '../store';
+import { attackVillage, mapData, mapFocus, selectedVillage, send, snapshot } from '../store';
 import { distance, travelMs } from '../units';
 
 const TYPE_LETTER: Record<BarbType, string> = { resource: 'G', military: 'M', defensive: 'V', balanced: 'B' };
@@ -19,6 +19,7 @@ const COLORS = {
   bonus: '#b48ad8',
   selected: '#ffffff',
   attacked: '#7fa35a',
+  focus: '#5fd3e8',
 };
 
 const MIN_ZOOM = 3;
@@ -37,6 +38,8 @@ export function MapScreen() {
   const drag = useRef<{ x: number; y: number; cx: number; cy: number; moved: boolean } | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const [, redraw] = useState(0);
+  /** "Kijk op de kaart": whose villages are marked (a player id, or one village id for a barbarian). */
+  const [focus, setFocus] = useState<{ owner?: number; villageId?: number; name: string; index: number } | null>(null);
 
   // fresh map data while the map is open (barbarians grow, reports come in)
   useEffect(() => {
@@ -58,6 +61,51 @@ export function MapScreen() {
     cam.current.cy = own.y;
     cam.current.centered = true;
   }
+
+  // villages of the focused player, biggest first
+  const focusList = useMemo(() => {
+    if (!focus || !data) return [];
+    if (focus.owner === undefined) return data.villages.filter((v) => v.id === focus.villageId);
+    return data.villages.filter((v) => v.owner === focus.owner).sort((a, b) => b.points - a.points);
+  }, [focus, data]);
+  const focusIds = useMemo(() => new Set(focusList.map((v) => v.id)), [focusList]);
+
+  const jumpTo = (v: MapVillage) => {
+    cam.current.cx = v.x;
+    cam.current.cy = v.y;
+    cam.current.centered = true;
+    selectedVillage.value = v.id;
+    draw();
+  };
+
+  // a request from elsewhere (ranking, reports, ...) once the map data is there
+  useEffect(() => {
+    const req = mapFocus.value;
+    if (!req || !data) return;
+    mapFocus.value = null;
+    const at = req.x !== undefined && req.y !== undefined ? byCoord.get(key(req.x, req.y)) : undefined;
+    const owner = req.owner ?? at?.owner;
+    if (at?.kind === 'barb' || owner === undefined) {
+      if (!at) return;
+      setFocus({ villageId: at.id, name: at.name, index: 0 });
+      jumpTo(at);
+      return;
+    }
+    const list = data.villages.filter((v) => v.owner === owner).sort((a, b) => b.points - a.points);
+    const first = list[0];
+    if (!first) return;
+    const index = at ? Math.max(0, list.findIndex((v) => v.id === at.id)) : 0;
+    setFocus({ owner, name: first.ownerName, index });
+    jumpTo(list[index] ?? first);
+  }, [mapFocus.value, data]);
+
+  const step = (delta: number) => {
+    if (!focus || focusList.length === 0) return;
+    const index = (focus.index + delta + focusList.length) % focusList.length;
+    setFocus({ ...focus, index });
+    const v = focusList[index];
+    if (v) jumpTo(v);
+  };
 
   // --- drawing ---
   const draw = () => {
@@ -148,6 +196,11 @@ export function MapScreen() {
         ctx.fillStyle = v.last.result === 'loss' ? COLORS.bot : COLORS.attacked;
         const d = Math.max(2, size / 4);
         ctx.fillRect(sx + size / 2 - d, sy - size / 2, d, d);
+      }
+      if (focusIds.has(v.id)) {
+        ctx.strokeStyle = COLORS.focus;
+        ctx.lineWidth = Math.max(2, size / 6);
+        ctx.strokeRect(sx - size / 2 - 3, sy - size / 2 - 3, size + 6, size + 6);
       }
       if (v.id === sel) {
         ctx.strokeStyle = COLORS.selected;
@@ -242,6 +295,28 @@ export function MapScreen() {
           <button class="small" onClick={() => centerOn(own.x, own.y)}>
             Naar mijn dorp
           </button>
+        )}
+        {focus && focusList.length > 0 && (
+          <span class="map-focus">
+            <i style={{ borderColor: COLORS.focus }} />
+            {focus.owner === undefined ? focus.name : `Dorpen van ${focus.name} (${focusList.length})`}
+            {focusList.length > 1 && (
+              <>
+                <button class="small" title="Vorig dorp" onClick={() => step(-1)}>
+                  ◀
+                </button>
+                <span class="mono muted">
+                  {focus.index + 1}/{focusList.length}
+                </span>
+                <button class="small" title="Volgend dorp" onClick={() => step(1)}>
+                  ▶
+                </button>
+              </>
+            )}
+            <button class="small" title="Markering weg" onClick={() => setFocus(null)}>
+              ✕
+            </button>
+          </span>
         )}
       </div>
       <div class="map-body">

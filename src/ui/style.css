@@ -278,3 +278,10 @@ button.link.rename { color: var(--muted); font-weight: 400; }
 button.link.rename:hover { color: var(--accent); }
 .village-rename { padding: 2px 4px 8px; }
 .village-rename input { width: 100%; font-size: 13px; padding: 4px 6px; }
+
+/* --- kijk op de kaart --- */
+button.link.map-link { margin-left: 6px; opacity: 0.6; font-size: 13px; }
+button.link.map-link:hover { opacity: 1; }
+.map-focus { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.map-focus i { display: inline-block; width: 10px; height: 10px; border: 2px solid; }
+.map-focus button { padding: 2px 7px; }

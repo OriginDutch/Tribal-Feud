@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { MapLink } from '../components/MapLink';
 import { num } from '../format';
 import { ranking, send } from '../store';
 
@@ -48,7 +49,10 @@ export function RankingScreen() {
             {rows.slice(0, Math.max(limit, meIndex + 1)).map((r, i) => (
               <tr key={r.id} class={r.isBot ? '' : 'me'}>
                 <td class="right mono">{i + 1}</td>
-                <td class="ellipsis">{r.isBot ? r.name : <strong>{r.name}</strong>}</td>
+                <td class="ellipsis">
+                  {r.isBot ? r.name : <strong>{r.name}</strong>}
+                  {r.villages > 0 && <MapLink owner={r.id} />}
+                </td>
                 <td class="right mono">{num(r.points)}</td>
                 <td class="right mono">{r.villages}</td>
                 {debug && <td class="muted">{r.archetype ?? '—'}</td>}

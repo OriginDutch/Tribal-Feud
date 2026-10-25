@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { MapLink } from '../components/MapLink';
 import type { OfferView, TradeSide } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
@@ -316,6 +317,7 @@ export function MarketScreen() {
                   <tr key={o.id}>
                     <td>
                       {o.village.name} ({o.village.x}|{o.village.y}) <span class="muted">· {o.village.ownerName}</span>
+                      <MapLink x={o.village.x} y={o.village.y} />
                     </td>
                     <td>
                       <Amount side={o.give} />

@@ -1,4 +1,5 @@
 import { BARB_TYPE_NAMES } from '../../shared/barbarianTypes';
+import { MapLink } from '../components/MapLink';
 import { useEffect, useState } from 'preact/hooks';
 import { BUILDING_IDS, UNIT_IDS, type UnitCounts } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
@@ -54,7 +55,8 @@ function ReportDetail({ r }: { r: Report }) {
         {(r.luck * 100).toFixed(1)}% · moraal {Math.round(r.morale * 100)}%
       </p>
       <h4>
-        Aanvaller: {r.attacker.name} ({r.attacker.x}|{r.attacker.y})
+        Aanvaller: {r.attacker.name} ({r.attacker.x}|{r.attacker.y}) · {r.attacker.ownerName}
+        <MapLink x={r.attacker.x} y={r.attacker.y} />
       </h4>
       <UnitTable
         rows={[
@@ -64,6 +66,7 @@ function ReportDetail({ r }: { r: Report }) {
       />
       <h4>
         Verdediger: {r.defender.name} ({r.defender.x}|{r.defender.y}) · {r.defender.ownerName}
+        <MapLink x={r.defender.x} y={r.defender.y} />
       </h4>
       {r.supportUnits && (
         <>

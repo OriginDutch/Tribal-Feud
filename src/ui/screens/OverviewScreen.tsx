@@ -1,4 +1,5 @@
 import { formatGameTime } from '../../shared/time';
+import { MapLink } from '../components/MapLink';
 import { duration, num } from '../format';
 import { screen, snapshot } from '../store';
 
@@ -36,6 +37,7 @@ export function OverviewScreen() {
                   </td>
                   <td>
                     {m.from.name} ({m.from.x}|{m.from.y}) <span class="muted">· {m.from.ownerName}</span>
+                    <MapLink x={m.from.x} y={m.from.y} />
                   </td>
                   <td class="mono muted">{formatGameTime(m.arrives)}</td>
                   <td class="right mono">{duration(m.arrives - s.time)}</td>
