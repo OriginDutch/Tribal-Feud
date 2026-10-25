@@ -79,10 +79,13 @@ function notice(text: string, level: 'info' | 'error' = 'info'): void {
   post({ type: 'notice', level, text });
 }
 
+const VILLAGE_ORDER = new Intl.Collator('nl', { numeric: true, sensitivity: 'base' });
+
 function ownVillageRows(s: WorldState): OwnVillageRow[] {
   const { config } = s;
   return villagesOf(s, HUMAN_ID)
-    .sort((a, b) => a.id - b.id)
+    // by name, with numbers in order ("Dorp 2" before "Dorp 10"), like TW's village list
+    .sort((a, b) => VILLAGE_ORDER.compare(a.name, b.name) || a.id - b.id)
     .map((v) => {
       const job = v.buildQueue[0];
       let recruiting = 0;
