@@ -196,9 +196,9 @@ export function PlaceScreen() {
             <label class="inline">
               Edeltrein
               <select value={String(trainSize)} onChange={(e) => startTrain(Number(e.currentTarget.value))}>
-                <option value={0}>uit</option>
+                <option value="0">uit</option>
                 {[2, 3, 4, 5].map((n) => (
-                  <option key={n} value={n}>
+                  <option key={n} value={String(n)}>
                     {n} edels
                   </option>
                 ))}

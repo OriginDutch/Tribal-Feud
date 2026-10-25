@@ -26,7 +26,7 @@ function ResSelect({ value, onChange }: { value: 0 | 1 | 2; onChange: (r: 0 | 1 
   return (
     <select value={String(value)} onChange={(e) => onChange(Number(e.currentTarget.value) as 0 | 1 | 2)}>
       {RES_LABELS.map((l, i) => (
-        <option key={i} value={i}>
+        <option key={i} value={String(i)}>
           {l}
         </option>
       ))}
@@ -191,7 +191,7 @@ export function MarketScreen() {
               >
                 <option value="">—</option>
                 {ownOthers.map((o) => (
-                  <option key={o.id} value={o.id}>
+                  <option key={o.id} value={String(o.id)}>
                     {o.name} ({o.x}|{o.y})
                   </option>
                 ))}
@@ -289,7 +289,7 @@ export function MarketScreen() {
             >
               <option value="all">alles</option>
               {RES_LABELS.map((l, i) => (
-                <option key={i} value={i}>
+                <option key={i} value={String(i)}>
                   {l.toLowerCase()}
                 </option>
               ))}

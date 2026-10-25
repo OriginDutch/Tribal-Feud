@@ -61,7 +61,7 @@ export function VillageSwitcher() {
       </button>
       <select value={String(v.id)} onChange={(e) => send({ type: 'selectVillage', id: Number(e.currentTarget.value) })}>
         {s.villages.map((x) => (
-          <option key={x.id} value={x.id}>
+          <option key={x.id} value={String(x.id)}>
             {x.name} ({x.x}|{x.y})
           </option>
         ))}
