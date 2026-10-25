@@ -265,3 +265,4 @@ tr.current td { background: var(--panel-2); }
 .badge.danger { background: var(--danger); }
 
 .tag-on { background: var(--good); color: var(--accent-text); border-radius: 4px; padding: 0 6px; font-size: 12px; font-weight: 600; }
+label.inline { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; white-space: nowrap; }

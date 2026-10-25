@@ -13,7 +13,7 @@ const DAY = 86_400_000;
 import { push } from './eventQueue';
 import { buildingCost } from './formulas';
 import { distance, protectionBlocker, protectionEndsAt, sendAttack } from './movement';
-import { mintCoins, noblesAllowed } from './nobles';
+import { coinsForSlots, mintCoins, noblesAllowed, playerCoins, slotsUsed } from './nobles';
 import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { edgeSpot } from './map';
@@ -62,7 +62,7 @@ function botSpeed(state: WorldState): number {
 function turnInterval(state: WorldState, activity: number): number {
   const { turnMinMinutes, turnMaxMinutes } = state.config.bots;
   const minutes = turnMaxMinutes - (turnMaxMinutes - turnMinMinutes) * activity;
-  return (minutes * MINUTE) / (botSpeed(state) * difficulty(state).turnRate);
+  return (minutes * MINUTE) / botSpeed(state);
 }
 
 export function difficulty(state: WorldState): DifficultyDef {
@@ -91,7 +91,8 @@ export function onBotTurn(state: WorldState, playerId: number): void {
 
   // next turn, with a little jitter
   const jitter = 0.8 + nextFloat(state.rng) * 0.4;
-  const interval = bot.reference ? bot.reference.interval : turnInterval(state, bot.activity);
+  if (checksIn(state, bot)) bot.lastCheck = state.time;
+  const interval = turnInterval(state, bot.activity);
   bot.nextTurn = state.time + Math.max(MINUTE, Math.round(interval * jitter));
   push(state.queue, bot.nextTurn, { kind: 'botTurn', playerId });
 }
@@ -99,14 +100,24 @@ export function onBotTurn(state: WorldState, playerId: number): void {
 function villageTurn(state: WorldState, player: Player, v: Village): void {
   if (!player.bot) return;
   const profile = BOT_PROFILES[player.bot.archetype];
+  // farming and noblemen only when the bot looks at the game; building and troops always
+  const attentive = checksIn(state, player.bot);
   // coins and noblemen come first once there is an academy; while saving, buildings wait too
-  const saving = nobleTurn(state, player, v, profile, [0, 0, 0]);
+  const saving = attentive ? nobleTurn(state, player, v, profile, [0, 0, 0]) : false;
   const reserve = autoBuild(state, v, profile.buildOrder, saving ? nobleNeed(state, v) : [0, 0, 0]);
   research(state, v, profile);
   // saving: only the most needed defense, no other troops
   recruitDefense(state, v, profile, reserve, saving ? 0.5 : 1);
   if (!saving) recruitTroops(state, v, profile, reserve);
-  farm(state, player, v, profile);
+  if (attentive) farm(state, player, v, profile);
+}
+
+/** Is this a turn where the bot looks at the game? (difficulty attention, game time) */
+function checksIn(state: WorldState, bot: NonNullable<Player['bot']>): boolean {
+  const interval = bot.reference
+    ? bot.reference.interval
+    : difficulty(state).attentionMinutes * (1.5 - bot.activity) * MINUTE;
+  return bot.lastCheck === undefined || state.time - bot.lastCheck >= interval;
 }
 
 // --- giving up ----------------------------------------------------------------
@@ -313,7 +324,7 @@ function recruitTroops(state: WorldState, v: Village, profile: BotProfile, reser
     const affordable = Math.floor(
       Math.min(...[0, 1, 2].map((i) => (def.cost[i as 0 | 1 | 2] > 0 ? (budget[i as 0 | 1 | 2] * share) / def.cost[i as 0 | 1 | 2] : Infinity))),
     );
-    const n = Math.min(affordable, maxRecruitable(state, v, u));
+    const n = Math.min(affordable, maxRecruitable(state, v, u), troopRoom(state, v, def.pop));
     if (n >= 1) recruit(state, v.id, u, n);
   }
 }
@@ -397,6 +408,21 @@ function farmTargets(state: WorldState, player: Player, v: Village, profile: Bot
   );
 }
 
+/**
+ * How many units of `pop` farm space each may still be recruited: a village with an academy
+ * keeps room for a full train of noblemen (100 each).
+ */
+function troopRoom(state: WorldState, v: Village, pop: number): number {
+  const free = popMax(v) - popUsed(state.config, v);
+  let keep = 0;
+  if (v.buildings.snob > 0) {
+    let nobles = v.units.snob + v.outside.snob;
+    for (const job of v.recruitQueues.snob) nobles += job.total - job.done;
+    keep = Math.max(0, NOBLE_TRAIN - nobles) * state.config.units.snob.pop;
+  }
+  return Math.max(0, Math.floor((free - keep) / Math.max(1, pop)));
+}
+
 // --- defense ------------------------------------------------------------------
 
 const DEFENSE_UNITS: UnitId[] = ['spear', 'sword', 'archer', 'heavy'];
@@ -425,7 +451,7 @@ function recruitDefense(state: WorldState, v: Village, profile: BotProfile, rese
     if (v.recruitQueues.barracks.length >= 2) return;
     const def = config.units[u];
     const affordable = Math.floor(Math.min(...[0, 1, 2].map((i) => spare[i as 0 | 1 | 2] / 2 / Math.max(1, def.cost[i as 0 | 1 | 2]))));
-    const n = Math.min(affordable, maxRecruitable(state, v, u), Math.ceil(missing / 2 / def.pop));
+    const n = Math.min(affordable, maxRecruitable(state, v, u), Math.ceil(missing / 2 / def.pop), troopRoom(state, v, def.pop));
     if (n >= 1) recruit(state, v.id, u, n);
   }
 }
@@ -434,8 +460,13 @@ function recruitDefense(state: WorldState, v: Village, profile: BotProfile, rese
 
 /** How far bots look for villages to noble. */
 const NOBLE_RADIUS = 20;
-/** Escort that goes with a nobleman to a barbarian village. */
-const BARB_ESCORT = 50;
+/**
+ * Attack strength that goes with a nobleman to a barbarian village. Barbarians have no
+ * troops, but a wall: a defensive barbarian's wall 15 alone holds ~1300 attack.
+ */
+const BARB_ESCORT_ATTACK = 2000;
+/** Noblemen a bot sends together (a "train"). */
+const NOBLE_TRAIN = 4;
 
 /**
  * Mints coins, trains one nobleman per village and sends him with an escort, again and again,
@@ -458,36 +489,56 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
   const queued = v.recruitQueues.snob.reduce((n, j) => n + j.total - j.done, 0);
   const nobles = v.units.snob + v.outside.snob + queued;
 
-  if (nobles === 0) {
+  // build up a train: loyalty comes back +1/hour x world speed, so one nobleman at a time
+  // never gets a village down on a fast world; four arriving together take it in one go
+  if (nobles < NOBLE_TRAIN) {
     const have = currentResources(config, v, state.time);
     const free = (cost: Res) => [0, 1, 2].every((i) => have[i as 0 | 1 | 2] - reserve[i as 0 | 1 | 2] >= cost[i as 0 | 1 | 2]);
-    if (noblesAllowed(state, v) > 0) {
-      if (free(config.units.snob.cost)) return recruit(state, v.id, 'snob', 1) !== null;
+    const missing = NOBLE_TRAIN - nobles;
+    // as many coins and noblemen as the money allows, up to a full train
+    const affordable = (cost: Res) =>
+      Math.floor(Math.min(...[0, 1, 2].map((i) => (have[i as 0 | 1 | 2] - reserve[i as 0 | 1 | 2]) / Math.max(1, cost[i as 0 | 1 | 2]))));
+    const allowed = noblesAllowed(state, v);
+    if (allowed > 0) {
+      const n = Math.min(allowed, missing, affordable(config.units.snob.cost), maxRecruitable(state, v, 'snob'));
+      if (n > 0) recruit(state, v.id, 'snob', n);
     } else if (free(config.conquest.coinCost)) {
-      mintCoins(state, v.id, 1);
+      const used = slotsUsed(state, v.owner) + missing;
+      const need = Math.max(1, coinsForSlots(used) - playerCoins(state, v.owner));
+      const n = config.nobleCost === 'coins' ? Math.min(need, affordable(config.conquest.coinCost)) : 1;
+      if (n > 0) mintCoins(state, v.id, n);
     }
-    return true;
+    // keep saving while the train is not complete, unless nobles already wait at home
+    if (v.units.snob < NOBLE_TRAIN) return true;
   }
-  if (v.units.snob === 0 || !isOperational(config, v, 'place')) return false;
+  if (v.units.snob < NOBLE_TRAIN || !isOperational(config, v, 'place')) return false;
 
   const target = nobleTarget(state, player, v, profile);
   if (!target) return false;
-  const escort: UnitCounts = { snob: 1 };
-  if (target.owner === BARBARIAN) {
-    // a barbarian village has no troops: a small escort is enough
-    let left = BARB_ESCORT;
-    for (const u of ['axe', 'light', 'spear', 'sword'] as const) {
-      const n = Math.min(left, v.units[u]);
-      if (n > 0) escort[u] = n;
-      left -= n;
+  // each nobleman gets his own escort: they arrive together, one after the other
+  let sent = 0;
+  for (let i = 0; i < NOBLE_TRAIN; i++) {
+    const escort: UnitCounts = { snob: 1 };
+    if (target.owner === BARBARIAN || i > 0) {
+      // a wall still stands for every attack: enough attack to break through it
+      let left = BARB_ESCORT_ATTACK;
+      for (const u of ['axe', 'light', 'spear', 'sword'] as const) {
+        const attack = config.units[u].attack;
+        const n = Math.min(v.units[u], Math.ceil(left / attack));
+        if (n > 0) escort[u] = n;
+        left -= n * attack;
+        if (left <= 0) break;
+      }
+      if (left > BARB_ESCORT_ATTACK / 2) break;
+    } else {
+      // a player: everything offensive goes with the first nobleman
+      for (const u of ['axe', 'light', 'marcher', 'ram', 'catapult'] as const) if (v.units[u] > 0) escort[u] = v.units[u];
+      if ((escort.axe ?? 0) + (escort.light ?? 0) * 4 < 400) break;
     }
-    if (left > BARB_ESCORT / 2) return false;
-  } else {
-    // a player: everything offensive goes along
-    for (const u of ['axe', 'light', 'marcher', 'ram', 'catapult'] as const) if (v.units[u] > 0) escort[u] = v.units[u];
-    if ((escort.axe ?? 0) + (escort.light ?? 0) * 4 < 400) return false;
+    if (sendAttack(state, v.id, target.id, escort) !== null) break;
+    sent++;
   }
-  if (sendAttack(state, v.id, target.id, escort) === null) {
+  if (sent > 0) {
     bot.nobleTarget = target.id;
     bot.outgoing.push(target.id);
   }

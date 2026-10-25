@@ -27,8 +27,13 @@ export type BotDifficulty = 'easy' | 'normal' | 'hard';
  * greedy they are differs. Values are tuned with the balance simulations (*.sim.test.ts).
  */
 export interface DifficultyDef {
-  /** Multiplies how often bots take a turn (1 = every 5-30 game minutes at world speed 1). */
-  turnRate: number;
+  /**
+   * Game minutes between two moments a bot "looks at the game": farming, coins, noblemen
+   * and attacks only happen then. Like a player's attention this does NOT scale with world
+   * speed. Building and recruiting run all the time, like the player's account manager.
+   * Active bots look more often, sleepy ones less (x0.5 .. x1.2 by activity).
+   */
+  attentionMinutes: number;
   /** Villages a bot looks at per turn. */
   villagesPerTurn: number;
   /**
@@ -39,9 +44,9 @@ export interface DifficultyDef {
 }
 
 export const DIFFICULTIES: Record<BotDifficulty, DifficultyDef> = {
-  easy: { turnRate: 0.35, villagesPerTurn: 2, conquestCooldownHours: 320 },
-  normal: { turnRate: 0.5, villagesPerTurn: 3, conquestCooldownHours: 160 },
-  hard: { turnRate: 1, villagesPerTurn: 5, conquestCooldownHours: 0 },
+  easy: { attentionMinutes: 120, villagesPerTurn: 5, conquestCooldownHours: 0 },
+  normal: { attentionMinutes: 45, villagesPerTurn: 5, conquestCooldownHours: 0 },
+  hard: { attentionMinutes: 10, villagesPerTurn: 5, conquestCooldownHours: 0 },
 };
 export type PresetId = 'classic' | 'speed' | 'hardcore' | 'custom';
 

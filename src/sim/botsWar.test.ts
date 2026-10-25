@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createConfig } from '../shared/config';
+import { DIFFICULTIES, createConfig } from '../shared/config';
 import { DAY, HOUR, MINUTE } from '../shared/time';
 import { onIncomingAttack } from './alerts';
 import { advance, setPaused } from './simulation';
@@ -101,16 +101,28 @@ describe('alert modes', () => {
 });
 
 describe('difficulty', () => {
-  it('easier bots take fewer turns', () => {
-    const turns = (difficulty: 'easy' | 'normal' | 'hard') => {
+  it('easier bots look at the game (farm) less often', () => {
+    const farmed = (difficulty: 'easy' | 'normal' | 'hard') => {
       const s = createWorld(createConfig('classic', 'Diff', 40, { bots: { count: 20, difficulty } }));
-      return Math.max(...s.players.filter((p) => p.bot).map((p) => p.bot?.nextTurn ?? 0));
+      for (const p of s.players) {
+        const v = p.bot ? villagesOf(s, p.id)[0] : undefined;
+        if (!v) continue;
+        v.buildings.place = 1;
+        v.units.spear = 2000;
+      }
+      run(s, 3 * HOUR);
+      return s.players.reduce((n, p) => n + Object.keys(p.bot?.farmLog ?? {}).length + (p.bot?.outgoing.length ?? 0), 0);
     };
-    expect(turns('easy')).toBeGreaterThan(turns('normal'));
-    expect(turns('normal')).toBeGreaterThan(turns('hard'));
+    const easy = farmed('easy');
+    const normal = farmed('normal');
+    const hard = farmed('hard');
+    expect(easy).toBeLessThan(normal);
+    expect(normal).toBeLessThan(hard);
   });
 
-  it('after taking a village, a normal bot waits before nobling again', () => {
+  it('the conquest cooldown knob makes a bot wait before nobling again', () => {
+    const before = DIFFICULTIES.normal.conquestCooldownHours;
+    DIFFICULTIES.normal.conquestCooldownHours = 16;
     const s = createWorld(createConfig('classic', 'Diff', 41, { bots: { count: 1, difficulty: 'normal' }, unitSpeed: 20 }));
     const bot = s.players.find((p) => p.isBot);
     const v = bot ? villagesOf(s, bot.id)[0] : undefined;
@@ -125,6 +137,8 @@ describe('difficulty', () => {
     // 16 game hours of cooldown at world speed 1: no second conquest within that time
     const taken = villagesOf(s, bot.id).length;
     expect(taken).toBeGreaterThanOrEqual(2);
-    expect(s.conquests?.barbarian ?? 0).toBeLessThanOrEqual(Math.ceil((2 * DAY) / (16 * HOUR)) + 1);
+    // 16 h x (1.5 - activity) >= 8 h between conquests
+    expect(s.conquests?.barbarian ?? 0).toBeLessThanOrEqual(Math.ceil((2 * DAY) / (8 * HOUR)) + 1);
+    DIFFICULTIES.normal.conquestCooldownHours = before;
   });
 });

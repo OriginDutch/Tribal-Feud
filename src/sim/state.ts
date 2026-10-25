@@ -42,11 +42,14 @@ export interface BotState {
   /** Next village to look at when the bot has more villages than it handles per turn. */
   cursor?: number;
   /**
-   * Reference player (balance simulations only): plays like a player with the account
-   * manager, checking in every `interval` game ms and handling all villages each time,
-   * with no difficulty limits.
+   * Reference player (balance simulations only): a player with the account manager.
+   * Building and troops run by themselves (like the manager, every turn); farming, coins and
+   * noblemen only happen when the "player" checks in, every `interval` game ms.
+   * No difficulty limits; all villages each turn.
    */
   reference?: { interval: number };
+  /** Last time this bot looked at the game (farming, coins, noblemen, attacks). */
+  lastCheck?: number;
   /** When this bot last took a village (for the difficulty's conquest cooldown). */
   lastConquest?: number;
   /** Village this bot is nobling. */
