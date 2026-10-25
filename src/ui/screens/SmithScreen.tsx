@@ -18,20 +18,14 @@ export function SmithScreen() {
           <p class="muted">Je hebt nog geen smederij. Speerdragers en zwaardvechters kun je zonder smederij rekruteren.</p>
         </section>
       )}
-      {v.research && (
-        <section class="panel">
-          <h3>Bezig met ontwikkelen</h3>
-          <p>
-            {v.research.name} · nog <span class="mono">{duration(v.research.end - s.time)}</span>{' '}
-            <span class="muted">(klaar op {formatGameTime(v.research.end)})</span>{' '}
-            <button class="danger small" onClick={() => send({ type: 'cancelResearch', villageId: v.id })}>
-              Annuleer
-            </button>
-          </p>
-        </section>
-      )}
       <section class="panel">
-        <table class="table">
+        <table class="table fixed">
+          <colgroup>
+            <col />
+            <col style={{ width: '240px' }} />
+            <col style={{ width: '100px' }} />
+            <col style={{ width: '240px' }} />
+          </colgroup>
           <thead>
             <tr>
               <th>Eenheid</th>
@@ -60,13 +54,14 @@ export function SmithScreen() {
                     </td>
                     <td class="right mono">{duration(u.research.time)}</td>
                     <td class="right">
-                      {u.research.blocker ? (
-                        <span class="blocker">{u.research.blocker}</span>
-                      ) : (
-                        <button class="small" onClick={() => send({ type: 'research', villageId: v.id, unit: u.id })}>
-                          Ontwikkel
-                        </button>
-                      )}
+                      <button
+                        class="small action"
+                        disabled={u.research.blocker !== null}
+                        title={u.research.blocker ?? ''}
+                        onClick={() => send({ type: 'research', villageId: v.id, unit: u.id })}
+                      >
+                        {u.research.blocker ?? 'Ontwikkel'}
+                      </button>
                     </td>
                   </>
                 ) : (
@@ -80,6 +75,19 @@ export function SmithScreen() {
         </table>
         <p class="hint">* Ontwikkeltijden zijn voorlopig: de echte TW-waardes zijn nog niet gevonden.</p>
       </section>
+      {v.research && (
+        <section class="panel">
+          <h3>Bezig met ontwikkelen</h3>
+          <p>
+            {v.research.name} · nog <span class="mono">{duration(v.research.end - s.time)}</span>{' '}
+            <span class="muted">(klaar op {formatGameTime(v.research.end)})</span>{' '}
+            <button class="danger small" onClick={() => send({ type: 'cancelResearch', villageId: v.id })}>
+              Annuleer
+            </button>
+          </p>
+        </section>
+      )}
+
     </div>
   );
 }

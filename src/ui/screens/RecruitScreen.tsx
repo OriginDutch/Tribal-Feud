@@ -28,7 +28,9 @@ function UnitRow({ villageId, u, have }: { villageId: number; u: UnitView; have:
       <td class="right mono">{num(u.home)}</td>
       <td class="right">
         {u.recruit.blocker ? (
-          <span class="blocker">{u.recruit.blocker}</span>
+          <button class="small action" disabled title={u.recruit.blocker}>
+            {u.recruit.blocker}
+          </button>
         ) : (
           <span class="recruit-input">
             <input
@@ -81,6 +83,33 @@ export function RecruitScreen({ building }: { building: RecruitBuilding }) {
         </section>
       ) : (
         <>
+          <section class="panel">
+            <table class="table fixed">
+              <colgroup>
+                <col />
+                <col style={{ width: '220px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '110px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '270px' }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Eenheid</th>
+                  <th>Kosten</th>
+                  <th class="right">Boerderij</th>
+                  <th class="right">Tijd per stuk</th>
+                  <th class="right">In dorp</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {units.map((u) => (
+                  <UnitRow key={u.id} villageId={v.id} u={u} have={v.res} />
+                ))}
+              </tbody>
+            </table>
+          </section>
           {queue.length > 0 && (
             <section class="panel">
               <h3>Rekruteren</h3>
@@ -113,25 +142,6 @@ export function RecruitScreen({ building }: { building: RecruitBuilding }) {
               </table>
             </section>
           )}
-          <section class="panel">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Eenheid</th>
-                  <th>Kosten</th>
-                  <th class="right">Boerderij</th>
-                  <th class="right">Tijd per stuk</th>
-                  <th class="right">In dorp</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {units.map((u) => (
-                  <UnitRow key={u.id} villageId={v.id} u={u} have={v.res} />
-                ))}
-              </tbody>
-            </table>
-          </section>
         </>
       )}
     </div>

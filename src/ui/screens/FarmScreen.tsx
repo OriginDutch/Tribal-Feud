@@ -87,7 +87,15 @@ export function FarmScreen() {
         {!data ? (
           <p class="muted">Laden…</p>
         ) : (
-          <table class="table">
+          <table class="table fixed">
+            <colgroup>
+              <col style={{ width: '100px' }} />
+              <col style={{ width: '90px' }} />
+              <col style={{ width: '90px' }} />
+              <col />
+              <col style={{ width: '110px' }} />
+              <col style={{ width: '100px' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Dorp</th>

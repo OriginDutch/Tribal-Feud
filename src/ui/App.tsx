@@ -65,12 +65,15 @@ export function App() {
   return (
     <>
       <TopBar />
-      {paused && (
-        <div class="banner">
-          Auto-pause · {formatGameTime(paused.time)} · {paused.text}
-        </div>
-      )}
-      {n && <div class={`notice ${n.level}`}>{n.text}</div>}
+      {/* overlays: they float over the page so nothing below them moves */}
+      <div class="overlays">
+        {paused && (
+          <div class="banner">
+            Auto-pause · {formatGameTime(paused.time)} · {paused.text}
+          </div>
+        )}
+        {n && <div class={`notice ${n.level}`}>{n.text}</div>}
+      </div>
       {hasWorld ? (
         <div class="layout">
           <Nav />
