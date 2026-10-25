@@ -3,6 +3,12 @@ import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [preact()],
+  // always the same address: saves live per address (localhost:5173 and :5174 are different
+  // storage to the browser), so never fall back to another port
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   worker: {
     format: 'es',
   },

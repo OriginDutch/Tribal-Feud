@@ -31,6 +31,29 @@ exit /b
 title Tribal Feud
 cd /d "%~2"
 
+rem Draait de game al (poort 5173 bezet)? Dan geen tweede server starten: die zou op een andere
+rem poort komen, en saves horen bij het adres. De draaiende server laadt nieuwe code zelf in.
+powershell -NoProfile -Command "if (Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"
+if errorlevel 1 goto checkinstall
+fc /b package-lock.json node_modules\.tribal-feud-lock >nul 2>&1
+if errorlevel 1 goto runningneedsinstall
+echo.
+echo === De game draait al. Ik open hem: http://localhost:5173 ===
+echo Nieuwe code wordt vanzelf geladen; ververs de pagina als je hem al open had.
+start "" http://localhost:5173
+timeout /t 5 >nul
+exit /b
+
+:runningneedsinstall
+echo.
+echo De game draait nog in een ander venster, maar deze versie heeft nieuwe packages nodig.
+echo Sluit dat venster en start start.bat opnieuw.
+echo.
+pause
+exit /b 1
+
+:checkinstall
+
 rem npm ci alleen als het nodig is: geen vite, of package-lock.json veranderd sinds de vorige install.
 rem npm ci (niet npm install) laat package-lock.json ongemoeid, zodat git pull niet vastloopt.
 if not exist node_modules\.bin\vite.cmd goto install
