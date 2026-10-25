@@ -48,6 +48,7 @@ export type Command =
   | { type: 'deleteTemplate'; id: string }
   | { type: 'mintCoins'; villageId: number; count: number }
   | { type: 'sendSupport'; from: number; to: number; units: UnitCounts }
+  | { type: 'sendNobleTrain'; from: number; to: number; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId }
   | { type: 'returnSupport'; hostId: number; originId: number }
   | { type: 'dismissToast'; id: number | 'all' }
   /** Debug cheats for testing. */

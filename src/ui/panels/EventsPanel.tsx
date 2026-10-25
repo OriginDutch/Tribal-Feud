@@ -30,10 +30,11 @@ export function EventsPanel() {
               type: 'debugGive',
               resources: 300000,
               buildings: { main: 20, smith: 20, market: 10, snob: 1, storage: 30, farm: 30, barracks: 10 },
+              units: { snob: 5, axe: 1000 },
             })
           }
         >
-          Cheat: klaar voor edels (HQ 20, smederij 20, markt 10, adelshoeve, opslag 30, +300k)
+          Cheat: klaar voor edels (HQ 20, smederij 20, markt 10, adelshoeve, opslag 30, +300k, 5 edels, 1000 bijl)
         </button>
         <label>
           Auto-pause bij aanvallen

@@ -156,6 +156,40 @@ export function sendAttack(
   return null;
 }
 
+/**
+ * A noble train: the first nobleman goes with `first` (the clearing army), every next one
+ * with its own escort. Everything leaves at once at nobleman speed, so it all arrives at the
+ * same moment, in this order, before loyalty can come back. Nothing is sent unless all of
+ * it can be sent.
+ */
+export function sendNobleTrain(
+  state: WorldState,
+  fromId: number,
+  toId: number,
+  first: UnitCounts,
+  escorts: UnitCounts[],
+  catapultTarget?: BuildingId,
+): string | null {
+  const from = state.villages[fromId];
+  const to = state.villages[toId];
+  if (!from || !to) return 'Dorp bestaat niet.';
+  const nobles = 1 + escorts.length;
+  if (nobles < 2 || nobles > 5) return 'Een edeltrein heeft 2 tot 5 edels.';
+  const attacks: UnitCounts[] = [{ ...cleanCounts(first), snob: 1 }, ...escorts.map((e) => ({ ...cleanCounts(e), snob: 1 }))];
+  const total: UnitCounts = {};
+  for (const a of attacks) for (const u of UNIT_IDS) if ((a[u] ?? 0) > 0) total[u] = (total[u] ?? 0) + (a[u] ?? 0);
+  for (const u of UNIT_IDS) {
+    if ((total[u] ?? 0) > from.units[u]) {
+      return `Niet genoeg ${state.config.units[u].name.toLowerCase()} voor deze trein (${total[u]} nodig, ${from.units[u]} thuis).`;
+    }
+  }
+  // the first attack is checked like any attack (distance, protection, place); the rest follow
+  const error = sendAttack(state, fromId, toId, attacks[0] ?? {}, catapultTarget);
+  if (error) return error;
+  for (const a of attacks.slice(1)) sendAttack(state, fromId, toId, a);
+  return null;
+}
+
 /** Plunders up to `carry` from what is not hidden, spread evenly over the three resources. */
 export function plunder(available: Res, carry: number): Res {
   const loot: Res = [0, 0, 0];

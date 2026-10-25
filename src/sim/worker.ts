@@ -14,7 +14,7 @@ import { createWorld, currentVillage, playerVillage, type WorldState } from './s
 import { storageCapacity } from './formulas';
 import { villageView } from './view';
 import { incomingViews, mapData, movementViews } from './mapView';
-import { conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendSupport } from './movement';
+import { conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendNobleTrain, sendSupport } from './movement';
 import { BARBARIAN } from './state';
 import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteTemplate, findTemplate, saveTemplate, setManager } from './manager';
@@ -302,6 +302,13 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       if (state.villages[cmd.villageId]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
       const error = mintCoins(state, cmd.villageId, cmd.count);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'sendNobleTrain': {
+      if (!state) return;
+      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      const error = sendNobleTrain(state, cmd.from, cmd.to, cmd.first, cmd.escorts, cmd.catapultTarget);
       if (error) notice(error, 'error');
       break;
     }

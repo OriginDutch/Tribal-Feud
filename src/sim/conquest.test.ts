@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createConfig, type ConfigOverrides } from '../shared/config';
 import { DAY, HOUR, MINUTE } from '../shared/time';
 import { coinsForSlots, mintCoins, noblesAllowed, slotsForCoins, slotsUsed } from './nobles';
-import { distance, loyaltyNow, returnSupport, sendAttack, sendSupport } from './movement';
+import { distance, loyaltyNow, returnSupport, sendAttack, sendNobleTrain, sendSupport } from './movement';
 import { advance, setPaused } from './simulation';
 import { BARBARIAN, HUMAN_ID, createWorld, invalidateOwners, playerVillage, villagesOf, type WorldState } from './state';
 import { recruit, type Village } from './village';
@@ -97,6 +97,34 @@ describe('conquest', () => {
     // loyalty comes back: +1 per hour
     expect(Math.floor(loyaltyNow(s.config, target, (target.loyaltyAt ?? 0) + 10 * HOUR))).toBe(35);
     expect(Math.floor(loyaltyNow(s.config, target, s.time + 200 * HOUR))).toBe(100);
+  });
+
+  it('a noble train arrives together, in order, and takes a village in one go on a fast world', () => {
+    const { s, v } = world({ worldSpeed: 20 });
+    rich(v);
+    const target = nearestBarb(s, v);
+    v.units.axe = 2000;
+    v.units.snob = 5;
+    const escort = { axe: 60 };
+    expect(sendNobleTrain(s, v.id, target.id, { axe: 500 }, [escort, escort, escort, escort])).toBeNull();
+    const arrivals = Object.values(s.movements).filter((m) => m.to === target.id).map((m) => m.arrives);
+    expect(new Set(arrivals).size).toBe(1);
+    run(s, 2 * HOUR);
+    expect(target.owner).toBe(HUMAN_ID);
+    // one nobleman used up, the others come home
+    run(s, 2 * HOUR);
+    expect(v.units.snob + v.outside.snob).toBe(4);
+  });
+
+  it('a noble train is all or nothing', () => {
+    const { s, v } = world();
+    rich(v);
+    const target = nearestBarb(s, v);
+    v.units.axe = 100;
+    v.units.snob = 3;
+    expect(sendNobleTrain(s, v.id, target.id, { axe: 80 }, [{ axe: 20 }, { axe: 20 }])).toContain('Niet genoeg bijlstrijder');
+    expect(Object.keys(s.movements)).toHaveLength(0);
+    expect(v.units.snob).toBe(3);
   });
 
   it('noblemen have a maximum distance', () => {

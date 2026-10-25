@@ -5,6 +5,11 @@ import { duration, num } from '../format';
 import { mapData, placeTarget, send, snapshot } from '../store';
 import { distance, travelMs, unitsText } from '../units';
 
+/** Units offered as escort for noblemen 2..N, best attack first. */
+const ESCORT_UNITS: UnitId[] = ['axe', 'light', 'marcher', 'heavy', 'sword', 'spear'];
+/** Attack per suggested escort: enough to break a barbarian wall of 15. */
+const TRAIN_ESCORT_ATTACK = 2000;
+
 export function PlaceScreen() {
   const s = snapshot.value;
   const v = s?.village;
@@ -12,6 +17,9 @@ export function PlaceScreen() {
   const [y, setY] = useState('');
   const [counts, setCounts] = useState<Partial<Record<UnitId, string>>>({});
   const [catTarget, setCatTarget] = useState<BuildingId>('main');
+  // noble train: escorts for noblemen 2..N (the first one goes with the army above)
+  const [trainSize, setTrainSize] = useState(0);
+  const [escorts, setEscorts] = useState<Partial<Record<UnitId, string>>[]>([]);
 
   // villages by coordinate, to resolve the target
   useEffect(() => {
@@ -41,6 +49,71 @@ export function PlaceScreen() {
   const dist = target ? distance(v, target) : 0;
   const hasUnits = Object.keys(chosen).length > 0;
   const eta = target && hasUnits ? travelMs(chosen, v.units, dist, s.marchFactor) : 0;
+
+  // --- noble train ---------------------------------------------------------------------
+  const homeOf = (u: UnitId) => v.units.find((x) => x.id === u)?.home ?? 0;
+  const attackOf = (u: UnitId) => v.units.find((x) => x.id === u)?.stats.attack ?? 0;
+  /** Suggested escort per extra nobleman: enough attack to break a wall (like the bots), from what is left. */
+  const suggest = (size: number): Partial<Record<UnitId, string>>[] => {
+    const left: Partial<Record<UnitId, number>> = {};
+    for (const u of ESCORT_UNITS) left[u] = Math.max(0, homeOf(u) - (chosen[u] ?? 0));
+    const out: Partial<Record<UnitId, string>>[] = [];
+    for (let i = 1; i < size; i++) {
+      const e: Partial<Record<UnitId, string>> = {};
+      let need = TRAIN_ESCORT_ATTACK;
+      for (const u of ESCORT_UNITS) {
+        const a = attackOf(u);
+        if (need <= 0 || a <= 0) continue;
+        const n = Math.min(left[u] ?? 0, Math.ceil(need / a));
+        if (n > 0) {
+          e[u] = String(n);
+          left[u] = (left[u] ?? 0) - n;
+          need -= n * a;
+        }
+      }
+      out.push(e);
+    }
+    return out;
+  };
+  const startTrain = (size: number) => {
+    setTrainSize(size);
+    setEscorts(size > 1 ? suggest(size) : []);
+  };
+  const escortCounts: UnitCounts[] = escorts.map((e) => {
+    const c: UnitCounts = {};
+    for (const u of UNIT_IDS) {
+      const n = Math.floor(Number(e[u] ?? 0));
+      if (n > 0 && u !== 'snob') c[u] = n;
+    }
+    return c;
+  });
+  const first: UnitCounts = { ...chosen };
+  delete first.snob;
+  const trainBlocker = (() => {
+    if (trainSize < 2) return null;
+    if (!target || target.kind === 'own') return 'Kies een doel';
+    if (homeOf('snob') < trainSize) return `${trainSize} edels nodig, ${homeOf('snob')} thuis`;
+    if (dist > v.nobles.maxDistance) return `Verder dan ${v.nobles.maxDistance} velden`;
+    const total: UnitCounts = { ...first };
+    for (const e of escortCounts) for (const u of UNIT_IDS) if (e[u]) total[u] = (total[u] ?? 0) + (e[u] ?? 0);
+    for (const u of UNIT_IDS) if ((total[u] ?? 0) > homeOf(u)) return `Te weinig ${v.units.find((x) => x.id === u)?.name.toLowerCase()}`;
+    return null;
+  })();
+  const sendTrain = () => {
+    if (!target || trainBlocker) return;
+    send({
+      type: 'sendNobleTrain',
+      from: v.id,
+      to: target.id,
+      first,
+      escorts: escortCounts,
+      ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}),
+    });
+    setCounts({});
+    setTrainSize(0);
+    setEscorts([]);
+  };
+  const trainEta = target ? travelMs({ ...first, snob: 1 }, v.units, dist, s.marchFactor) : 0;
 
   const attack = () => {
     if (!target) return;
@@ -119,6 +192,79 @@ export function PlaceScreen() {
               Ondersteunen
             </button>
           </div>
+          <div class="row">
+            <label class="inline">
+              Edeltrein
+              <select value={trainSize} onChange={(e) => startTrain(Number(e.currentTarget.value))}>
+                <option value={0}>uit</option>
+                {[2, 3, 4, 5].map((n) => (
+                  <option key={n} value={n}>
+                    {n} edels
+                  </option>
+                ))}
+              </select>
+            </label>
+            {trainSize > 1 && (
+              <>
+                <button class="small" onClick={() => setEscorts(suggest(trainSize))}>
+                  Escort opnieuw voorstellen
+                </button>
+                <button class="primary" disabled={trainBlocker !== null} title={trainBlocker ?? ''} onClick={sendTrain}>
+                  {trainBlocker ?? `Edeltrein sturen (${trainSize})`}
+                </button>
+              </>
+            )}
+          </div>
+          {trainSize > 1 && (
+            <table class="table compact">
+              <thead>
+                <tr>
+                  <th />
+                  {ESCORT_UNITS.map((u) => (
+                    <th key={u} class="right">
+                      {v.units.find((x) => x.id === u)?.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Edel 1</td>
+                  <td colSpan={ESCORT_UNITS.length} class="muted">
+                    met de troepen hierboven{hasUnits ? `: ${unitsText(first)}` : ' (nog niets ingevuld)'}
+                  </td>
+                </tr>
+                {escorts.map((e, i) => (
+                  <tr key={i}>
+                    <td>Edel {i + 2}</td>
+                    {ESCORT_UNITS.map((u) => (
+                      <td key={u} class="right">
+                        <input
+                          type="number"
+                          min={0}
+                          style={{ width: '80px' }}
+                          placeholder="0"
+                          value={e[u] ?? ''}
+                          onInput={(ev) => {
+                            const next = [...escorts];
+                            next[i] = { ...e, [u]: ev.currentTarget.value };
+                            setEscorts(next);
+                          }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {trainSize > 1 && (
+            <p class="hint">
+              Alles vertrekt tegelijk op edelsnelheid en komt in deze volgorde aan
+              {target ? `, over ${duration(trainEta)} (${formatGameTime(s.time + trainEta)})` : ''}. De voorgestelde escort is genoeg om
+              een muur van een barbarendorp te breken; pas hem aan als je meer of minder wilt sturen.
+            </p>
+          )}
           <p class="muted">
             {x && y && !target && 'Geen dorp op deze coördinaten.'}
             {target &&
