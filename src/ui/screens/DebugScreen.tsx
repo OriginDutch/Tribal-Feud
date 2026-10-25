@@ -5,7 +5,7 @@ import { SavesPanel } from '../panels/SavesPanel';
 
 export function DebugScreen() {
   return (
-    <div class="grid">
+    <div class="grid debug-grid">
       <SavesPanel />
       <NewWorldPanel />
       <EventsPanel />
