@@ -4,17 +4,25 @@ import type { Command } from '../../shared/protocol';
 import { autoPause, screen, send } from '../store';
 
 type Preset = Exclude<PresetId, 'custom'>;
-type Knob = 'productionMultiplier' | 'buildSpeed' | 'recruitSpeed';
+type Knob = 'worldSpeed' | 'unitSpeed' | 'productionMultiplier' | 'buildSpeed' | 'recruitSpeed';
 
 const KNOBS: { key: Knob; label: string; hint: string }[] = [
-  { key: 'productionMultiplier', label: 'Productie ×', hint: 'Alleen grondstoffenproductie' },
-  { key: 'buildSpeed', label: 'Bouwsnelheid ×', hint: 'Gebouwen en smederij' },
-  { key: 'recruitSpeed', label: 'Rekruteersnelheid ×', hint: 'Troepen' },
+  {
+    key: 'worldSpeed',
+    label: 'Wereldsnelheid ×',
+    hint: 'Versnelt alles: productie, bouwen, rekruteren, lopen, barbaren en bots',
+  },
+  { key: 'unitSpeed', label: 'Loopsnelheid ×', hint: 'Alleen hoe snel troepen lopen, bovenop de wereldsnelheid' },
+  { key: 'productionMultiplier', label: 'Productie ×', hint: 'Extra op grondstoffenproductie, bovenop de wereldsnelheid' },
+  { key: 'buildSpeed', label: 'Bouwsnelheid ×', hint: 'Extra op gebouwen, bovenop de wereldsnelheid' },
+  { key: 'recruitSpeed', label: 'Rekruteersnelheid ×', hint: 'Extra op troepen, bovenop de wereldsnelheid' },
 ];
 
 function presetKnobs(preset: Preset): Record<Knob, string> {
   const p = PRESETS[preset];
   return {
+    worldSpeed: String(p.worldSpeed),
+    unitSpeed: String(p.unitSpeed),
     productionMultiplier: String(p.productionMultiplier),
     buildSpeed: String(p.buildSpeed),
     recruitSpeed: String(p.recruitSpeed),
@@ -75,6 +83,10 @@ export function NewWorldPanel() {
           </label>
         ))}
       </div>
+      <p class="hint">
+        Wereldsnelheid versnelt alles, zoals een speedwereld in TW. De andere knoppen komen daar bovenop. Ga met je muis
+        over een veld voor uitleg.
+      </p>
       <label>
         Seed
         <input
