@@ -268,3 +268,4 @@ tr.current td { background: var(--panel-2); }
 label.inline { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; white-space: nowrap; }
 .reward-bar { border-color: var(--good); }
 .toast .cost { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; } .toast .cost > * { min-width: 0 !important; width: auto !important; }
+.table td.clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

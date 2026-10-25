@@ -1,6 +1,5 @@
 import { UNIT_IDS } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
-import { Cost } from '../components/Cost';
 import { num } from '../format';
 import { screen, send, snapshot } from '../store';
 import { UNIT_SHORT } from '../units';
@@ -20,46 +19,55 @@ export function VillagesScreen() {
       <h2>Dorpen ({s.villages.length})</h2>
       <section class="panel">
         <h3>Productie</h3>
-        <table class="table fixed">
+        <table class="table fixed villages-table">
           <colgroup>
-            <col style={{ width: '200px' }} />
-            <col style={{ width: '70px' }} />
             <col />
-            <col style={{ width: '100px' }} />
+            <col style={{ width: '65px' }} />
+            <col style={{ width: '75px' }} />
+            <col style={{ width: '75px' }} />
+            <col style={{ width: '75px' }} />
+            <col style={{ width: '75px' }} />
             <col style={{ width: '110px' }} />
-            <col style={{ width: '200px' }} />
-            <col style={{ width: '90px' }} />
-            <col style={{ width: '170px' }} />
+            <col style={{ width: '55px' }} />
+            <col style={{ width: '130px' }} />
+            <col style={{ width: '50px' }} />
+            <col style={{ width: '185px' }} />
           </colgroup>
           <thead>
             <tr>
               <th>Dorp</th>
               <th class="right">Punten</th>
-              <th>Grondstoffen</th>
+              <th class="right">Hout</th>
+              <th class="right">Leem</th>
+              <th class="right">IJzer</th>
+              <th class="right">Opslag</th>
               <th class="right">Boerderij</th>
-              <th class="right">Toestemming</th>
+              <th class="right" title="Toestemming">Toest.</th>
               <th>Bouwt</th>
-              <th class="right">Rekruteert</th>
+              <th class="right" title="Units in opleiding">Rekr.</th>
               <th>Beheer</th>
             </tr>
           </thead>
           <tbody>
             {s.villages.map((v) => (
               <tr key={v.id} class={v.id === s.village?.id ? 'current' : ''}>
-                <td>
+                <td class="clip">
                   <button class="link" onClick={() => open(v.id)}>
                     {v.name} <span class="muted mono">({v.x}|{v.y})</span>
                   </button>
                 </td>
                 <td class="right mono">{num(v.points)}</td>
-                <td>
-                  <Cost cost={v.res} /> <span class="muted">/ {num(v.storage)}</span>
-                </td>
+                {v.res.map((amount, i) => (
+                  <td key={i} class={`right mono ${amount >= v.storage ? 'warn' : ''}`}>
+                    {num(amount)}
+                  </td>
+                ))}
+                <td class="right mono muted">{num(v.storage)}</td>
                 <td class="right mono">
                   {num(v.pop.used)}/{num(v.pop.max)}
                 </td>
                 <td class={`right mono ${v.loyalty < 100 ? 'warn' : 'muted'}`}>{v.loyalty}</td>
-                <td class="nowrap">
+                <td class="clip" title={v.building ? `${v.building.name} ${v.building.level} · klaar ${formatGameTime(v.building.end)}` : ''}>
                   {v.building ? (
                     <>
                       {v.building.name} {v.building.level}{' '}
@@ -71,9 +79,7 @@ export function VillagesScreen() {
                   )}
                 </td>
                 <td class="right mono">{v.recruiting > 0 ? num(v.recruiting) : <span class="muted">—</span>}</td>
-                <td class="nowrap">
-                  <span class={v.manager ? '' : 'muted'}>{v.manager ?? 'handmatig'}</span>
-                  {' '}
+                <td class="clip">
                   <button
                     class="small"
                     disabled={v.maxMint === 0}
@@ -81,7 +87,10 @@ export function VillagesScreen() {
                     onClick={() => send({ type: 'mintCoins', villageId: v.id, count: v.maxMint })}
                   >
                     +{v.maxMint} munt
-                  </button>
+                  </button>{' '}
+                  <span class={v.manager ? '' : 'muted'} title={v.manager ?? 'Geen accountmanager'}>
+                    {v.manager ?? 'handmatig'}
+                  </span>
                 </td>
               </tr>
             ))}
