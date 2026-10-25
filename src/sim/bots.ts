@@ -274,7 +274,9 @@ function farm(state: WorldState, player: Player, v: Village, profile: BotProfile
 
   let sent = 0;
   for (const u of profile.farmUnits) {
-    const group = FARM_GROUP[u] ?? 10;
+    // bigger armies farm in bigger groups: at most ~20 groups of a unit on the road per village,
+    // which keeps the number of attacks (and the work for the simulation) in check
+    const group = Math.max(FARM_GROUP[u] ?? 10, Math.ceil((v.units[u] + v.outside[u]) / 20));
     if (v.units[u] < group) continue;
     const targets = farmTargets(state, player, v, profile, farmRadius).filter((t) => {
       if (busy.has(t.id)) return false;
