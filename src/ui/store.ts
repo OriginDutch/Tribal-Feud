@@ -22,6 +22,25 @@ export const reports = signal<Report[]>([]);
 export const ranking = signal<RankingRow[]>([]);
 /** Target picked on the map, prefilled in the rally point. */
 export const placeTarget = signal<{ x: number; y: number } | null>(null);
+/** Map style: isometric with sprites, or the classic flat squares. Remembered per browser. */
+export const mapStyle = signal<'iso' | 'flat'>(
+  (() => {
+    try {
+      return localStorage.getItem('tf-map-style') === 'flat' ? 'flat' : 'iso';
+    } catch {
+      return 'iso';
+    }
+  })(),
+);
+export function setMapStyle(style: 'iso' | 'flat'): void {
+  mapStyle.value = style;
+  try {
+    localStorage.setItem('tf-map-style', style);
+  } catch {
+    // storage blocked: just not remembered
+  }
+}
+
 /** "Kijk op de kaart": a player (by id) or the owner of the village at x|y. */
 export const mapFocus = signal<{ owner?: number; x?: number; y?: number } | null>(null);
 /** Village selected on the map. */
