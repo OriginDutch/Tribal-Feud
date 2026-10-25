@@ -22,17 +22,17 @@ export const reports = signal<Report[]>([]);
 export const ranking = signal<RankingRow[]>([]);
 /** Target picked on the map, prefilled in the rally point. */
 export const placeTarget = signal<{ x: number; y: number } | null>(null);
-/** Map style: isometric with sprites, or the classic flat squares. Remembered per browser. */
-export const mapStyle = signal<'iso' | 'flat'>(
+/** Map style: drawn villages, or the classic flat squares. Remembered per browser. */
+export const mapStyle = signal<'sprites' | 'flat'>(
   (() => {
     try {
-      return localStorage.getItem('tf-map-style') === 'flat' ? 'flat' : 'iso';
+      return localStorage.getItem('tf-map-style') === 'flat' ? 'flat' : 'sprites';
     } catch {
-      return 'iso';
+      return 'sprites';
     }
   })(),
 );
-export function setMapStyle(style: 'iso' | 'flat'): void {
+export function setMapStyle(style: 'sprites' | 'flat'): void {
   mapStyle.value = style;
   try {
     localStorage.setItem('tf-map-style', style);
