@@ -84,7 +84,15 @@ export interface Village {
    * 'levels' mode: `since` is the time of the next unpaid interval.
    * 'points' mode: `since` is when growth started and `start` the points at that moment.
    */
-  growth?: { step: number; since: number; start?: number };
+  growth?: {
+    step: number;
+    since: number;
+    start?: number;
+    /** Points lost to rams/catapults at `at`; paid off at the normal growth speed. */
+    debt?: { points: number; at: number };
+    /** Wall broken by rams: rebuilt at the type's repair speed from `level` (at `at`) up to `peak`. */
+    wallRepair?: { at: number; level: number; peak: number };
+  };
   /** Barbarian type (new worlds). Only shown to a player who scouted the village. */
   barbType?: BarbType;
   /** Production bonus. Stays with the village when it is conquered. */

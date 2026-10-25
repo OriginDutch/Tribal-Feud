@@ -24,6 +24,8 @@ export interface BarbTypeDef {
   wallFromPoints: number;
   /** The wall may only reach maxWall at this many points (linear before that). 0 = no ramp. */
   wallFullAtPoints: number;
+  /** Wall levels rebuilt per game day after rams broke it (up to the old level). */
+  wallRepairPerDay: number;
 }
 
 export const DEFAULT_BARB_TYPES: Record<BarbType, BarbTypeDef> = {
@@ -33,6 +35,7 @@ export const DEFAULT_BARB_TYPES: Record<BarbType, BarbTypeDef> = {
     maxWall: 2,
     wallFromPoints: 1000,
     wallFullAtPoints: 0,
+    wallRepairPerDay: 0.5,
   },
   military: {
     share: 0.2,
@@ -40,6 +43,7 @@ export const DEFAULT_BARB_TYPES: Record<BarbType, BarbTypeDef> = {
     maxWall: 8,
     wallFromPoints: 1000,
     wallFullAtPoints: 0,
+    wallRepairPerDay: 1,
   },
   defensive: {
     share: 0.15,
@@ -47,6 +51,7 @@ export const DEFAULT_BARB_TYPES: Record<BarbType, BarbTypeDef> = {
     maxWall: 15,
     wallFromPoints: 0,
     wallFullAtPoints: 1500,
+    wallRepairPerDay: 2,
   },
   balanced: {
     share: 0.2,
@@ -54,6 +59,7 @@ export const DEFAULT_BARB_TYPES: Record<BarbType, BarbTypeDef> = {
     maxWall: 5,
     wallFromPoints: 1000,
     wallFullAtPoints: 0,
+    wallRepairPerDay: 0.5,
   },
 };
 

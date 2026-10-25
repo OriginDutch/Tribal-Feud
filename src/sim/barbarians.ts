@@ -49,6 +49,8 @@ function weightsFor(config: WorldConfig, v: Village): readonly [BuildingId, numb
 /** Whether a typed barbarian may raise its wall now. Untyped (old) villages have no limit. */
 function wallAllowed(config: WorldConfig, v: Village, points: number): boolean {
   if (!v.barbType) return true;
+  // a broken wall comes back only at the repair speed
+  if (v.growth?.wallRepair) return false;
   const def = config.barbarians.types[v.barbType];
   if (points < def.wallFromPoints) return false;
   const cap = def.wallFullAtPoints > 0 ? Math.max(1, Math.ceil((def.maxWall * points) / def.wallFullAtPoints)) : def.maxWall;
@@ -171,14 +173,65 @@ export function growthIntervalMs(config: WorldConfig): number {
   return (config.barbarians.growthIntervalHours * 3_600_000) / (config.worldSpeed * config.barbarians.growthRate);
 }
 
+function pointsPerMs(config: WorldConfig): number {
+  const { pointsPerDay, growthRate } = config.barbarians;
+  return (pointsPerDay * config.worldSpeed * growthRate) / DAY;
+}
+
+/** Damage not yet regrown at `time`. */
+function currentDebt(config: WorldConfig, v: Village, time: number): number {
+  const d = v.growth?.debt;
+  if (!d) return 0;
+  return Math.max(0, d.points - pointsPerMs(config) * Math.max(0, time - d.at));
+}
+
 /** Points a typed barbarian village should have at `time`. */
 export function targetPoints(config: WorldConfig, v: Village, time: number): number {
   const g = v.growth;
   if (!g) return 0;
-  const { pointsPerDay, growthRate, growthCap } = config.barbarians;
-  const days = Math.max(0, time - g.since) / DAY;
   const start = g.start ?? 0;
-  return Math.max(start, Math.min(growthCap, start + pointsPerDay * days * config.worldSpeed * growthRate));
+  const grown = Math.max(start, Math.min(config.barbarians.growthCap, start + pointsPerMs(config) * Math.max(0, time - g.since)));
+  return grown - currentDebt(config, v, time);
+}
+
+/**
+ * Called after a battle that lowered buildings of a typed barbarian village: the lost points
+ * come off the growth target (so they are not regrown at once), and a broken wall is rebuilt
+ * at the type's repair speed. Old ('levels') worlds keep the old behaviour.
+ */
+export function onBarbarianDamaged(
+  config: WorldConfig,
+  v: Village,
+  time: number,
+  pointsBefore: number,
+  wallBefore: number,
+): void {
+  const g = v.growth;
+  if (!g || config.barbarians.growthMode !== 'points') return;
+  const lost = pointsBefore - villagePoints(config, v);
+  if (lost > 0) g.debt = { points: currentDebt(config, v, time) + lost, at: time };
+  if (v.buildings.wall < wallBefore) {
+    const peak = Math.max(wallBefore, g.wallRepair?.peak ?? 0);
+    g.wallRepair = { at: time, level: v.buildings.wall, peak };
+  }
+}
+
+/** Rebuilds the wall up to `time`; the rebuilt points go back on the growth target. */
+function repairWall(config: WorldConfig, v: Village, time: number): void {
+  const g = v.growth;
+  const r = g?.wallRepair;
+  if (!g || !r || !v.barbType) return;
+  const rate = config.barbarians.types[v.barbType].wallRepairPerDay * config.worldSpeed;
+  const levels = Math.floor((Math.max(0, time - r.at) / DAY) * rate);
+  const repaired = Math.min(r.peak, r.level + levels);
+  const def = config.buildings.wall;
+  if (repaired > v.buildings.wall) {
+    const restored = buildingPoints(def, repaired) - buildingPoints(def, v.buildings.wall);
+    v.buildings.wall = repaired;
+    // repaired levels pay off the damage directly
+    if (g.debt) g.debt.points = Math.max(0, g.debt.points - restored);
+  }
+  if (v.buildings.wall >= r.peak) delete g.wallRepair;
 }
 
 /** Catches a barbarian village up to `time`. Safe to call any number of times. */
@@ -186,6 +239,10 @@ export function growBarbarian(state: WorldState, v: Village, time: number): void
   if (!v.growth) return;
   const { config } = state;
   if (config.barbarians.growthMode === 'points') {
+    if (v.growth.wallRepair) {
+      settle(config, v, time);
+      repairWall(config, v, time);
+    }
     const target = targetPoints(config, v, time);
     if (villagePoints(config, v) >= target) return;
     settle(config, v, time);

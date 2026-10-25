@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BARB_TYPES } from '../shared/barbarianTypes';
 import { createConfig, type ConfigOverrides } from '../shared/config';
 import { DAY, HOUR } from '../shared/time';
-import { growBarbarian, villagePoints } from './barbarians';
+import { growBarbarian, onBarbarianDamaged, villagePoints } from './barbarians';
 import { abandonAndRestart, onBotTurn } from './bots';
 import { estimateLoot, farmCUnits } from './intel';
 import { distance, sendAttack } from './movement';
@@ -73,6 +73,31 @@ describe('barbarian types', () => {
       if (v.barbType !== 'defensive') expect(v.buildings.wall).toBe(0);
     }
     expect(barbs(s).some((v) => v.barbType === 'defensive' && v.buildings.wall > 0)).toBe(true);
+  });
+
+  it('a broken wall is rebuilt at the repair speed per type, and lost points are not regrown at once', () => {
+    const s = world();
+    const expected = { defensive: 2, military: 1, resource: 0.5, balanced: 0.5 } as const;
+    for (const type of ['defensive', 'military', 'resource', 'balanced'] as const) {
+      const v = barbs(s).find((x) => x.barbType === type);
+      if (!v) throw new Error(`no ${type}`);
+      growBarbarian(s, v, 30 * DAY);
+      const peak = v.buildings.wall;
+      expect(peak).toBeGreaterThan(0);
+      const points = villagePoints(s.config, v);
+      // rams take the wall to 0
+      v.buildings.wall = 0;
+      onBarbarianDamaged(s.config, v, 30 * DAY, points, peak);
+      growBarbarian(s, v, 30 * DAY + HOUR);
+      expect(v.buildings.wall).toBe(0);
+      // a big wall (defensive) is worth enough points that nothing is regrown in an hour
+      if (type === 'defensive') expect(villagePoints(s.config, v)).toBeLessThan(points);
+      growBarbarian(s, v, 32 * DAY);
+      expect(v.buildings.wall).toBe(Math.min(peak, Math.floor(2 * expected[type])));
+      growBarbarian(s, v, 80 * DAY);
+      expect(v.buildings.wall).toBe(peak);
+      expect(v.growth?.wallRepair).toBeUndefined();
+    }
   });
 
   it('growth is the same whether caught up at once or in steps', () => {

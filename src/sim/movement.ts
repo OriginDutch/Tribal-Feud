@@ -3,7 +3,7 @@
  */
 import type { BarbType } from '../shared/barbarianTypes';
 import { BUILDING_IDS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
-import { growBarbarian, villagePoints } from './barbarians';
+import { growBarbarian, onBarbarianDamaged, villagePoints } from './barbarians';
 import { rememberFarm } from './bots';
 import { recordIntel } from './intel';
 import { fight, morale } from './combat';
@@ -201,10 +201,12 @@ function arriveAttack(state: WorldState, m: Movement): void {
   }
 
   // buildings
+  const pointsBefore = target.owner === BARBARIAN ? villagePoints(config, target) : 0;
   target.buildings.wall = battle.wallAfter;
   if (m.catapultTarget && battle.buildingAfter !== undefined && m.catapultTarget !== 'wall') {
     target.buildings[m.catapultTarget] = battle.buildingAfter;
   }
+  if (target.owner === BARBARIAN) onBarbarianDamaged(config, target, state.time, pointsBefore, battle.wallBefore);
 
   // loot: only if the main battle was won (spy-only attacks carry nothing)
   let loot: Res | undefined;
