@@ -15,7 +15,7 @@ import { villageView } from './view';
 import { mapData, movementViews } from './mapView';
 import { sendAttack } from './movement';
 import { HUMAN_ID, addLog } from './state';
-import { claimAllRewards, claimReward, demandStatus } from './quests';
+import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
 import type { QuestsView, RankingRow } from '../shared/protocol';
 import { villagesOf } from './state';
 import { villagePoints } from './barbarians';
@@ -96,6 +96,10 @@ function questsView(s: WorldState): QuestsView {
       };
     }),
     rewards: s.rewards,
+    toasts: s.questToasts.map((t) => {
+      const reward = t.rewardId !== undefined ? s.rewards.find((r) => r.id === t.rewardId) : undefined;
+      return reward ? { id: t.id, title: t.title, reward } : { id: t.id, title: t.title };
+    }),
     buildingReward: s.config.quests.buildingReward,
   };
 }
@@ -232,6 +236,10 @@ async function handle(cmd: Command): Promise<void> {
       if (error) notice(error, 'error');
       break;
     }
+    case 'dismissToast':
+      if (!state) return;
+      dismissToast(state, cmd.id);
+      break;
     case 'claimAllRewards': {
       if (!state) return;
       const error = claimAllRewards(state);

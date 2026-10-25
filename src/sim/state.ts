@@ -7,7 +7,7 @@ import type { UnitCounts } from '../shared/gameData';
 import type { Archetype } from '../shared/botProfiles';
 import { generateMap } from './map';
 import type { Movement, Report } from './movement';
-import { checkQuests, type PendingReward, type QuestStats } from './quests';
+import { checkQuests, type PendingReward, type QuestStats, type QuestToast } from './quests';
 import { initBots } from './bots';
 import { createVillage, type Village } from './village';
 
@@ -86,6 +86,8 @@ export interface WorldState {
   questProgress: Record<string, number>;
   /** Rewards waiting to be claimed. */
   rewards: PendingReward[];
+  /** Finished quests not yet dismissed (toasts). */
+  questToasts: QuestToast[];
   stats: QuestStats;
   /** Next free id for villages, jobs, movements and reports. */
   nextId: number;
@@ -115,6 +117,7 @@ export function createWorld(config: WorldConfig): WorldState {
     intel: {},
     questProgress: {},
     rewards: [],
+    questToasts: [],
     stats: { plunders: 0, loot: 0, rewardsClaimed: 0 },
     nextId: 1,
   };

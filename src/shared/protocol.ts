@@ -39,6 +39,7 @@ export type Command =
   | { type: 'getRanking' }
   | { type: 'claimReward'; id: number }
   | { type: 'claimAllRewards' }
+  | { type: 'dismissToast'; id: number | 'all' }
   /** Debug cheats for testing. */
   | { type: 'debugGive'; units?: UnitCounts; resources?: number };
 
@@ -112,6 +113,8 @@ export interface QuestsView {
     current: { title: string; text: string; demands: DemandStatus[]; reward: { res?: Res; units?: UnitCounts } } | null;
   }[];
   rewards: PendingReward[];
+  /** Finished quests to show as toasts, oldest first. */
+  toasts: { id: number; title: string; reward?: PendingReward }[];
   buildingReward: { maxLevel: number; share: number };
 }
 

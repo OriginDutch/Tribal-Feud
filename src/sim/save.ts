@@ -11,7 +11,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 export interface SaveData {
   version: number;
@@ -109,6 +109,11 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
       if (r.scouted) intel.scout = { time: r.time, res: r.scouted.res, buildings: r.scouted.buildings };
     }
     return { ...data, version: 7 };
+  },
+  // v7 had no quest toasts.
+  7: (data) => {
+    data.state.questToasts ??= [];
+    return { ...data, version: 8 };
   },
 };
 

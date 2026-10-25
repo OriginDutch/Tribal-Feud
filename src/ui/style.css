@@ -238,3 +238,14 @@ button.action:disabled { opacity: 1; color: var(--muted); background: transparen
 label.inline-check { flex-direction: row; align-items: center; gap: 6px; }
 .bonus-tag { color: #b48ad8; }
 .queue-total { margin: 0 0 8px; color: var(--muted); }
+
+/* quest toasts: at the bottom of the menu, below the items, so they never cover a button */
+.toasts { margin-top: auto; padding-top: 12px; position: sticky; bottom: 12px; display: flex; flex-direction: column; gap: 6px; }
+.toast { background: var(--panel-2); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); font-size: 13px; }
+.toast-head { display: flex; align-items: flex-start; gap: 6px; }
+.toast-head strong { flex: 1; color: var(--accent); }
+.toast-close { background: none; border: none; color: var(--muted); padding: 0 2px; cursor: pointer; line-height: 1; min-width: 0; }
+.toast-close:hover { color: var(--text); }
+.toast-body { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.toast-body .small.primary { width: 100%; }
+.toast-more { display: flex; flex-direction: column; gap: 6px; border-color: var(--border); color: var(--muted); }

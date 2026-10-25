@@ -1,3 +1,4 @@
+import { QuestToasts } from './QuestToasts';
 import { screen, snapshot, type Screen } from '../store';
 
 export function Nav() {
@@ -44,6 +45,7 @@ export function Nav() {
           </button>
         );
       })}
+      <QuestToasts />
     </nav>
   );
 }

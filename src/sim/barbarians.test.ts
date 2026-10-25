@@ -152,7 +152,7 @@ describe('barbarian types', () => {
     }
     delete (st as unknown as Record<string, unknown>).intel;
     const loaded = fromSaveData(data);
-    expect(SAVE_VERSION).toBe(7);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(7);
     expect(loaded.config.barbarians.growthMode).toBe('levels');
     expect(loaded.intel).toEqual({});
     const v = barbs(loaded)[0];

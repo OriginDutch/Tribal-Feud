@@ -3,7 +3,7 @@ import { createConfig } from '../shared/config';
 import { HOUR, MINUTE } from '../shared/time';
 import { buildingCost } from './formulas';
 import { distance, sendAttack } from './movement';
-import { claimAllRewards, claimReward } from './quests';
+import { claimAllRewards, claimReward, dismissToast } from './quests';
 import { fromSaveData, toSaveData } from './save';
 import { advance, setPaused } from './simulation';
 import { BARBARIAN, createWorld, playerVillage, type WorldState } from './state';
@@ -92,5 +92,39 @@ describe('quests', () => {
     const b = fromSaveData(JSON.parse(JSON.stringify(toSaveData(s, 0))));
     expect(b.questProgress).toEqual(s.questProgress);
     expect(b.rewards).toEqual(s.rewards);
+  });
+});
+
+describe('quest toasts', () => {
+  it('every finished quest gets a toast; closing it removes it', () => {
+    const { s } = setup();
+    // c1 (wood 1) is done from the start
+    const toast = s.questToasts.find((t) => t.title === 'Laten we beginnen');
+    expect(toast).toBeDefined();
+    dismissToast(s, toast?.id ?? -1);
+    expect(s.questToasts.some((t) => t.id === toast?.id)).toBe(false);
+    s.questToasts.push({ id: 1, title: 'a' }, { id: 2, title: 'b' });
+    dismissToast(s, 'all');
+    expect(s.questToasts).toHaveLength(0);
+  });
+
+  it('a quest reward can be claimed from its toast, which then disappears', () => {
+    const config = createConfig('classic', 'Test', 5, { luck: false });
+    const first = config.quests.chains[0]?.quests[0];
+    if (!first) throw new Error('no quest');
+    first.reward = { res: [10, 10, 10] };
+    const s = createWorld(config);
+    const toast = s.questToasts.find((t) => t.title === first.title);
+    expect(toast?.rewardId).toBeDefined();
+    expect(claimReward(s, toast?.rewardId ?? -1)).toBeNull();
+    expect(s.questToasts.some((t) => t.id === toast?.id)).toBe(false);
+  });
+
+  it('old saves get an empty toast list', () => {
+    const { s } = setup();
+    const data = toSaveData(s, 0) as unknown as { version: number; state: Record<string, unknown> };
+    data.version = 7;
+    delete data.state.questToasts;
+    expect(fromSaveData(data).questToasts).toEqual([]);
   });
 });

@@ -18,6 +18,16 @@ export interface PendingReward {
   units?: UnitCounts;
 }
 
+/** A finished quest the player hasn't dismissed yet (shown as a toast). */
+export interface QuestToast {
+  id: number;
+  title: string;
+  /** The reward to claim from the toast, if the quest has one. */
+  rewardId?: number;
+}
+
+const MAX_TOASTS = 20;
+
 export interface QuestStats {
   plunders: number;
   loot: number;
@@ -74,11 +84,15 @@ export function checkQuests(state: WorldState): void {
       if (!quest.demands.every((d) => demandStatus(state, d).done)) break;
       state.questProgress[chain.id] = index + 1;
       const hasReward = quest.reward.res !== undefined || quest.reward.units !== undefined;
+      const toast: QuestToast = { id: nextId(state), title: quest.title };
       if (hasReward) {
         const reward: PendingReward = { id: nextId(state), text: `Opdracht: ${quest.title}`, res: quest.reward.res ? [...quest.reward.res] : [0, 0, 0] };
         if (quest.reward.units) reward.units = { ...quest.reward.units };
         state.rewards.push(reward);
+        toast.rewardId = reward.id;
       }
+      state.questToasts.push(toast);
+      if (state.questToasts.length > MAX_TOASTS) state.questToasts.splice(0, state.questToasts.length - MAX_TOASTS);
       addLog(state, { time: state.time, text: `Opdracht voltooid: ${quest.title}.` });
     }
   }
@@ -104,6 +118,16 @@ export function buildingReward(state: WorldState, v: Village, building: Building
   });
 }
 
+/** Drops toasts whose reward has been claimed in full (from the toast or the quests screen). */
+export function pruneToasts(state: WorldState): void {
+  const open = new Set(state.rewards.map((r) => r.id));
+  state.questToasts = state.questToasts.filter((t) => t.rewardId === undefined || open.has(t.rewardId));
+}
+
+export function dismissToast(state: WorldState, id: number | 'all'): void {
+  state.questToasts = id === 'all' ? [] : state.questToasts.filter((t) => t.id !== id);
+}
+
 /** Claims as much of a reward as fits. Returns an error message or null. */
 export function claimReward(state: WorldState, rewardId: number): string | null {
   const v = playerVillage(state);
@@ -127,7 +151,10 @@ export function claimReward(state: WorldState, rewardId: number): string | null 
     claimed = true;
   }
   if (!claimed) return 'Je opslag zit vol.';
-  if (reward.res.every((r) => r <= 0)) state.rewards = state.rewards.filter((r) => r.id !== rewardId);
+  if (reward.res.every((r) => r <= 0)) {
+    state.rewards = state.rewards.filter((r) => r.id !== rewardId);
+    pruneToasts(state);
+  }
   state.stats.rewardsClaimed++;
   checkQuests(state);
   return null;
