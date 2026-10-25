@@ -2,6 +2,7 @@ import { formatGameTime } from '../../shared/time';
 import { MapLink } from '../components/MapLink';
 import { duration, num } from '../format';
 import { screen, snapshot } from '../store';
+import { VillageScene } from '../village/VillageScene';
 
 export function OverviewScreen() {
   const s = snapshot.value;
@@ -51,6 +52,7 @@ export function OverviewScreen() {
       {s.time < s.protectionEndsAt && (
         <p class="muted">Beginnersbescherming tot {formatGameTime(s.protectionEndsAt)}: niemand kan jou aanvallen, en jij hen niet.</p>
       )}
+      <VillageScene village={v} />
       <p class="muted">
         Wereld: snelheid ×{s.multipliers.world} · productie ×{s.multipliers.production} · bouwen ×{s.multipliers.build} ·
         rekruteren ×{s.multipliers.recruit}
