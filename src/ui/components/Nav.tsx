@@ -16,6 +16,7 @@ export function Nav() {
     { id: 'stable', label: 'Stal', building: 'stable' },
     { id: 'garage', label: 'Werkplaats', building: 'garage' },
     { id: 'statue', label: 'Standbeeld', building: 'statue' },
+    { id: 'snob', label: 'Adelshoeve', building: 'snob' },
     { id: 'smith', label: 'Smederij', building: 'smith' },
     { id: 'place', label: 'Verzamelplaats', building: 'place' },
     { id: 'map', label: 'Kaart' },
@@ -25,6 +26,7 @@ export function Nav() {
     { id: 'debug', label: 'Log & debug' },
   ];
   const unread = snapshot.value?.unreadReports ?? 0;
+  const incoming = snapshot.value?.incoming.length ?? 0;
   const rewardCount = snapshot.value?.quests.rewards.length ?? 0;
 
   return (
@@ -41,6 +43,11 @@ export function Nav() {
             <span>{item.label}</span>
             {lvl !== null && <span class="lvl">{lvl > 0 ? lvl : '—'}</span>}
             {item.id === 'reports' && unread > 0 && <span class="badge">{unread}</span>}
+            {item.id === 'overview' && incoming > 0 && (
+              <span class="badge danger" title="Inkomende aanvallen">
+                ⚔ {incoming}
+              </span>
+            )}
             {item.id === 'quests' && rewardCount > 0 && <span class="badge good">{rewardCount}</span>}
           </button>
         );

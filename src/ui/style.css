@@ -257,3 +257,9 @@ button.link { background: none; border: none; padding: 0; color: var(--text); cu
 button.link:hover { color: var(--accent); }
 tr.current td { background: var(--panel-2); }
 .warn { color: var(--danger); }
+
+.tag-defense { background: var(--danger); color: var(--accent-text); border-radius: 4px; padding: 0 6px; font-size: 12px; font-weight: 600; }
+.tag-support { background: #6a8fb5; color: var(--accent-text); border-radius: 4px; padding: 0 6px; font-size: 12px; font-weight: 600; }
+.incoming { border-color: var(--danger); }
+.incoming h3 { color: var(--danger); }
+.badge.danger { background: var(--danger); }

@@ -22,13 +22,13 @@ export function VillagesScreen() {
         <h3>Productie</h3>
         <table class="table fixed">
           <colgroup>
-            <col style={{ width: '220px' }} />
-            <col style={{ width: '80px' }} />
+            <col style={{ width: '200px' }} />
+            <col style={{ width: '70px' }} />
             <col />
+            <col style={{ width: '100px' }} />
             <col style={{ width: '110px' }} />
-            <col style={{ width: '80px' }} />
-            <col style={{ width: '220px' }} />
-            <col style={{ width: '80px' }} />
+            <col style={{ width: '200px' }} />
+            <col style={{ width: '90px' }} />
           </colgroup>
           <thead>
             <tr>

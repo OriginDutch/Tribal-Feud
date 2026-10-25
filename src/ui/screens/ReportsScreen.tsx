@@ -39,6 +39,11 @@ function UnitTable({ rows }: { rows: { label: string; units: UnitCounts }[] }) {
   );
 }
 
+/** Seen from the defender: green if the attack failed, red if it got through. */
+function defenseDot(r: Report): string {
+  return r.result === 'loss' ? 'win' : 'loss';
+}
+
 function ReportDetail({ r }: { r: Report }) {
   const names = snapshot.value?.village?.buildings ?? [];
   const bname = (id: string) => names.find((b) => b.id === id)?.name ?? id;
@@ -60,6 +65,17 @@ function ReportDetail({ r }: { r: Report }) {
       <h4>
         Verdediger: {r.defender.name} ({r.defender.x}|{r.defender.y}) · {r.defender.ownerName}
       </h4>
+      {r.supportUnits && (
+        <>
+          <p class="muted">Jouw ondersteuning in dit dorp:</p>
+          <UnitTable
+            rows={[
+              { label: 'Aantal', units: r.supportUnits.present },
+              { label: 'Verliezen', units: r.supportUnits.lost },
+            ]}
+          />
+        </>
+      )}
       {r.defenderUnits ? (
         <UnitTable
           rows={[
@@ -87,6 +103,12 @@ function ReportDetail({ r }: { r: Report }) {
           ) : (
             <>Muur: level {r.wall.after}</>
           )}
+        </p>
+      )}
+      {r.loyalty && (
+        <p>
+          Toestemming: {r.loyalty.before} → {r.conquered ? <strong>veroverd!</strong> : r.loyalty.after}
+          {r.conquered && <span class="muted"> (staat nu op {r.loyalty.after})</span>}
         </p>
       )}
       {r.building && (
@@ -142,9 +164,11 @@ export function ReportsScreen() {
             {[...list].reverse().map((r) => (
               <li key={r.id} class={r.read ? '' : 'unread'}>
                 <button class="report-head" onClick={() => toggle(r)}>
-                  <span class={`dot ${r.result}`} />
+                  <span class={`dot ${r.defense ? defenseDot(r) : r.result}`} />
                   <span>
-                    {r.attacker.name} valt {r.defender.name} ({r.defender.x}|{r.defender.y}) aan
+                    {r.defense && <span class="tag-defense">Verdediging</span>} {r.attacker.name} ({r.attacker.ownerName}) valt{' '}
+                    {r.defender.name} ({r.defender.x}|{r.defender.y}) aan
+                    {r.conquered && <strong class="warn"> · veroverd</strong>}
                   </span>
                   {r.loot && <span class="muted">buit {num(r.loot[0] + r.loot[1] + r.loot[2])}</span>}
                   <span class="mono muted">{formatGameTime(r.time)}</span>

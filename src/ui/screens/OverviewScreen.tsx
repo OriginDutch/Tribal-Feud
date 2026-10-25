@@ -1,3 +1,4 @@
+import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
 import { screen, snapshot } from '../store';
 
@@ -15,6 +16,39 @@ export function OverviewScreen() {
       <h2>
         {v.name} <span class="muted">({v.x}|{v.y}) · {num(v.points)} punten</span>
       </h2>
+      {s.incoming.length > 0 && (
+        <section class="panel incoming">
+          <h3>⚔ Inkomende aanvallen ({s.incoming.length})</h3>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Doel</th>
+                <th>Van</th>
+                <th>Aankomst</th>
+                <th class="right">Nog</th>
+              </tr>
+            </thead>
+            <tbody>
+              {s.incoming.map((m) => (
+                <tr key={m.id}>
+                  <td>
+                    {m.to.name} ({m.to.x}|{m.to.y})
+                  </td>
+                  <td>
+                    {m.from.name} ({m.from.x}|{m.from.y}) <span class="muted">· {m.from.ownerName}</span>
+                  </td>
+                  <td class="mono muted">{formatGameTime(m.arrives)}</td>
+                  <td class="right mono">{duration(m.arrives - s.time)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+      {v.loyalty < 100 && <p class="warn">Toestemming van dit dorp: {v.loyalty}</p>}
+      {s.time < s.protectionEndsAt && (
+        <p class="muted">Beginnersbescherming tot {formatGameTime(s.protectionEndsAt)}: niemand kan jou aanvallen, en jij hen niet.</p>
+      )}
       <p class="muted">
         Wereld: snelheid ×{s.multipliers.world} · productie ×{s.multipliers.production} · bouwen ×{s.multipliers.build} ·
         rekruteren ×{s.multipliers.recruit}

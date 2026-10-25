@@ -45,7 +45,8 @@ export type Command =
   | { type: 'returnSupport'; hostId: number; originId: number }
   | { type: 'dismissToast'; id: number | 'all' }
   /** Debug cheats for testing. */
-  | { type: 'debugGive'; units?: UnitCounts; resources?: number };
+  | { type: 'debugGive'; units?: UnitCounts; resources?: number; buildings?: Partial<Record<BuildingId, number>> }
+  | { type: 'debugConquer' };
 
 export interface MapVillage {
   id: number;

@@ -321,10 +321,18 @@ export function MapScreen() {
                   )}
                 </tbody>
               </table>
+              {selected.kind === 'own' && selected.id !== own.id && (
+                <div class="row">
+                  <button class="primary" onClick={() => send({ type: 'selectVillage', id: selected.id })}>
+                    Naar dit dorp
+                  </button>
+                  <button onClick={() => attackVillage(selected.x, selected.y)}>Ondersteunen</button>
+                </div>
+              )}
               {selected.kind !== 'own' && (
                 <div class="row">
                   <button class="primary" onClick={() => attackVillage(selected.x, selected.y)}>
-                    Aanvallen
+                    {selected.kind === 'barb' ? 'Aanvallen' : 'Verzamelplaats'}
                   </button>
                   <button onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: 'A' })}>Farm A</button>
                   <button onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: 'B' })}>Farm B</button>

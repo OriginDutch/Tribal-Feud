@@ -14,7 +14,8 @@ import { createWorld, currentVillage, playerVillage, type WorldState } from './s
 import { storageCapacity } from './formulas';
 import { villageView } from './view';
 import { incomingViews, mapData, movementViews } from './mapView';
-import { loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendSupport } from './movement';
+import { conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendSupport } from './movement';
+import { BARBARIAN } from './state';
 import { mintCoins } from './nobles';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
@@ -310,6 +311,18 @@ async function handle(cmd: Command): Promise<void> {
       if (error) notice(error, 'error');
       break;
     }
+    case 'debugConquer': {
+      if (!state) return;
+      const here = currentVillage(state);
+      if (!here) return;
+      const target = Object.values(state.villages)
+        .filter((x) => x.owner === BARBARIAN)
+        .sort((a, b) => distance(a, here) - distance(b, here))[0];
+      if (!target) return;
+      conquer(state, target, HUMAN_ID);
+      addLog(state, { time: state.time, text: `Debug: ${target.name} (${target.x}|${target.y}) overgenomen.` });
+      break;
+    }
     case 'selectVillage':
       if (!state) return;
       if (state.villages[cmd.id]?.owner === HUMAN_ID) state.current = cmd.id;
@@ -321,6 +334,10 @@ async function handle(cmd: Command): Promise<void> {
       settle(state.config, v, state.time);
       if (cmd.resources) for (const i of [0, 1, 2] as const) v.res[i] += cmd.resources;
       for (const u of UNIT_IDS) v.units[u] += Math.max(0, Math.floor(cmd.units?.[u] ?? 0));
+      for (const [b, level] of Object.entries(cmd.buildings ?? {})) {
+        const id = b as keyof typeof v.buildings;
+        if (id in v.buildings) v.buildings[id] = Math.max(v.buildings[id], Math.min(state.config.buildings[id].maxLevel, level ?? 0));
+      }
       addLog(state, { time: state.time, text: 'Debug: troepen/grondstoffen toegevoegd.' });
       break;
     }

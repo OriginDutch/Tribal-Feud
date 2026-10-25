@@ -63,6 +63,68 @@ const TITLES: Record<RecruitBuilding, string> = {
   snob: 'Adelshoeve',
 };
 
+function CoinPanel() {
+  const v = snapshot.value?.village;
+  const [count, setCount] = useState('1');
+  if (!v) return null;
+  const n = v.nobles;
+  const coins = n.mode === 'coins';
+  const word = coins ? 'munten' : 'pakketten';
+  const amount = Math.max(1, Math.floor(Number(count) || 1));
+  return (
+    <section class="panel">
+      <h3>{coins ? 'Munten slaan' : 'Pakketten opslaan'}</h3>
+      <table class="table compact">
+        <tbody>
+          <tr>
+            <td>{coins ? 'Munten (voor al je dorpen)' : 'Pakketten in dit dorp'}</td>
+            <td class="right mono">{num(n.have)}</td>
+          </tr>
+          <tr>
+            <td>Edel-plekken in gebruik (extra dorpen + edels)</td>
+            <td class="right mono">{n.slotsUsed}</td>
+          </tr>
+          <tr>
+            <td>Volgende edel vereist</td>
+            <td class="right mono">
+              {coins ? `${n.need} munten in totaal` : `${n.need} pakketten`}
+            </td>
+          </tr>
+          <tr>
+            <td>Edels die je nu nog mag trainen</td>
+            <td class="right mono">{n.allowed}</td>
+          </tr>
+          <tr>
+            <td>Max afstand edelman</td>
+            <td class="right mono">{n.maxDistance} velden</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="row">
+        <span>
+          1 {coins ? 'munt' : 'pakket'}: <Cost cost={n.coinCost} have={v.res} />
+        </span>
+        <input type="number" min={1} max={Math.max(1, n.maxMint)} value={count} onInput={(e) => setCount(e.currentTarget.value)} style={{ width: '80px' }} />
+        <span class="muted">({n.maxMint})</span>
+        <button
+          class="action"
+          disabled={n.mintBlocker !== null}
+          title={n.mintBlocker ?? ''}
+          onClick={() => send({ type: 'mintCoins', villageId: v.id, count: amount })}
+        >
+          {n.mintBlocker ?? (coins ? 'Slaan' : 'Opslaan')}
+        </button>
+      </div>
+      <p class="hint">
+        {coins
+          ? 'Elke edel en elk extra dorp neemt een plek in. Plek 1 kost 1 munt, plek 2 nog 2, plek 3 nog 3, enz. Munten raak je niet kwijt als een edel sneuvelt.'
+          : 'Pakketten blijven in dit dorp en worden opgebruikt bij het trainen van een edel.'}{' '}
+        Je hebt nu {word} genoeg voor {n.allowed} edel{n.allowed === 1 ? '' : 's'}.
+      </p>
+    </section>
+  );
+}
+
 export function RecruitScreen({ building }: { building: RecruitBuilding }) {
   const s = snapshot.value;
   const v = s?.village;
@@ -83,6 +145,7 @@ export function RecruitScreen({ building }: { building: RecruitBuilding }) {
         </section>
       ) : (
         <>
+          {building === 'snob' && <CoinPanel />}
           <section class="panel">
             <table class="table fixed">
               <colgroup>

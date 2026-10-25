@@ -31,7 +31,7 @@ export function PlaceScreen() {
   if (!s || !v) return null;
   const place = v.buildings.find((b) => b.id === 'place');
   const target = mapData.value?.villages.find((m) => m.x === Number(x) && m.y === Number(y));
-  const units = v.units.filter((u) => u.enabled && u.id !== 'snob');
+  const units = v.units.filter((u) => u.enabled);
 
   const chosen: UnitCounts = {};
   for (const u of UNIT_IDS) {
@@ -53,6 +53,13 @@ export function PlaceScreen() {
     });
     setCounts({});
   };
+
+  const support = () => {
+    if (!target) return;
+    send({ type: 'sendSupport', from: v.id, to: target.id, units: chosen });
+    setCounts({});
+  };
+  const ownTarget = target?.kind === 'own';
 
   return (
     <div class="screen">
@@ -105,8 +112,11 @@ export function PlaceScreen() {
                 </select>
               </label>
             )}
-            <button class="primary" disabled={!target || !hasUnits || target.id === v.id} onClick={attack}>
+            <button class="primary" disabled={!target || !hasUnits || target.id === v.id || ownTarget} onClick={attack}>
               Aanvallen
+            </button>
+            <button disabled={!target || !hasUnits || target.id === v.id || target.kind === 'barb'} onClick={support}>
+              Ondersteunen
             </button>
           </div>
           <p class="muted">
@@ -141,6 +151,10 @@ export function PlaceScreen() {
                       <>
                         <span class="tag-attack">Aanval</span> op {m.to.name} ({m.to.x}|{m.to.y})
                       </>
+                    ) : m.kind === 'support' ? (
+                      <>
+                        <span class="tag-support">Steun</span> naar {m.to.name} ({m.to.x}|{m.to.y})
+                      </>
                     ) : (
                       <>
                         <span class="tag-return">Terug</span> van {m.from.name} ({m.from.x}|{m.from.y})
@@ -151,6 +165,56 @@ export function PlaceScreen() {
                   <td class="muted">{unitsText(m.units)}</td>
                   <td class="mono muted">{formatGameTime(m.arrives)}</td>
                   <td class="right mono">{duration(m.arrives - s.time)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section class="panel">
+        <h3>Ondersteuning in dit dorp</h3>
+        {v.supportHere.length === 0 ? (
+          <p class="muted">Geen troepen van andere dorpen.</p>
+        ) : (
+          <table class="table">
+            <tbody>
+              {v.supportHere.map((x) => (
+                <tr key={x.origin.id}>
+                  <td>
+                    {x.origin.name} ({x.origin.x}|{x.origin.y}) <span class="muted">· {x.origin.ownerName}</span>
+                  </td>
+                  <td class="muted">{unitsText(x.units)}</td>
+                  <td class="right">
+                    <button class="small" onClick={() => send({ type: 'returnSupport', hostId: v.id, originId: x.origin.id })}>
+                      Terugsturen
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section class="panel">
+        <h3>Troepen van dit dorp elders</h3>
+        {v.supportAway.length === 0 ? (
+          <p class="muted">Dit dorp ondersteunt niemand.</p>
+        ) : (
+          <table class="table">
+            <tbody>
+              {v.supportAway.map((x) => (
+                <tr key={x.host.id}>
+                  <td>
+                    In {x.host.name} ({x.host.x}|{x.host.y}) <span class="muted">· {x.host.ownerName}</span>
+                  </td>
+                  <td class="muted">{unitsText(x.units)}</td>
+                  <td class="right">
+                    <button class="small" onClick={() => send({ type: 'returnSupport', hostId: x.host.id, originId: v.id })}>
+                      Terugtrekken
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
