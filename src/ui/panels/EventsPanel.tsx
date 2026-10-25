@@ -1,3 +1,4 @@
+import type { AlertMode } from '../../sim/state';
 import { MINUTE } from '../../shared/time';
 import { send, snapshot } from '../store';
 
@@ -34,6 +35,19 @@ export function EventsPanel() {
         >
           Cheat: klaar voor edels (HQ 20, smederij 20, markt 10, adelshoeve, opslag 30, +300k)
         </button>
+        <label>
+          Auto-pause bij aanvallen
+          <select
+            disabled={!s}
+            value={s?.alertMode ?? 'perVillage'}
+            onChange={(e) => send({ type: 'setAlertMode', mode: e.currentTarget.value as AlertMode })}
+          >
+            <option value="every">Elke inkomende aanval</option>
+            <option value="perVillage">Eerste aanval per aanvallend dorp (per speldag)</option>
+            <option value="lostOnly">Alleen als je een dorp verliest</option>
+            <option value="off">Nooit</option>
+          </select>
+        </label>
         <button disabled={!s} onClick={() => send({ type: 'debugConquer' })}>
           Cheat: dichtstbijzijnde barbarendorp overnemen
         </button>

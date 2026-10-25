@@ -118,6 +118,7 @@ function snapshot(): Snapshot | null {
     movements: movementViews(state),
     incoming: incomingViews(state),
     protectionEndsAt: protectionEndsAt(state),
+    alertMode: state.alertMode ?? 'perVillage',
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
     marchFactor: state.config.worldSpeed * state.config.unitSpeed * state.config.marchSpeed,
@@ -323,6 +324,10 @@ async function handle(cmd: Command): Promise<void> {
       addLog(state, { time: state.time, text: `Debug: ${target.name} (${target.x}|${target.y}) overgenomen.` });
       break;
     }
+    case 'setAlertMode':
+      if (!state) return;
+      state.alertMode = cmd.mode;
+      break;
     case 'selectVillage':
       if (!state) return;
       if (state.villages[cmd.id]?.owner === HUMAN_ID) state.current = cmd.id;

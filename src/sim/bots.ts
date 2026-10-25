@@ -11,7 +11,8 @@ import { MINUTE } from '../shared/time';
 const DAY = 86_400_000;
 import { push } from './eventQueue';
 import { buildingCost } from './formulas';
-import { distance, sendAttack } from './movement';
+import { distance, protectionBlocker, protectionEndsAt, sendAttack } from './movement';
+import { mintCoins, noblesAllowed } from './nobles';
 import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { edgeSpot } from './map';
@@ -82,6 +83,8 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   const profile = BOT_PROFILES[player.bot.archetype];
   const reserve = build(state, v, profile);
   research(state, v, profile);
+  nobleTurn(state, player, v, profile, reserve);
+  recruitDefense(state, v, profile, reserve);
   recruitTroops(state, v, profile, reserve);
   farm(state, player, v, profile);
 }
@@ -273,7 +276,7 @@ function farm(state: WorldState, player: Player, v: Village, profile: BotProfile
   for (const u of profile.farmUnits) {
     const group = FARM_GROUP[u] ?? 10;
     if (v.units[u] < group) continue;
-    const targets = barbariansNear(state, v, farmRadius).filter((t) => {
+    const targets = farmTargets(state, player, v, profile, farmRadius).filter((t) => {
       if (busy.has(t.id)) return false;
       const log = bot.farmLog[t.id];
       // a lost attack: stay away for a day
@@ -291,9 +294,9 @@ function farm(state: WorldState, player: Player, v: Village, profile: BotProfile
   }
 }
 
-/** Barbarian villages within `radius` of `v`, nearest first. Cached per world and village. */
+/** All villages within `radius` of `v`, nearest first (any owner). Cached per world and village. */
 const nearCache = new WeakMap<WorldState, Map<string, number[]>>();
-function barbariansNear(state: WorldState, v: Village, radius: number): Village[] {
+function villagesNear(state: WorldState, v: Village, radius: number): Village[] {
   let cache = nearCache.get(state);
   if (!cache) {
     cache = new Map();
@@ -303,7 +306,7 @@ function barbariansNear(state: WorldState, v: Village, radius: number): Village[
   let ids = cache.get(key);
   if (!ids) {
     ids = Object.values(state.villages)
-      .filter((x) => x.owner === BARBARIAN && distance(x, v) <= radius)
+      .filter((x) => x.id !== v.id && distance(x, v) <= radius)
       .sort((a, b) => distance(a, v) - distance(b, v))
       .map((x) => x.id);
     cache.set(key, ids);
@@ -311,12 +314,143 @@ function barbariansNear(state: WorldState, v: Village, radius: number): Village[
   const out: Village[] = [];
   for (const id of ids) {
     const x = state.villages[id];
-    if (x && x.owner === BARBARIAN) out.push(x);
+    if (x) out.push(x);
   }
   return out;
 }
 
-/** Called from the battle code: bots remember how their farm attacks went. */
+/** New villages appeared (a restart at the edge): forget the cached neighbourhoods. */
+export function forgetNeighbourhoods(state: WorldState): void {
+  nearCache.delete(state);
+}
+
+/**
+ * Farm targets: barbarians, and for aggressive bots also other players' villages once
+ * beginner protection is over (players they beat before, or never tried).
+ */
+function farmTargets(state: WorldState, player: Player, v: Village, profile: BotProfile, radius: number): Village[] {
+  const players = profile.attacksPlayers && state.time >= protectionEndsAt(state);
+  return villagesNear(state, v, radius).filter(
+    (x) => x.owner === BARBARIAN || (players && x.owner !== player.id && x.owner >= 0),
+  );
+}
+
+// --- defense ------------------------------------------------------------------
+
+const DEFENSE_UNITS: UnitId[] = ['spear', 'sword', 'archer', 'heavy'];
+
+/** Farm space of defensive troops a village has (home, outside and in training). */
+function defensePop(state: WorldState, v: Village): number {
+  let pop = 0;
+  for (const u of DEFENSE_UNITS) {
+    let n = v.units[u] + v.outside[u];
+    for (const job of v.recruitQueues[state.config.units[u].building]) if (job.unit === u) n += job.total - job.done;
+    pop += n * state.config.units[u].pop;
+  }
+  return pop;
+}
+
+/** Keeps a defense in proportion to the village's size before spending on anything else. */
+function recruitDefense(state: WorldState, v: Village, profile: BotProfile, reserve: Res): void {
+  const { config } = state;
+  const want = villagePoints(config, v) * profile.defensePerPoint;
+  const missing = want - defensePop(state, v);
+  if (missing < 10) return;
+  const have = currentResources(config, v, state.time);
+  const spare: Res = [0, 1, 2].map((i) => Math.max(0, have[i as 0 | 1 | 2] - reserve[i as 0 | 1 | 2])) as Res;
+  for (const u of ['spear', 'sword'] as const) {
+    if (recruitBlocker(state, v, u) !== null) continue;
+    if (v.recruitQueues.barracks.length >= 2) return;
+    const def = config.units[u];
+    const affordable = Math.floor(Math.min(...[0, 1, 2].map((i) => spare[i as 0 | 1 | 2] / 2 / Math.max(1, def.cost[i as 0 | 1 | 2]))));
+    const n = Math.min(affordable, maxRecruitable(state, v, u), Math.ceil(missing / 2 / def.pop));
+    if (n >= 1) recruit(state, v.id, u, n);
+  }
+}
+
+// --- noblemen ----------------------------------------------------------------
+
+/** How far bots look for villages to noble. */
+const NOBLE_RADIUS = 20;
+/** Escort that goes with a nobleman to a barbarian village. */
+const BARB_ESCORT = 50;
+
+/**
+ * Mints coins, trains one nobleman per village and sends him with an escort, again and again,
+ * at one target until it falls. The nobleman comes home after every attack (he is only used
+ * up when he takes the village).
+ */
+function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotProfile, reserve: Res): void {
+  const { config } = state;
+  const bot = player.bot;
+  if (!bot || !isOperational(config, v, 'snob')) return;
+  const queued = v.recruitQueues.snob.reduce((n, j) => n + j.total - j.done, 0);
+  const nobles = v.units.snob + v.outside.snob + queued;
+
+  if (nobles === 0) {
+    const have = currentResources(config, v, state.time);
+    const free = (cost: Res) => [0, 1, 2].every((i) => have[i as 0 | 1 | 2] - reserve[i as 0 | 1 | 2] >= cost[i as 0 | 1 | 2]);
+    if (noblesAllowed(state, v) > 0) {
+      if (free(config.units.snob.cost)) recruit(state, v.id, 'snob', 1);
+    } else if (free(config.conquest.coinCost)) {
+      mintCoins(state, v.id, 1);
+    }
+    return;
+  }
+  if (v.units.snob === 0 || !isOperational(config, v, 'place')) return;
+
+  const target = nobleTarget(state, player, v, profile);
+  if (!target) return;
+  const escort: UnitCounts = { snob: 1 };
+  if (target.owner === BARBARIAN) {
+    // a barbarian village has no troops: a small escort is enough
+    let left = BARB_ESCORT;
+    for (const u of ['axe', 'light', 'spear', 'sword'] as const) {
+      const n = Math.min(left, v.units[u]);
+      if (n > 0) escort[u] = n;
+      left -= n;
+    }
+    if (left > BARB_ESCORT / 2) return;
+  } else {
+    // a player: everything offensive goes along
+    for (const u of ['axe', 'light', 'marcher', 'ram', 'catapult'] as const) if (v.units[u] > 0) escort[u] = v.units[u];
+    if ((escort.axe ?? 0) + (escort.light ?? 0) * 4 < 400) return;
+  }
+  if (sendAttack(state, v.id, target.id, escort) === null) {
+    bot.nobleTarget = target.id;
+    bot.outgoing.push(target.id);
+  }
+}
+
+function nobleTarget(state: WorldState, player: Player, v: Village, profile: BotProfile): Village | null {
+  const bot = player.bot;
+  if (!bot) return null;
+  const maxDist = Math.min(NOBLE_RADIUS, state.config.conquest.maxDistance);
+  const current = bot.nobleTarget !== undefined ? state.villages[bot.nobleTarget] : undefined;
+  const ok = (t: Village) => {
+    if (t.owner === player.id || distance(t, v) > maxDist) return false;
+    if (t.owner === BARBARIAN) return true;
+    if (!profile.attacksPlayers || protectionBlocker(state, player.id, t.owner) !== null) return false;
+    // only players it beat before
+    return bot.farmLog[t.id]?.won === true;
+  };
+  if (current && ok(current) && bot.farmLog[current.id]?.won !== false) return current;
+  let best: Village | null = null;
+  let bestScore = -Infinity;
+  for (const t of villagesNear(state, v, maxDist)) {
+    if (!ok(t)) continue;
+    const log = bot.farmLog[t.id];
+    if (log && !log.won && state.time - log.at < 24 * 60 * MINUTE) continue;
+    const score = villagePoints(state.config, t) / (3 + distance(t, v));
+    if (score > bestScore) {
+      bestScore = score;
+      best = t;
+    }
+  }
+  return best;
+}
+
+/** Called from the battle code: bots remember how their attacks went (farm and noble). */
 export function rememberFarm(state: WorldState, owner: number, targetId: number, won: boolean): void {
   const bot = state.players[owner]?.bot;
   if (!bot) return;

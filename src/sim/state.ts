@@ -37,6 +37,8 @@ export interface BotState {
   farmLog: Record<number, { at: number; won: boolean }>;
   /** Barbarian villages this bot has a farm attack on the way to. */
   outgoing: number[];
+  /** Village this bot is nobling. */
+  nobleTarget?: number;
   /** Highest points seen and when: a bot that stops growing gives up (see abandon). */
   peak?: { points: number; at: number };
 }
@@ -97,7 +99,17 @@ export interface WorldState {
   current?: number;
   /** An alert raised during an event (incoming attack, village lost): it auto-pauses the game. */
   alert?: LogEntry;
+  /** When to auto-pause for attacks (default: the first attack per attacking village). */
+  alertMode?: AlertMode;
+  /** perVillage mode: when each attacking village last caused a pause. */
+  alertSeen?: Record<number, number>;
 }
+
+/**
+ * every: every incoming attack · perVillage: the first attack per attacking village per
+ * game day (÷ world speed) · lostOnly: only a lost village · off: never.
+ */
+export type AlertMode = 'every' | 'perVillage' | 'lostOnly' | 'off';
 
 export const MAX_LOG = 100;
 

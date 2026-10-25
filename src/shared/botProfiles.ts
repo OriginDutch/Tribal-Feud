@@ -26,6 +26,10 @@ export interface BotProfile {
   farmUnits: UnitId[];
   /** Share of spare resources spent on troops each turn (0..1). */
   troopShare: number;
+  /** Farms and nobles other players (not only barbarians). */
+  attacksPlayers: boolean;
+  /** Defensive farm space a village keeps per village point (spear/sword/archer/heavy). */
+  defensePerPoint: number;
 }
 
 type Step = [BuildingId, number];
@@ -69,35 +73,47 @@ export const BOT_PROFILES: Record<Archetype, BotProfile> = {
     troops: { spear: 4, sword: 4, archer: 2, heavy: 1 },
     farmUnits: ['light', 'spear'],
     troopShare: 0.5,
+    attacksPlayers: false,
+    defensePerPoint: 0.15,
   },
   rusher: {
     buildOrder: [...OPENING, ...MID_OFFENSE, ...ENDGAME],
     troops: { axe: 5, light: 3, ram: 1 },
     farmUnits: ['light', 'axe'],
     troopShare: 0.6,
+    attacksPlayers: true,
+    defensePerPoint: 0.04,
   },
   farmer: {
     buildOrder: [...OPENING, ...MID_ECONOMY, ...ENDGAME],
     troops: { spear: 3, light: 3 },
     farmUnits: ['light', 'spear'],
     troopShare: 0.35,
+    attacksPlayers: false,
+    defensePerPoint: 0.08,
   },
   diplomat: {
     buildOrder: [...OPENING, ...MID_ECONOMY, ...ENDGAME],
     troops: { spear: 3, sword: 2, light: 1 },
     farmUnits: ['light', 'spear'],
     troopShare: 0.4,
+    attacksPlayers: false,
+    defensePerPoint: 0.1,
   },
   opportunist: {
     buildOrder: [...OPENING, ...MID_OFFENSE, ...ENDGAME],
     troops: { axe: 3, light: 2, spear: 2 },
     farmUnits: ['light', 'axe', 'spear'],
     troopShare: 0.45,
+    attacksPlayers: true,
+    defensePerPoint: 0.06,
   },
   supporter: {
     buildOrder: [...OPENING, ...MID_DEFENSE, ...ENDGAME],
     troops: { spear: 4, sword: 3, heavy: 1 },
     farmUnits: ['light', 'spear'],
     troopShare: 0.5,
+    attacksPlayers: false,
+    defensePerPoint: 0.12,
   },
 };

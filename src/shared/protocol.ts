@@ -5,7 +5,7 @@
 import type { BarbType, BonusKind } from './barbarianTypes';
 import type { ConfigOverrides, PresetId } from './config';
 import type { Speed } from './time';
-import type { LogEntry } from '../sim/state';
+import type { AlertMode, LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 import type { VillageView } from '../sim/view';
 import type { BuildingId, UnitCounts, UnitId } from './gameData';
@@ -40,6 +40,7 @@ export type Command =
   | { type: 'claimReward'; id: number; villageId?: number }
   | { type: 'claimAllRewards'; villageId?: number }
   | { type: 'selectVillage'; id: number }
+  | { type: 'setAlertMode'; mode: AlertMode }
   | { type: 'mintCoins'; villageId: number; count: number }
   | { type: 'sendSupport'; from: number; to: number; units: UnitCounts }
   | { type: 'returnSupport'; hostId: number; originId: number }
@@ -115,6 +116,7 @@ export interface Snapshot {
   incoming: IncomingView[];
   /** Game time when beginner protection ends. */
   protectionEndsAt: number;
+  alertMode: AlertMode;
   unreadReports: number;
   farmTemplates: { A: UnitCounts; B: UnitCounts };
   /** worldSpeed * unitSpeed * marchSpeed, to preview travel times. */

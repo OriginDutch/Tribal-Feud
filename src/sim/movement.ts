@@ -11,7 +11,7 @@ import { push } from './eventQueue';
 import { hidingCapacity, storageCapacity } from './formulas';
 import { nextFloat, nextInt } from './rng';
 import { BARBARIAN, HUMAN_ID, addLog, invalidateOwners, nextId, villagesOf, type WorldState } from './state';
-import { onHumanVillageLost, raiseAlert } from './alerts';
+import { onHumanVillageLost, onIncomingAttack } from './alerts';
 import { formatGameTime } from '../shared/time';
 import { currentResources, isOperational, settle, type Village } from './village';
 
@@ -151,7 +151,7 @@ export function sendAttack(
   state.movements[movement.id] = movement;
   push(state.queue, movement.arrives, { kind: 'arrive', movementId: movement.id });
   if (to.owner === HUMAN_ID && from.owner !== HUMAN_ID) {
-    raiseAlert(state, `Inkomende aanval op ${to.name} (${to.x}|${to.y}) van ${ownerName(state, from.owner)}, aankomst ${formatGameTime(movement.arrives)}.`);
+    onIncomingAttack(state, from.id, `Inkomende aanval op ${to.name} (${to.x}|${to.y}) van ${ownerName(state, from.owner)}, aankomst ${formatGameTime(movement.arrives)}.`);
   }
   return null;
 }
@@ -282,7 +282,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
   }
   delete state.movements[m.id];
 
-  if (target.owner === BARBARIAN && m.owner !== HUMAN_ID) rememberFarm(state, m.owner, target.id, battle.attackerWon);
+  if (m.owner !== HUMAN_ID) rememberFarm(state, m.owner, target.id, battle.attackerWon);
 
   if (m.owner === HUMAN_ID) {
     const anyLost = UNIT_IDS.some((u) => (battle.attackerLost[u] ?? 0) > 0);
@@ -369,7 +369,8 @@ function arriveAttack(state: WorldState, m: Movement): void {
       if (conquered) onHumanVillageLost(state, text);
     }
   }
-  if (conquered && oldOwner !== HUMAN_ID) {
+  // bots taking barbarian villages happens all the time: only conquests of players are news
+  if (conquered && oldOwner !== HUMAN_ID && (oldOwner !== BARBARIAN || m.owner === HUMAN_ID)) {
     addLog(state, {
       time: state.time,
       text: `${ownerName(state, m.owner)} heeft ${target.name} (${target.x}|${target.y}) veroverd.`,
