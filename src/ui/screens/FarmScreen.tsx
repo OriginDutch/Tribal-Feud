@@ -1,3 +1,4 @@
+import { BARB_TYPE_NAMES, BONUS_NAMES } from '../../shared/barbarianTypes';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
@@ -69,6 +70,8 @@ export function FarmScreen() {
   const canSend = (t: UnitCounts) => Object.keys(t).length > 0 && UNIT_IDS.every((u) => (t[u] ?? 0) <= homeOf(u));
   const okA = canSend(A);
   const okB = canSend(B);
+  const lightHome = homeOf('light');
+  const lightCarry = 80;
 
   return (
     <div class="screen">
@@ -80,6 +83,7 @@ export function FarmScreen() {
         </div>
         <p class="muted">
           A: {unitsText(A) || 'leeg'} · B: {unitsText(B) || 'leeg'}. Een template is pas te sturen als alle troepen ervan thuis zijn.
+          C stuurt genoeg lichte cavalerie voor de geschatte buit (na verkenning).
         </p>
       </section>
       <section class="panel">
@@ -89,18 +93,22 @@ export function FarmScreen() {
         ) : (
           <table class="table fixed">
             <colgroup>
-              <col style={{ width: '100px' }} />
               <col style={{ width: '90px' }} />
-              <col style={{ width: '90px' }} />
-              <col />
+              <col style={{ width: '80px' }} />
+              <col style={{ width: '80px' }} />
               <col style={{ width: '110px' }} />
+              <col style={{ width: '60px' }} />
+              <col />
               <col style={{ width: '100px' }} />
+              <col style={{ width: '130px' }} />
             </colgroup>
             <thead>
               <tr>
                 <th>Dorp</th>
                 <th class="right">Afstand</th>
                 <th class="right">Punten</th>
+                <th>Type</th>
+                <th class="right">Muur</th>
                 <th>Laatste aanval</th>
                 <th class="right">Looptijd A</th>
                 <th />
@@ -114,6 +122,11 @@ export function FarmScreen() {
                   </td>
                   <td class="right mono">{m.dist.toFixed(1)}</td>
                   <td class="right mono">{num(m.points)}</td>
+                  <td class="nowrap">
+                    {m.barbType ? BARB_TYPE_NAMES[m.barbType] : <span class="muted">?</span>}
+                    {m.bonus && <span class="bonus-tag" title={BONUS_NAMES[m.bonus]}> ★</span>}
+                  </td>
+                  <td class="right mono">{m.wall ?? <span class="muted">?</span>}</td>
                   <td>
                     {m.last ? (
                       <>
@@ -131,6 +144,14 @@ export function FarmScreen() {
                     </button>{' '}
                     <button class="small" disabled={!okB} onClick={() => send({ type: 'sendFarm', from: v.id, to: m.id, template: 'B' })}>
                       B
+                    </button>{' '}
+                    <button
+                      class="small"
+                      disabled={m.estimate === undefined || lightHome === 0}
+                      title={m.estimate === undefined ? 'Eerst verkennen' : `${Math.min(lightHome, Math.max(1, Math.ceil(m.estimate / lightCarry)))} LC voor ~${num(m.estimate)} buit`}
+                      onClick={() => send({ type: 'sendFarm', from: v.id, to: m.id, template: 'C' })}
+                    >
+                      C
                     </button>
                   </td>
                 </tr>

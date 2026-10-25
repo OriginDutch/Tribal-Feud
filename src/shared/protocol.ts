@@ -2,6 +2,7 @@
  * Typed messages between the UI (main thread) and the simulation worker.
  * The UI only sends commands; the worker is the single source of truth and sends state back.
  */
+import type { BarbType, BonusKind } from './barbarianTypes';
 import type { ConfigOverrides, PresetId } from './config';
 import type { Speed } from './time';
 import type { LogEntry } from '../sim/state';
@@ -30,7 +31,7 @@ export type Command =
   | { type: 'recruit'; villageId: number; unit: UnitId; count: number }
   | { type: 'cancelRecruit'; villageId: number; jobId: number }
   | { type: 'sendAttack'; from: number; to: number; units: UnitCounts; catapultTarget?: BuildingId }
-  | { type: 'sendFarm'; from: number; to: number; template: 'A' | 'B' }
+  | { type: 'sendFarm'; from: number; to: number; template: 'A' | 'B' | 'C' }
   | { type: 'setFarmTemplate'; template: 'A' | 'B'; units: UnitCounts }
   | { type: 'getMap' }
   | { type: 'getReports' }
@@ -50,6 +51,14 @@ export interface MapVillage {
   ownerName: string;
   kind: 'own' | 'bot' | 'barb';
   points: number;
+  /** Production bonus: public, shown on the map. */
+  bonus?: BonusKind;
+  /** Barbarian type: only after you scouted it. */
+  barbType?: BarbType;
+  /** Wall level you saw last. */
+  wall?: number;
+  /** Estimated loot now, from your last scout (template C). */
+  estimate?: number;
   /** Your last attack on this village. */
   last?: { time: number; result: Report['result']; loot: number; scouted?: [number, number, number] };
 }

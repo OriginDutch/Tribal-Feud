@@ -11,7 +11,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 export interface SaveData {
   version: number;
@@ -85,6 +85,30 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     state.config.bots = { ...PRESETS.classic.bots, ...state.config.bots };
     initBots(state);
     return { ...data, version: 6 };
+  },
+  // v6 barbarians grew one level per interval and had no types: keep that for old worlds.
+  6: (data) => {
+    const c = data.state.config;
+    c.barbarians = {
+      ...PRESETS.classic.barbarians,
+      ...c.barbarians,
+      types: structuredClone(PRESETS.classic.barbarians.types),
+      growthMode: 'levels',
+      bonusShare: 0,
+    };
+    c.bots = { ...PRESETS.classic.bots, ...c.bots };
+    // rebuild what the player knew from the reports (oldest first, so newer ones win)
+    const state = data.state;
+    state.intel ??= {};
+    for (const r of state.reports) {
+      const intel = (state.intel[r.defender.id] ??= {});
+      if (r.wall) {
+        intel.wall = r.wall.after;
+        intel.wallAt = r.time;
+      }
+      if (r.scouted) intel.scout = { time: r.time, res: r.scouted.res, buildings: r.scouted.buildings };
+    }
+    return { ...data, version: 7 };
   },
 };
 

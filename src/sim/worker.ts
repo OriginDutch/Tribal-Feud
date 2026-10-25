@@ -2,6 +2,7 @@
  * Simulation worker: owns the world state, runs the clock, handles saves.
  * The UI never touches the state directly.
  */
+import { farmCUnits } from './intel';
 import { createConfig, validateConfig } from '../shared/config';
 import { AUTOSAVE_SLOT, type Command, type Snapshot, type WorkerMessage } from '../shared/protocol';
 import { SECOND } from '../shared/time';
@@ -210,7 +211,8 @@ async function handle(cmd: Command): Promise<void> {
     case 'sendFarm': {
       if (!state) return;
       if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
-      const error = sendAttack(state, cmd.from, cmd.to, state.farmTemplates[cmd.template]);
+      const units = cmd.template === 'C' ? farmCUnits(state, cmd.from, cmd.to) : state.farmTemplates[cmd.template];
+      const error = typeof units === 'string' ? units : sendAttack(state, cmd.from, cmd.to, units);
       if (error) notice(error, 'error');
       break;
     }

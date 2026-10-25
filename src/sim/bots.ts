@@ -5,15 +5,22 @@
  * own reports told them. They don't attack players yet.
  */
 import { ARCHETYPES, BOT_PROFILES, type BotProfile } from '../shared/botProfiles';
-import { UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
+import { RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { MINUTE } from '../shared/time';
+
+const DAY = 86_400_000;
+/** Map centre (the human player's first village). */
+const CENTER = 500;
 import { push } from './eventQueue';
 import { buildingCost } from './formulas';
 import { distance, sendAttack } from './movement';
 import { hashFloat, nextFloat } from './rng';
-import { BARBARIAN, villagesOf, type Player, type WorldState } from './state';
+import { startBarbarianGrowth, villagePoints } from './barbarians';
+import { BARBARIAN, addLog, invalidateOwners, nextId, villagesOf, type Player, type WorldState } from './state';
 import {
   buildBlocker,
+  createVillage,
+  settle,
   currentResources,
   isOperational,
   maxRecruitable,
@@ -53,6 +60,7 @@ export function onBotTurn(state: WorldState, playerId: number): void {
   const bot = player?.bot;
   if (!player || !bot || bot.nextTurn !== state.time) return; // stale event
 
+  if (shouldAbandon(state, player)) abandonAndRestart(state, player);
   for (const v of villagesOf(state, playerId)) villageTurn(state, player, v);
 
   // next turn, with a little jitter
@@ -68,6 +76,85 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   research(state, v, profile);
   recruitTroops(state, v, profile, reserve);
   farm(state, player, v, profile);
+}
+
+// --- giving up ----------------------------------------------------------------
+
+/**
+ * A bot that lost all its villages, or whose points stopped growing for
+ * `abandonAfterDays` (scaled by world speed) while it could still build, gives up.
+ */
+function shouldAbandon(state: WorldState, player: Player): boolean {
+  const bot = player.bot;
+  if (!bot) return false;
+  const villages = villagesOf(state, player.id);
+  if (villages.length === 0) return true;
+  const days = state.config.bots.abandonAfterDays;
+  if (days <= 0) return false;
+  let points = 0;
+  for (const v of villages) points += villagePoints(state.config, v);
+  if (!bot.peak || points > bot.peak.points) {
+    bot.peak = { points, at: state.time };
+    return false;
+  }
+  const maxed = villages.every((v) => fallbackStep(state, v) === null);
+  return !maxed && state.time - bot.peak.at > (days * DAY) / state.config.worldSpeed;
+}
+
+/** The bot's villages become barbarian; the bot starts over with one fresh village at the edge. */
+export function abandonAndRestart(state: WorldState, player: Player): Village {
+  const { config } = state;
+  const old = villagesOf(state, player.id);
+  for (const v of old) {
+    settle(config, v, state.time);
+    v.owner = BARBARIAN;
+    v.name = 'Barbarendorp';
+    for (const u of UNIT_IDS) {
+      v.units[u] = 0;
+      v.outside[u] = 0;
+    }
+    v.buildQueue = [];
+    for (const b of RECRUIT_BUILDINGS) v.recruitQueues[b] = [];
+    v.research = null;
+    startBarbarianGrowth(config, v, state.time);
+  }
+  // troops on the road are lost with the player
+  for (const m of Object.values(state.movements)) if (m.owner === player.id) delete state.movements[m.id];
+  invalidateOwners(state);
+  nearCache.delete(state);
+
+  const [x, y] = edgeSpot(state);
+  const fresh = createVillage(config, nextId(state), player.id, `${player.name}s dorp`, x, y, state.time);
+  state.villages[fresh.id] = fresh;
+  invalidateOwners(state);
+  if (player.bot) {
+    player.bot.farmLog = {};
+    player.bot.outgoing = [];
+    delete player.bot.peak;
+  }
+  const where = old[0] ? ` (${old.map((v) => `${v.x}|${v.y}`).join(', ')})` : '';
+  addLog(state, {
+    time: state.time,
+    text: `${player.name} heeft het opgegeven${where}: barbarendorp. Begint opnieuw aan de rand op ${x}|${y}.`,
+  });
+  return fresh;
+}
+
+/** A free field just outside the current edge of the world. */
+function edgeSpot(state: WorldState): [number, number] {
+  const occupied = new Set<string>();
+  let maxR = 0;
+  for (const v of Object.values(state.villages)) {
+    occupied.add(`${v.x}|${v.y}`);
+    maxR = Math.max(maxR, Math.hypot(v.x - CENTER, v.y - CENTER));
+  }
+  for (let tries = 0; ; tries++) {
+    const r = maxR + 1 + nextFloat(state.rng) * 3 + Math.floor(tries / 50);
+    const angle = nextFloat(state.rng) * Math.PI * 2;
+    const x = Math.round(CENTER + r * Math.cos(angle));
+    const y = Math.round(CENTER + r * Math.sin(angle));
+    if (!occupied.has(`${x}|${y}`)) return [x, y];
+  }
 }
 
 // --- building ---------------------------------------------------------------

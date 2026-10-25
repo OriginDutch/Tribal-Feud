@@ -14,6 +14,7 @@ import {
   type UnitId,
 } from './gameData';
 import { defaultQuests, type QuestConfig } from './quests';
+import { DEFAULT_BARB_TYPES, type BarbType, type BarbTypeDef } from './barbarianTypes';
 
 export type ResearchMode = 'simple' | 'levels3' | 'levels10';
 export type PaladinMode = 'off' | 'on' | 'items';
@@ -56,8 +57,21 @@ export interface WorldConfig {
     /** Points range a barbarian village starts with. */
     startPointsMin: number;
     startPointsMax: number;
-    /** Game hours between two growth steps (one building level) at growthRate 1 and world speed 1. */
+    /** Game hours between two growth steps (one building level) at growthRate 1 and world speed 1. Old worlds only. */
     growthIntervalHours: number;
+    /**
+     * 'points': grow a fixed number of points per game day (new worlds).
+     * 'levels': one building level per interval (worlds made before this existed).
+     */
+    growthMode: 'points' | 'levels';
+    /** Points per game day at growthRate 1 and world speed 1 ('points' mode). */
+    pointsPerDay: number;
+    /** Village types ('points' mode). */
+    types: Record<BarbType, BarbTypeDef>;
+    /** Share of barbarian villages with a production bonus. */
+    bonusShare: number;
+    /** Hours of production a new barbarian village starts with in storage. */
+    startStockHours: number;
   };
 
   /** Extra speed-up of troop movement (on top of worldSpeed and unitSpeed). */
@@ -93,6 +107,8 @@ export interface WorldConfig {
     farmRadius: number;
     /** Most farm attacks a bot sends per turn. */
     farmAttacksPerTurn: number;
+    /** A bot whose points don't grow for this many game days gives up and restarts at the edge. */
+    abandonAfterDays: number;
   };
 
   winCondition: {
@@ -146,6 +162,11 @@ const BASE: PresetValues = {
     startPointsMin: 30,
     startPointsMax: 300,
     growthIntervalHours: 3,
+    growthMode: 'points',
+    pointsPerDay: 100,
+    types: structuredClone(DEFAULT_BARB_TYPES),
+    bonusShare: 0.03,
+    startStockHours: 6,
   },
   marchSpeed: 1,
   map: {
@@ -168,6 +189,7 @@ const BASE: PresetValues = {
     activityMax: 1,
     farmRadius: 15,
     farmAttacksPerTurn: 5,
+    abandonAfterDays: 3,
   },
   winCondition: {
     villageShare: 0.75,
@@ -227,7 +249,11 @@ export function createConfig(
     name,
     seed,
     preset: hasOverrides ? 'custom' : preset,
-    barbarians: { ...base.barbarians, ...overrides.barbarians },
+    barbarians: {
+      ...base.barbarians,
+      ...overrides.barbarians,
+      types: structuredClone(overrides.barbarians?.types ?? base.barbarians.types),
+    },
     map: { ...base.map, ...overrides.map },
     combat: { ...base.combat, ...overrides.combat },
     bots: { ...base.bots, ...overrides.bots },

@@ -5,6 +5,9 @@ Singleplayer strategy game with Tribal Wars mechanics, played against 200+ bots 
 Status: **bot economy**. One village with the full Tribal Wars economy, a map with ~200 bots and ~3000 growing
 barbarian villages, attacks with the TW battle formula, reports, a farm assistant and quests. Bots build, research,
 recruit and farm barbarians by the same rules as the player; they don't attack players yet.
+Barbarian villages have a type (resources / military / defensive / balanced, known after scouting), grow
+~100 points per game day up to 3000, and ~3% are bonus villages. A bot that stops growing gives up: its
+village turns barbarian and it starts over at the edge of the map.
 
 ## Running it
 
@@ -48,7 +51,8 @@ src/
     village.ts    village rules: build queue, requirements, smithy, recruitment
     view.ts       read-only village view sent to the UI
     map.ts        world generation: bots and barbarians around 500|500
-    barbarians.ts lazy, deterministic barbarian growth
+    barbarians.ts lazy, deterministic barbarian growth, types, bonus villages
+    intel.ts      what the player knows (wall, type, last scout) and farm template C
     combat.ts     battle formula (pure): wall, rams, catapults, spies, luck, morale
     movement.ts   attacks, returns, loot, reports
     mapView.ts    map and movement data for the UI

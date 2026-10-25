@@ -66,8 +66,7 @@ export function generateMap(state: WorldState): void {
     const v = createVillage(config, nextId(state), BARBARIAN, 'Barbarendorp', x, y, state.time);
     v.res = [0, 0, 0];
     const target = nextInt(state.rng, config.barbarians.startPointsMin, config.barbarians.startPointsMax);
-    seedBarbarian(config, v, target);
-    v.growth = { step: v.growth?.step ?? 0, since: state.time };
+    seedBarbarian(config, v, target, state.time);
     state.villages[v.id] = v;
   }
 }

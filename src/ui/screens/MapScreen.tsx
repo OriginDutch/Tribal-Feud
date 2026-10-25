@@ -1,9 +1,12 @@
+import { BARB_TYPE_NAMES, BONUS_NAMES, type BarbType } from '../../shared/barbarianTypes';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { MapVillage } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
 import { attackVillage, mapData, selectedVillage, send, snapshot } from '../store';
 import { distance, travelMs } from '../units';
+
+const TYPE_LETTER: Record<BarbType, string> = { resource: 'G', military: 'M', defensive: 'V', balanced: 'B' };
 
 const COLORS = {
   bg: '#1d2318',
@@ -13,6 +16,7 @@ const COLORS = {
   own: '#e0b04a',
   bot: '#b5523b',
   barb: '#8f8678',
+  bonus: '#b48ad8',
   selected: '#ffffff',
   attacked: '#7fa35a',
 };
@@ -128,6 +132,18 @@ export function MapScreen() {
       const [sx, sy] = toScreen(v.x, v.y);
       ctx.fillStyle = v.kind === 'own' ? COLORS.own : v.kind === 'bot' ? COLORS.bot : COLORS.barb;
       ctx.fillRect(sx - size / 2, sy - size / 2, size, size);
+      if (v.bonus) {
+        ctx.strokeStyle = COLORS.bonus;
+        ctx.lineWidth = Math.max(1, size / 8);
+        ctx.strokeRect(sx - size / 2 + 1, sy - size / 2 + 1, size - 2, size - 2);
+      }
+      if (v.barbType && zoom >= 14) {
+        ctx.fillStyle = '#1b1712';
+        ctx.font = `bold ${Math.round(size * 0.55)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(TYPE_LETTER[v.barbType], sx, sy + 1);
+      }
       if (v.last && zoom >= 8) {
         ctx.fillStyle = v.last.result === 'loss' ? COLORS.bot : COLORS.attacked;
         const d = Math.max(2, size / 4);
@@ -220,7 +236,7 @@ export function MapScreen() {
         </span>
         <span class="legend">
           <i style={{ background: COLORS.own }} /> jij <i style={{ background: COLORS.bot }} /> bots{' '}
-          <i style={{ background: COLORS.barb }} /> barbaren
+          <i style={{ background: COLORS.barb }} /> barbaren <i style={{ background: COLORS.bonus }} /> bonus
         </span>
         {own && (
           <button class="small" onClick={() => centerOn(own.x, own.y)}>
@@ -260,6 +276,24 @@ export function MapScreen() {
                     <td>Punten</td>
                     <td class="right mono">{num(selected.points)}</td>
                   </tr>
+                  {selected.bonus && (
+                    <tr>
+                      <td>Bonus</td>
+                      <td class="right">{BONUS_NAMES[selected.bonus]}</td>
+                    </tr>
+                  )}
+                  {selected.kind === 'barb' && (
+                    <tr>
+                      <td>Type</td>
+                      <td class="right">{selected.barbType ? BARB_TYPE_NAMES[selected.barbType] : <span class="muted">onbekend (verkennen)</span>}</td>
+                    </tr>
+                  )}
+                  {selected.kind !== 'own' && (
+                    <tr>
+                      <td>Muur</td>
+                      <td class="right mono">{selected.wall ?? <span class="muted">?</span>}</td>
+                    </tr>
+                  )}
                   {selected.kind !== 'own' && (
                     <>
                       <tr>
@@ -294,6 +328,13 @@ export function MapScreen() {
                   </button>
                   <button onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: 'A' })}>Farm A</button>
                   <button onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: 'B' })}>Farm B</button>
+                  <button
+                    disabled={selected.estimate === undefined}
+                    title={selected.estimate === undefined ? 'Eerst verkennen' : `~${num(selected.estimate)} buit`}
+                    onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: 'C' })}
+                  >
+                    Farm C
+                  </button>
                 </div>
               )}
             </>

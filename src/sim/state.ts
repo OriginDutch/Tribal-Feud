@@ -1,3 +1,4 @@
+import type { Intel } from './intel';
 import type { WorldConfig } from '../shared/config';
 import type { Speed } from '../shared/time';
 import { createQueue, type EventQueue } from './eventQueue';
@@ -36,6 +37,8 @@ export interface BotState {
   farmLog: Record<number, { at: number; won: boolean }>;
   /** Barbarian villages this bot has a farm attack on the way to. */
   outgoing: number[];
+  /** Highest points seen and when: a bot that stops growing gives up (see abandon). */
+  peak?: { points: number; at: number };
 }
 
 export interface Player {
@@ -77,6 +80,8 @@ export interface WorldState {
   /** Last report id per target village (for the farm assistant). */
   lastReportByTarget: Record<number, number>;
   farmTemplates: FarmTemplates;
+  /** What the human player knows about other villages. */
+  intel: Record<number, Intel>;
   /** Index of the current quest per chain. */
   questProgress: Record<string, number>;
   /** Rewards waiting to be claimed. */
@@ -107,6 +112,7 @@ export function createWorld(config: WorldConfig): WorldState {
     reports: [],
     lastReportByTarget: {},
     farmTemplates: { A: { light: 5 }, B: { spear: 10 } },
+    intel: {},
     questProgress: {},
     rewards: [],
     stats: { plunders: 0, loot: 0, rewardsClaimed: 0 },

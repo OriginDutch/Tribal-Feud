@@ -1,9 +1,11 @@
 /**
  * Troops on the road: attacks and returns. Each movement is one event at its arrival time.
  */
+import type { BarbType } from '../shared/barbarianTypes';
 import { BUILDING_IDS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { growBarbarian, villagePoints } from './barbarians';
 import { rememberFarm } from './bots';
+import { recordIntel } from './intel';
 import { fight, morale } from './combat';
 import { push } from './eventQueue';
 import { hidingCapacity, storageCapacity } from './formulas';
@@ -49,7 +51,7 @@ export interface Report {
   building?: { id: BuildingId; before: number; after: number };
   loot?: Res;
   carry?: number;
-  scouted?: { res: Res; buildings: Partial<Record<BuildingId, number>>; units: UnitCounts };
+  scouted?: { res: Res; buildings: Partial<Record<BuildingId, number>>; units: UnitCounts; barbType?: BarbType };
 }
 
 export const MAX_REPORTS = 300;
@@ -253,7 +255,8 @@ function arriveAttack(state: WorldState, m: Movement): void {
       attackerUnits: { sent: m.units, lost: cleanCounts(battle.attackerLost) },
       defenderUnits: seesDefender ? { present: defenderPresent, lost: cleanCounts(battle.defenderLost) } : null,
     };
-    if (battle.wallAfter !== battle.wallBefore && seesDefender) report.wall = { before: battle.wallBefore, after: battle.wallAfter };
+    // the wall is always reported when the attacker saw the village
+    if (seesDefender) report.wall = { before: battle.wallBefore, after: battle.wallAfter };
     if (m.catapultTarget && battle.buildingBefore !== undefined && battle.buildingAfter !== undefined && seesDefender) {
       report.building = { id: m.catapultTarget, before: battle.buildingBefore, after: battle.buildingAfter };
     }
@@ -269,7 +272,12 @@ function arriveAttack(state: WorldState, m: Movement): void {
         buildings,
         units: cleanCounts(target.units),
       };
+      if (target.barbType) report.scouted.barbType = target.barbType;
     }
+    recordIntel(state, target, {
+      ...(seesDefender ? { wall: battle.wallAfter } : {}),
+      ...(report.scouted ? { scouted: report.scouted } : {}),
+    });
     state.reports.push(report);
     if (state.reports.length > MAX_REPORTS) state.reports.splice(0, state.reports.length - MAX_REPORTS);
     state.lastReportByTarget[target.id] = report.id;

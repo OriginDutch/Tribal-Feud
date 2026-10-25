@@ -6,6 +6,7 @@
  * the job still exists and is still due at exactly this time. Cancelling a job just
  * moves the others and schedules new events: the old events then find nothing to do.
  */
+import { BONUS_FACTORS, type BarbType, type BonusKind } from '../shared/barbarianTypes';
 import type { WorldConfig } from '../shared/config';
 import {
   BUILDING_IDS,
@@ -78,8 +79,16 @@ export interface Village {
   buildQueue: BuildJob[];
   recruitQueues: Record<RecruitBuilding, RecruitJob[]>;
   research: ResearchJob | null;
-  /** Barbarian villages only: how far lazy growth has progressed. */
-  growth?: { step: number; since: number };
+  /**
+   * Barbarian villages only: how far lazy growth has progressed.
+   * 'levels' mode: `since` is the time of the next unpaid interval.
+   * 'points' mode: `since` is when growth started and `start` the points at that moment.
+   */
+  growth?: { step: number; since: number; start?: number };
+  /** Barbarian type (new worlds). Only shown to a player who scouted the village. */
+  barbType?: BarbType;
+  /** Production bonus. Stays with the village when it is conquered. */
+  bonus?: BonusKind;
 }
 
 // --- creation ---------------------------------------------------------------
@@ -122,10 +131,11 @@ export function createVillage(
 // --- resources --------------------------------------------------------------
 
 export function productionRates(config: WorldConfig, v: Village): Res {
+  const f = v.bonus ? BONUS_FACTORS[v.bonus] : ([1, 1, 1] as const);
   return [
-    productionPerHour(config, v.buildings.wood),
-    productionPerHour(config, v.buildings.stone),
-    productionPerHour(config, v.buildings.iron),
+    productionPerHour(config, v.buildings.wood) * f[0],
+    productionPerHour(config, v.buildings.stone) * f[1],
+    productionPerHour(config, v.buildings.iron) * f[2],
   ];
 }
 

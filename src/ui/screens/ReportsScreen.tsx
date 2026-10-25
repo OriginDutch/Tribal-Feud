@@ -1,3 +1,4 @@
+import { BARB_TYPE_NAMES } from '../../shared/barbarianTypes';
 import { useEffect, useState } from 'preact/hooks';
 import { BUILDING_IDS, UNIT_IDS, type UnitCounts } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
@@ -79,7 +80,13 @@ function ReportDetail({ r }: { r: Report }) {
       )}
       {r.wall && (
         <p>
-          Muur beschadigd: level {r.wall.before} → {r.wall.after}
+          {r.wall.before !== r.wall.after ? (
+            <>
+              Muur beschadigd: level {r.wall.before} → {r.wall.after}
+            </>
+          ) : (
+            <>Muur: level {r.wall.after}</>
+          )}
         </p>
       )}
       {r.building && (
@@ -90,6 +97,7 @@ function ReportDetail({ r }: { r: Report }) {
       {r.scouted && (
         <div>
           <h4>Verkend</h4>
+          {r.scouted.barbType && <p>Type: {BARB_TYPE_NAMES[r.scouted.barbType]}</p>}
           <p>
             Grondstoffen: <Cost cost={r.scouted.res} />
           </p>
