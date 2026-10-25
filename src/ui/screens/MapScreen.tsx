@@ -4,7 +4,7 @@ import type { MapVillage } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
 import { attackVillage, mapData, mapFocus, mapStyle, selectedVillage, send, setMapStyle, snapshot } from '../store';
-import { forestAt, onSpriteLoad, tierOf, villageAt } from '../map/mapSprites';
+import { OVERHANG, forestAt, onSpriteLoad, tierOf, villageAt } from '../map/mapSprites';
 import { distance, travelMs } from '../units';
 
 const TYPE_LETTER: Record<BarbType, string> = { resource: 'G', military: 'M', defensive: 'V', balanced: 'B' };
@@ -218,22 +218,30 @@ export function MapScreen() {
     const px = zoom * dpr;
     const ownerColor = (v: MapVillage) => (v.kind === 'own' ? COLORS.own : v.kind === 'bot' ? COLORS.bot : COLORS.barb);
     const sel = selectedVillage.value;
+    const overhang = (OVERHANG / 64) * zoom;
     const place = (img: CanvasImageSource, x: number, y: number) => {
       const [sx, sy] = toScreen(x - 0.5, y - 0.5);
-      ctx.drawImage(img, Math.round(sx * dpr) / dpr, Math.round(sy * dpr) / dpr, zoom, zoom);
+      ctx.drawImage(img, Math.round(sx * dpr) / dpr, Math.round((sy - overhang) * dpr) / dpr, zoom, zoom + overhang);
     };
 
-    // forests on empty fields
+    // sprites row by row from the top: tall things (keeps, banners, trees) reach into the row above,
+    // so a village in front covers the one behind it
     if (sprites) {
-      for (let y = y0; y <= y1; y++) {
+      for (let y = y0; y <= y1 + 1; y++) {
         for (let x = x0; x <= x1; x++) {
-          if (fieldHash(y, x) >= 0.1 || byCoord.has(key(x, y))) continue;
-          const img = forestAt(Math.floor(fieldHash(x + 7, y) * 4), px);
-          if (img) place(img, x, y);
+          const v = byCoord.get(key(x, y));
+          if (v) {
+            const img = villageAt(tierOf(v.points), ownerColor(v), v.kind !== 'barb', v.id, px);
+            if (img) place(img, x, y);
+          } else if (fieldHash(y, x) < 0.1) {
+            const img = forestAt(Math.floor(fieldHash(x + 7, y) * 4), px);
+            if (img) place(img, x, y);
+          }
         }
       }
     }
 
+    // markers on top of all sprites
     for (const v of data?.villages ?? []) {
       if (v.x < x0 || v.x > x1 || v.y < y0 || v.y > y1) continue;
       const color = ownerColor(v);
@@ -242,9 +250,6 @@ export function MapScreen() {
         const size = Math.max(2, zoom * 0.72);
         ctx.fillStyle = color;
         ctx.fillRect(sx - size / 2, sy - size / 2, size, size);
-      } else {
-        const img = villageAt(tierOf(v.points), color, v.kind !== 'barb', v.id, px);
-        if (img) place(img, v.x, v.y);
       }
       if (v.bonus) {
         ctx.strokeStyle = COLORS.bonus;

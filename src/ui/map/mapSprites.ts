@@ -1,6 +1,7 @@
 /**
- * Top-down village sprites (north up), drawn as SVG and turned into bitmaps once.
- * Original art for Tribal Feud. Every sprite is one map field: a 64×64 frame.
+ * Village sprites for the map: north up, seen slightly from the front (roofs and front walls),
+ * like TW. Original art for Tribal Feud. A sprite is one field wide (64 units) and may reach
+ * up to OVERHANG units above its field (keeps, banners, trees).
  */
 
 /** Points from which a village shows the next size: six sizes, like TW's map. */
@@ -13,25 +14,31 @@ export function tierOf(points: number): number {
 }
 
 const SIZE = 64;
+/** How far a sprite may stick out above its field, in sprite units. */
+export const OVERHANG = 18;
 /** Bitmap resolution per sprite unit: crisp up to the largest zoom. */
 const RES = 2;
 
-const PAL = {
+const P = {
   dirt: '#9a7b4f',
   dirtDark: '#7d6240',
   wood: '#6e5034',
   woodDark: '#4f3823',
+  woodLight: '#8a6a48',
+  wallHouse: '#d8c49a',
+  wallHouseDark: '#bfa877',
   roofA: '#b5523b',
   roofB: '#9c4431',
   roofC: '#c46a3c',
   thatch: '#c9a35a',
-  thatchDark: '#a8843f',
   stone: '#a7a29a',
-  stoneDark: '#7f7a72',
+  stoneDark: '#837e76',
   stoneLight: '#c4bfb6',
+  stoneFace: '#958f86',
   shadow: 'rgba(0,0,0,0.22)',
   tree: '#3f5e2a',
   treeLight: '#557a35',
+  trunk: '#4a3320',
 };
 
 function rng(seed: number): () => number {
@@ -52,127 +59,166 @@ function shade(hex: string, f: number): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
-function house(x: number, y: number, w: number, h: number, roof: string, ridgeVertical: boolean): string {
-  const dark = shade(roof, -0.18);
-  let s = `<rect x="${x + 1.2}" y="${y + 1.4}" width="${w}" height="${h}" fill="${PAL.shadow}"/>`;
-  s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${roof}"/>`;
-  s += ridgeVertical
-    ? `<rect x="${x + w / 2}" y="${y}" width="${w / 2}" height="${h}" fill="${dark}"/>`
-    : `<rect x="${x}" y="${y + h / 2}" width="${w}" height="${h / 2}" fill="${dark}"/>`;
+function house(x: number, y: number, w: number, roof: string, big: boolean): string {
+  const wallH = big ? 5 : 3.6;
+  const roofH = big ? 6 : 4.4;
+  const depth = big ? 3.4 : 2.6;
+  let s = `<ellipse cx="${x + 1}" cy="${y + 0.6}" rx="${w * 0.62}" ry="1.6" fill="${P.shadow}"/>`;
+  // front wall with a door
+  s += `<rect x="${x - w / 2}" y="${y - wallH}" width="${w}" height="${wallH}" fill="${P.wallHouse}"/>`;
+  s += `<rect x="${x - w / 2}" y="${y - wallH}" width="${w}" height="${wallH * 0.25}" fill="${P.wallHouseDark}"/>`;
+  s += `<rect x="${x - 0.8}" y="${y - wallH * 0.7}" width="1.6" height="${wallH * 0.7}" fill="${P.woodDark}"/>`;
+  // roof: the front slope you see, and a sliver of the back slope above the ridge
+  const top = y - wallH - roofH;
+  s += `<polygon points="${x - w / 2 - 0.8},${y - wallH} ${x + w / 2 + 0.8},${y - wallH} ${x + w / 2},${top} ${x - w / 2},${top}" fill="${roof}"/>`;
+  s += `<polygon points="${x - w / 2},${top} ${x + w / 2},${top} ${x + w / 2 - 0.4},${top - depth} ${x - w / 2 + 0.4},${top - depth}" fill="${shade(roof, 0.15)}"/>`;
+  s += `<line x1="${x - w / 2}" y1="${top}" x2="${x + w / 2}" y2="${top}" stroke="${shade(roof, -0.25)}" stroke-width="0.6"/>`;
   return s;
 }
 
 function tree(x: number, y: number, r: number): string {
   return (
-    `<circle cx="${x + 0.8}" cy="${y + 1}" r="${r}" fill="${PAL.shadow}"/>` +
-    `<circle cx="${x}" cy="${y}" r="${r}" fill="${PAL.tree}"/>` +
-    `<circle cx="${x - r * 0.3}" cy="${y - r * 0.3}" r="${r * 0.55}" fill="${PAL.treeLight}"/>`
+    `<ellipse cx="${x + 1}" cy="${y + 0.5}" rx="${r * 0.9}" ry="${r * 0.35}" fill="${P.shadow}"/>` +
+    `<rect x="${x - 0.6}" y="${y - r * 0.9}" width="1.2" height="${r * 0.9}" fill="${P.trunk}"/>` +
+    `<circle cx="${x}" cy="${y - r * 1.5}" r="${r}" fill="${P.tree}"/>` +
+    `<circle cx="${x - r * 0.35}" cy="${y - r * 1.8}" r="${r * 0.5}" fill="${P.treeLight}"/>`
   );
 }
 
-function banner(x: number, y: number, color: string, scale: number): string {
-  const h = 9 * scale;
+function banner(x: number, y: number, color: string, k = 1): string {
+  const h = 11 * k;
   return (
-    `<line x1="${x}" y1="${y}" x2="${x}" y2="${y - h}" stroke="#3a2a1a" stroke-width="${0.9 * scale}"/>` +
-    `<path d="M${x} ${y - h} l${5.5 * scale} ${1.6 * scale} l${-5.5 * scale} ${1.8 * scale}z" fill="${color}" stroke="rgba(0,0,0,0.35)" stroke-width="0.4"/>`
+    `<line x1="${x}" y1="${y}" x2="${x}" y2="${y - h}" stroke="#3a2a1a" stroke-width="${0.9 * k}"/>` +
+    `<path d="M${x} ${y - h} l${6 * k} ${1.8 * k} l${-6 * k} ${2 * k}z" fill="${color}" stroke="rgba(0,0,0,0.35)" stroke-width="0.4"/>`
   );
 }
 
-/**
- * One village, no grass (the map draws the ground). `ring`: the owner's colour as a ring
- * around it, for players.
- */
-export function villageSvg(tier: number, color: string, seed: number, ring: boolean): string {
-  const R = rng(seed * 97 + tier * 13);
-  const clear = [15, 19, 22, 24, 25, 26][tier] ?? 15;
+const CX = 32;
+const CY = 38;
+
+/** The ring wall as an ellipse: the back half goes behind the houses, the front half (with its face) in front. */
+function wallArc(rx: number, ry: number, front: boolean, kind: 'palisade' | 'stone'): string {
+  const n = 40;
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= n; i++) {
+    const a = front ? (i / n) * Math.PI : Math.PI + (i / n) * Math.PI;
+    pts.push([CX + Math.cos(a) * rx, CY + Math.sin(a) * ry]);
+  }
   let s = '';
-  if (ring) s += `<circle cx="32" cy="32" r="${Math.min(29.5, clear + 3.5)}" fill="none" stroke="${color}" stroke-width="4"/>`;
-  s += `<circle cx="32" cy="32" r="${clear}" fill="${PAL.dirt}" opacity="0.55"/>`;
-  if (tier >= 1) s += `<path d="M32 32 L32 ${32 + clear} M32 32 L${32 + clear} 32" stroke="${PAL.dirtDark}" stroke-width="2" opacity="0.5"/>`;
-
-  // walls under the houses
-  if (tier === 2 || tier === 3) {
-    const r = clear - 1.5;
-    const n = Math.round(r * 2.6);
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      if (Math.abs(a - Math.PI / 2) < 0.22) continue; // gate south
-      s += `<circle cx="${(32 + Math.cos(a) * r).toFixed(2)}" cy="${(32 + Math.sin(a) * r).toFixed(2)}" r="1.3" fill="${i % 2 ? PAL.wood : PAL.woodDark}"/>`;
+  if (kind === 'palisade') {
+    for (const [x, y] of pts) {
+      if (front && Math.abs(x - CX) < 3 && y > CY) continue; // the gate
+      const h = 4.2;
+      s += `<rect x="${(x - 0.8).toFixed(2)}" y="${(y - h).toFixed(2)}" width="1.6" height="${h}" fill="${P.wood}"/>`;
+      s += `<polygon points="${(x - 0.8).toFixed(2)},${(y - h).toFixed(2)} ${(x + 0.8).toFixed(2)},${(y - h).toFixed(2)} ${x.toFixed(2)},${(y - h - 1).toFixed(2)}" fill="${P.woodLight}"/>`;
     }
+    return s;
   }
-  if (tier >= 4) {
-    const r = clear - 1.5;
-    s += `<circle cx="32.8" cy="33.2" r="${r}" fill="none" stroke="${PAL.shadow}" stroke-width="3.6"/>`;
-    s += `<circle cx="32" cy="32" r="${r}" fill="none" stroke="${PAL.stoneDark}" stroke-width="3.6"/>`;
-    s += `<circle cx="32" cy="32" r="${r}" fill="none" stroke="${PAL.stone}" stroke-width="2.2" stroke-dasharray="2.4 1.2"/>`;
-    s += `<rect x="29" y="${32 + r - 2.5}" width="6" height="5" fill="${PAL.woodDark}"/>`;
-    const towers = tier === 5 ? 6 : 4;
-    for (let i = 0; i < towers; i++) {
-      const a = (i / towers) * Math.PI * 2 + Math.PI / towers;
-      const tx = (32 + Math.cos(a) * r).toFixed(2);
-      const ty = (32 + Math.sin(a) * r).toFixed(2);
-      s += `<circle cx="${tx}" cy="${ty}" r="3" fill="${PAL.stoneDark}"/><circle cx="${tx}" cy="${ty}" r="1.9" fill="${PAL.stoneLight}"/>`;
+  const h = 5;
+  const top = pts.map(([x, y]) => `${x.toFixed(2)},${(y - h).toFixed(2)}`).join(' ');
+  const bottom = pts
+    .slice()
+    .reverse()
+    .map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`)
+    .join(' ');
+  if (front) {
+    s += `<polygon points="${top} ${bottom}" fill="${P.stoneFace}"/>`;
+    for (let i = 0; i < pts.length; i += 2) {
+      const [x, y] = pts[i]!;
+      s += `<rect x="${(x - 0.9).toFixed(2)}" y="${(y - h - 1.4).toFixed(2)}" width="1.8" height="1.6" fill="${P.stoneLight}"/>`;
     }
+    s += `<polyline points="${top}" fill="none" stroke="${P.stoneLight}" stroke-width="1.6"/>`;
+    s += `<path d="M${CX - 3} ${CY + ry} v-4 a3 3 0 0 1 6 0 v4z" fill="${P.woodDark}"/>`;
+  } else {
+    s += `<polyline points="${top}" fill="none" stroke="${P.stoneLight}" stroke-width="2.2"/>`;
+    s += `<polygon points="${top} ${bottom}" fill="${P.stoneDark}" opacity="0.6"/>`;
   }
+  return s;
+}
 
-  // houses
-  const count = [2, 4, 6, 9, 11, 12][tier] ?? 2;
+function tower(x: number, y: number, h: number, roof: string | null): string {
+  return (
+    `<ellipse cx="${x + 1}" cy="${y + 0.6}" rx="3.4" ry="1.4" fill="${P.shadow}"/>` +
+    `<rect x="${x - 2.6}" y="${y - h}" width="5.2" height="${h}" fill="${P.stoneFace}"/>` +
+    `<rect x="${x - 2.6}" y="${y - h}" width="1.6" height="${h}" fill="${P.stoneLight}" opacity="0.5"/>` +
+    `<ellipse cx="${x}" cy="${y - h}" rx="2.9" ry="1.3" fill="${P.stoneLight}"/>` +
+    (roof ? `<polygon points="${x - 3.2},${y - h} ${x + 3.2},${y - h} ${x},${y - h - 4.5}" fill="${roof}"/>` : '')
+  );
+}
+
+function keep(tier: number): string {
+  const w = tier === 5 ? 13 : 10;
+  const h = tier === 5 ? 15 : 11;
+  const x = CX;
+  const y = CY + 1;
+  let s = `<ellipse cx="${x + 1.5}" cy="${y + 0.8}" rx="${w * 0.7}" ry="2" fill="${P.shadow}"/>`;
+  s += `<rect x="${x - w / 2}" y="${y - h}" width="${w}" height="${h}" fill="${P.stoneFace}"/>`;
+  s += `<rect x="${x - w / 2}" y="${y - h - 3}" width="${w}" height="3" fill="${P.stoneLight}"/>`;
+  for (let i = 0; i < 4; i++) s += `<rect x="${x - w / 2 + i * (w / 3.5)}" y="${y - h - 4.4}" width="${w / 7}" height="1.6" fill="${P.stoneLight}"/>`;
+  s += `<rect x="${x - 1.4}" y="${y - h * 0.6}" width="2.8" height="3.4" fill="#3b3631"/>`;
+  s += `<path d="M${x - 2} ${y} v-3.4 a2 2 0 0 1 4 0 v3.4z" fill="${P.woodDark}"/>`;
+  return s;
+}
+
+/** One village on its field. `ring`: the owner's colour around it, for players. */
+export function village(tier: number, color: string, seed: number, ring: boolean): string {
+  const R = rng(seed * 97 + tier * 13);
+  const rx = [16, 20, 23, 25, 26, 27][tier] ?? 16;
+  const ry = rx * 0.62;
+  let s = '';
+  if (ring) {
+    const r = Math.min(30, rx + 3.5);
+    s += `<ellipse cx="${CX}" cy="${CY}" rx="${r}" ry="${r * 0.62}" fill="none" stroke="${color}" stroke-width="3.4"/>`;
+  }
+  s += `<ellipse cx="${CX}" cy="${CY}" rx="${rx}" ry="${ry}" fill="${P.dirt}" opacity="0.55"/>`;
+  const wallKind = tier >= 4 ? 'stone' : tier >= 2 ? 'palisade' : null;
+  const wrx = rx - 1.5;
+  const wry = ry - 1;
+  if (wallKind) s += wallArc(wrx, wry, false, wallKind);
+  // houses, back to front
+  const count = [2, 4, 6, 8, 9, 10][tier] ?? 2;
   const spots: [number, number][] = [];
-  const inner = clear - (tier >= 2 ? 5 : 3);
-  const keepClear = tier >= 3 ? 7 : 0;
-  for (let guard = 0; spots.length < count && guard < 400; guard++) {
+  for (let g = 0; spots.length < count && g < 500; g++) {
     const a = R() * Math.PI * 2;
-    const d = Math.sqrt(R()) * inner;
-    const x = 32 + Math.cos(a) * d;
-    const y = 32 + Math.sin(a) * d;
-    if (Math.hypot(x - 32, y - 32) < keepClear) continue;
-    if (spots.some(([px, py]) => Math.abs(px - x) < 6 && Math.abs(py - y) < 5.5)) continue;
+    const d = Math.sqrt(R());
+    const x = CX + Math.cos(a) * d * (wrx - 5);
+    const y = CY + Math.sin(a) * d * (wry - 2) + 2;
+    if (tier >= 3 && Math.abs(x - CX) < 8 && Math.abs(y - (CY - 1)) < 6) continue;
+    if (spots.some(([px, py]) => Math.abs(px - x) < 7.5 && Math.abs(py - y) < 6)) continue;
     spots.push([x, y]);
   }
-  spots.sort((a, b) => a[1] - b[1]);
-  for (const [x, y] of spots) {
-    const vertical = R() < 0.5;
-    const w = vertical ? 4 : 6;
-    const h = vertical ? 6 : 4;
-    const roof = tier === 0 ? PAL.thatch : [PAL.roofA, PAL.roofB, PAL.roofC, PAL.thatch][Math.floor(R() * (tier >= 3 ? 3 : 4))]!;
-    s += house(x - w / 2, y - h / 2, w, h, roof, vertical);
-  }
-  // the centre: a hall, later a keep
-  if (tier === 3) s += house(28, 28.5, 8, 7, PAL.roofB, false);
+  const roofs = [P.roofA, P.roofB, P.roofC, P.thatch];
+  const items = spots.map(([x, y]) => ({
+    y,
+    svg: house(x, y, 6, tier === 0 ? P.thatch : roofs[Math.floor(R() * (tier >= 3 ? 3 : 4))]!, false),
+  }));
+  if (tier === 3) items.push({ y: CY + 1, svg: house(CX, CY + 1, 10, P.roofB, true) });
+  if (tier >= 4) items.push({ y: CY + 1, svg: keep(tier) });
+  items.sort((p, q) => p.y - q.y);
+  for (const it of items) s += it.svg;
+  if (wallKind) s += wallArc(wrx, wry, true, wallKind);
   if (tier >= 4) {
-    const k = tier === 5 ? 11 : 9;
-    s += `<rect x="${32 - k / 2 + 1.4}" y="${32 - k / 2 + 1.6}" width="${k}" height="${k}" fill="${PAL.shadow}"/>`;
-    s += `<rect x="${32 - k / 2}" y="${32 - k / 2}" width="${k}" height="${k}" fill="${PAL.stoneDark}"/>`;
-    s += `<rect x="${32 - k / 2 + 1.5}" y="${32 - k / 2 + 1.5}" width="${k - 3}" height="${k - 3}" fill="${PAL.stone}"/>`;
-    if (tier === 5) {
-      for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
-        s += `<rect x="${32 + (dx * k) / 2 - 2}" y="${32 + (dy * k) / 2 - 2}" width="4" height="4" fill="${PAL.stoneLight}" stroke="${PAL.stoneDark}" stroke-width="0.8"/>`;
-      }
+    const spots4 = tier === 5 ? [0.7, 0.3, 0.9, 0.1] : [0.75, 0.25];
+    for (const f of spots4) {
+      const a = f * Math.PI;
+      s += tower(CX + Math.cos(a) * wrx, CY + Math.sin(a) * wry, tier === 5 ? 10 : 8, tier === 5 ? P.roofB : null);
     }
   }
-  // a field next to small villages
-  if (tier <= 1) {
-    const fx = tier ? 6 : 10;
-    s += `<rect x="${fx}" y="8" width="11" height="8" fill="${PAL.thatch}" opacity="0.65"/>`;
-    s += `<path d="M${fx} 10h11M${fx} 12h11M${fx} 14h11" stroke="${PAL.thatchDark}" stroke-width="0.6" opacity="0.7"/>`;
-  }
+  if (tier <= 1) s += tree(8, 16, 3.2) + tree(56, 20, 2.8);
   const first = spots[0];
-  const bx = tier >= 4 || !first ? 32 : first[0] + 1;
-  const by = tier >= 4 ? 32 - (tier === 5 ? 5.5 : 4.5) : first ? first[1] - 2 : 31;
+  const bx = tier >= 4 || !first ? CX : first[0] + 2;
+  const by = tier >= 4 ? CY + 1 - (tier === 5 ? 19 : 15) : first ? first[1] - 8 : CY - 6;
   s += banner(bx, by, color, tier >= 4 ? 1.2 : 1);
   return s;
 }
 
 /** A patch of forest for an empty field. */
-export function forestSvg(seed: number): string {
+export function forest(seed: number): string {
   const R = rng(seed);
-  let s = '';
-  const n = 5 + Math.floor(R() * 4);
   const trees: [number, number, number][] = [];
-  for (let i = 0; i < n; i++) trees.push([8 + R() * 48, 8 + R() * 48, 5 + R() * 4]);
-  trees.sort((a, b) => a[1] - b[1]);
-  for (const [x, y, r] of trees) s += tree(x, y, r);
-  return s;
+  for (let i = 0; i < 7; i++) trees.push([8 + R() * 48, 16 + R() * 44, 4 + R() * 2.5]);
+  trees.sort((p, q) => p[1] - q[1]);
+  return trees.map(([x, y, r]) => tree(x, y, r)).join('');
 }
 
 // --- bitmaps ---------------------------------------------------------------------
@@ -188,7 +234,8 @@ export function onSpriteLoad(fn: (() => void) | null): void {
 function image(key: string, body: () => string): HTMLImageElement | null {
   let img = cache.get(key);
   if (!img) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE * RES}" height="${SIZE * RES}" viewBox="0 0 ${SIZE} ${SIZE}">${body()}</svg>`;
+    const h = SIZE + OVERHANG;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE * RES}" height="${h * RES}" viewBox="0 ${-OVERHANG} ${SIZE} ${h}">${body()}</svg>`;
     img = new Image();
     img.onload = () => onLoad?.();
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
@@ -205,35 +252,36 @@ const scaled = new Map<string, HTMLCanvasElement>();
 let scaledSize = 0;
 
 function atSize(img: HTMLImageElement, key: string, px: number): CanvasImageSource {
-  const size = Math.max(1, Math.round(px));
-  if (size !== scaledSize) {
+  const w = Math.max(1, Math.round(px));
+  const h = Math.max(1, Math.round((px * (SIZE + OVERHANG)) / SIZE));
+  if (w !== scaledSize) {
     scaled.clear();
-    scaledSize = size;
+    scaledSize = w;
   }
   let c = scaled.get(key);
   if (!c) {
     c = document.createElement('canvas');
-    c.width = size;
-    c.height = size;
+    c.width = w;
+    c.height = h;
     const ctx = c.getContext('2d');
     if (!ctx) return img;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, 0, 0, size, size);
+    ctx.drawImage(img, 0, 0, w, h);
     scaled.set(key, c);
   }
   return c;
 }
 
-/** A village at `px` device pixels square, or null while it is still loading. */
+/** A village `px` device pixels wide (and taller, by the overhang), or null while loading. */
 export function villageAt(tier: number, color: string, ring: boolean, villageId: number, px: number): CanvasImageSource | null {
   const variant = villageId % VARIANTS;
   const key = `v${tier}-${color}-${ring ? 1 : 0}-${variant}`;
-  const img = image(key, () => villageSvg(tier, color, variant + 1, ring));
+  const img = image(key, () => village(tier, color, variant + 2, ring));
   return img ? atSize(img, key, px) : null;
 }
 
 export function forestAt(variant: number, px: number): CanvasImageSource | null {
   const key = `f${variant % 4}`;
-  const img = image(key, () => forestSvg((variant % 4) + 11));
+  const img = image(key, () => forest((variant % 4) + 11));
   return img ? atSize(img, key, px) : null;
 }
