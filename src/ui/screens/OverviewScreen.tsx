@@ -118,6 +118,7 @@ export function OverviewScreen() {
             {v.buildQueue[0] && (
               <li>
                 <button class="link" onClick={() => (screen.value = 'main')}>
+                  {v.buildQueue[0].demolish ? 'Afbreken: ' : ''}
                   {v.buildQueue[0].name} → {v.buildQueue[0].level}
                 </button>{' '}
                 <span class="mono muted">{duration(v.buildQueue[0].end - s.time)}</span>

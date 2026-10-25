@@ -43,6 +43,16 @@ export interface BuildJob {
   start: number;
   end: number;
   cost: Res;
+  /** Tearing a level down instead of building one: `level` is the level after it. */
+  demolish?: true;
+}
+
+/** HQ level needed to tear buildings down, like TW. */
+export const DEMOLISH_HQ = 15;
+
+/** The level whose build time a job takes: the new level, or the one being torn down. */
+function jobTimeLevel(job: BuildJob): number {
+  return job.demolish ? job.level + 1 : job.level;
 }
 
 export interface RecruitJob {
@@ -192,17 +202,20 @@ function refund(v: Village, cost: Res, times: number, share: number): void {
 
 // --- levels, population, requirements ---------------------------------------
 
-/** Level a building will have once everything in the build queue is done. */
+/** Level a building will have once everything in the build queue is done (the last job wins). */
 export function plannedLevel(v: Village, b: BuildingId): number {
   let level = v.buildings[b];
-  for (const job of v.buildQueue) if (job.building === b) level = Math.max(level, job.level);
+  for (const job of v.buildQueue) if (job.building === b) level = job.level;
   return level;
 }
 
-/** Farm space used: buildings at their planned level + units at home + units in recruit queues. */
+/**
+ * Farm space used: buildings at their planned level + units at home + units in recruit queues.
+ * A building being torn down keeps its farm space until it is actually gone.
+ */
 export function popUsed(config: WorldConfig, v: Village): number {
   let used = 0;
-  for (const b of BUILDING_IDS) used += buildingPopTotal(config.buildings[b], plannedLevel(v, b));
+  for (const b of BUILDING_IDS) used += buildingPopTotal(config.buildings[b], Math.max(v.buildings[b], plannedLevel(v, b)));
   for (const u of UNIT_IDS) used += (v.units[u] + v.outside[u]) * config.units[u].pop;
   for (const b of RECRUIT_BUILDINGS) {
     for (const job of v.recruitQueues[b]) used += (job.total - job.done) * config.units[job.unit].pop;
@@ -253,6 +266,50 @@ export function buildBlocker(state: WorldState, v: Village, b: BuildingId): stri
   return null;
 }
 
+/** Why `b` can't be torn down one more level right now, or null if it can. */
+export function demolishBlocker(state: WorldState, v: Village, b: BuildingId): string | null {
+  const { config } = state;
+  const def = config.buildings[b];
+  const target = plannedLevel(v, b) - 1;
+  if (v.buildings.main < DEMOLISH_HQ) return `Hoofdgebouw ${DEMOLISH_HQ} nodig`;
+  if (target < def.minLevel) return 'Kan niet lager';
+  if (v.buildQueue.length >= config.village.buildQueueSlots) return 'Bouwqueue is vol';
+  if (b === 'farm' && popUsed(config, v) > farmCapacity(target)) return 'Boerderij is te vol';
+  if (target === 0 && (RECRUIT_BUILDINGS as readonly string[]).includes(b) && v.recruitQueues[b as RecruitBuilding].length > 0) {
+    return 'Rekruteren loopt nog';
+  }
+  if (target === 0 && b === 'smith' && v.research) return 'Onderzoek loopt nog';
+  return null;
+}
+
+/** Queues tearing down one level of `b`. Costs nothing and gives nothing back; frees farm space when done. */
+export function queueDemolish(state: WorldState, villageId: number, b: BuildingId): string | null {
+  const v = state.villages[villageId];
+  if (!v) return 'Dorp bestaat niet.';
+  const blocker = demolishBlocker(state, v, b);
+  if (blocker) return blocker;
+  const { config } = state;
+  const level = plannedLevel(v, b) - 1;
+  const start = buildQueueFreeAt(state, v);
+  const end = start + buildTimeMs(config, config.buildings[b], level + 1, plannedLevel(v, 'main'));
+  const job: BuildJob = { id: nextId(state), building: b, level, start, end, cost: [0, 0, 0], demolish: true };
+  v.buildQueue.push(job);
+  push(state.queue, end, { kind: 'build', villageId: v.id, jobId: job.id });
+  return null;
+}
+
+export const VILLAGE_NAME_MAX = 32;
+
+export function renameVillage(state: WorldState, villageId: number, name: string): string | null {
+  const v = state.villages[villageId];
+  if (!v) return 'Dorp bestaat niet.';
+  const clean = name.replace(/\s+/g, ' ').trim();
+  if (clean.length === 0) return 'Naam mag niet leeg zijn.';
+  if (clean.length > VILLAGE_NAME_MAX) return `Naam mag maximaal ${VILLAGE_NAME_MAX} tekens zijn.`;
+  v.name = clean;
+  return null;
+}
+
 /** When the build queue is free for a new job. */
 function buildQueueFreeAt(state: WorldState, v: Village): number {
   return v.buildQueue.at(-1)?.end ?? state.time;
@@ -292,14 +349,14 @@ function retimeBuildQueue(state: WorldState, v: Village, from: number): void {
     if (!job) continue;
     if (i >= from) {
       const start = i === 0 ? state.time : (v.buildQueue[i - 1]?.end ?? state.time);
-      const end = start + buildTimeMs(config, config.buildings[job.building], job.level, hq);
+      const end = start + buildTimeMs(config, config.buildings[job.building], jobTimeLevel(job), hq);
       if (start !== job.start || end !== job.end) {
         job.start = start;
         job.end = end;
         push(state.queue, end, { kind: 'build', villageId: v.id, jobId: job.id });
       }
     }
-    if (job.building === 'main') hq = Math.max(hq, job.level);
+    if (job.building === 'main') hq = job.level;
   }
 }
 
@@ -340,6 +397,10 @@ export function onBuildDone(state: WorldState, villageId: number, jobId: number)
   retimeBuildQueue(state, v, 0);
   if ((RECRUIT_BUILDINGS as readonly string[]).includes(job.building)) {
     retimeRecruitQueue(state, v, job.building as RecruitBuilding);
+  }
+  if (job.demolish) {
+    addLog(state, { time: state.time, text: `${v.name}: ${state.config.buildings[job.building].name} afgebroken tot level ${job.level}.` });
+    return;
   }
   buildingReward(state, v, job.building, job.level, job.cost);
   addLog(state, { time: state.time, text: `${v.name}: ${state.config.buildings[job.building].name} level ${job.level} klaar.` });

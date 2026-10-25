@@ -19,6 +19,7 @@ import {
 import type { WorldState } from './state';
 import {
   buildBlocker,
+  demolishBlocker,
   currentResources,
   isOperational,
   isUnitEnabled,
@@ -43,6 +44,8 @@ export interface BuildingView {
   operational: boolean;
   next: { level: number; cost: Res; pop: number; time: number } | null;
   blocker: string | null;
+  /** Tearing one level down (from the planned level); null when it is already at its lowest. */
+  demolish: { level: number; time: number; blocker: string | null } | null;
 }
 
 export interface UnitView {
@@ -82,7 +85,7 @@ export interface VillageView {
   rates: Res;
   pop: { used: number; max: number };
   buildings: BuildingView[];
-  buildQueue: { id: number; building: BuildingId; name: string; level: number; start: number; end: number }[];
+  buildQueue: { id: number; building: BuildingId; name: string; level: number; start: number; end: number; demolish?: true }[];
   units: UnitView[];
   recruitQueues: Record<RecruitBuilding, RecruitJobView[]>;
   research: { unit: UnitId; name: string; end: number } | null;
@@ -141,6 +144,10 @@ export function villageView(state: WorldState, v: Village): VillageView {
       operational: missingRequirements(config, v, def.requires).length === 0,
       next,
       blocker: buildBlocker(state, v, b),
+      demolish:
+        planned > def.minLevel
+          ? { level: planned - 1, time: buildTimeMs(config, def, planned, v.buildings.main), blocker: demolishBlocker(state, v, b) }
+          : null,
     };
   });
 
@@ -214,6 +221,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
       level: j.level,
       start: j.start,
       end: j.end,
+      ...(j.demolish ? { demolish: true as const } : {}),
     })),
     units,
     recruitQueues,

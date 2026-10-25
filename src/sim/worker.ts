@@ -45,6 +45,8 @@ import {
   popMax,
   popUsed,
   queueBuild,
+  queueDemolish,
+  renameVillage,
   recruit,
   settle,
   startResearch,
@@ -523,6 +525,8 @@ async function handle(cmd: Command): Promise<void> {
       break;
     case 'build':
     case 'cancelBuild':
+    case 'demolish':
+    case 'renameVillage':
     case 'research':
     case 'cancelResearch':
     case 'recruit':
@@ -538,7 +542,7 @@ async function handle(cmd: Command): Promise<void> {
 
 type VillageCommand = Extract<
   Command,
-  { type: 'build' | 'cancelBuild' | 'research' | 'cancelResearch' | 'recruit' | 'cancelRecruit' }
+  { type: 'build' | 'cancelBuild' | 'demolish' | 'renameVillage' | 'research' | 'cancelResearch' | 'recruit' | 'cancelRecruit' }
 >;
 
 function villageAction(s: WorldState, cmd: VillageCommand): string | null {
@@ -548,6 +552,10 @@ function villageAction(s: WorldState, cmd: VillageCommand): string | null {
       return queueBuild(s, cmd.villageId, cmd.building);
     case 'cancelBuild':
       return cancelBuild(s, cmd.villageId, cmd.jobId);
+    case 'demolish':
+      return queueDemolish(s, cmd.villageId, cmd.building);
+    case 'renameVillage':
+      return renameVillage(s, cmd.villageId, cmd.name);
     case 'research':
       return startResearch(s, cmd.villageId, cmd.unit);
     case 'cancelResearch':

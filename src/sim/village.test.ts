@@ -10,8 +10,11 @@ import {
   cancelRecruit,
   currentResources,
   isOperational,
+  popUsed,
   queueBuild,
+  queueDemolish,
   recruit,
+  renameVillage,
   startResearch,
   type Village,
 } from './village';
@@ -351,5 +354,55 @@ describe('saves', () => {
     const migrated = fromSaveData(old);
     expect(playerVillage(migrated)?.buildings.wood).toBe(1);
     expect(migrated.config.buildings.main.maxLevel).toBe(30);
+  });
+});
+
+describe('demolishing and renaming', () => {
+  it('tears down one level from HQ 15, costs nothing, frees farm space when done', () => {
+    const { s, v } = setup();
+    rich(v, { main: 14, barracks: 10 });
+    v.resAt = s.time;
+    expect(queueDemolish(s, v.id, 'barracks')).toBe('Hoofdgebouw 15 nodig');
+    v.buildings.main = 15;
+    const res = currentResources(s.config, v, s.time);
+    const pop = popUsed(s.config, v);
+    expect(queueDemolish(s, v.id, 'barracks')).toBeNull();
+    expect(currentResources(s.config, v, s.time)).toEqual(res);
+    expect(popUsed(s.config, v)).toBe(pop); // still standing
+    const job = v.buildQueue[0];
+    if (!job) throw new Error('no job');
+    expect(job.end - job.start).toBe(buildTimeMs(s.config, s.config.buildings.barracks, 10, 15));
+    run(s, job.end - s.time);
+    expect(v.buildings.barracks).toBe(9);
+    expect(popUsed(s.config, v)).toBeLessThan(pop);
+  });
+
+  it('build and demolish jobs chain: the last queued job sets the planned level', () => {
+    const { s, v } = setup();
+    rich(v, { main: 20, wood: 5 });
+    v.resAt = s.time;
+    expect(queueBuild(s, v.id, 'wood')).toBeNull(); // 6
+    expect(queueDemolish(s, v.id, 'wood')).toBeNull(); // back to 5
+    expect(queueDemolish(s, v.id, 'wood')).toBeNull(); // 4
+    run(s, 6 * HOUR);
+    expect(v.buildings.wood).toBe(4);
+  });
+
+  it('the HQ cannot go below its minimum, recruit buildings not to 0 while recruiting', () => {
+    const { s, v } = setup();
+    rich(v, { main: 15, barracks: 1 });
+    v.resAt = s.time;
+    expect(recruit(s, v.id, 'spear', 5)).toBeNull();
+    expect(queueDemolish(s, v.id, 'barracks')).toBe('Rekruteren loopt nog');
+    v.buildings.main = 1;
+    expect(queueDemolish(s, v.id, 'main')).not.toBeNull();
+  });
+
+  it('renames with trimmed names up to 32 characters', () => {
+    const { s, v } = setup();
+    expect(renameVillage(s, v.id, '   ')).not.toBeNull();
+    expect(renameVillage(s, v.id, 'x'.repeat(33))).not.toBeNull();
+    expect(renameVillage(s, v.id, '  Fort   Kakkerlak ')).toBeNull();
+    expect(v.name).toBe('Fort Kakkerlak');
   });
 });

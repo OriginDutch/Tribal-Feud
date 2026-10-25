@@ -1,7 +1,11 @@
 import { formatGameTime } from '../../shared/time';
 import { Cost } from '../components/Cost';
 import { duration } from '../format';
+import { useState } from 'preact/hooks';
+import type { BuildingId } from '../../shared/gameData';
 import { send, snapshot } from '../store';
+
+const DEMOLISH_HQ = 15;
 
 /**
  * Layout rule for this screen: nothing may move when the game state changes.
@@ -12,6 +16,10 @@ export function MainScreen() {
   const s = snapshot.value;
   const v = s?.village;
   if (!s || !v) return null;
+  const [tear, setTear] = useState<BuildingId | ''>('');
+  const hq = v.buildings.find((b) => b.id === 'main')?.level ?? 0;
+  const tearable = v.buildings.filter((b) => b.demolish);
+  const picked = tearable.find((b) => b.id === tear) ?? null;
   const slots = Array.from({ length: v.buildQueueSlots }, (_, i) => v.buildQueue[i] ?? null);
 
   return (
@@ -34,7 +42,15 @@ export function MainScreen() {
               job ? (
                 <tr key={`slot-${i}`}>
                   <td class="ellipsis">
-                    {job.name} → level {job.level}
+                    {job.demolish ? (
+                      <>
+                        <span class="warn">Afbreken</span> {job.name} → level {job.level}
+                      </>
+                    ) : (
+                      <>
+                        {job.name} → level {job.level}
+                      </>
+                    )}
                   </td>
                   <td class="mono">{i === 0 ? `nog ${duration(job.end - s.time)}` : <span class="muted">duurt {duration(job.end - job.start)}</span>}</td>
                   <td class="mono muted">{formatGameTime(job.end)}</td>
@@ -80,7 +96,7 @@ export function MainScreen() {
               <tr key={b.id} class={!b.operational && b.level === 0 ? 'locked' : ''}>
                 <td class="ellipsis">
                   <strong>{b.name}</strong> <span class="muted">{b.level > 0 ? `level ${b.level}` : 'niet gebouwd'}</span>
-                  {b.planned > b.level && <span class="muted"> (→ {b.planned})</span>}
+                  {b.planned !== b.level && <span class="muted"> (→ {b.planned})</span>}
                   {b.level > 0 && !b.operational && <span class="warn"> · werkt niet</span>}
                 </td>
                 <td>{b.next ? <Cost cost={b.next.cost} have={v.res} /> : <span class="muted">—</span>}</td>
@@ -100,6 +116,36 @@ export function MainScreen() {
             ))}
           </tbody>
         </table>
+      </section>
+
+      <section class="panel">
+        <h3>Afbreken</h3>
+        {hq < DEMOLISH_HQ ? (
+          <p class="muted">Vanaf hoofdgebouw {DEMOLISH_HQ} kun je gebouwen afbreken.</p>
+        ) : (
+          <>
+            <div class="row">
+              <select value={tear} onChange={(e) => setTear(e.currentTarget.value as BuildingId | '')}>
+                <option value="">Kies een gebouw…</option>
+                {tearable.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} {b.planned} → {b.demolish?.level}
+                  </option>
+                ))}
+              </select>
+              <button
+                class="danger"
+                disabled={!picked?.demolish || picked.demolish.blocker !== null}
+                title={picked?.demolish?.blocker ?? ''}
+                onClick={() => picked && send({ type: 'demolish', villageId: v.id, building: picked.id })}
+              >
+                {picked?.demolish?.blocker ?? 'Eén level afbreken'}
+              </button>
+              {picked?.demolish && <span class="muted mono">duurt {duration(picked.demolish.time)}</span>}
+            </div>
+            <p class="muted">Afbreken kost niets en geeft niets terug. Het neemt een plek in de bouwqueue; de arbeiders komen vrij als het klaar is.</p>
+          </>
+        )}
       </section>
     </div>
   );

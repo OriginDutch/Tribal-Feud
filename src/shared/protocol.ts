@@ -27,6 +27,8 @@ export type Command =
   | { type: 'listSaves' }
   | { type: 'build'; villageId: number; building: BuildingId }
   | { type: 'cancelBuild'; villageId: number; jobId: number }
+  | { type: 'demolish'; villageId: number; building: BuildingId }
+  | { type: 'renameVillage'; villageId: number; name: string }
   | { type: 'research'; villageId: number; unit: UnitId }
   | { type: 'cancelResearch'; villageId: number }
   | { type: 'recruit'; villageId: number; unit: UnitId; count: number }
