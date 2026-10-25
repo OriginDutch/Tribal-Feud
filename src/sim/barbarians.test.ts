@@ -67,6 +67,16 @@ describe('barbarian types', () => {
     expect(Math.max(...defensive.map((v) => v.buildings.wall))).toBeGreaterThan(8);
   });
 
+  it('grows faster with a higher build speed', () => {
+    const s = world({ buildSpeed: 20 });
+    const v = barbs(s)[0];
+    if (!v) throw new Error('no barb');
+    const start = villagePoints(s.config, v);
+    growBarbarian(s, v, DAY / 4);
+    // 100/day x 20 = 500 points in 6 hours
+    expect(villagePoints(s.config, v) - start).toBeGreaterThanOrEqual(499);
+  });
+
   it('only defensive barbarians have a wall below 1000 points', () => {
     const s = world();
     for (const v of barbs(s)) {

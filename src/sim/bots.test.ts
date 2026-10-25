@@ -83,4 +83,11 @@ describe('bots', () => {
     runDays(s, 1);
     expect(performance.now() - t).toBeLessThan(3000);
   });
+
+  it('take turns more often when build or recruit speed is higher', () => {
+    const slow = createWorld(createConfig('classic', 'Bots', 11, { bots: { count: 20 } }));
+    const fast = createWorld(createConfig('classic', 'Bots', 11, { bots: { count: 20 }, buildSpeed: 20 }));
+    const first = (s: WorldState) => Math.max(...s.players.filter((p) => p.bot).map((p) => p.bot?.nextTurn ?? 0));
+    expect(first(fast)).toBeLessThanOrEqual(first(slow) / 19);
+  });
 });

@@ -173,9 +173,17 @@ export function growthIntervalMs(config: WorldConfig): number {
   return (config.barbarians.growthIntervalHours * 3_600_000) / (config.worldSpeed * config.barbarians.growthRate);
 }
 
+/**
+ * Barbarians build like players do: faster on fast worlds and with a higher build speed.
+ * ('levels' mode, old worlds, keeps scaling with world speed only.)
+ */
+export function barbarianBuildSpeed(config: WorldConfig): number {
+  return config.worldSpeed * config.buildSpeed;
+}
+
 function pointsPerMs(config: WorldConfig): number {
   const { pointsPerDay, growthRate } = config.barbarians;
-  return (pointsPerDay * config.worldSpeed * growthRate) / DAY;
+  return (pointsPerDay * barbarianBuildSpeed(config) * growthRate) / DAY;
 }
 
 /** Damage not yet regrown at `time`. */
@@ -221,7 +229,7 @@ function repairWall(config: WorldConfig, v: Village, time: number): void {
   const g = v.growth;
   const r = g?.wallRepair;
   if (!g || !r || !v.barbType) return;
-  const rate = config.barbarians.types[v.barbType].wallRepairPerDay * config.worldSpeed;
+  const rate = config.barbarians.types[v.barbType].wallRepairPerDay * barbarianBuildSpeed(config);
   const levels = Math.floor((Math.max(0, time - r.at) / DAY) * rate);
   const repaired = Math.min(r.peak, r.level + levels);
   const def = config.buildings.wall;

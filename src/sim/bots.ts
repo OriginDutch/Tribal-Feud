@@ -49,10 +49,19 @@ export function initBots(state: WorldState): void {
   }
 }
 
+/**
+ * How fast things happen for a bot: with a higher build or recruit speed its jobs finish
+ * sooner, so it needs turns more often to keep up (same as a player clicking more often).
+ */
+function botSpeed(state: WorldState): number {
+  const c = state.config;
+  return c.worldSpeed * Math.max(1, c.buildSpeed, c.recruitSpeed);
+}
+
 function turnInterval(state: WorldState, activity: number): number {
   const { turnMinMinutes, turnMaxMinutes } = state.config.bots;
   const minutes = turnMaxMinutes - (turnMaxMinutes - turnMinMinutes) * activity;
-  return (minutes * MINUTE) / state.config.worldSpeed;
+  return (minutes * MINUTE) / botSpeed(state);
 }
 
 export function onBotTurn(state: WorldState, playerId: number): void {
@@ -98,7 +107,7 @@ function shouldAbandon(state: WorldState, player: Player): boolean {
     return false;
   }
   const maxed = villages.every((v) => fallbackStep(state, v) === null);
-  return !maxed && state.time - bot.peak.at > (days * DAY) / state.config.worldSpeed;
+  return !maxed && state.time - bot.peak.at > (days * DAY) / botSpeed(state);
 }
 
 /** The bot's villages become barbarian; the bot starts over with one fresh village at the edge. */
