@@ -23,7 +23,7 @@ function ratio(o: { give: TradeSide; want: TradeSide }): string {
 
 function ResSelect({ value, onChange }: { value: 0 | 1 | 2; onChange: (r: 0 | 1 | 2) => void }) {
   return (
-    <select value={value} onChange={(e) => onChange(Number(e.currentTarget.value) as 0 | 1 | 2)}>
+    <select value={String(value)} onChange={(e) => onChange(Number(e.currentTarget.value) as 0 | 1 | 2)}>
       {RES_LABELS.map((l, i) => (
         <option key={i} value={i}>
           {l}

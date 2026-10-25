@@ -59,7 +59,7 @@ export function VillageSwitcher() {
       <button class="small" title="Vorig dorp (A)" onClick={() => stepVillage(-1)}>
         ◀
       </button>
-      <select value={v.id} onChange={(e) => send({ type: 'selectVillage', id: Number(e.currentTarget.value) })}>
+      <select value={String(v.id)} onChange={(e) => send({ type: 'selectVillage', id: Number(e.currentTarget.value) })}>
         {s.villages.map((x) => (
           <option key={x.id} value={x.id}>
             {x.name} ({x.x}|{x.y})
