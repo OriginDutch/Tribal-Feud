@@ -99,3 +99,32 @@ describe('alert modes', () => {
     expect(BARBARIAN).toBe(-1);
   });
 });
+
+describe('difficulty', () => {
+  it('easier bots take fewer turns', () => {
+    const turns = (difficulty: 'easy' | 'normal' | 'hard') => {
+      const s = createWorld(createConfig('classic', 'Diff', 40, { bots: { count: 20, difficulty } }));
+      return Math.max(...s.players.filter((p) => p.bot).map((p) => p.bot?.nextTurn ?? 0));
+    };
+    expect(turns('easy')).toBeGreaterThan(turns('normal'));
+    expect(turns('normal')).toBeGreaterThan(turns('hard'));
+  });
+
+  it('after taking a village, a normal bot waits before nobling again', () => {
+    const s = createWorld(createConfig('classic', 'Diff', 41, { bots: { count: 1, difficulty: 'normal' }, unitSpeed: 20 }));
+    const bot = s.players.find((p) => p.isBot);
+    const v = bot ? villagesOf(s, bot.id)[0] : undefined;
+    if (!bot?.bot || !v) throw new Error('setup');
+    bot.bot.archetype = 'farmer';
+    Object.assign(v.buildings, { main: 20, smith: 20, market: 10, snob: 1, storage: 30, farm: 30, barracks: 10, place: 1 });
+    v.res = [2000000, 2000000, 2000000];
+    v.units.axe = 300;
+    run(s, 2 * DAY);
+    const first = bot.bot.lastConquest;
+    expect(first).toBeDefined();
+    // 16 game hours of cooldown at world speed 1: no second conquest within that time
+    const taken = villagesOf(s, bot.id).length;
+    expect(taken).toBeGreaterThanOrEqual(2);
+    expect(s.conquests?.barbarian ?? 0).toBeLessThanOrEqual(Math.ceil((2 * DAY) / (16 * HOUR)) + 1);
+  });
+});

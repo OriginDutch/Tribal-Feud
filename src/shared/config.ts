@@ -21,6 +21,28 @@ export type PaladinMode = 'off' | 'on' | 'items';
 export type NobleCostMode = 'coins' | 'packages';
 export type MoraleMode = 'off' | 'points' | 'pointsTime';
 export type BotDifficulty = 'easy' | 'normal' | 'hard';
+
+/**
+ * What a difficulty does to bots. Same rules as the player; only how attentive and how
+ * greedy they are differs. Values are tuned with the balance simulations (*.sim.test.ts).
+ */
+export interface DifficultyDef {
+  /** Multiplies how often bots take a turn (1 = every 5-30 game minutes at world speed 1). */
+  turnRate: number;
+  /** Villages a bot looks at per turn. */
+  villagesPerTurn: number;
+  /**
+   * Game hours (world speed 1) a bot waits after taking a village before it nobles again.
+   * Active bots wait less, sleepy ones more (x0.5 .. x1.2 by activity), so they don't all grow alike.
+   */
+  conquestCooldownHours: number;
+}
+
+export const DIFFICULTIES: Record<BotDifficulty, DifficultyDef> = {
+  easy: { turnRate: 0.35, villagesPerTurn: 2, conquestCooldownHours: 320 },
+  normal: { turnRate: 0.5, villagesPerTurn: 3, conquestCooldownHours: 160 },
+  hard: { turnRate: 1, villagesPerTurn: 5, conquestCooldownHours: 0 },
+};
 export type PresetId = 'classic' | 'speed' | 'hardcore' | 'custom';
 
 export interface WorldConfig {
@@ -109,8 +131,6 @@ export interface WorldConfig {
     farmAttacksPerTurn: number;
     /** A bot whose points don't grow for this many game days gives up and restarts at the edge. */
     abandonAfterDays: number;
-    /** Villages a bot looks at per turn (it cycles through the rest). */
-    villagesPerTurn: number;
   };
 
   winCondition: {
@@ -208,7 +228,6 @@ const BASE: PresetValues = {
     farmRadius: 15,
     farmAttacksPerTurn: 5,
     abandonAfterDays: 3,
-    villagesPerTurn: 5,
   },
   winCondition: {
     villageShare: 0.75,

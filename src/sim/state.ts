@@ -39,6 +39,8 @@ export interface BotState {
   outgoing: number[];
   /** Next village to look at when the bot has more villages than it handles per turn. */
   cursor?: number;
+  /** When this bot last took a village (for the difficulty's conquest cooldown). */
+  lastConquest?: number;
   /** Village this bot is nobling. */
   nobleTarget?: number;
   /** Highest points seen and when: a bot that stops growing gives up (see abandon). */
@@ -101,6 +103,8 @@ export interface WorldState {
   current?: number;
   /** An alert raised during an event (incoming attack, village lost): it auto-pauses the game. */
   alert?: LogEntry;
+  /** World statistics: villages taken from barbarians and from players. */
+  conquests?: { barbarian: number; player: number };
   /** When to auto-pause for attacks (default: the first attack per attacking village). */
   alertMode?: AlertMode;
   /** perVillage mode: when each attacking village last caused a pause. */

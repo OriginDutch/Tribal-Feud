@@ -7,6 +7,7 @@
 import { ARCHETYPES, BOT_PROFILES, type BotProfile } from '../shared/botProfiles';
 import { RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { MINUTE } from '../shared/time';
+import { DIFFICULTIES, type DifficultyDef } from '../shared/config';
 
 const DAY = 86_400_000;
 import { push } from './eventQueue';
@@ -61,7 +62,11 @@ function botSpeed(state: WorldState): number {
 function turnInterval(state: WorldState, activity: number): number {
   const { turnMinMinutes, turnMaxMinutes } = state.config.bots;
   const minutes = turnMaxMinutes - (turnMaxMinutes - turnMinMinutes) * activity;
-  return (minutes * MINUTE) / botSpeed(state);
+  return (minutes * MINUTE) / (botSpeed(state) * difficulty(state).turnRate);
+}
+
+export function difficulty(state: WorldState): DifficultyDef {
+  return DIFFICULTIES[state.config.bots.difficulty] ?? DIFFICULTIES.normal;
 }
 
 export function onBotTurn(state: WorldState, playerId: number): void {
@@ -72,7 +77,7 @@ export function onBotTurn(state: WorldState, playerId: number): void {
   if (shouldAbandon(state, player)) abandonAndRestart(state, player);
   // like a player, a bot looks at a few villages per turn, taking turns
   const villages = villagesOf(state, playerId);
-  const per = Math.max(1, state.config.bots.villagesPerTurn ?? 5);
+  const per = Math.max(1, difficulty(state).villagesPerTurn);
   if (villages.length <= per) {
     for (const v of villages) villageTurn(state, player, v);
   } else {
@@ -439,6 +444,9 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
   const { config } = state;
   const bot = player.bot;
   if (!bot || !isOperational(config, v, 'snob')) return false;
+  // the difficulty decides how soon after a conquest a bot goes for the next village
+  const cooldown = ((difficulty(state).conquestCooldownHours * (1.5 - bot.activity)) * 3_600_000) / config.worldSpeed;
+  if (bot.lastConquest !== undefined && state.time - bot.lastConquest < cooldown) return false;
   const queued = v.recruitQueues.snob.reduce((n, j) => n + j.total - j.done, 0);
   const nobles = v.units.snob + v.outside.snob + queued;
 

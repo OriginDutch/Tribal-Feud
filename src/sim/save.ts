@@ -11,7 +11,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 export interface SaveData {
   version: number;
@@ -120,6 +120,11 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     const c = data.state.config;
     c.conquest = { ...structuredClone(PRESETS.classic.conquest), ...c.conquest };
     return { ...data, version: 9 };
+  },
+  // v9 bots played at full strength: keep that as 'hard' for old worlds.
+  9: (data) => {
+    data.state.config.bots.difficulty = 'hard';
+    return { ...data, version: 10 };
   },
 };
 

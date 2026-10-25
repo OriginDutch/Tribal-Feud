@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { PRESETS, type ConfigOverrides, type PresetId } from '../../shared/config';
+import { PRESETS, type BotDifficulty, type ConfigOverrides, type PresetId } from '../../shared/config';
 import type { Command } from '../../shared/protocol';
 import { autoPause, screen, send } from '../store';
 
@@ -34,10 +34,12 @@ export function NewWorldPanel() {
   const [preset, setPreset] = useState<Preset>('classic');
   const [seed, setSeed] = useState('');
   const [knobs, setKnobs] = useState(presetKnobs('classic'));
+  const [difficulty, setDifficulty] = useState<BotDifficulty>(PRESETS.classic.bots.difficulty);
 
   const changePreset = (p: Preset) => {
     setPreset(p);
     setKnobs(presetKnobs(p));
+    setDifficulty(PRESETS[p].bots.difficulty);
   };
 
   const create = () => {
@@ -47,6 +49,7 @@ export function NewWorldPanel() {
       const value = Number(knobs[key]);
       if (value > 0 && value !== PRESETS[preset][key]) overrides[key] = value;
     }
+    if (difficulty !== PRESETS[preset].bots.difficulty) overrides.bots = { difficulty };
     const cmd: Command = { type: 'newWorld', preset, name, overrides };
     if (seed.trim() !== '') cmd.seed = Number(seed) >>> 0;
     autoPause.value = null;
@@ -67,6 +70,14 @@ export function NewWorldPanel() {
           <option value="classic">Classic</option>
           <option value="speed">Speed</option>
           <option value="hardcore">Hardcore</option>
+        </select>
+      </label>
+      <label title="Hoe oplettend en hebberig de bots spelen. Ze houden zich altijd aan dezelfde regels als jij.">
+        Bots
+        <select value={difficulty} onChange={(e) => setDifficulty(e.currentTarget.value as BotDifficulty)}>
+          <option value="easy">Makkelijk</option>
+          <option value="normal">Normaal</option>
+          <option value="hard">Moeilijk</option>
         </select>
       </label>
       <div class="knobs">

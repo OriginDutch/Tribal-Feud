@@ -404,7 +404,12 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
     if (m.from === v.id || (m.kind === 'return' && m.to === v.id)) delete state.movements[m.id];
   }
   for (const w of Object.values(state.villages)) if (w.support?.[v.id]) delete w.support[v.id];
+  state.conquests ??= { barbarian: 0, player: 0 };
+  if (old === BARBARIAN) state.conquests.barbarian++;
+  else state.conquests.player++;
   v.owner = newOwner;
+  const bot = state.players[newOwner]?.bot;
+  if (bot) bot.lastConquest = state.time;
   delete v.growth;
   delete v.barbType;
   v.loyalty = config.conquest.loyaltyAfterConquest;
