@@ -1,5 +1,5 @@
 import preact from '@preact/preset-vite';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [preact()],
@@ -8,6 +8,8 @@ export default defineConfig({
   },
   test: {
     include: ['src/**/*.test.ts'],
+    // long balance simulations: npx vitest run --config vitest.sim.config.ts
+    exclude: [...configDefaults.exclude, 'src/**/*.sim.test.ts'],
     environment: 'node',
   },
 });

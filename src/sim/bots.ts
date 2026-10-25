@@ -81,11 +81,13 @@ export function onBotTurn(state: WorldState, playerId: number): void {
 function villageTurn(state: WorldState, player: Player, v: Village): void {
   if (!player.bot) return;
   const profile = BOT_PROFILES[player.bot.archetype];
-  const reserve = build(state, v, profile);
+  // coins and noblemen come first once there is an academy; while saving, buildings wait too
+  const saving = nobleTurn(state, player, v, profile, [0, 0, 0]);
+  const reserve = build(state, v, profile, saving ? nobleNeed(state, v) : [0, 0, 0]);
   research(state, v, profile);
-  nobleTurn(state, player, v, profile, reserve);
-  recruitDefense(state, v, profile, reserve);
-  recruitTroops(state, v, profile, reserve);
+  // saving: only the most needed defense, no other troops
+  recruitDefense(state, v, profile, reserve, saving ? 0.5 : 1);
+  if (!saving) recruitTroops(state, v, profile, reserve);
   farm(state, player, v, profile);
 }
 
@@ -109,7 +111,9 @@ function shouldAbandon(state: WorldState, player: Player): boolean {
     return false;
   }
   const maxed = villages.every((v) => fallbackStep(state, v) === null);
-  return !maxed && state.time - bot.peak.at > (days * DAY) / botSpeed(state);
+  // a bot with an academy may save up for a long time without growing: that is not giving up
+  const saving = villages.some((v) => v.buildings.snob > 0);
+  return !maxed && !saving && state.time - bot.peak.at > (days * DAY) / state.config.worldSpeed;
 }
 
 /** The bot's villages become barbarian; the bot starts over with one fresh village at the edge. */
@@ -176,13 +180,17 @@ function fallbackStep(state: WorldState, v: Village): BuildingId | null {
  * Keeps the build queue busy. Returns the resources the bot wants to keep for its next
  * building, so recruiting doesn't eat them.
  */
-function build(state: WorldState, v: Village, profile: BotProfile): Res {
+function build(state: WorldState, v: Village, profile: BotProfile, keep: Res = [0, 0, 0]): Res {
   const { config } = state;
   // bots keep at most 2 jobs queued: enough to stay busy without locking up resources
   for (let guard = 0; guard < 4 && v.buildQueue.length < 2; guard++) {
     const step = nextStep(v, profile);
     let target: BuildingId | null = step ? step[0] : fallbackStep(state, v);
     if (!target) break;
+
+    // keep the three resources in balance: a pit that falls behind goes first
+    const scarce = scarcePit(state, v);
+    if (scarce) target = scarce;
 
     // the economy comes first: a full storage or farm blocks everything else
     const res = currentResources(config, v, state.time);
@@ -194,6 +202,11 @@ function build(state: WorldState, v: Village, profile: BotProfile): Res {
 
     const blocker = buildBlocker(state, v, target);
     if (blocker === null) {
+      // saving for a coin: only build what leaves the coin money untouched (farm/storage always go)
+      const have = currentResources(config, v, state.time);
+      const cost = buildingCost(config.buildings[target], plannedLevel(v, target) + 1);
+      const urgent = target === 'farm' || target === 'storage';
+      if (!urgent && [0, 1, 2].some((i) => have[i as 0 | 1 | 2] - cost[i as 0 | 1 | 2] < keep[i as 0 | 1 | 2])) break;
       queueBuild(state, v.id, target);
       continue;
     }
@@ -208,11 +221,33 @@ function build(state: WorldState, v: Village, profile: BotProfile): Res {
     break; // not affordable yet (or waiting on a requirement): save up
   }
 
+  // keep what the next building needs (a short resource first), so troops don't eat it
   const step = nextStep(v, profile);
-  const b = step ? step[0] : fallbackStep(state, v);
+  const b = scarcePit(state, v) ?? (step ? step[0] : fallbackStep(state, v));
   if (!b) return [0, 0, 0];
   const level = plannedLevel(v, b) + 1;
   return level <= config.buildings[b].maxLevel ? buildingCost(config.buildings[b], level) : [0, 0, 0];
+}
+
+const PITS = ['wood', 'stone', 'iron'] as const;
+
+/**
+ * The resource building to build first when one resource runs short: its stock is under a
+ * third of the richest one (and not near full storage), and its pit is not already ahead.
+ * Buildings eat more clay than wood or iron, so without this bots starve on clay.
+ */
+function scarcePit(state: WorldState, v: Village): BuildingId | null {
+  const res = currentResources(state.config, v, state.time);
+  const max = Math.max(...res);
+  if (max < 1000) return null;
+  let low = 0;
+  for (const i of [1, 2] as const) if (res[i] < res[low as 0 | 1 | 2]) low = i;
+  if (res[low as 0 | 1 | 2] >= max / 3) return null;
+  const pit = PITS[low] ?? 'stone';
+  const levels = PITS.map((b) => plannedLevel(v, b));
+  if (plannedLevel(v, pit) >= state.config.buildings[pit].maxLevel) return null;
+  if (plannedLevel(v, pit) > Math.min(...levels) + 3) return null;
+  return pit;
 }
 
 function storageOf(v: Village): number {
@@ -353,9 +388,9 @@ function defensePop(state: WorldState, v: Village): number {
 }
 
 /** Keeps a defense in proportion to the village's size before spending on anything else. */
-function recruitDefense(state: WorldState, v: Village, profile: BotProfile, reserve: Res): void {
+function recruitDefense(state: WorldState, v: Village, profile: BotProfile, reserve: Res, share = 1): void {
   const { config } = state;
-  const want = villagePoints(config, v) * profile.defensePerPoint;
+  const want = villagePoints(config, v) * profile.defensePerPoint * share;
   const missing = want - defensePop(state, v);
   if (missing < 10) return;
   const have = currentResources(config, v, state.time);
@@ -382,10 +417,16 @@ const BARB_ESCORT = 50;
  * at one target until it falls. The nobleman comes home after every attack (he is only used
  * up when he takes the village).
  */
-function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotProfile, reserve: Res): void {
+/** What the village saves for: a coin, or a nobleman once the coins are there. */
+function nobleNeed(state: WorldState, v: Village): Res {
+  return noblesAllowed(state, v) > 0 ? state.config.units.snob.cost : state.config.conquest.coinCost;
+}
+
+/** Returns true while the village saves up for a coin or a nobleman. */
+function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotProfile, reserve: Res): boolean {
   const { config } = state;
   const bot = player.bot;
-  if (!bot || !isOperational(config, v, 'snob')) return;
+  if (!bot || !isOperational(config, v, 'snob')) return false;
   const queued = v.recruitQueues.snob.reduce((n, j) => n + j.total - j.done, 0);
   const nobles = v.units.snob + v.outside.snob + queued;
 
@@ -393,16 +434,16 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
     const have = currentResources(config, v, state.time);
     const free = (cost: Res) => [0, 1, 2].every((i) => have[i as 0 | 1 | 2] - reserve[i as 0 | 1 | 2] >= cost[i as 0 | 1 | 2]);
     if (noblesAllowed(state, v) > 0) {
-      if (free(config.units.snob.cost)) recruit(state, v.id, 'snob', 1);
+      if (free(config.units.snob.cost)) return recruit(state, v.id, 'snob', 1) !== null;
     } else if (free(config.conquest.coinCost)) {
       mintCoins(state, v.id, 1);
     }
-    return;
+    return true;
   }
-  if (v.units.snob === 0 || !isOperational(config, v, 'place')) return;
+  if (v.units.snob === 0 || !isOperational(config, v, 'place')) return false;
 
   const target = nobleTarget(state, player, v, profile);
-  if (!target) return;
+  if (!target) return false;
   const escort: UnitCounts = { snob: 1 };
   if (target.owner === BARBARIAN) {
     // a barbarian village has no troops: a small escort is enough
@@ -412,16 +453,17 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
       if (n > 0) escort[u] = n;
       left -= n;
     }
-    if (left > BARB_ESCORT / 2) return;
+    if (left > BARB_ESCORT / 2) return false;
   } else {
     // a player: everything offensive goes along
     for (const u of ['axe', 'light', 'marcher', 'ram', 'catapult'] as const) if (v.units[u] > 0) escort[u] = v.units[u];
-    if ((escort.axe ?? 0) + (escort.light ?? 0) * 4 < 400) return;
+    if ((escort.axe ?? 0) + (escort.light ?? 0) * 4 < 400) return false;
   }
   if (sendAttack(state, v.id, target.id, escort) === null) {
     bot.nobleTarget = target.id;
     bot.outgoing.push(target.id);
   }
+  return false;
 }
 
 function nobleTarget(state: WorldState, player: Player, v: Village, profile: BotProfile): Village | null {
