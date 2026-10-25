@@ -70,7 +70,19 @@ export function onBotTurn(state: WorldState, playerId: number): void {
   if (!player || !bot || bot.nextTurn !== state.time) return; // stale event
 
   if (shouldAbandon(state, player)) abandonAndRestart(state, player);
-  for (const v of villagesOf(state, playerId)) villageTurn(state, player, v);
+  // like a player, a bot looks at a few villages per turn, taking turns
+  const villages = villagesOf(state, playerId);
+  const per = Math.max(1, state.config.bots.villagesPerTurn ?? 5);
+  if (villages.length <= per) {
+    for (const v of villages) villageTurn(state, player, v);
+  } else {
+    const start = (bot.cursor ?? 0) % villages.length;
+    for (let i = 0; i < per; i++) {
+      const v = villages[(start + i) % villages.length];
+      if (v) villageTurn(state, player, v);
+    }
+    bot.cursor = (start + per) % villages.length;
+  }
 
   // next turn, with a little jitter
   const jitter = 0.8 + nextFloat(state.rng) * 0.4;
@@ -502,7 +514,8 @@ export function rememberFarm(state: WorldState, owner: number, targetId: number,
   const i = bot.outgoing.indexOf(targetId);
   if (i >= 0) bot.outgoing.splice(i, 1);
   const ids = Object.keys(bot.farmLog);
-  if (ids.length > 150) {
+  // trim in batches: sorting on every report was a hot spot
+  if (ids.length > 250) {
     // forget the oldest entries
     ids
       .map(Number)

@@ -14,10 +14,29 @@ export function buildingCost(def: BuildingDef, level: number): Res {
   ];
 }
 
+// The level tables below are hot (bots look at them thousands of times per game hour):
+// each value is computed once per building definition and level, then looked up.
+const popTables = new WeakMap<BuildingDef, number[]>();
+const pointTables = new WeakMap<BuildingDef, number[]>();
+
+function cached(tables: WeakMap<BuildingDef, number[]>, def: BuildingDef, level: number, f: (l: number) => number): number {
+  let t = tables.get(def);
+  if (!t) {
+    t = [];
+    tables.set(def, t);
+  }
+  let v = t[level];
+  if (v === undefined) {
+    v = f(level);
+    t[level] = v;
+  }
+  return v;
+}
+
 /** Total workers a building uses at `level` (0 at level 0). */
 export function buildingPopTotal(def: BuildingDef, level: number): number {
   if (level <= 0) return 0;
-  return Math.round(def.pop * def.popFactor ** (level - 1));
+  return cached(popTables, def, level, (l) => Math.round(def.pop * def.popFactor ** (l - 1)));
 }
 
 /** Extra workers needed to go from level-1 to `level`. */
@@ -34,17 +53,22 @@ export function buildTimeMs(config: WorldConfig, def: BuildingDef, level: number
 }
 
 /** Resource production per hour of one resource building (times world speed and production multiplier). */
+const PRODUCTION = Array.from({ length: 61 }, (_, l) => (l <= 0 ? 0 : 30 * 1.163118 ** (l - 1)));
+const STORAGE = Array.from({ length: 61 }, (_, l) => Math.round(1000 * 1.2294934 ** (l - 1)));
+const FARM = Array.from({ length: 61 }, (_, l) => Math.round(240 * 1.172103 ** (l - 1)));
+
 export function productionPerHour(config: WorldConfig, level: number): number {
   if (level <= 0) return 0;
-  return 30 * 1.163118 ** (level - 1) * config.worldSpeed * config.productionMultiplier;
+  const base = PRODUCTION[level] ?? 30 * 1.163118 ** (level - 1);
+  return base * config.worldSpeed * config.productionMultiplier;
 }
 
 export function storageCapacity(level: number): number {
-  return Math.round(1000 * 1.2294934 ** (level - 1));
+  return STORAGE[level] ?? Math.round(1000 * 1.2294934 ** (level - 1));
 }
 
 export function farmCapacity(level: number): number {
-  return Math.round(240 * 1.172103 ** (level - 1));
+  return FARM[level] ?? Math.round(240 * 1.172103 ** (level - 1));
 }
 
 export function hidingCapacity(level: number): number {
@@ -55,7 +79,7 @@ export function hidingCapacity(level: number): number {
 /** Total points a building gives at `level`. */
 export function buildingPoints(def: BuildingDef, level: number): number {
   if (level <= 0) return 0;
-  return Math.round(def.points * 1.2 ** (level - 1));
+  return cached(pointTables, def, level, (l) => Math.round(def.points * 1.2 ** (l - 1)));
 }
 
 /** Recruit time for ONE unit, given the level of its building. */

@@ -37,6 +37,8 @@ export interface BotState {
   farmLog: Record<number, { at: number; won: boolean }>;
   /** Barbarian villages this bot has a farm attack on the way to. */
   outgoing: number[];
+  /** Next village to look at when the bot has more villages than it handles per turn. */
+  cursor?: number;
   /** Village this bot is nobling. */
   nobleTarget?: number;
   /** Highest points seen and when: a bot that stops growing gives up (see abandon). */

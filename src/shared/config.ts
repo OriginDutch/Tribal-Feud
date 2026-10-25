@@ -109,6 +109,8 @@ export interface WorldConfig {
     farmAttacksPerTurn: number;
     /** A bot whose points don't grow for this many game days gives up and restarts at the edge. */
     abandonAfterDays: number;
+    /** Villages a bot looks at per turn (it cycles through the rest). */
+    villagesPerTurn: number;
   };
 
   winCondition: {
@@ -206,6 +208,7 @@ const BASE: PresetValues = {
     farmRadius: 15,
     farmAttacksPerTurn: 5,
     abandonAfterDays: 3,
+    villagesPerTurn: 5,
   },
   winCondition: {
     villageShare: 0.75,
