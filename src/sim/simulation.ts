@@ -67,9 +67,14 @@ export function advance(state: WorldState, realDtMs: number): AdvanceResult {
     if (next === undefined || next.time > target) break;
     pop(state.queue);
     state.time = next.time;
-    const entry = handle(state, next.event);
+    let entry = handle(state, next.event);
     result.processed++;
     checkQuests(state);
+    if (state.alert) {
+      // a game event raised an alert (incoming attack, village lost): pause right here
+      entry = state.alert;
+      delete state.alert;
+    }
     if (!entry) continue;
     addLog(state, entry);
     if (entry.autoPause) {

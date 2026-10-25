@@ -40,6 +40,9 @@ export type Command =
   | { type: 'claimReward'; id: number; villageId?: number }
   | { type: 'claimAllRewards'; villageId?: number }
   | { type: 'selectVillage'; id: number }
+  | { type: 'mintCoins'; villageId: number; count: number }
+  | { type: 'sendSupport'; from: number; to: number; units: UnitCounts }
+  | { type: 'returnSupport'; hostId: number; originId: number }
   | { type: 'dismissToast'; id: number | 'all' }
   /** Debug cheats for testing. */
   | { type: 'debugGive'; units?: UnitCounts; resources?: number };
@@ -70,9 +73,16 @@ export interface MapData {
   villages: MapVillage[];
 }
 
+export interface IncomingView {
+  id: number;
+  from: { id: number; name: string; x: number; y: number; ownerName: string };
+  to: { id: number; name: string; x: number; y: number };
+  arrives: number;
+}
+
 export interface MovementView {
   id: number;
-  kind: 'attack' | 'return';
+  kind: 'attack' | 'return' | 'support';
   from: { id: number; name: string; x: number; y: number };
   to: { id: number; name: string; x: number; y: number };
   sent: number;
@@ -100,6 +110,10 @@ export interface Snapshot {
   villages: OwnVillageRow[];
   /** The player's troops on the road, soonest first. */
   movements: MovementView[];
+  /** Attacks coming at the player's villages, soonest first. Only what TW shows: no units. */
+  incoming: IncomingView[];
+  /** Game time when beginner protection ends. */
+  protectionEndsAt: number;
   unreadReports: number;
   farmTemplates: { A: UnitCounts; B: UnitCounts };
   /** worldSpeed * unitSpeed * marchSpeed, to preview travel times. */

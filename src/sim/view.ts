@@ -2,7 +2,9 @@
  * Read-only views for the UI. Computed in the worker, sent in snapshots.
  * The UI never computes game rules itself: it only shows what is in here.
  */
-import { BUILDING_IDS, RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type RecruitBuilding, type Res, type UnitId } from '../shared/gameData';
+import { loyaltyNow } from './movement';
+import { maxMintable, mintBlocker, nextNobleNeed, noblesAllowed, slotsUsed } from './nobles';
+import { BUILDING_IDS, RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type RecruitBuilding, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import {
   buildTimeMs,
   buildingCost,
@@ -84,6 +86,32 @@ export interface VillageView {
   recruitQueues: Record<RecruitBuilding, RecruitJobView[]>;
   research: { unit: UnitId; name: string; end: number } | null;
   buildQueueSlots: number;
+  loyalty: number;
+  nobles: {
+    mode: 'coins' | 'packages';
+    /** Coins of the player, or packages in this village. */
+    have: number;
+    /** Needed (in total for coins, extra for packages) for one more nobleman. */
+    need: number;
+    slotsUsed: number;
+    allowed: number;
+    coinCost: Res;
+    maxMint: number;
+    mintBlocker: string | null;
+    maxDistance: number;
+  };
+  /** Troops of other villages standing here. */
+  supportHere: SupportView[];
+  /** This village's troops standing elsewhere. */
+  supportAway: SupportView[];
+}
+
+export interface SupportView {
+  /** The village the troops come from. */
+  origin: { id: number; name: string; x: number; y: number; ownerName: string };
+  /** The village they stand in. */
+  host: { id: number; name: string; x: number; y: number; ownerName: string };
+  units: UnitCounts;
 }
 
 export function villageView(state: WorldState, v: Village): VillageView {
@@ -189,7 +217,43 @@ export function villageView(state: WorldState, v: Village): VillageView {
     recruitQueues,
     research: v.research ? { unit: v.research.unit, name: config.units[v.research.unit].name, end: v.research.end } : null,
     buildQueueSlots: config.village.buildQueueSlots,
+    loyalty: Math.floor(loyaltyNow(config, v, state.time)),
+    nobles: (() => {
+      const next = nextNobleNeed(state, v);
+      return {
+        mode: config.nobleCost,
+        have: next.have,
+        need: next.need,
+        slotsUsed: slotsUsed(state, v.owner),
+        allowed: noblesAllowed(state, v),
+        coinCost: config.conquest.coinCost,
+        maxMint: maxMintable(state, v),
+        mintBlocker: mintBlocker(state, v),
+        maxDistance: config.conquest.maxDistance,
+      };
+    })(),
+    supportHere: Object.entries(v.support ?? {}).flatMap(([originId, units]) => {
+      const origin = state.villages[Number(originId)];
+      return origin ? [{ origin: brief(state, origin), host: brief(state, v), units }] : [];
+    }),
+    supportAway: supportAwayOf(state, v),
   };
+}
+
+function brief(state: WorldState, v: Village): SupportView['origin'] {
+  const owner = v.owner < 0 ? 'Barbaren' : (state.players[v.owner]?.name ?? '?');
+  return { id: v.id, name: v.name, x: v.x, y: v.y, ownerName: owner };
+}
+
+/** Where this village's troops stand as support. Only looks if some troops are outside. */
+function supportAwayOf(state: WorldState, v: Village): SupportView[] {
+  if (!UNIT_IDS.some((u) => v.outside[u] > 0)) return [];
+  const out: SupportView[] = [];
+  for (const host of Object.values(state.villages)) {
+    const units = host.support?.[v.id];
+    if (units && Object.keys(units).length > 0) out.push({ origin: brief(state, v), host: brief(state, host), units });
+  }
+  return out;
 }
 
 export { isOperational };

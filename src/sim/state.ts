@@ -46,6 +46,8 @@ export interface Player {
   name: string;
   isBot: boolean;
   bot?: BotState;
+  /** Coins minted (coins worlds). */
+  coins?: number;
 }
 
 /** The human player always has id 0. */
@@ -93,6 +95,8 @@ export interface WorldState {
   nextId: number;
   /** The human player's selected village (falls back to the first one). */
   current?: number;
+  /** An alert raised during an event (incoming attack, village lost): it auto-pauses the game. */
+  alert?: LogEntry;
 }
 
 export const MAX_LOG = 100;

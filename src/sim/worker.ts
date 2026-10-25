@@ -13,8 +13,9 @@ import { advance, schedule, scheduleRandom, setPaused, setSpeed } from './simula
 import { createWorld, currentVillage, playerVillage, type WorldState } from './state';
 import { storageCapacity } from './formulas';
 import { villageView } from './view';
-import { mapData, movementViews } from './mapView';
-import { sendAttack } from './movement';
+import { incomingViews, mapData, movementViews } from './mapView';
+import { loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendSupport } from './movement';
+import { mintCoins } from './nobles';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
 import type { OwnVillageRow, QuestsView, RankingRow } from '../shared/protocol';
@@ -85,7 +86,7 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
         buildQueue: v.buildQueue.length,
         recruiting,
         units,
-        loyalty: 100,
+        loyalty: Math.floor(loyaltyNow(config, v, s.time)),
       };
     });
 }
@@ -114,6 +115,8 @@ function snapshot(): Snapshot | null {
     })(),
     villages: ownVillageRows(state),
     movements: movementViews(state),
+    incoming: incomingViews(state),
+    protectionEndsAt: protectionEndsAt(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
     marchFactor: state.config.worldSpeed * state.config.unitSpeed * state.config.marchSpeed,
@@ -284,6 +287,26 @@ async function handle(cmd: Command): Promise<void> {
     case 'claimAllRewards': {
       if (!state) return;
       const error = claimAllRewards(state, cmd.villageId ?? currentVillage(state)?.id);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'mintCoins': {
+      if (!state) return;
+      if (state.villages[cmd.villageId]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      const error = mintCoins(state, cmd.villageId, cmd.count);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'sendSupport': {
+      if (!state) return;
+      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      const error = sendSupport(state, cmd.from, cmd.to, cmd.units);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'returnSupport': {
+      if (!state) return;
+      const error = returnSupport(state, HUMAN_ID, cmd.hostId, cmd.originId);
       if (error) notice(error, 'error');
       break;
     }

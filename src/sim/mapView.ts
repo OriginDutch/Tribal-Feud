@@ -1,5 +1,5 @@
 /** Map, movement and report data for the UI. Computed in the worker. */
-import type { MapData, MapVillage, MovementView } from '../shared/protocol';
+import type { IncomingView, MapData, MapVillage, MovementView } from '../shared/protocol';
 import { growBarbarian, villagePoints } from './barbarians';
 import { estimateLoot } from './intel';
 import { BARBARIAN, HUMAN_ID, currentVillage, type WorldState } from './state';
@@ -42,6 +42,25 @@ export function mapData(state: WorldState): MapData {
     villages.push(mv);
   }
   return { ownVillageId: own?.id ?? -1, villages };
+}
+
+/** Attacks by others on the human's villages: origin, target and arrival only, like TW. */
+export function incomingViews(state: WorldState): IncomingView[] {
+  const out: IncomingView[] = [];
+  for (const m of Object.values(state.movements)) {
+    if (m.kind !== 'attack' || m.owner === HUMAN_ID) continue;
+    const to = state.villages[m.to];
+    if (!to || to.owner !== HUMAN_ID) continue;
+    const from = state.villages[m.from];
+    if (!from) continue;
+    out.push({
+      id: m.id,
+      from: { id: from.id, name: from.name, x: from.x, y: from.y, ownerName: state.players[m.owner]?.name ?? '?' },
+      to: { id: to.id, name: to.name, x: to.x, y: to.y },
+      arrives: m.arrives,
+    });
+  }
+  return out.sort((a, b) => a.arrives - b.arrives);
 }
 
 export function movementViews(state: WorldState): MovementView[] {

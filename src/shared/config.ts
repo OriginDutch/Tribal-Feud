@@ -116,6 +116,22 @@ export interface WorldConfig {
     villageShare: number;
   };
 
+  conquest: {
+    /** Price of one coin (or package). */
+    coinCost: Res;
+    /** Furthest a nobleman may be sent, in fields. */
+    maxDistance: number;
+    /** Loyalty lost per surviving nobleman attack (random in this range). */
+    loyaltyDropMin: number;
+    loyaltyDropMax: number;
+    /** Loyalty of a village right after it was conquered. */
+    loyaltyAfterConquest: number;
+    /** Loyalty regained per game hour at world speed 1. */
+    loyaltyPerHour: number;
+    /** Game days at world speed 1 in which no player can be attacked by another player. */
+    protectionDays: number;
+  };
+
   /** Building table (costs, factors, times, points, requirements). */
   buildings: Record<BuildingId, BuildingDef>;
   /** Unit table (costs, stats, recruit times, research). */
@@ -150,7 +166,7 @@ const BASE: PresetValues = {
   research: 'simple',
   archers: true,
   paladin: 'on',
-  // TODO(open question): coins vs packages default.
+  // coins: minted coins count for the whole player; packages: stored per village
   nobleCost: 'coins',
   // TODO(open question): morale / luck / night bonus defaults.
   morale: 'points',
@@ -194,6 +210,15 @@ const BASE: PresetValues = {
   winCondition: {
     villageShare: 0.75,
   },
+  conquest: {
+    coinCost: [28000, 30000, 25000],
+    maxDistance: 100,
+    loyaltyDropMin: 20,
+    loyaltyDropMax: 35,
+    loyaltyAfterConquest: 25,
+    loyaltyPerHour: 1,
+    protectionDays: 3,
+  },
 };
 
 /** Preset contents are placeholders until the presets are designed. */
@@ -225,13 +250,14 @@ export function defaultTables(): Pick<WorldConfig, GameplayTables> {
 }
 
 export type ConfigOverrides = Partial<
-  Omit<WorldConfig, 'barbarians' | 'bots' | 'winCondition' | 'map' | 'combat' | GameplayTables>
+  Omit<WorldConfig, 'barbarians' | 'bots' | 'winCondition' | 'map' | 'combat' | 'conquest' | GameplayTables>
 > & {
   barbarians?: Partial<WorldConfig['barbarians']>;
   map?: Partial<WorldConfig['map']>;
   combat?: Partial<WorldConfig['combat']>;
   bots?: Partial<WorldConfig['bots']>;
   winCondition?: Partial<WorldConfig['winCondition']>;
+  conquest?: Partial<WorldConfig['conquest']>;
 };
 
 export function createConfig(
@@ -258,6 +284,7 @@ export function createConfig(
     combat: { ...base.combat, ...overrides.combat },
     bots: { ...base.bots, ...overrides.bots },
     winCondition: { ...base.winCondition, ...overrides.winCondition },
+    conquest: { ...base.conquest, ...overrides.conquest, coinCost: [...(overrides.conquest?.coinCost ?? base.conquest.coinCost)] as Res },
   };
 }
 

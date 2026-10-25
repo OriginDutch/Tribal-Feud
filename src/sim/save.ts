@@ -11,7 +11,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 export interface SaveData {
   version: number;
@@ -114,6 +114,12 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
   7: (data) => {
     data.state.questToasts ??= [];
     return { ...data, version: 8 };
+  },
+  // v8 had no conquest settings.
+  8: (data) => {
+    const c = data.state.config;
+    c.conquest = { ...structuredClone(PRESETS.classic.conquest), ...c.conquest };
+    return { ...data, version: 9 };
   },
 };
 

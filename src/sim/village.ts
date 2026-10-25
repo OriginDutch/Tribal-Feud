@@ -6,6 +6,7 @@
  * the job still exists and is still due at exactly this time. Cancelling a job just
  * moves the others and schedules new events: the old events then find nothing to do.
  */
+import { noblesAllowed, payPackages } from './nobles';
 import { BONUS_FACTORS, type BarbType, type BonusKind } from '../shared/barbarianTypes';
 import type { WorldConfig } from '../shared/config';
 import {
@@ -15,6 +16,7 @@ import {
   type BuildingId,
   type RecruitBuilding,
   type Res,
+  type UnitCounts,
   type UnitId,
 } from '../shared/gameData';
 import { push } from './eventQueue';
@@ -97,6 +99,13 @@ export interface Village {
   barbType?: BarbType;
   /** Production bonus. Stays with the village when it is conquered. */
   bonus?: BonusKind;
+  /** Troops of other villages stationed here, per village they come from. */
+  support?: Record<number, UnitCounts>;
+  /** Noble packages stored here (packages worlds). */
+  packages?: number;
+  /** Loyalty at `loyaltyAt`; regenerates over time. Missing = 100. */
+  loyalty?: number;
+  loyaltyAt?: number;
 }
 
 // --- creation ---------------------------------------------------------------
@@ -414,6 +423,7 @@ export function maxRecruitable(state: WorldState, v: Village, u: UnitId): number
   let n = Math.floor(Math.min(...[0, 1, 2].map((i) => (def.cost[i as 0 | 1 | 2] > 0 ? have[i as 0 | 1 | 2] / def.cost[i as 0 | 1 | 2] : Infinity))));
   if (def.pop > 0) n = Math.min(n, Math.floor((popMax(v) - popUsed(config, v)) / def.pop));
   if (u === 'knight') n = Math.min(n, 1 - paladinsOwned(state, v.owner));
+  if (u === 'snob') n = Math.min(n, noblesAllowed(state, v));
   return Math.max(0, n);
 }
 
@@ -422,12 +432,14 @@ export function recruitBlocker(state: WorldState, v: Village, u: UnitId): string
   const { config } = state;
   const def = config.units[u];
   if (!isUnitEnabled(config, u)) return 'Niet actief op deze wereld';
-  if (u === 'snob') return 'Edelmannen komen in fase 4';
   if (!isOperational(config, v, def.building)) {
     return v.buildings[def.building] > 0 ? `${config.buildings[def.building].name} werkt niet` : `Bouw eerst een ${config.buildings[def.building].name.toLowerCase()}`;
   }
   if (!v.researched.includes(u)) return 'Nog niet ontwikkeld in de smederij';
   if (u === 'knight' && paladinsOwned(state, v.owner) >= 1) return 'Je hebt al een paladijn';
+  if (u === 'snob' && noblesAllowed(state, v) === 0) {
+    return state.config.nobleCost === 'coins' ? 'Meer munten nodig' : 'Meer pakketten nodig';
+  }
   return null;
 }
 
@@ -444,6 +456,7 @@ export function recruit(state: WorldState, villageId: number, u: UnitId, count: 
   const def = config.units[u];
   settle(config, v, state.time);
   pay(v, def.cost, count);
+  if (u === 'snob') payPackages(state, v, count);
   const queue = v.recruitQueues[def.building];
   const last = queue.at(-1);
   const perUnit = recruitTimeMs(config, def, v.buildings[def.building]);

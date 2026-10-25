@@ -9,13 +9,12 @@ import { RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type Res, type UnitCounts
 import { MINUTE } from '../shared/time';
 
 const DAY = 86_400_000;
-/** Map centre (the human player's first village). */
-const CENTER = 500;
 import { push } from './eventQueue';
 import { buildingCost } from './formulas';
 import { distance, sendAttack } from './movement';
 import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
+import { edgeSpot } from './map';
 import { BARBARIAN, addLog, invalidateOwners, nextId, villagesOf, type Player, type WorldState } from './state';
 import {
   buildBlocker,
@@ -147,23 +146,6 @@ export function abandonAndRestart(state: WorldState, player: Player): Village {
     text: `${player.name} heeft het opgegeven${where}: barbarendorp. Begint opnieuw aan de rand op ${x}|${y}.`,
   });
   return fresh;
-}
-
-/** A free field just outside the current edge of the world. */
-function edgeSpot(state: WorldState): [number, number] {
-  const occupied = new Set<string>();
-  let maxR = 0;
-  for (const v of Object.values(state.villages)) {
-    occupied.add(`${v.x}|${v.y}`);
-    maxR = Math.max(maxR, Math.hypot(v.x - CENTER, v.y - CENTER));
-  }
-  for (let tries = 0; ; tries++) {
-    const r = maxR + 1 + nextFloat(state.rng) * 3 + Math.floor(tries / 50);
-    const angle = nextFloat(state.rng) * Math.PI * 2;
-    const x = Math.round(CENTER + r * Math.cos(angle));
-    const y = Math.round(CENTER + r * Math.sin(angle));
-    if (!occupied.has(`${x}|${y}`)) return [x, y];
-  }
 }
 
 // --- building ---------------------------------------------------------------

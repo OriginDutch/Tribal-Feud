@@ -302,10 +302,10 @@ describe('smithy and recruitment', () => {
     expect(recruit(t.s, t.v.id, 'spear', 240)).toMatch(/^Maximaal \d+ mogelijk$/);
   });
 
-  it('nobles are not available yet', () => {
+  it('a nobleman needs a coin', () => {
     const { s, v } = setup();
     rich(v, { main: 20, smith: 20, market: 10, snob: 1 });
-    expect(recruit(s, v.id, 'snob', 1)).toBe('Edelmannen komen in fase 4');
+    expect(recruit(s, v.id, 'snob', 1)).toBe('Meer munten nodig');
   });
 });
 
