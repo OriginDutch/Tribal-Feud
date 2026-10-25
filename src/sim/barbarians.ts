@@ -14,7 +14,7 @@
 import { BARB_TYPES, BONUS_KINDS, type BarbType, type BonusKind } from '../shared/barbarianTypes';
 import type { WorldConfig } from '../shared/config';
 import { BUILDING_IDS, type BuildingId } from '../shared/gameData';
-import { buildingPoints, storageCapacity } from './formulas';
+import { buildingPoints, buildingPopTotal, farmCapacity, storageCapacity } from './formulas';
 import { hashFloat } from './rng';
 import type { WorldState } from './state';
 import { productionRates, settle, type Village } from './village';
@@ -57,6 +57,24 @@ function wallAllowed(config: WorldConfig, v: Village, points: number): boolean {
   return v.buildings.wall < Math.min(def.maxWall, cap);
 }
 
+/** Workers the village's buildings need (barbarians have no troops). */
+function buildingWorkers(config: WorldConfig, v: Village): number {
+  let pop = 0;
+  for (const b of BUILDING_IDS) pop += buildingPopTotal(config.buildings[b], v.buildings[b]);
+  return pop;
+}
+
+/** Raises `b` one level, or the farm first when the village has no room for the workers. */
+function raise(config: WorldConfig, v: Village, b: BuildingId): BuildingId {
+  const def = config.buildings[b];
+  const extra = buildingPopTotal(def, v.buildings[b] + 1) - buildingPopTotal(def, v.buildings[b]);
+  if (b !== 'farm' && extra > 0 && v.buildings.farm < config.buildings.farm.maxLevel) {
+    if (buildingWorkers(config, v) + extra > farmCapacity(v.buildings.farm)) b = 'farm';
+  }
+  v.buildings[b]++;
+  return b;
+}
+
 /** Upgrades one building. Returns the building, or null if nothing could be upgraded. */
 function growOneStep(config: WorldConfig, v: Village, step: number, points: number): BuildingId | null {
   const weights = weightsFor(config, v);
@@ -72,18 +90,12 @@ function growOneStep(config: WorldConfig, v: Village, step: number, points: numb
       }
     }
     if (pick === 'wall' && !wallAllowed(config, v, points)) continue;
-    if (v.buildings[pick] < config.buildings[pick].maxLevel) {
-      v.buildings[pick]++;
-      return pick;
-    }
+    if (v.buildings[pick] < config.buildings[pick].maxLevel) return raise(config, v, pick);
   }
   // all rolls blocked: take the first building of the type that can still grow
   for (const [b] of weights) {
     if (b === 'wall' && !wallAllowed(config, v, points)) continue;
-    if (v.buildings[b] < config.buildings[b].maxLevel) {
-      v.buildings[b]++;
-      return b;
-    }
+    if (v.buildings[b] < config.buildings[b].maxLevel) return raise(config, v, b);
   }
   return null;
 }

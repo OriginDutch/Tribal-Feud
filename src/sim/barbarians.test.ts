@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { BARB_TYPES } from '../shared/barbarianTypes';
 import { createConfig, type ConfigOverrides } from '../shared/config';
 import { DAY, HOUR } from '../shared/time';
-import { growBarbarian, onBarbarianDamaged, villagePoints } from './barbarians';
+import { growBarbarian, onBarbarianDamaged, seedBarbarian, villagePoints } from './barbarians';
+import { buildBlocker, popMax, popUsed } from './village';
 import { abandonAndRestart, onBotTurn } from './bots';
 import { estimateLoot, farmCUnits } from './intel';
 import { distance, sendAttack } from './movement';
@@ -230,5 +231,29 @@ describe('abandoned bots', () => {
     expect(Object.values(s.movements).some((m) => m.owner === bot.id)).toBe(false);
     run(s, DAY); // nothing breaks afterwards
     expect(villagesOf(s, bot.id).length).toBe(1);
+  });
+});
+
+describe('barbarian farms', () => {
+  it('a grown barbarian has room on its farm for its buildings', () => {
+    const s = createWorld(createConfig('classic', 'Boer', 9));
+    const barbs = Object.values(s.villages).filter((v) => v.owner === BARBARIAN).slice(0, 40);
+    for (const v of barbs) {
+      seedBarbarian(s.config, v, 4000);
+      expect(popUsed(s.config, v)).toBeLessThanOrEqual(popMax(v));
+    }
+  });
+
+  it('farm and storage can be built even when a village is over its farm', () => {
+    const s = createWorld(createConfig('classic', 'Boer', 9));
+    const v = Object.values(s.villages).find((x) => x.owner === BARBARIAN);
+    if (!v) throw new Error('no barb');
+    Object.assign(v.buildings, { farm: 9, wood: 27, stone: 29, iron: 30, main: 7, storage: 18 });
+    v.res = [100000, 100000, 100000];
+    v.resAt = s.time;
+    expect(popUsed(s.config, v)).toBeGreaterThan(popMax(v));
+    expect(buildBlocker(s, v, 'farm')).toBeNull();
+    expect(buildBlocker(s, v, 'storage')).toBeNull();
+    expect(buildBlocker(s, v, 'main')).toBe('Boerderij is vol');
   });
 });

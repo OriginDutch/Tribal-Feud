@@ -261,7 +261,9 @@ export function buildBlocker(state: WorldState, v: Village, b: BuildingId): stri
   const cost = buildingCost(def, target);
   const cap = storageCapacity(v.buildings.storage);
   if (cost.some((c) => c > cap)) return 'Opslagplaats te klein';
-  if (popUsed(config, v) + buildingPopCost(def, target) > popMax(v)) return 'Boerderij is vol';
+  // farm and storage need no workers: they can always be built, also when the village is over its farm
+  const workers = buildingPopCost(def, target);
+  if (workers > 0 && popUsed(config, v) + workers > popMax(v)) return 'Boerderij is vol';
   if (!canAfford(currentResources(config, v, state.time), cost)) return 'Te weinig grondstoffen';
   return null;
 }
