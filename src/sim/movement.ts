@@ -31,6 +31,56 @@ export interface Movement {
   /** Merchants: what they carry and how many walk. */
   res?: Res;
   merchants?: number;
+  /** Attacks of one noble train share this id: cancelling one calls back all of them. */
+  train?: number;
+  /** Merchants paying for an offer: they can't be called back. */
+  offer?: true;
+}
+
+/** How long after sending a command can still be cancelled (game time, like TW). */
+export const CANCEL_WINDOW_MS = 10 * 60_000;
+
+/** Whether `m` can still be called back now. */
+export function cancelBlocker(state: WorldState, m: Movement): string | null {
+  if (m.kind !== 'attack' && m.kind !== 'support' && m.kind !== 'trade') return 'Dit kun je niet annuleren.';
+  if (m.offer) return 'Handelaren van een aangenomen aanbod kun je niet terughalen.';
+  if (state.time - m.sent > CANCEL_WINDOW_MS) return 'Annuleren kan alleen in de eerste 10 minuten.';
+  if (m.arrives <= state.time) return 'Al aangekomen.';
+  return null;
+}
+
+/**
+ * Calls a command back: the troops (or merchants with their load) turn around and are as long
+ * on the way home as they have walked. A noble train comes back as a whole.
+ */
+export function cancelMovement(state: WorldState, movementId: number, by: number): string | null {
+  const m = state.movements[movementId];
+  if (!m) return 'Dit bevel bestaat niet meer.';
+  if (m.owner !== by) return 'Dat is niet jouw bevel.';
+  const blocker = cancelBlocker(state, m);
+  if (blocker) return blocker;
+  const group = m.train !== undefined ? Object.values(state.movements).filter((x) => x.train === m.train && x.owner === by) : [m];
+  for (const g of group) {
+    if (cancelBlocker(state, g)) continue;
+    delete state.movements[g.id];
+    const walked = state.time - g.sent;
+    const back: Movement = {
+      id: nextId(state),
+      kind: g.kind === 'trade' ? 'tradeReturn' : 'return',
+      owner: g.owner,
+      from: g.to,
+      to: g.from,
+      units: { ...g.units },
+      sent: state.time,
+      // at least a moment, so the return is its own event
+      arrives: state.time + Math.max(1, walked),
+    };
+    if (g.res) back.res = [...g.res] as Res;
+    if (g.merchants !== undefined) back.merchants = g.merchants;
+    state.movements[back.id] = back;
+    push(state.queue, back.arrives, { kind: 'arrive', movementId: back.id });
+  }
+  return null;
 }
 
 export interface ReportVillage {
@@ -114,6 +164,7 @@ export function sendAttack(
   toId: number,
   requested: UnitCounts,
   catapultTarget?: BuildingId,
+  train?: number,
 ): string | null {
   const { config } = state;
   const from = state.villages[fromId];
@@ -152,6 +203,7 @@ export function sendAttack(
     arrives: state.time + duration,
   };
   if (catapultTarget && (units.catapult ?? 0) > 0) movement.catapultTarget = catapultTarget;
+  if (train !== undefined) movement.train = train;
   state.movements[movement.id] = movement;
   push(state.queue, movement.arrives, { kind: 'arrive', movementId: movement.id });
   if (to.owner === HUMAN_ID && from.owner !== HUMAN_ID) {
@@ -188,9 +240,10 @@ export function sendNobleTrain(
     }
   }
   // the first attack is checked like any attack (distance, protection, place); the rest follow
-  const error = sendAttack(state, fromId, toId, attacks[0] ?? {}, catapultTarget);
+  const train = nextId(state);
+  const error = sendAttack(state, fromId, toId, attacks[0] ?? {}, catapultTarget, train);
   if (error) return error;
-  for (const a of attacks.slice(1)) sendAttack(state, fromId, toId, a);
+  for (const a of attacks.slice(1)) sendAttack(state, fromId, toId, a, undefined, train);
   return null;
 }
 

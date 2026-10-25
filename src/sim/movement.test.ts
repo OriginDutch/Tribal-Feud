@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { createConfig, type ConfigOverrides } from '../shared/config';
 import { HOUR, MINUTE } from '../shared/time';
 import { growBarbarian, growthIntervalMs, villagePoints } from './barbarians';
-import { distance, plunder, sendAttack, travelTimeMs } from './movement';
+import { cancelMovement, distance, plunder, sendAttack, sendNobleTrain, travelTimeMs } from './movement';
+import { sendResources } from './market';
+import { HUMAN_ID } from './state';
+import { currentResources } from './village';
 import { fromSaveData, toSaveData } from './save';
 import { advance, setPaused } from './simulation';
 import { BARBARIAN, createWorld, playerVillage, type WorldState } from './state';
@@ -169,5 +172,68 @@ describe('plunder', () => {
     expect(plunder([0, 1000, 1000], 300)).toEqual([0, 150, 150]);
     expect(plunder([50, 1000, 1000], 300)).toEqual([50, 125, 125]);
     expect(plunder([10, 10, 10], 300)).toEqual([10, 10, 10]);
+  });
+});
+
+describe('cancelling commands', () => {
+  it('an attack turns around within 10 minutes and is home after the time it walked', () => {
+    const { s, v } = setup();
+    v.units.axe = 100;
+    const b = nearestBarbarian(s, v);
+    expect(sendAttack(s, v.id, b.id, { axe: 100 })).toBeNull();
+    const id = Number(Object.keys(s.movements)[0]);
+    run(s, 4 * MINUTE);
+    expect(cancelMovement(s, id, HUMAN_ID)).toBeNull();
+    expect(v.units.axe).toBe(0);
+    run(s, 4 * MINUTE + 1);
+    expect(v.units.axe).toBe(100);
+    expect(v.outside.axe).toBe(0);
+    expect(s.reports).toHaveLength(0);
+  });
+
+  it('not after 10 minutes, and not by someone else', () => {
+    const { s, v } = setup();
+    v.units.spear = 10;
+    const far = Object.values(s.villages)
+      .filter((x) => x.owner === BARBARIAN)
+      .sort((a, c) => distance(c, v) - distance(a, v))[0];
+    if (!far) throw new Error('no barb');
+    expect(sendAttack(s, v.id, far.id, { spear: 10 })).toBeNull();
+    const id = Number(Object.keys(s.movements)[0]);
+    expect(cancelMovement(s, id, 1)).not.toBeNull();
+    run(s, 11 * MINUTE);
+    expect(cancelMovement(s, id, HUMAN_ID)).toBe('Annuleren kan alleen in de eerste 10 minuten.');
+  });
+
+  it('a noble train comes back as a whole', () => {
+    const { s, v } = setup();
+    Object.assign(v.buildings, { main: 20, smith: 20, snob: 1, place: 1 });
+    v.units.snob = 2;
+    v.units.axe = 400;
+    const b = nearestBarbarian(s, v);
+    expect(sendNobleTrain(s, v.id, b.id, { axe: 200 }, [{ axe: 200 }])).toBeNull();
+    const ids = Object.keys(s.movements).map(Number);
+    expect(ids).toHaveLength(2);
+    run(s, MINUTE);
+    expect(cancelMovement(s, ids[1]!, HUMAN_ID)).toBeNull();
+    expect(Object.values(s.movements).every((m) => m.kind === 'return')).toBe(true);
+    run(s, 2 * MINUTE);
+    expect(v.units.snob).toBe(2);
+    expect(v.units.axe).toBe(400);
+  });
+
+  it('merchants bring their load back in full', () => {
+    const { s, v } = setup();
+    Object.assign(v.buildings, { main: 5, storage: 15, market: 5 });
+    v.res = [5000, 5000, 5000];
+    v.resAt = s.time;
+    const w = Object.values(s.villages).find((x) => x.owner !== HUMAN_ID && x.owner !== BARBARIAN);
+    if (!w) throw new Error('no bot');
+    expect(sendResources(s, v.id, w.id, [3000, 0, 0])).toBeNull();
+    const id = Number(Object.keys(s.movements).find((k) => s.movements[Number(k)]?.kind === 'trade'));
+    run(s, 2 * MINUTE);
+    expect(cancelMovement(s, id, HUMAN_ID)).toBeNull();
+    run(s, 2 * MINUTE + 1);
+    expect(currentResources(s.config, v, s.time)[0]).toBeGreaterThanOrEqual(5000);
   });
 });

@@ -14,7 +14,7 @@ import { createWorld, currentVillage, playerVillage, type WorldState } from './s
 import { storageCapacity } from './formulas';
 import { villageView } from './view';
 import { incomingViews, mapData, movementViews } from './mapView';
-import { conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendNobleTrain, sendSupport } from './movement';
+import { CANCEL_WINDOW_MS, cancelBlocker, cancelMovement, conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendNobleTrain, sendSupport } from './movement';
 import { BARBARIAN } from './state';
 import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteTemplate, findTemplate, saveTemplate, setManager } from './manager';
@@ -184,6 +184,7 @@ function marketView(s: WorldState): MarketView | null {
       units: {},
     };
     if (m.res) view.res = m.res;
+    if (m.owner === HUMAN_ID && cancelBlocker(s, m) === null) view.cancelUntil = m.sent + CANCEL_WINDOW_MS;
     trades.push(view);
   }
   return {
@@ -384,6 +385,12 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       if (state.villages[cmd.villageId]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
       const error = acceptOffer(state, cmd.id, cmd.villageId);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'cancelMovement': {
+      if (!state) return;
+      const error = cancelMovement(state, cmd.id, HUMAN_ID);
       if (error) notice(error, 'error');
       break;
     }

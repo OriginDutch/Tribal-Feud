@@ -84,7 +84,7 @@ export function sendResources(state: WorldState, fromId: number, toId: number, r
   return null;
 }
 
-function launch(state: WorldState, from: Village, to: Village, res: Res, merchants: number): void {
+function launch(state: WorldState, from: Village, to: Village, res: Res, merchants: number, offer = false): void {
   const duration = tradeTimeMs(state, from, to);
   const m: Movement = {
     id: nextId(state),
@@ -98,6 +98,7 @@ function launch(state: WorldState, from: Village, to: Village, res: Res, merchan
     res,
     merchants,
   };
+  if (offer) m.offer = true;
   state.movements[m.id] = m;
   push(state.queue, m.arrives, { kind: 'arrive', movementId: m.id });
 }
@@ -131,6 +132,12 @@ export function arriveTrade(state: WorldState, m: Movement): void {
 
 export function arriveTradeReturn(state: WorldState, m: Movement): void {
   delete state.movements[m.id];
+  // called back before delivering: the load comes home in full, like a cancelled order
+  const home = state.villages[m.to];
+  if (m.res && home && home.owner === m.owner) {
+    settle(state.config, home, state.time);
+    for (const i of [0, 1, 2] as const) home.res[i] += m.res[i] ?? 0;
+  }
 }
 
 // --- offers --------------------------------------------------------------------
@@ -201,8 +208,8 @@ export function acceptOffer(state: WorldState, offerId: number, villageId: numbe
   toBuyer[offer.give.res] = offer.give.amount;
   const toSeller: Res = [0, 0, 0];
   toSeller[offer.want.res] = offer.want.amount;
-  launch(state, seller, v, toBuyer, merchantsFor(offer.give.amount));
-  launch(state, v, seller, toSeller, need);
+  launch(state, seller, v, toBuyer, merchantsFor(offer.give.amount), true);
+  launch(state, v, seller, toSeller, need, true);
   if (offer.owner === HUMAN_ID) {
     addLog(state, {
       time: state.time,

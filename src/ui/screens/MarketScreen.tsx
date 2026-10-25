@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { MapLink } from '../components/MapLink';
+import { CancelButton } from '../components/CancelButton';
 import type { OfferView, TradeSide } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
@@ -357,6 +358,7 @@ export function MarketScreen() {
                 <th>Lading</th>
                 <th>Aankomst</th>
                 <th class="right">Nog</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -390,6 +392,9 @@ export function MarketScreen() {
                   </td>
                   <td class="mono muted">{formatGameTime(t.arrives)}</td>
                   <td class="right mono">{duration(t.arrives - s.time)}</td>
+                  <td class="right">
+                    <CancelButton until={t.cancelUntil} now={s.time} id={t.id} />
+                  </td>
                 </tr>
               ))}
             </tbody>

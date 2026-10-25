@@ -58,6 +58,7 @@ export type Command =
   | { type: 'cancelOffer'; id: number }
   | { type: 'acceptOffer'; id: number; villageId: number }
   | { type: 'balanceVillages' }
+  | { type: 'cancelMovement'; id: number }
   /** Debug cheats for testing. */
   | { type: 'debugGive'; units?: UnitCounts; resources?: number; buildings?: Partial<Record<BuildingId, number>> }
   | { type: 'debugConquer' };
@@ -106,6 +107,10 @@ export interface MovementView {
   loot?: [number, number, number];
   /** Merchants: what they carry. */
   res?: [number, number, number];
+  /** Game time until which you can still call it back (your own commands only). */
+  cancelUntil?: number;
+  /** Part of a noble train: cancelling calls back the whole train. */
+  train?: boolean;
 }
 
 export interface TradeSide {

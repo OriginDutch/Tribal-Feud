@@ -3,6 +3,7 @@ import type { IncomingView, MapData, MapVillage, MovementView } from '../shared/
 import { growBarbarian, villagePoints } from './barbarians';
 import { estimateLoot } from './intel';
 import { BARBARIAN, HUMAN_ID, currentVillage, type WorldState } from './state';
+import { CANCEL_WINDOW_MS, cancelBlocker } from './movement';
 
 export function mapData(state: WorldState): MapData {
   const own = currentVillage(state);
@@ -82,6 +83,8 @@ export function movementViews(state: WorldState): MovementView[] {
     };
     if (m.loot) view.loot = m.loot;
     if (m.res) view.res = m.res;
+    if (cancelBlocker(state, m) === null) view.cancelUntil = m.sent + CANCEL_WINDOW_MS;
+    if (m.train !== undefined) view.train = true;
     views.push(view);
   }
   return views.sort((a, b) => a.arrives - b.arrives);

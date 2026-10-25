@@ -4,6 +4,7 @@ import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
 import { mapData, placeTarget, send, snapshot } from '../store';
 import { distance, travelMs, unitsText } from '../units';
+import { CancelButton } from '../components/CancelButton';
 
 /** Units offered as escort for noblemen 2..N, best attack first. */
 const ESCORT_UNITS: UnitId[] = ['axe', 'light', 'marcher', 'heavy', 'sword', 'spear'];
@@ -287,6 +288,7 @@ export function PlaceScreen() {
                 <th>Troepen</th>
                 <th>Aankomst</th>
                 <th class="right">Nog</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -311,6 +313,9 @@ export function PlaceScreen() {
                   <td class="muted">{unitsText(m.units)}</td>
                   <td class="mono muted">{formatGameTime(m.arrives)}</td>
                   <td class="right mono">{duration(m.arrives - s.time)}</td>
+                  <td class="right">
+                    <CancelButton until={m.cancelUntil} now={s.time} id={m.id} train={m.train} />
+                  </td>
                 </tr>
               ))}
             </tbody>
