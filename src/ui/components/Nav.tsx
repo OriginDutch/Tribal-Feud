@@ -20,6 +20,7 @@ export function Nav() {
     { id: 'snob', label: 'Adelshoeve', building: 'snob' },
     { id: 'smith', label: 'Smederij', building: 'smith' },
     { id: 'place', label: 'Verzamelplaats', building: 'place' },
+    { id: 'market', label: 'Marktplaats', building: 'market' },
     { id: 'map', label: 'Kaart' },
     { id: 'farm', label: 'Farm-assistent' },
     { id: 'reports', label: 'Rapporten' },

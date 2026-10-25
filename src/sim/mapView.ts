@@ -66,7 +66,8 @@ export function incomingViews(state: WorldState): IncomingView[] {
 export function movementViews(state: WorldState): MovementView[] {
   const views: MovementView[] = [];
   for (const m of Object.values(state.movements)) {
-    if (m.owner !== HUMAN_ID) continue;
+    // merchants are listed on the market screen
+    if (m.owner !== HUMAN_ID || m.kind === 'trade' || m.kind === 'tradeReturn') continue;
     const from = state.villages[m.from];
     const to = state.villages[m.to];
     if (!from || !to) continue;
@@ -80,6 +81,7 @@ export function movementViews(state: WorldState): MovementView[] {
       units: m.units,
     };
     if (m.loot) view.loot = m.loot;
+    if (m.res) view.res = m.res;
     views.push(view);
   }
   return views.sort((a, b) => a.arrives - b.arrives);

@@ -13,12 +13,13 @@ import { nextFloat, nextInt } from './rng';
 import { BARBARIAN, HUMAN_ID, addLog, invalidateOwners, nextId, villagesOf, type WorldState } from './state';
 import { onHumanVillageLost, onIncomingAttack } from './alerts';
 import { formatGameTime } from '../shared/time';
+import { arriveTrade, arriveTradeReturn } from './market';
 import { currentResources, isOperational, settle, type Village } from './village';
 
 export interface Movement {
   id: number;
-  /** support = troops on their way to stay in another village. */
-  kind: 'attack' | 'return' | 'support';
+  /** support = troops on their way to stay in another village; trade = merchants with resources. */
+  kind: 'attack' | 'return' | 'support' | 'trade' | 'tradeReturn';
   owner: number;
   from: number;
   to: number;
@@ -27,6 +28,9 @@ export interface Movement {
   arrives: number;
   catapultTarget?: BuildingId;
   loot?: Res;
+  /** Merchants: what they carry and how many walk. */
+  res?: Res;
+  merchants?: number;
 }
 
 export interface ReportVillage {
@@ -439,6 +443,8 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
     if (m.from === v.id || (m.kind === 'return' && m.to === v.id)) delete state.movements[m.id];
   }
   for (const w of Object.values(state.villages)) if (w.support?.[v.id]) delete w.support[v.id];
+  // open market offers of this village go with it
+  if (state.offers) state.offers = state.offers.filter((o) => o.villageId !== v.id);
   state.conquests ??= { barbarian: 0, player: 0 };
   if (old === BARBARIAN) state.conquests.barbarian++;
   else state.conquests.player++;
@@ -657,6 +663,8 @@ export function onArrive(state: WorldState, movementId: number): void {
   if (!m || m.arrives !== state.time) return; // stale event
   if (m.kind === 'attack') arriveAttack(state, m);
   else if (m.kind === 'support') arriveSupport(state, m);
+  else if (m.kind === 'trade') arriveTrade(state, m);
+  else if (m.kind === 'tradeReturn') arriveTradeReturn(state, m);
   else arriveReturn(state, m);
 }
 

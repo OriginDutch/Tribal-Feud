@@ -1,4 +1,5 @@
 import type { BuildTemplate } from './manager';
+import type { TradeOffer } from './market';
 import type { Intel } from './intel';
 import type { WorldConfig } from '../shared/config';
 import type { Speed } from '../shared/time';
@@ -114,6 +115,8 @@ export interface WorldState {
   current?: number;
   /** An alert raised during an event (incoming attack, village lost): it auto-pauses the game. */
   alert?: LogEntry;
+  /** Open market offers (everyone's). */
+  offers?: TradeOffer[];
   /** The player's own build templates (account manager). */
   templates?: BuildTemplate[];
   /** Time of the scheduled account-manager check. */

@@ -14,6 +14,7 @@ import { push } from './eventQueue';
 import { buildingCost } from './formulas';
 import { distance, protectionBlocker, protectionEndsAt, sendAttack } from './movement';
 import { coinsForSlots, mintCoins, noblesAllowed, playerCoins, slotsUsed } from './nobles';
+import { MERCHANT_CARRY, acceptOffer, cancelOffer, createOffer, merchantsFree, offersOf, type TradeOffer } from './market';
 import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { edgeSpot } from './map';
@@ -110,6 +111,51 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   recruitDefense(state, v, profile, reserve, saving ? 0.5 : 1);
   if (!saving) recruitTroops(state, v, profile, reserve);
   if (attentive) farm(state, player, v, profile);
+  if (attentive) trade(state, player, v);
+}
+
+// --- market -----------------------------------------------------------------------
+
+/** How far a bot looks for offers. */
+const TRADE_RADIUS = 40;
+/** The worst deal a bot takes: it pays at most this much for each unit it gets. */
+const TRADE_MAX_PRICE = 1.5;
+
+/**
+ * Bots trade their surplus for what they are short of: they take a good-enough offer
+ * nearby, otherwise they put up one of their own at 1:1 (and withdraw it after a while).
+ */
+function trade(state: WorldState, player: Player, v: Village): void {
+  const { config } = state;
+  if (!isOperational(config, v, 'market')) return;
+  const have = currentResources(config, v, state.time);
+  let low: 0 | 1 | 2 = 0;
+  let high: 0 | 1 | 2 = 0;
+  for (const i of [1, 2] as const) {
+    if (have[i] < have[low]) low = i;
+    if (have[i] > have[high]) high = i;
+  }
+  const mine = offersOf(state, v.id);
+  // stale own offers go back after half a game day (world speed 1)
+  for (const o of mine) if (state.time - o.created > (12 * 3_600_000) / config.worldSpeed) cancelOffer(state, o.id, player.id);
+  if (have[high] < 5000 || have[high] < 2 * have[low]) return;
+
+  // take the best offer that sells what we lack for what we have too much of
+  let best: TradeOffer | null = null;
+  for (const o of state.offers ?? []) {
+    if (o.owner === player.id || o.give.res !== low || o.want.res !== high) continue;
+    if (o.want.amount > o.give.amount * TRADE_MAX_PRICE || o.want.amount > have[high] - have[low]) continue;
+    const seller = state.villages[o.villageId];
+    if (!seller || distance(seller, v) > TRADE_RADIUS) continue;
+    if (!best || o.give.amount / o.want.amount > best.give.amount / best.want.amount) best = o;
+  }
+  if (best && acceptOffer(state, best.id, v.id) === null) return;
+
+  // otherwise offer half the gap, 1:1
+  if (offersOf(state, v.id).length > 0) return;
+  const free = merchantsFree(state, v);
+  const amount = Math.min(free * MERCHANT_CARRY, Math.floor((have[high] - have[low]) / 2 / MERCHANT_CARRY) * MERCHANT_CARRY);
+  if (amount >= MERCHANT_CARRY) createOffer(state, v.id, { res: high, amount }, { res: low, amount });
 }
 
 /** Is this a turn where the bot looks at the game? (difficulty attention, game time) */

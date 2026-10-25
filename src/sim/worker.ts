@@ -20,7 +20,19 @@ import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteTemplate, findTemplate, saveTemplate, setManager } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
-import type { OwnVillageRow, QuestsView, RankingRow } from '../shared/protocol';
+import type { MarketView, MovementView, OfferView, OwnVillageRow, QuestsView, RankingRow } from '../shared/protocol';
+import {
+  MERCHANT_CARRY,
+  MERCHANT_MINUTES_PER_FIELD,
+  acceptOffer,
+  balanceVillages,
+  cancelOffer,
+  createOffer,
+  merchantsFree,
+  merchantsTotal,
+  sendResources,
+  type TradeOffer,
+} from './market';
 import { villagesOf } from './state';
 import { villagePoints } from './barbarians';
 import { ARCHETYPE_NAMES } from '../shared/botProfiles';
@@ -129,6 +141,60 @@ function snapshot(): Snapshot | null {
     farmTemplates: state.farmTemplates,
     marchFactor: state.config.worldSpeed * state.config.unitSpeed * state.config.marchSpeed,
     quests: questsView(state),
+    market: marketView(state),
+  };
+}
+
+/** How far the market screen looks for other players' offers. */
+const OFFER_RADIUS = 40;
+
+function marketView(s: WorldState): MarketView | null {
+  const v = currentVillage(s);
+  if (!v || v.buildings.market <= 0) return null;
+  const offerView = (o: TradeOffer): OfferView | null => {
+    const at = s.villages[o.villageId];
+    if (!at) return null;
+    return {
+      id: o.id,
+      village: { id: at.id, name: at.name, x: at.x, y: at.y, ownerName: s.players[at.owner]?.name ?? '?' },
+      give: o.give,
+      want: o.want,
+      distance: distance(at, v),
+      created: o.created,
+    };
+  };
+  const all = s.offers ?? [];
+  const pick = (list: TradeOffer[]) => list.map(offerView).filter((x): x is OfferView => x !== null);
+  const trades: MovementView[] = [];
+  for (const m of Object.values(s.movements)) {
+    if (m.kind !== 'trade' && m.kind !== 'tradeReturn') continue;
+    if (m.from !== v.id && m.to !== v.id) continue;
+    const from = s.villages[m.from];
+    const to = s.villages[m.to];
+    if (!from || !to) continue;
+    const view: MovementView = {
+      id: m.id,
+      kind: m.kind,
+      from: { id: from.id, name: from.name, x: from.x, y: from.y },
+      to: { id: to.id, name: to.name, x: to.x, y: to.y },
+      sent: m.sent,
+      arrives: m.arrives,
+      units: {},
+    };
+    if (m.res) view.res = m.res;
+    trades.push(view);
+  }
+  return {
+    merchantsFree: merchantsFree(s, v),
+    merchantsTotal: merchantsTotal(v),
+    carry: MERCHANT_CARRY,
+    minutesPerField: MERCHANT_MINUTES_PER_FIELD / s.config.worldSpeed,
+    myOffers: pick(all.filter((o) => o.villageId === v.id)),
+    offers: pick(all.filter((o) => o.owner !== HUMAN_ID))
+      .filter((o) => o.distance <= OFFER_RADIUS)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 60),
+    trades: trades.sort((a, b) => a.arrives - b.arrives),
   };
 }
 
@@ -286,6 +352,43 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       const error = claimReward(state, cmd.id, cmd.villageId ?? currentVillage(state)?.id);
       if (error) notice(error, 'error');
+      break;
+    }
+    case 'sendResources': {
+      if (!state) return;
+      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      const error = sendResources(state, cmd.from, cmd.to, cmd.res);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'createOffer': {
+      if (!state) return;
+      if (state.villages[cmd.villageId]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      const count = Math.max(1, Math.min(50, Math.floor(cmd.count)));
+      let made = 0;
+      let error: string | null = null;
+      while (made < count && (error = createOffer(state, cmd.villageId, cmd.give, cmd.want)) === null) made++;
+      if (error && made === 0) notice(error, 'error');
+      else if (error) notice(`${made} van ${count} aanbiedingen geplaatst: ${error}`, 'error');
+      break;
+    }
+    case 'cancelOffer': {
+      if (!state) return;
+      const error = cancelOffer(state, cmd.id, HUMAN_ID);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'acceptOffer': {
+      if (!state) return;
+      if (state.villages[cmd.villageId]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      const error = acceptOffer(state, cmd.id, cmd.villageId);
+      if (error) notice(error, 'error');
+      break;
+    }
+    case 'balanceVillages': {
+      if (!state) return;
+      const n = balanceVillages(state, HUMAN_ID);
+      notice(n > 0 ? `${n} zending${n === 1 ? '' : 'en'} onderweg.` : 'Niets te balanceren (of geen vrije handelaren).');
       break;
     }
     case 'dismissToast':

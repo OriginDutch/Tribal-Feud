@@ -51,6 +51,11 @@ export type Command =
   | { type: 'sendNobleTrain'; from: number; to: number; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId }
   | { type: 'returnSupport'; hostId: number; originId: number }
   | { type: 'dismissToast'; id: number | 'all' }
+  | { type: 'sendResources'; from: number; to: number; res: [number, number, number] }
+  | { type: 'createOffer'; villageId: number; give: TradeSide; want: TradeSide; count: number }
+  | { type: 'cancelOffer'; id: number }
+  | { type: 'acceptOffer'; id: number; villageId: number }
+  | { type: 'balanceVillages' }
   /** Debug cheats for testing. */
   | { type: 'debugGive'; units?: UnitCounts; resources?: number; buildings?: Partial<Record<BuildingId, number>> }
   | { type: 'debugConquer' };
@@ -90,13 +95,44 @@ export interface IncomingView {
 
 export interface MovementView {
   id: number;
-  kind: 'attack' | 'return' | 'support';
+  kind: 'attack' | 'return' | 'support' | 'trade' | 'tradeReturn';
   from: { id: number; name: string; x: number; y: number };
   to: { id: number; name: string; x: number; y: number };
   sent: number;
   arrives: number;
   units: UnitCounts;
   loot?: [number, number, number];
+  /** Merchants: what they carry. */
+  res?: [number, number, number];
+}
+
+export interface TradeSide {
+  res: 0 | 1 | 2;
+  amount: number;
+}
+
+export interface OfferView {
+  id: number;
+  village: { id: number; name: string; x: number; y: number; ownerName: string };
+  give: TradeSide;
+  want: TradeSide;
+  /** Fields from the selected village. */
+  distance: number;
+  created: number;
+}
+
+/** The market of the selected village. */
+export interface MarketView {
+  merchantsFree: number;
+  merchantsTotal: number;
+  carry: number;
+  /** Game minutes per field for merchants. */
+  minutesPerField: number;
+  myOffers: OfferView[];
+  /** Other players' offers, nearest first. */
+  offers: OfferView[];
+  /** Merchants on the road from or to this village (also other players' merchants coming here). */
+  trades: MovementView[];
 }
 
 export interface Snapshot {
@@ -130,6 +166,8 @@ export interface Snapshot {
   /** worldSpeed * unitSpeed * marchSpeed, to preview travel times. */
   marchFactor: number;
   quests: QuestsView;
+  /** Market of the selected village; null without a market. */
+  market: MarketView | null;
 }
 
 export interface OwnVillageRow {
