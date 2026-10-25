@@ -18,6 +18,7 @@ export function Nav() {
     { id: 'map', label: 'Kaart' },
     { id: 'farm', label: 'Farm-assistent' },
     { id: 'reports', label: 'Rapporten' },
+    { id: 'ranking', label: 'Ranglijst' },
     { id: 'debug', label: 'Log & debug' },
   ];
   const unread = snapshot.value?.unreadReports ?? 0;

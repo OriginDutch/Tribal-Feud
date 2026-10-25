@@ -15,7 +15,10 @@ import { mapData, movementViews } from './mapView';
 import { sendAttack } from './movement';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus } from './quests';
-import type { QuestsView } from '../shared/protocol';
+import type { QuestsView, RankingRow } from '../shared/protocol';
+import { villagesOf } from './state';
+import { villagePoints } from './barbarians';
+import { ARCHETYPE_NAMES } from '../shared/botProfiles';
 import { UNIT_IDS, type UnitCounts } from '../shared/gameData';
 import { cancelBuild, cancelRecruit, cancelResearch, queueBuild, recruit, settle, startResearch } from './village';
 
@@ -246,6 +249,28 @@ async function handle(cmd: Command): Promise<void> {
     case 'getMap':
       if (state) post({ type: 'map', map: mapData(state) });
       return;
+    case 'getRanking': {
+      if (!state) return;
+      const s = state;
+      const ranking: RankingRow[] = s.players.map((p) => {
+        const villages = villagesOf(s, p.id);
+        const row: RankingRow = {
+          id: p.id,
+          name: p.name,
+          points: villages.reduce((sum, v) => sum + villagePoints(s.config, v), 0),
+          villages: villages.length,
+          isBot: p.isBot,
+        };
+        if (p.bot) {
+          row.archetype = ARCHETYPE_NAMES[p.bot.archetype];
+          row.activity = p.bot.activity;
+        }
+        return row;
+      });
+      ranking.sort((a, b) => b.points - a.points);
+      post({ type: 'ranking', ranking });
+      return;
+    }
     case 'getReports':
       if (state) post({ type: 'reports', reports: state.reports });
       return;

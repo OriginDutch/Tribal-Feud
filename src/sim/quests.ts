@@ -9,7 +9,7 @@ import type { BuildingId, Res, UnitCounts } from '../shared/gameData';
 import { UNIT_IDS } from '../shared/gameData';
 import { storageCapacity } from './formulas';
 import { HUMAN_ID, addLog, nextId, playerVillage, type WorldState } from './state';
-import { settle } from './village';
+import { settle, type Village } from './village';
 
 export interface PendingReward {
   id: number;
@@ -84,10 +84,19 @@ export function checkQuests(state: WorldState): void {
   }
 }
 
-/** Reward for a finished building of the human player. */
-export function buildingReward(state: WorldState, owner: number, building: BuildingId, level: number, cost: Res): void {
+/**
+ * Reward for a finished building. The human player claims it from the rewards list;
+ * bots get the same reward straight into their storage (up to the cap).
+ */
+export function buildingReward(state: WorldState, v: Village, building: BuildingId, level: number, cost: Res): void {
   const { maxLevel, share } = state.config.quests.buildingReward;
-  if (owner !== HUMAN_ID || level > maxLevel || share <= 0) return;
+  if (v.owner < 0 || level > maxLevel || share <= 0) return;
+  if (v.owner !== HUMAN_ID) {
+    settle(state.config, v, state.time);
+    const cap = storageCapacity(v.buildings.storage);
+    for (const i of [0, 1, 2] as const) v.res[i] = Math.max(v.res[i], Math.min(cap, v.res[i] + Math.floor(cost[i] * share)));
+    return;
+  }
   state.rewards.push({
     id: nextId(state),
     text: `${state.config.buildings[building].name} level ${level}`,

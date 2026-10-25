@@ -5,7 +5,7 @@ import { fromSaveData, toSaveData } from './save';
 import { advance, schedule, scheduleRandom, setPaused, setSpeed } from './simulation';
 import { createWorld } from './state';
 
-const world = (seed = 1) => createWorld(createConfig('classic', 'Test', seed));
+const world = (seed = 1) => createWorld(createConfig('classic', 'Test', seed, { bots: { count: 0 } }));
 
 describe('simulation clock', () => {
   it('does not move while paused', () => {

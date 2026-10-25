@@ -14,6 +14,7 @@ import { PlaceScreen } from './screens/PlaceScreen';
 import { FarmScreen } from './screens/FarmScreen';
 import { ReportsScreen } from './screens/ReportsScreen';
 import { QuestsScreen } from './screens/QuestsScreen';
+import { RankingScreen } from './screens/RankingScreen';
 
 /** Spacebar toggles pause, except while typing in a field. */
 function useSpacebarPause(): void {
@@ -51,6 +52,8 @@ function CurrentScreen() {
       return <ReportsScreen />;
     case 'quests':
       return <QuestsScreen />;
+    case 'ranking':
+      return <RankingScreen />;
     default:
       return <RecruitScreen building={screen.value} />;
   }

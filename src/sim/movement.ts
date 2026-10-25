@@ -3,11 +3,12 @@
  */
 import { BUILDING_IDS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { growBarbarian, villagePoints } from './barbarians';
+import { rememberFarm } from './bots';
 import { fight, morale } from './combat';
 import { push } from './eventQueue';
 import { hidingCapacity, storageCapacity } from './formulas';
 import { nextFloat } from './rng';
-import { BARBARIAN, HUMAN_ID, addLog, nextId, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, addLog, nextId, villagesOf, type WorldState } from './state';
 import { currentResources, isOperational, settle, type Village } from './village';
 
 export interface Movement {
@@ -68,7 +69,7 @@ export function travelTimeMs(state: WorldState, units: UnitCounts, dist: number)
 
 export function playerPoints(state: WorldState, owner: number): number {
   let points = 0;
-  for (const v of Object.values(state.villages)) if (v.owner === owner) points += villagePoints(state.config, v);
+  for (const v of villagesOf(state, owner)) points += villagePoints(state.config, v);
   return points;
 }
 
@@ -171,7 +172,9 @@ function arriveAttack(state: WorldState, m: Movement): void {
   settle(config, target, state.time);
 
   const luck = config.luck ? (nextFloat(state.rng) * 2 - 1) * config.combat.luckRange : 0;
-  const mor = morale(config, playerPoints(state, m.owner), playerPoints(state, target.owner), target.owner === BARBARIAN);
+  // points only matter against players: skip the (expensive) count for barbarians
+  const mor =
+    target.owner === BARBARIAN ? 1 : morale(config, playerPoints(state, m.owner), playerPoints(state, target.owner), false);
   const defenderPresent = cleanCounts(target.units);
   const battle = fight(config, {
     attacker: m.units,
@@ -231,6 +234,8 @@ function arriveAttack(state: WorldState, m: Movement): void {
     push(state.queue, back.arrives, { kind: 'arrive', movementId: back.id });
   }
   delete state.movements[m.id];
+
+  if (target.owner === BARBARIAN && m.owner !== HUMAN_ID) rememberFarm(state, m.owner, target.id, battle.attackerWon);
 
   if (m.owner === HUMAN_ID) {
     const anyLost = UNIT_IDS.some((u) => (battle.attackerLost[u] ?? 0) > 0);

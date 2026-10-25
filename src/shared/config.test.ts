@@ -11,7 +11,7 @@ describe('WorldConfig', () => {
   it('overrides turn a preset into custom', () => {
     const c = createConfig('classic', 'x', 1, { bots: { count: 50 } });
     expect(c.preset).toBe('custom');
-    expect(c.bots).toEqual({ count: 50, difficulty: 'normal' });
+    expect(c.bots).toMatchObject({ count: 50, difficulty: 'normal' });
   });
 
   it('rejects settings the bots cannot play with yet', () => {

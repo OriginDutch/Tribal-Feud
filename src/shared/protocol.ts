@@ -35,6 +35,7 @@ export type Command =
   | { type: 'getMap' }
   | { type: 'getReports' }
   | { type: 'markReportsRead'; ids: number[] | 'all' }
+  | { type: 'getRanking' }
   | { type: 'claimReward'; id: number }
   | { type: 'claimAllRewards' }
   /** Debug cheats for testing. */
@@ -111,6 +112,18 @@ export type WorkerMessage =
   | { type: 'saves'; saves: SaveMeta[] }
   | { type: 'map'; map: MapData }
   | { type: 'reports'; reports: Report[] }
+  | { type: 'ranking'; ranking: RankingRow[] }
   | { type: 'notice'; level: 'info' | 'error'; text: string };
 
 export const AUTOSAVE_SLOT = 'autosave';
+
+export interface RankingRow {
+  id: number;
+  name: string;
+  points: number;
+  villages: number;
+  isBot: boolean;
+  /** Debug info, only for bots. */
+  archetype?: string;
+  activity?: number;
+}

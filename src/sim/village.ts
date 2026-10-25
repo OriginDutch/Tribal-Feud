@@ -286,7 +286,7 @@ export function onBuildDone(state: WorldState, villageId: number, jobId: number)
   settle(state.config, v, state.time);
   v.buildings[job.building] = job.level;
   v.buildQueue.shift();
-  buildingReward(state, v.owner, job.building, job.level, job.cost);
+  buildingReward(state, v, job.building, job.level, job.cost);
   addLog(state, { time: state.time, text: `${v.name}: ${state.config.buildings[job.building].name} level ${job.level} klaar.` });
 }
 

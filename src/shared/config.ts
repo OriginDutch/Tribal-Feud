@@ -82,6 +82,17 @@ export interface WorldConfig {
   bots: {
     count: number;
     difficulty: BotDifficulty;
+    /** Game minutes between turns of the most active bot (world speed 1). */
+    turnMinMinutes: number;
+    /** Game minutes between turns of the least active bot (world speed 1). */
+    turnMaxMinutes: number;
+    /** Activity range bots get (0..1); higher = more turns. */
+    activityMin: number;
+    activityMax: number;
+    /** How far (fields) bots look for barbarians to farm. */
+    farmRadius: number;
+    /** Most farm attacks a bot sends per turn. */
+    farmAttacksPerTurn: number;
   };
 
   winCondition: {
@@ -151,6 +162,12 @@ const BASE: PresetValues = {
   bots: {
     count: 200,
     difficulty: 'normal',
+    turnMinMinutes: 5,
+    turnMaxMinutes: 30,
+    activityMin: 0.3,
+    activityMax: 1,
+    farmRadius: 15,
+    farmAttacksPerTurn: 5,
   },
   winCondition: {
     villageShare: 0.75,
@@ -166,7 +183,7 @@ export const PRESETS: Record<Exclude<PresetId, 'custom'>, PresetValues> = {
     worldSpeed: 2,
     unitSpeed: 1,
     morale: 'off',
-    bots: { count: 300, difficulty: 'hard' },
+    bots: { ...BASE.bots, count: 300, difficulty: 'hard' },
   },
 };
 

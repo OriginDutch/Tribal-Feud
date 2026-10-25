@@ -3,9 +3,11 @@ import type { Speed } from '../shared/time';
 import { createQueue, type EventQueue } from './eventQueue';
 import { seedRng, type RngState } from './rng';
 import type { UnitCounts } from '../shared/gameData';
+import type { Archetype } from '../shared/botProfiles';
 import { generateMap } from './map';
 import type { Movement, Report } from './movement';
 import { checkQuests, type PendingReward, type QuestStats } from './quests';
+import { initBots } from './bots';
 import { createVillage, type Village } from './village';
 
 /** Everything that can be scheduled in game time. Grows per phase. */
@@ -15,7 +17,8 @@ export type GameEvent =
   | { kind: 'build'; villageId: number; jobId: number }
   | { kind: 'recruit'; villageId: number; jobId: number }
   | { kind: 'research'; villageId: number; jobId: number }
-  | { kind: 'arrive'; movementId: number };
+  | { kind: 'arrive'; movementId: number }
+  | { kind: 'botTurn'; playerId: number };
 
 export interface LogEntry {
   time: number;
@@ -23,10 +26,23 @@ export interface LogEntry {
   autoPause?: boolean;
 }
 
+export interface BotState {
+  archetype: Archetype;
+  /** 0..1, higher = more turns. */
+  activity: number;
+  /** Game time of the next scheduled turn. */
+  nextTurn: number;
+  /** What the bot knows about barbarian villages it farmed: village id -> last result. */
+  farmLog: Record<number, { at: number; won: boolean }>;
+  /** Barbarian villages this bot has a farm attack on the way to. */
+  outgoing: number[];
+}
+
 export interface Player {
   id: number;
   name: string;
   isBot: boolean;
+  bot?: BotState;
 }
 
 /** The human player always has id 0. */
@@ -99,6 +115,7 @@ export function createWorld(config: WorldConfig): WorldState {
   const village = createVillage(config, nextId(state), HUMAN_ID, 'Jouw dorp', 500, 500, 0);
   state.villages[village.id] = village;
   generateMap(state);
+  initBots(state);
   checkQuests(state);
   return state;
 }
@@ -108,7 +125,44 @@ export function addLog(state: WorldState, entry: LogEntry): void {
   if (state.log.length > MAX_LOG) state.log.splice(0, state.log.length - MAX_LOG);
 }
 
-/** The human player's first village (phase 2 has exactly one). */
+/** Cached id of the human player's village per world (looking it up scans thousands of villages). */
+const humanVillageCache = new WeakMap<WorldState, number>();
+
+/** The human player's first village. */
 export function playerVillage(state: WorldState): Village | undefined {
-  return Object.values(state.villages).find((v) => v.owner === HUMAN_ID);
+  const cached = humanVillageCache.get(state);
+  if (cached !== undefined) {
+    const v = state.villages[cached];
+    if (v && v.owner === HUMAN_ID) return v;
+  }
+  const v = Object.values(state.villages).find((x) => x.owner === HUMAN_ID);
+  if (v) humanVillageCache.set(state, v.id);
+  return v;
+}
+
+/** Village ids per owner, cached per world. Call invalidateOwners() whenever a village changes owner. */
+const ownerIndex = new WeakMap<WorldState, Map<number, number[]>>();
+
+export function villagesOf(state: WorldState, owner: number): Village[] {
+  let index = ownerIndex.get(state);
+  if (!index) {
+    index = new Map();
+    for (const v of Object.values(state.villages)) {
+      const list = index.get(v.owner);
+      if (list) list.push(v.id);
+      else index.set(v.owner, [v.id]);
+    }
+    ownerIndex.set(state, index);
+  }
+  const out: Village[] = [];
+  for (const id of index.get(owner) ?? []) {
+    const v = state.villages[id];
+    if (v && v.owner === owner) out.push(v);
+  }
+  return out;
+}
+
+export function invalidateOwners(state: WorldState): void {
+  ownerIndex.delete(state);
+  humanVillageCache.delete(state);
 }

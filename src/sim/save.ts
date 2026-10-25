@@ -3,6 +3,7 @@ import { UNIT_IDS, type UnitId } from '../shared/gameData';
 import { generateMap } from './map';
 import { defaultQuests } from '../shared/quests';
 import { checkQuests } from './quests';
+import { initBots } from './bots';
 import { HUMAN_ID, type WorldState } from './state';
 import { createVillage } from './village';
 
@@ -10,7 +11,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export interface SaveData {
   version: number;
@@ -77,6 +78,13 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     state.stats ??= { plunders: 0, loot: 0, rewardsClaimed: 0 };
     checkQuests(state);
     return { ...data, version: 5 };
+  },
+  // v5 had passive bots: give them the new bot settings, personalities and turns.
+  5: (data) => {
+    const state = data.state;
+    state.config.bots = { ...PRESETS.classic.bots, ...state.config.bots };
+    initBots(state);
+    return { ...data, version: 6 };
   },
 };
 

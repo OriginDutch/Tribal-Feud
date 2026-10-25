@@ -232,3 +232,7 @@ button.action:disabled { opacity: 1; color: var(--muted); background: transparen
 .overlays { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 8px; width: min(640px, calc(100vw - 32px)); pointer-events: none; }
 .overlays .banner, .overlays .notice { margin: 0; pointer-events: auto; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); }
 .overlays .notice { background: var(--panel-2); }
+
+/* --- ranking --- */
+.table tr.me td { background: rgba(200, 150, 62, 0.12); }
+label.inline-check { flex-direction: row; align-items: center; gap: 6px; }

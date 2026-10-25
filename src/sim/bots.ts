@@ -1,0 +1,263 @@
+/**
+ * Bot economy layer ("domme bots"): bots build, research, recruit and farm barbarians.
+ * They play by exactly the same rules as the player: every action goes through the same
+ * functions (queueBuild, recruit, startResearch, sendAttack) and they only know what their
+ * own reports told them. They don't attack players yet.
+ */
+import { ARCHETYPES, BOT_PROFILES, type BotProfile } from '../shared/botProfiles';
+import { UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
+import { MINUTE } from '../shared/time';
+import { push } from './eventQueue';
+import { buildingCost } from './formulas';
+import { distance, sendAttack } from './movement';
+import { hashFloat, nextFloat } from './rng';
+import { BARBARIAN, villagesOf, type Player, type WorldState } from './state';
+import {
+  buildBlocker,
+  currentResources,
+  isOperational,
+  maxRecruitable,
+  plannedLevel,
+  popMax,
+  popUsed,
+  queueBuild,
+  recruit,
+  recruitBlocker,
+  researchBlocker,
+  startResearch,
+  type Village,
+} from './village';
+
+/** Gives every bot player a personality and schedules its first turn. */
+export function initBots(state: WorldState): void {
+  for (const p of state.players) {
+    if (!p.isBot || p.bot) continue;
+    const { activityMin, activityMax } = state.config.bots;
+    const archetype = ARCHETYPES[Math.floor(hashFloat(state.config.seed, p.id, 1) * ARCHETYPES.length)] ?? 'farmer';
+    const activity = activityMin + hashFloat(state.config.seed, p.id, 2) * (activityMax - activityMin);
+    // spread the first turns so not all bots think at the same moment
+    const first = state.time + Math.round(hashFloat(state.config.seed, p.id, 3) * turnInterval(state, activity));
+    p.bot = { archetype, activity, nextTurn: first, farmLog: {}, outgoing: [] };
+    push(state.queue, first, { kind: 'botTurn', playerId: p.id });
+  }
+}
+
+function turnInterval(state: WorldState, activity: number): number {
+  const { turnMinMinutes, turnMaxMinutes } = state.config.bots;
+  const minutes = turnMaxMinutes - (turnMaxMinutes - turnMinMinutes) * activity;
+  return (minutes * MINUTE) / state.config.worldSpeed;
+}
+
+export function onBotTurn(state: WorldState, playerId: number): void {
+  const player = state.players[playerId];
+  const bot = player?.bot;
+  if (!player || !bot || bot.nextTurn !== state.time) return; // stale event
+
+  for (const v of villagesOf(state, playerId)) villageTurn(state, player, v);
+
+  // next turn, with a little jitter
+  const jitter = 0.8 + nextFloat(state.rng) * 0.4;
+  bot.nextTurn = state.time + Math.max(MINUTE, Math.round(turnInterval(state, bot.activity) * jitter));
+  push(state.queue, bot.nextTurn, { kind: 'botTurn', playerId });
+}
+
+function villageTurn(state: WorldState, player: Player, v: Village): void {
+  if (!player.bot) return;
+  const profile = BOT_PROFILES[player.bot.archetype];
+  const reserve = build(state, v, profile);
+  research(state, v, profile);
+  recruitTroops(state, v, profile, reserve);
+  farm(state, player, v, profile);
+}
+
+// --- building ---------------------------------------------------------------
+
+/** The first build step that isn't done yet (counting queued levels). */
+function nextStep(v: Village, profile: BotProfile): [BuildingId, number] | null {
+  for (const step of profile.buildOrder) {
+    if (plannedLevel(v, step[0]) < step[1]) return step;
+  }
+  return null;
+}
+
+/** Fallback when the build order is done: the lowest of the economy buildings. */
+function fallbackStep(state: WorldState, v: Village): BuildingId | null {
+  const candidates: BuildingId[] = ['wood', 'stone', 'iron', 'storage', 'farm', 'main'];
+  let best: BuildingId | null = null;
+  for (const b of candidates) {
+    if (plannedLevel(v, b) >= state.config.buildings[b].maxLevel) continue;
+    if (!best || plannedLevel(v, b) < plannedLevel(v, best)) best = b;
+  }
+  return best;
+}
+
+/**
+ * Keeps the build queue busy. Returns the resources the bot wants to keep for its next
+ * building, so recruiting doesn't eat them.
+ */
+function build(state: WorldState, v: Village, profile: BotProfile): Res {
+  const { config } = state;
+  // bots keep at most 2 jobs queued: enough to stay busy without locking up resources
+  for (let guard = 0; guard < 4 && v.buildQueue.length < 2; guard++) {
+    const step = nextStep(v, profile);
+    let target: BuildingId | null = step ? step[0] : fallbackStep(state, v);
+    if (!target) break;
+
+    // the economy comes first: a full storage or farm blocks everything else
+    const res = currentResources(config, v, state.time);
+    const cap = config.buildings.storage;
+    const storageFull = res.some((r) => r >= 0.9 * storageOf(v));
+    const farmFull = popMax(v) - popUsed(config, v) < Math.max(10, popMax(v) * 0.08);
+    if (farmFull && plannedLevel(v, 'farm') < config.buildings.farm.maxLevel) target = 'farm';
+    else if (storageFull && plannedLevel(v, 'storage') < cap.maxLevel) target = 'storage';
+
+    const blocker = buildBlocker(state, v, target);
+    if (blocker === null) {
+      queueBuild(state, v.id, target);
+      continue;
+    }
+    if (blocker === 'Opslagplaats te klein' && buildBlocker(state, v, 'storage') === null) {
+      queueBuild(state, v.id, 'storage');
+      continue;
+    }
+    if (blocker === 'Boerderij is vol' && buildBlocker(state, v, 'farm') === null) {
+      queueBuild(state, v.id, 'farm');
+      continue;
+    }
+    break; // not affordable yet (or waiting on a requirement): save up
+  }
+
+  const step = nextStep(v, profile);
+  const b = step ? step[0] : fallbackStep(state, v);
+  if (!b) return [0, 0, 0];
+  const level = plannedLevel(v, b) + 1;
+  return level <= config.buildings[b].maxLevel ? buildingCost(config.buildings[b], level) : [0, 0, 0];
+}
+
+function storageOf(v: Village): number {
+  // same formula as storageCapacity, kept local to avoid an import cycle in hot code
+  return Math.round(1000 * 1.2294934 ** (v.buildings.storage - 1));
+}
+
+// --- smithy -----------------------------------------------------------------
+
+function research(state: WorldState, v: Village, profile: BotProfile): void {
+  if (v.research) return;
+  const wanted = [...profile.farmUnits, ...(Object.keys(profile.troops) as UnitId[])];
+  for (const u of wanted) {
+    if (v.researched.includes(u)) continue;
+    if (researchBlocker(state, v, u) === null) {
+      startResearch(state, v.id, u);
+      return;
+    }
+  }
+}
+
+// --- recruiting -------------------------------------------------------------
+
+function recruitTroops(state: WorldState, v: Village, profile: BotProfile, reserve: Res): void {
+  const { config } = state;
+  const have = currentResources(config, v, state.time);
+  const spare: Res = [0, 1, 2].map((i) => Math.max(0, have[i as 0 | 1 | 2] - reserve[i as 0 | 1 | 2])) as Res;
+  const budget: Res = spare.map((r) => r * profile.troopShare) as Res;
+
+  const weights = Object.entries(profile.troops) as [UnitId, number][];
+  const totalWeight = weights.reduce((s, [, w]) => s + w, 0);
+  for (const [u, w] of weights) {
+    if (recruitBlocker(state, v, u) !== null) continue;
+    const def = config.units[u];
+    // don't stack hours of recruiting: one building's queue stays short
+    if (v.recruitQueues[def.building].length >= 2) continue;
+    const share = w / totalWeight;
+    const affordable = Math.floor(
+      Math.min(...[0, 1, 2].map((i) => (def.cost[i as 0 | 1 | 2] > 0 ? (budget[i as 0 | 1 | 2] * share) / def.cost[i as 0 | 1 | 2] : Infinity))),
+    );
+    const n = Math.min(affordable, maxRecruitable(state, v, u));
+    if (n >= 1) recruit(state, v.id, u, n);
+  }
+}
+
+// --- farming ----------------------------------------------------------------
+
+/** Group size per farm attack, by unit. */
+const FARM_GROUP: Partial<Record<UnitId, number>> = { light: 5, spear: 15, axe: 15, sword: 15 };
+
+function farm(state: WorldState, player: Player, v: Village, profile: BotProfile): void {
+  const bot = player.bot;
+  if (!bot || !isOperational(state.config, v, 'place')) return;
+  const { farmRadius, farmAttacksPerTurn } = state.config.bots;
+
+  if (!profile.farmUnits.some((u) => v.units[u] >= (FARM_GROUP[u] ?? 10))) return;
+  // villages this bot already has troops on the way to
+  const busy = new Set<number>(bot.outgoing);
+
+  let sent = 0;
+  for (const u of profile.farmUnits) {
+    const group = FARM_GROUP[u] ?? 10;
+    if (v.units[u] < group) continue;
+    const targets = barbariansNear(state, v, farmRadius).filter((t) => {
+      if (busy.has(t.id)) return false;
+      const log = bot.farmLog[t.id];
+      // a lost attack: stay away for a day
+      return !(log && !log.won && state.time - log.at < 24 * 60 * MINUTE);
+    });
+    for (const t of targets) {
+      if (sent >= farmAttacksPerTurn || v.units[u] < group) break;
+      const units: UnitCounts = { [u]: group };
+      if (sendAttack(state, v.id, t.id, units) === null) {
+        busy.add(t.id);
+        bot.outgoing.push(t.id);
+        sent++;
+      }
+    }
+  }
+}
+
+/** Barbarian villages within `radius` of `v`, nearest first. Cached per world and village. */
+const nearCache = new WeakMap<WorldState, Map<string, number[]>>();
+function barbariansNear(state: WorldState, v: Village, radius: number): Village[] {
+  let cache = nearCache.get(state);
+  if (!cache) {
+    cache = new Map();
+    nearCache.set(state, cache);
+  }
+  const key = `${v.id}:${radius}`;
+  let ids = cache.get(key);
+  if (!ids) {
+    ids = Object.values(state.villages)
+      .filter((x) => x.owner === BARBARIAN && distance(x, v) <= radius)
+      .sort((a, b) => distance(a, v) - distance(b, v))
+      .map((x) => x.id);
+    cache.set(key, ids);
+  }
+  const out: Village[] = [];
+  for (const id of ids) {
+    const x = state.villages[id];
+    if (x && x.owner === BARBARIAN) out.push(x);
+  }
+  return out;
+}
+
+/** Called from the battle code: bots remember how their farm attacks went. */
+export function rememberFarm(state: WorldState, owner: number, targetId: number, won: boolean): void {
+  const bot = state.players[owner]?.bot;
+  if (!bot) return;
+  bot.farmLog[targetId] = { at: state.time, won };
+  const i = bot.outgoing.indexOf(targetId);
+  if (i >= 0) bot.outgoing.splice(i, 1);
+  const ids = Object.keys(bot.farmLog);
+  if (ids.length > 150) {
+    // forget the oldest entries
+    ids
+      .map(Number)
+      .sort((a, b) => (bot.farmLog[a]?.at ?? 0) - (bot.farmLog[b]?.at ?? 0))
+      .slice(0, ids.length - 100)
+      .forEach((id) => delete bot.farmLog[id]);
+  }
+}
+
+export function totalUnits(v: Village): number {
+  let n = 0;
+  for (const u of UNIT_IDS) n += v.units[u] + v.outside[u];
+  return n;
+}

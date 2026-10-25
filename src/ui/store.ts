@@ -4,12 +4,12 @@
  */
 import { signal } from '@preact/signals';
 import type { RecruitBuilding } from '../shared/gameData';
-import type { Command, MapData, Snapshot, WorkerMessage } from '../shared/protocol';
+import type { Command, MapData, RankingRow, Snapshot, WorkerMessage } from '../shared/protocol';
 import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'farm' | 'reports' | 'quests' | 'debug';
+export type Screen = 'overview' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'farm' | 'reports' | 'quests' | 'ranking' | 'debug';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);
@@ -19,6 +19,7 @@ export const notice = signal<{ text: string; level: 'info' | 'error' } | null>(n
 export const screen = signal<Screen>('overview');
 export const mapData = signal<MapData | null>(null);
 export const reports = signal<Report[]>([]);
+export const ranking = signal<RankingRow[]>([]);
 /** Target picked on the map, prefilled in the rally point. */
 export const placeTarget = signal<{ x: number; y: number } | null>(null);
 /** Village selected on the map. */
@@ -54,6 +55,9 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'reports':
       reports.value = msg.reports;
+      break;
+    case 'ranking':
+      ranking.value = msg.ranking;
       break;
     case 'notice':
       showNotice(msg.text, msg.level);
