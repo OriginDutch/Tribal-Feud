@@ -15,6 +15,8 @@ import { FarmScreen } from './screens/FarmScreen';
 import { ReportsScreen } from './screens/ReportsScreen';
 import { QuestsScreen } from './screens/QuestsScreen';
 import { RankingScreen } from './screens/RankingScreen';
+import { VillagesScreen } from './screens/VillagesScreen';
+import { stepVillage } from './components/VillageSwitcher';
 
 /** Spacebar toggles pause, except while typing in a field. */
 function useSpacebarPause(): void {
@@ -22,9 +24,15 @@ function useSpacebarPause(): void {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       // preventDefault also stops a focused button from being "clicked" by the spacebar
-      if (e.code === 'Space' && tag !== 'INPUT' && tag !== 'SELECT') {
+      const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+      if (e.code === 'Space' && !typing) {
         e.preventDefault();
         togglePause();
+      }
+      // A / D: previous / next village, like TW
+      if (!typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.code === 'KeyA') stepVillage(-1);
+        if (e.code === 'KeyD') stepVillage(1);
       }
     };
     document.addEventListener('keydown', onKey);
@@ -54,6 +62,8 @@ function CurrentScreen() {
       return <QuestsScreen />;
     case 'ranking':
       return <RankingScreen />;
+    case 'villages':
+      return <VillagesScreen />;
     default:
       return <RecruitScreen building={screen.value} />;
   }

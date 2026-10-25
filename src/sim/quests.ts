@@ -129,8 +129,9 @@ export function dismissToast(state: WorldState, id: number | 'all'): void {
 }
 
 /** Claims as much of a reward as fits. Returns an error message or null. */
-export function claimReward(state: WorldState, rewardId: number): string | null {
-  const v = playerVillage(state);
+export function claimReward(state: WorldState, rewardId: number, villageId?: number): string | null {
+  const chosen = villageId !== undefined ? state.villages[villageId] : undefined;
+  const v = chosen && chosen.owner === HUMAN_ID ? chosen : playerVillage(state);
   const reward = state.rewards.find((r) => r.id === rewardId);
   if (!v || !reward) return 'Beloning bestaat niet.';
   settle(state.config, v, state.time);
@@ -160,8 +161,8 @@ export function claimReward(state: WorldState, rewardId: number): string | null 
   return null;
 }
 
-export function claimAllRewards(state: WorldState): string | null {
+export function claimAllRewards(state: WorldState, villageId?: number): string | null {
   let anyClaimed = false;
-  for (const r of [...state.rewards]) if (claimReward(state, r.id) === null) anyClaimed = true;
+  for (const r of [...state.rewards]) if (claimReward(state, r.id, villageId) === null) anyClaimed = true;
   return anyClaimed ? null : 'Je opslag zit vol.';
 }

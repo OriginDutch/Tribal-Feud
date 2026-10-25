@@ -1,4 +1,5 @@
 import { QuestToasts } from './QuestToasts';
+import { VillageSwitcher } from './VillageSwitcher';
 import { screen, snapshot, type Screen } from '../store';
 
 export function Nav() {
@@ -8,6 +9,7 @@ export function Nav() {
 
   const items: { id: Screen; label: string; building?: string }[] = [
     { id: 'overview', label: 'Overzicht' },
+    { id: 'villages', label: `Dorpen (${snapshot.value?.villages.length ?? 1})` },
     { id: 'quests', label: 'Opdrachten' },
     { id: 'main', label: 'Hoofdgebouw', building: 'main' },
     { id: 'barracks', label: 'Kazerne', building: 'barracks' },
@@ -27,9 +29,7 @@ export function Nav() {
 
   return (
     <nav class="nav">
-      <div class="village-name">
-        {v.name} <span class="muted">({v.x}|{v.y})</span>
-      </div>
+      <VillageSwitcher />
       {items.map((item) => {
         const lvl = item.building ? level(item.building) : null;
         return (

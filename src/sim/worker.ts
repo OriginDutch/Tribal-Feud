@@ -10,18 +10,30 @@ import { deleteSave, getSave, listSaves, putSave } from '../storage/saveStore';
 import { randomSeed } from './rng';
 import { fromSaveData, toSaveData } from './save';
 import { advance, schedule, scheduleRandom, setPaused, setSpeed } from './simulation';
-import { createWorld, playerVillage, type WorldState } from './state';
+import { createWorld, currentVillage, playerVillage, type WorldState } from './state';
+import { storageCapacity } from './formulas';
 import { villageView } from './view';
 import { mapData, movementViews } from './mapView';
 import { sendAttack } from './movement';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
-import type { QuestsView, RankingRow } from '../shared/protocol';
+import type { OwnVillageRow, QuestsView, RankingRow } from '../shared/protocol';
 import { villagesOf } from './state';
 import { villagePoints } from './barbarians';
 import { ARCHETYPE_NAMES } from '../shared/botProfiles';
 import { UNIT_IDS, type UnitCounts } from '../shared/gameData';
-import { cancelBuild, cancelRecruit, cancelResearch, queueBuild, recruit, settle, startResearch } from './village';
+import {
+  cancelBuild,
+  cancelRecruit,
+  cancelResearch,
+  currentResources,
+  popMax,
+  popUsed,
+  queueBuild,
+  recruit,
+  settle,
+  startResearch,
+} from './village';
 
 /** Minimal typing for the worker global, so the project only needs the DOM lib. */
 const ctx = self as unknown as {
@@ -50,6 +62,34 @@ function notice(text: string, level: 'info' | 'error' = 'info'): void {
   post({ type: 'notice', level, text });
 }
 
+function ownVillageRows(s: WorldState): OwnVillageRow[] {
+  const { config } = s;
+  return villagesOf(s, HUMAN_ID)
+    .sort((a, b) => a.id - b.id)
+    .map((v) => {
+      const job = v.buildQueue[0];
+      let recruiting = 0;
+      for (const q of Object.values(v.recruitQueues)) for (const j of q) recruiting += j.total - j.done;
+      const units: UnitCounts = {};
+      for (const u of UNIT_IDS) if (v.units[u] > 0) units[u] = v.units[u];
+      return {
+        id: v.id,
+        name: v.name,
+        x: v.x,
+        y: v.y,
+        points: villagePoints(config, v),
+        res: currentResources(config, v, s.time).map(Math.floor) as OwnVillageRow['res'],
+        storage: storageCapacity(v.buildings.storage),
+        pop: { used: popUsed(config, v), max: popMax(v) },
+        building: job ? { name: config.buildings[job.building].name, level: job.level, end: job.end } : null,
+        buildQueue: v.buildQueue.length,
+        recruiting,
+        units,
+        loyalty: 100,
+      };
+    });
+}
+
 function snapshot(): Snapshot | null {
   if (!state) return null;
   return {
@@ -69,9 +109,10 @@ function snapshot(): Snapshot | null {
     },
     log: state.log.slice(-SNAPSHOT_LOG_LINES),
     village: (() => {
-      const v = playerVillage(state);
+      const v = currentVillage(state);
       return v ? villageView(state, v) : null;
     })(),
+    villages: ownVillageRows(state),
     movements: movementViews(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
@@ -232,7 +273,7 @@ async function handle(cmd: Command): Promise<void> {
     }
     case 'claimReward': {
       if (!state) return;
-      const error = claimReward(state, cmd.id);
+      const error = claimReward(state, cmd.id, cmd.villageId ?? currentVillage(state)?.id);
       if (error) notice(error, 'error');
       break;
     }
@@ -242,13 +283,17 @@ async function handle(cmd: Command): Promise<void> {
       break;
     case 'claimAllRewards': {
       if (!state) return;
-      const error = claimAllRewards(state);
+      const error = claimAllRewards(state, cmd.villageId ?? currentVillage(state)?.id);
       if (error) notice(error, 'error');
       break;
     }
+    case 'selectVillage':
+      if (!state) return;
+      if (state.villages[cmd.id]?.owner === HUMAN_ID) state.current = cmd.id;
+      break;
     case 'debugGive': {
       if (!state) return;
-      const v = playerVillage(state);
+      const v = currentVillage(state);
       if (!v) return;
       settle(state.config, v, state.time);
       if (cmd.resources) for (const i of [0, 1, 2] as const) v.res[i] += cmd.resources;
@@ -310,6 +355,7 @@ type VillageCommand = Extract<
 >;
 
 function villageAction(s: WorldState, cmd: VillageCommand): string | null {
+  if (s.villages[cmd.villageId]?.owner !== HUMAN_ID) return 'Dat is niet jouw dorp.';
   switch (cmd.type) {
     case 'build':
       return queueBuild(s, cmd.villageId, cmd.building);

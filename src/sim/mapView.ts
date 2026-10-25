@@ -2,10 +2,10 @@
 import type { MapData, MapVillage, MovementView } from '../shared/protocol';
 import { growBarbarian, villagePoints } from './barbarians';
 import { estimateLoot } from './intel';
-import { BARBARIAN, HUMAN_ID, playerVillage, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, currentVillage, type WorldState } from './state';
 
 export function mapData(state: WorldState): MapData {
-  const own = playerVillage(state);
+  const own = currentVillage(state);
   const reportsById = new Map(state.reports.map((r) => [r.id, r]));
   const villages: MapVillage[] = [];
   for (const v of Object.values(state.villages)) {

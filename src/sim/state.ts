@@ -91,6 +91,8 @@ export interface WorldState {
   stats: QuestStats;
   /** Next free id for villages, jobs, movements and reports. */
   nextId: number;
+  /** The human player's selected village (falls back to the first one). */
+  current?: number;
 }
 
 export const MAX_LOG = 100;
@@ -147,6 +149,13 @@ export function playerVillage(state: WorldState): Village | undefined {
   const v = Object.values(state.villages).find((x) => x.owner === HUMAN_ID);
   if (v) humanVillageCache.set(state, v.id);
   return v;
+}
+
+/** The village the human player is looking at. */
+export function currentVillage(state: WorldState): Village | undefined {
+  const v = state.current !== undefined ? state.villages[state.current] : undefined;
+  if (v && v.owner === HUMAN_ID) return v;
+  return playerVillage(state);
 }
 
 /** Village ids per owner, cached per world. Call invalidateOwners() whenever a village changes owner. */

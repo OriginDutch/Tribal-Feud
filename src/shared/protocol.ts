@@ -37,8 +37,9 @@ export type Command =
   | { type: 'getReports' }
   | { type: 'markReportsRead'; ids: number[] | 'all' }
   | { type: 'getRanking' }
-  | { type: 'claimReward'; id: number }
-  | { type: 'claimAllRewards' }
+  | { type: 'claimReward'; id: number; villageId?: number }
+  | { type: 'claimAllRewards'; villageId?: number }
+  | { type: 'selectVillage'; id: number }
   | { type: 'dismissToast'; id: number | 'all' }
   /** Debug cheats for testing. */
   | { type: 'debugGive'; units?: UnitCounts; resources?: number };
@@ -93,8 +94,10 @@ export interface Snapshot {
   /** World speed settings, for display. */
   multipliers: { world: number; production: number; build: number; recruit: number };
   log: LogEntry[];
-  /** The player's village, fully computed for display. */
+  /** The selected village, fully computed for display. */
   village: VillageView | null;
+  /** All the player's villages, short, for the village switcher and the overview. */
+  villages: OwnVillageRow[];
   /** The player's troops on the road, soonest first. */
   movements: MovementView[];
   unreadReports: number;
@@ -102,6 +105,25 @@ export interface Snapshot {
   /** worldSpeed * unitSpeed * marchSpeed, to preview travel times. */
   marchFactor: number;
   quests: QuestsView;
+}
+
+export interface OwnVillageRow {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  points: number;
+  res: Res;
+  storage: number;
+  pop: { used: number; max: number };
+  /** First job in the build queue. */
+  building: { name: string; level: number; end: number } | null;
+  buildQueue: number;
+  /** Units waiting in all recruit queues. */
+  recruiting: number;
+  /** Units at home. */
+  units: UnitCounts;
+  loyalty: number;
 }
 
 export interface QuestsView {
