@@ -112,32 +112,82 @@ describe('building', () => {
     expect(queueBuild(s, v.id, 'snob')).toBe('Te weinig grondstoffen');
   });
 
-  it('cancelling refunds 90%, drops later jobs of the same building and re-times the rest', () => {
+  it('cancelling removes the highest queued level of that building and refunds 90% of it', () => {
     const { s, v } = setup();
     rich(v);
     queueBuild(s, v.id, 'wood'); // wood 2
     queueBuild(s, v.id, 'stone'); // stone 2
     queueBuild(s, v.id, 'wood'); // wood 3
+    queueBuild(s, v.id, 'iron'); // iron 2
     const before = currentResources(s.config, v, s.time);
     const [wood2, stone2] = v.buildQueue;
     if (!wood2 || !stone2) throw new Error('queue');
-    const stoneDuration = stone2.end - stone2.start;
 
+    // clicking wood 2 cancels wood 3; wood 2 keeps running
     expect(cancelBuild(s, v.id, wood2.id)).toBeNull();
-    expect(v.buildQueue.map((j) => `${j.building}${j.level}`)).toEqual(['stone2']);
+    expect(v.buildQueue.map((j) => `${j.building}${j.level}`)).toEqual(['wood2', 'stone2', 'iron2']);
+    expect(v.buildQueue[2]?.start).toBe(stone2.end);
+
+    const c3 = buildingCost(s.config.buildings.wood, 3);
+    const after = currentResources(s.config, v, s.time);
+    expect(after[0] - before[0]).toBe(Math.floor(c3[0] * 0.9));
+
+    // cancelling the only wood level left: the queue moves up and starts now
+    const stoneDuration = stone2.end - stone2.start;
+    expect(cancelBuild(s, v.id, wood2.id)).toBeNull();
+    expect(v.buildQueue.map((j) => `${j.building}${j.level}`)).toEqual(['stone2', 'iron2']);
     expect(v.buildQueue[0]?.start).toBe(s.time);
     expect(v.buildQueue[0]?.end).toBe(s.time + stoneDuration);
 
-    const c2 = buildingCost(s.config.buildings.wood, 2);
-    const c3 = buildingCost(s.config.buildings.wood, 3);
-    const after = currentResources(s.config, v, s.time);
-    expect(after[0] - before[0]).toBe(Math.floor(c2[0] * 0.9) + Math.floor(c3[0] * 0.9));
-
-    run(s, stoneDuration);
-    expect(v.buildings.stone).toBe(2);
-    expect(v.buildings.wood).toBe(1);
     run(s, 10 * HOUR); // stale events from the old schedule must not do anything
     expect(v.buildings.wood).toBe(1);
+    expect(v.buildings.stone).toBe(2);
+    expect(v.buildings.iron).toBe(2);
+  });
+
+  it('a finished HQ level speeds up the rest of the queue; new orders count queued HQ levels', () => {
+    const { s, v } = setup();
+    rich(v, { main: 5 });
+    queueBuild(s, v.id, 'main'); // HQ 6
+    queueBuild(s, v.id, 'wood'); // wood 2, after HQ 6
+    const [hq, wood] = v.buildQueue;
+    if (!hq || !wood) throw new Error('queue');
+    expect(wood.end - wood.start).toBe(buildTimeMs(s.config, s.config.buildings.wood, 2, 6));
+
+    // same, but ordered while HQ 6 is already running
+    const { s: s2, v: v2 } = setup();
+    rich(v2, { main: 5 });
+    queueBuild(s2, v2.id, 'stone');
+    queueBuild(s2, v2.id, 'main');
+    const stone = v2.buildQueue[0];
+    if (!stone) throw new Error('queue');
+    run(s2, stone.end - s2.time);
+    // HQ 6 now running; queue wood 2 behind it
+    queueBuild(s2, v2.id, 'wood');
+    const hqJob = v2.buildQueue[0];
+    const woodJob = v2.buildQueue[1];
+    if (!hqJob || !woodJob) throw new Error('queue');
+    expect(woodJob.end - woodJob.start).toBe(buildTimeMs(s2.config, s2.config.buildings.wood, 2, 6));
+    run(s2, hqJob.end - s2.time);
+    expect(v2.buildings.main).toBe(6);
+    expect(v2.buildQueue[0]?.end).toBe(s2.time + buildTimeMs(s2.config, s2.config.buildings.wood, 2, 6));
+  });
+
+  it('a finished HQ re-times jobs that were ordered at the old HQ speed', () => {
+    const { s, v } = setup();
+    rich(v, { main: 5 });
+    queueBuild(s, v.id, 'main'); // HQ 6
+    const hq = v.buildQueue[0];
+    if (!hq) throw new Error('queue');
+    queueBuild(s, v.id, 'wood');
+    // simulate an old save where wood was timed at HQ 5
+    const wood = v.buildQueue[1];
+    if (!wood) throw new Error('queue');
+    wood.end = wood.start + buildTimeMs(s.config, s.config.buildings.wood, 2, 5);
+    run(s, hq.end - s.time);
+    expect(v.buildQueue[0]?.end).toBe(s.time + buildTimeMs(s.config, s.config.buildings.wood, 2, 6));
+    run(s, 10 * HOUR);
+    expect(v.buildings.wood).toBe(2);
   });
 
   it('a higher HQ builds faster', () => {
@@ -187,6 +237,34 @@ describe('smithy and recruitment', () => {
     run(s, 2 * per);
     expect(v.units.spear).toBe(3);
     expect(v.recruitQueues.barracks).toHaveLength(0);
+  });
+
+  it('a barracks upgrade speeds up every unit after the one in production', () => {
+    const { s, v } = setup();
+    rich(v, { main: 10, barracks: 1 });
+    recruit(s, v.id, 'spear', 10);
+    recruit(s, v.id, 'sword', 5);
+    queueBuild(s, v.id, 'barracks'); // barracks 2
+    const build = v.buildQueue[0];
+    if (!build) throw new Error('queue');
+    const slow = recruitTimeMs(s.config, s.config.units.spear, 1);
+    const fast = recruitTimeMs(s.config, s.config.units.spear, 2);
+    const fastSword = recruitTimeMs(s.config, s.config.units.sword, 2);
+    run(s, build.end - s.time);
+    expect(v.buildings.barracks).toBe(2);
+    const spears = v.recruitQueues.barracks[0];
+    const swords = v.recruitQueues.barracks[1];
+    if (!spears || !swords) throw new Error('queue');
+    const left = spears.total - spears.done;
+    // the spear in production keeps its time, the rest is faster
+    expect(spears.nextAt - s.time).toBeLessThanOrEqual(slow);
+    const spearsEnd = spears.nextAt + (left - 1) * fast;
+    expect(swords.nextAt).toBe(spearsEnd + fastSword);
+    run(s, swords.nextAt + 4 * fastSword - s.time);
+    expect(v.units.spear).toBe(10);
+    expect(v.units.sword).toBe(5);
+    run(s, 10 * HOUR); // no double units from stale events
+    expect(v.units.sword).toBe(5);
   });
 
   it('batches in the same building run after each other; cancelling refunds the rest', () => {

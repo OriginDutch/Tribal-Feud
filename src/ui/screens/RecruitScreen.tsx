@@ -113,6 +113,11 @@ export function RecruitScreen({ building }: { building: RecruitBuilding }) {
           {queue.length > 0 && (
             <section class="panel">
               <h3>Rekruteren</h3>
+              <p class="queue-total">
+                Totaal {num(queue.reduce((n, j) => n + j.total - j.done, 0))} units · nog{' '}
+                <span class="mono">{duration((queue.at(-1)?.end ?? s.time) - s.time)}</span> · klaar op{' '}
+                <span class="mono">{formatGameTime(queue.at(-1)?.end ?? s.time)}</span>
+              </p>
               <table class="table">
                 <thead>
                   <tr>

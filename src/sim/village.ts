@@ -259,41 +259,61 @@ export function queueBuild(state: WorldState, villageId: number, b: BuildingId):
   const cost = buildingCost(def, level);
   pay(v, cost);
   const start = buildQueueFreeAt(state, v);
-  const end = start + buildTimeMs(config, def, level, v.buildings.main);
+  // an HQ upgrade already in the queue counts: it will be done when this job starts
+  const end = start + buildTimeMs(config, def, level, plannedLevel(v, 'main'));
   const job: BuildJob = { id: nextId(state), building: b, level, start, end, cost };
   v.buildQueue.push(job);
   push(state.queue, end, { kind: 'build', villageId: v.id, jobId: job.id });
   return null;
 }
 
-/** Cancels a build job, plus later jobs for the same building (their level depends on it). */
+/**
+ * Re-times build jobs from `from` onward: each starts when the previous one ends and takes
+ * as long as the HQ level at that moment allows (counting HQ upgrades earlier in the queue).
+ * Old events become stale because their end time no longer matches.
+ */
+function retimeBuildQueue(state: WorldState, v: Village, from: number): void {
+  const { config } = state;
+  let hq = v.buildings.main;
+  for (let i = 0; i < v.buildQueue.length; i++) {
+    const job = v.buildQueue[i];
+    if (!job) continue;
+    if (i >= from) {
+      const start = i === 0 ? state.time : (v.buildQueue[i - 1]?.end ?? state.time);
+      const end = start + buildTimeMs(config, config.buildings[job.building], job.level, hq);
+      if (start !== job.start || end !== job.end) {
+        job.start = start;
+        job.end = end;
+        push(state.queue, end, { kind: 'build', villageId: v.id, jobId: job.id });
+      }
+    }
+    if (job.building === 'main') hq = Math.max(hq, job.level);
+  }
+}
+
+/**
+ * Cancels one level of a building. Clicking any job of a building removes its highest
+ * queued level (later levels depend on earlier ones), so ordering 11-14 and cancelling 11
+ * leaves 11-13. The rest of the queue moves up.
+ */
 export function cancelBuild(state: WorldState, villageId: number, jobId: number): string | null {
   const v = state.villages[villageId];
   if (!v) return 'Dorp bestaat niet.';
-  const index = v.buildQueue.findIndex((j) => j.id === jobId);
+  const clicked = v.buildQueue.find((j) => j.id === jobId);
+  if (!clicked) return 'Bouwopdracht bestaat niet.';
+  let index = -1;
+  for (let i = v.buildQueue.length - 1; i >= 0; i--) {
+    if (v.buildQueue[i]?.building === clicked.building) {
+      index = i;
+      break;
+    }
+  }
   const cancelled = v.buildQueue[index];
   if (!cancelled) return 'Bouwopdracht bestaat niet.';
   settle(state.config, v, state.time);
-
-  const keep: BuildJob[] = v.buildQueue.slice(0, index);
-  for (const job of v.buildQueue.slice(index)) {
-    if (job === cancelled || job.building === cancelled.building) {
-      refund(v, job.cost, 1, state.config.village.cancelRefund);
-    } else {
-      keep.push(job);
-    }
-  }
-
-  // re-time everything from the cancelled position onward; old events become stale
-  for (let i = index; i < keep.length; i++) {
-    const job = keep[i];
-    if (!job) continue;
-    const duration = job.end - job.start;
-    job.start = i === 0 ? state.time : (keep[i - 1]?.end ?? state.time);
-    job.end = job.start + duration;
-    push(state.queue, job.end, { kind: 'build', villageId: v.id, jobId: job.id });
-  }
-  v.buildQueue = keep;
+  refund(v, cancelled.cost, 1, state.config.village.cancelRefund);
+  v.buildQueue.splice(index, 1);
+  retimeBuildQueue(state, v, index);
   return null;
 }
 
@@ -304,6 +324,11 @@ export function onBuildDone(state: WorldState, villageId: number, jobId: number)
   settle(state.config, v, state.time);
   v.buildings[job.building] = job.level;
   v.buildQueue.shift();
+  // the next job starts now, at the speed of the (possibly new) HQ level
+  retimeBuildQueue(state, v, 0);
+  if ((RECRUIT_BUILDINGS as readonly string[]).includes(job.building)) {
+    retimeRecruitQueue(state, v, job.building as RecruitBuilding);
+  }
   buildingReward(state, v, job.building, job.level, job.cost);
   addLog(state, { time: state.time, text: `${v.name}: ${state.config.buildings[job.building].name} level ${job.level} klaar.` });
 }
@@ -434,6 +459,30 @@ export function recruit(state: WorldState, villageId: number, u: UnitId, count: 
   queue.push(job);
   push(state.queue, job.nextAt, { kind: 'recruit', villageId: v.id, jobId: job.id });
   return null;
+}
+
+/**
+ * After a recruit building levelled up: the unit in production finishes at its current time,
+ * every unit after it uses the new speed.
+ */
+function retimeRecruitQueue(state: WorldState, v: Village, b: RecruitBuilding): void {
+  const queue = v.recruitQueues[b];
+  let prevEnd = state.time;
+  for (let i = 0; i < queue.length; i++) {
+    const job = queue[i];
+    if (!job) continue;
+    const perUnit = recruitTimeMs(state.config, state.config.units[job.unit], v.buildings[b]);
+    job.perUnit = perUnit;
+    if (i > 0) {
+      const nextAt = prevEnd + perUnit;
+      if (nextAt !== job.nextAt) {
+        // every job has an event at its first unit; the old one becomes stale
+        job.nextAt = nextAt;
+        push(state.queue, nextAt, { kind: 'recruit', villageId: v.id, jobId: job.id });
+      }
+    }
+    prevEnd = jobEnd(job);
+  }
 }
 
 export function cancelRecruit(state: WorldState, villageId: number, jobId: number): string | null {
