@@ -8,6 +8,7 @@ import { openSupport, mapData, placeTarget, send, snapshot } from '../store';
 import { distance, travelMs, unitsText } from '../units';
 import { CancelButton } from '../components/CancelButton';
 import { DismissTroops } from '../components/DismissTroops';
+import { Confirm } from '../components/Confirm';
 
 /** Units offered as escort for noblemen 2..N, best attack first. */
 const ESCORT_UNITS: UnitId[] = ['axe', 'light', 'marcher', 'heavy', 'sword', 'spear'];
@@ -25,6 +26,8 @@ export function PlaceScreen() {
   const [trainSize, setTrainSize] = useState(0);
   const [escorts, setEscorts] = useState<Partial<Record<UnitId, string>>[]>([]);
   const [saveName, setSaveName] = useState<string | null>(null);
+  /** The noble train template in use (to update or delete it). */
+  const [trainTpl, setTrainTpl] = useState('');
 
   // villages by coordinate, to resolve the target
   useEffect(() => {
@@ -82,6 +85,7 @@ export function PlaceScreen() {
   };
   const toStrings = (u: UnitCounts) => Object.fromEntries(Object.entries(u).map(([k, n]) => [k, String(n)])) as Partial<Record<UnitId, string>>;
   const applyTemplate = (id: string) => {
+    setTrainTpl(id);
     const t = s.nobleTemplates.find((x) => x.id === id);
     if (!t) return;
     setCounts(toStrings(t.first));
@@ -90,6 +94,7 @@ export function PlaceScreen() {
     if (t.catapultTarget) setCatTarget(t.catapultTarget);
   };
   const startTrain = (size: number) => {
+    if (size < 2) setTrainTpl('');
     setTrainSize(size);
     setEscorts(size > 1 ? suggest(size) : []);
   };
@@ -235,7 +240,7 @@ export function PlaceScreen() {
             {s.nobleTemplates.length > 0 && (
               <label class="inline">
                 Sjabloon
-                <select value="" onChange={(e) => applyTemplate(e.currentTarget.value)}>
+                <select value={s.nobleTemplates.some((t) => t.id === trainTpl) ? trainTpl : ''} onChange={(e) => applyTemplate(e.currentTarget.value)}>
                   <option value="">kies…</option>
                   {s.nobleTemplates.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -251,18 +256,35 @@ export function PlaceScreen() {
                   Escort opnieuw voorstellen
                 </button>
                 {saveName === null ? (
-                  <button class="small" onClick={() => setSaveName('')}>
-                    Opslaan als sjabloon
-                  </button>
+                  <>
+                    {s.nobleTemplates.some((t) => t.id === trainTpl) && (
+                      <>
+                        <Confirm
+                          label="Bijwerken"
+                          sure={`"${s.nobleTemplates.find((t) => t.id === trainTpl)!.name}" overschrijven?`}
+                          onConfirm={() => {
+                            const t = s.nobleTemplates.find((x) => x.id === trainTpl)!;
+                            send({ type: 'saveNobleTemplate', template: { id: t.id, name: t.name, first, escorts: escortCounts, ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}) } });
+                          }}
+                        />
+                        <Confirm label="Verwijderen" sure="Sjabloon verwijderen?" cls="warn" onConfirm={() => { send({ type: 'deleteNobleTemplate', id: trainTpl }); setTrainTpl(''); }} />
+                      </>
+                    )}
+                    <button class="small" onClick={() => setSaveName('')}>
+                      {s.nobleTemplates.some((t) => t.id === trainTpl) ? 'Als nieuw opslaan' : 'Opslaan als sjabloon'}
+                    </button>
+                  </>
                 ) : (
                   <form
                     class="row inline-save"
                     onSubmit={(e) => {
                       e.preventDefault();
+                      const newId = `train:${Date.now()}`;
                       send({
                         type: 'saveNobleTemplate',
-                        template: { id: `train:${Date.now()}`, name: saveName, first, escorts: escortCounts, ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}) },
+                        template: { id: newId, name: saveName, first, escorts: escortCounts, ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}) },
                       });
+                      setTrainTpl(newId);
                       setSaveName(null);
                     }}
                   >
