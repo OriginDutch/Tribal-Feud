@@ -20,7 +20,8 @@ export function MainScreen() {
   const hq = v.buildings.find((b) => b.id === 'main')?.level ?? 0;
   const tearable = v.buildings.filter((b) => b.demolish);
   const picked = tearable.find((b) => b.id === tear) ?? null;
-  const slots = Array.from({ length: v.buildQueueSlots }, (_, i) => v.buildQueue[i] ?? null);
+  const free = v.buildQueueSlots - v.buildQueue.length;
+  const slots: (typeof v.buildQueue[number] | null)[] = [...v.buildQueue, ...(free > 0 ? [null] : [])];
 
   return (
     <div class="screen">
@@ -66,7 +67,7 @@ export function MainScreen() {
               ) : (
                 <tr key={`slot-${i}`} class="empty-slot">
                   <td colSpan={4} class="muted">
-                    vrij
+                    {free === 1 ? '1 plek vrij' : `${free} plekken vrij`}
                   </td>
                 </tr>
               ),

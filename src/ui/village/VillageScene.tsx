@@ -84,9 +84,14 @@ export function VillageScene({ village }: { village: VillageView }) {
       ctx.drawImage(baked.ground, 0, 0);
       for (const p of pieces.decals) blit(p.s);
       // moving people join the depth sort
+      const hv = hoverRef.current;
       const list: { d: number; draw: () => void }[] = pieces.bodies.map((p: Piece) => ({
         d: p.d,
-        draw: p.frames ? () => { const f = p.frames![Math.floor((t / m.loop) * m.frames) % m.frames]; if (f) blit(f); } : () => blit(p.s),
+        draw: p.frames
+          ? () => { const f = p.frames![Math.floor((t / m.loop) * m.frames) % m.frames]; if (f) blit(f); }
+          : hv && p.building === hv
+            ? () => { ctx.filter = 'brightness(1.28) saturate(1.1)'; blit(p.s); ctx.filter = 'none'; }
+            : () => blit(p.s),
       }));
       if (!reduce) for (const w of walkers(t, wallKind)) {
         const s = m.sprites[walkKey(w.name, w.heading, w.dist, w.moving)];
@@ -117,13 +122,6 @@ export function VillageScene({ village }: { village: VillageView }) {
           ctx.fillStyle = grad; ctx.fillRect(g.x - r * 1.1, g.y - r * 1.1, r * 2.2, r * 2.4);
         }
         ctx.globalCompositeOperation = 'source-over';
-      }
-      const h = hoverRef.current;
-      if (h) {
-        ctx.save();
-        ctx.filter = 'brightness(1.15) drop-shadow(0 0 4px rgba(226,169,59,0.95))';
-        for (const p of pieces.bodies) if (p.building === h && !p.frames) blit(p.s);
-        ctx.restore();
       }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(vig, 0, 0);

@@ -186,10 +186,14 @@ button.link:hover { text-decoration: underline; }
 .map-head h2 { margin: 0; }
 .legend { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
-.map-body { display: grid; grid-template-columns: 1fr 320px; gap: 14px; }
+.map-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; }
 .map-canvas { width: 100%; height: calc(100vh - 170px); min-height: 420px; border: 1px solid var(--border); border-radius: 8px; cursor: grab; touch-action: none; display: block; }
 .map-canvas:active { cursor: grabbing; }
-.map-side { align-self: start; }
+.map-side { align-self: start; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 80px; }
+.minimap-panel { padding: 12px; }
+.minimap canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 8px; cursor: crosshair; touch-action: none; border: 1px solid var(--border-2); }
+.minimap-legend { display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.minimap-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: 0; }
 .dot.win { background: var(--good); }
 .dot.winLosses { background: var(--accent); }
@@ -412,7 +416,7 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 600; color: var(--mute
 }
 
 /* rail */
-.rail { position: sticky; top: 64px; align-self: start; height: calc(100vh - 64px); overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 0; border-right: 1px solid var(--border); scrollbar-width: none; }
+.rail { z-index: 30; position: sticky; top: 64px; align-self: start; height: calc(100vh - 64px); overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 0; border-right: 1px solid var(--border); scrollbar-width: none; }
 .rail-sep { width: 28px; height: 1px; background: var(--border); margin: 5px 0; flex: none; }
 .rail-item { position: relative; flex: none; width: 48px; height: 44px; padding: 0; display: grid; place-items: center; border-radius: 12px; border: 0; background: transparent; color: var(--muted); }
 .rail-item:hover:not(:disabled) { background: var(--panel-2); color: var(--text); border: 0; }
@@ -493,3 +497,27 @@ button.ghost:hover:not(:disabled) { color: var(--text); border-color: var(--dang
 @media (max-height: 1000px) { .rail { gap: 2px; padding: 8px 0; } .rail-item { height: 40px; } .rail-sep { margin: 3px 0; } }
 input[type="range"] { accent-color: var(--accent); padding: 0; background: transparent; border: 0; box-shadow: none; }
 :root { accent-color: var(--accent); }
+
+/* native dropdown lists: the OS draws them, so give the options explicit colours */
+select option, select optgroup { background: #25201a; color: var(--text); }
+select option:checked { background: #3a3125; color: var(--accent); }
+select option:disabled { color: var(--faint); }
+
+/* rally point: one line per unit label, inputs line up */
+.send-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 12px; align-items: end; }
+.send-unit { gap: 5px; }
+.send-unit .unit-name { display: flex; white-space: nowrap; min-width: 0; color: var(--text); font-size: 13px; }
+.send-unit .unit-name .nm { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.send-unit .unit-name .link { margin-left: auto; padding-left: 4px; flex: none; }
+.send-actions { display: flex; gap: 8px; margin: 2px 0 12px; }
+
+/* denser tables so a building list fits on one screen */
+.table td { padding: 6px 8px; }
+.table.fixed td { height: 34px; }
+.table.fixed tr.empty-slot td { height: 30px; }
+
+/* the map uses the full width: toasts float over it instead of taking a column */
+.screen.map-screen { max-width: none; }
+.layout:has(.map-screen) { grid-template-columns: 76px minmax(0, 1fr); }
+.layout:has(.map-screen) .toast-col { position: fixed; right: 16px; bottom: 16px; top: auto; height: auto; width: 280px; padding: 0; z-index: 30; }
+.map-canvas { height: calc(100vh - 150px); }

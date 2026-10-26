@@ -148,11 +148,19 @@ export function PlaceScreen() {
       ) : (
         <section class="panel">
           <h3>Troepen sturen</h3>
+          <div class="send-actions">
+            <button class="small" onClick={() => setCounts(Object.fromEntries(units.filter((u) => u.home > 0).map((u) => [u.id, String(u.home)])))}>
+              Alles selecteren
+            </button>
+            <button class="small" onClick={() => setCounts({})}>
+              Leegmaken
+            </button>
+          </div>
           <div class="send-grid">
             {units.map((u) => (
               <label key={u.id} class="send-unit">
                 <span class="unit-name">
-                  <UnitIcon id={u.id} size={20} /> {u.name}
+                  <UnitIcon id={u.id} size={20} /> <span class="nm" title={u.name}>{u.name}</span>
                   <button class="link" onClick={() => setCounts({ ...counts, [u.id]: String(u.home) })}>
                     ({num(u.home)})
                   </button>

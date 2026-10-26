@@ -1,3 +1,4 @@
+import { Minimap } from '../map/Minimap';
 import { BARB_TYPE_NAMES, BONUS_NAMES, type BarbType } from '../../shared/barbarianTypes';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { MapVillage } from '../../shared/protocol';
@@ -450,6 +451,7 @@ export function MapScreen() {
   const onPointerUp = (e: PointerEvent) => {
     const d = drag.current;
     drag.current = null;
+    if (d?.moved) redraw((n) => n + 1);
     if (d && !d.moved) {
       const f = fieldAt(e);
       const v = byCoord.get(key(f.x, f.y));
@@ -468,6 +470,12 @@ export function MapScreen() {
     redraw((n) => n + 1);
   };
 
+  /** The part of the map that is on screen, for the minimap frame. */
+  const viewBox = () => {
+    const c = canvasRef.current, { cx, cy, zoom } = cam.current;
+    const w = (c?.clientWidth ?? 800) / zoom, h = (c?.clientHeight ?? 600) / zoom;
+    return { x0: cx - w / 2 - 0.5, y0: cy - h / 2 - 0.5, x1: cx + w / 2 - 0.5, y1: cy + h / 2 - 0.5 };
+  };
   const centerOn = (x: number, y: number) => {
     cam.current.cx = x;
     cam.current.cy = y;
@@ -534,7 +542,17 @@ export function MapScreen() {
           onPointerLeave={() => setHover(null)}
           onWheel={onWheel}
         />
-        <aside class="panel map-side">
+        <aside class="map-side">
+          {data && (
+            <section class="panel minimap-panel">
+              <Minimap
+                villages={data.villages}
+                view={viewBox()}
+                onMove={(x, y) => { centerOn(x, y); redraw((n) => n + 1); }}
+              />
+            </section>
+          )}
+          <section class="panel">
           {!data && <p class="muted">Kaart laden…</p>}
           {data && !selected && <p class="muted">Klik op een dorp. Slepen = verschuiven, scrollen = zoomen.</p>}
           {selected && own && s?.village && (
@@ -627,6 +645,7 @@ export function MapScreen() {
               )}
             </>
           )}
+          </section>
         </aside>
       </div>
     </div>
