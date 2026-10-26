@@ -631,6 +631,27 @@ export function cancelRecruit(state: WorldState, villageId: number, jobId: numbe
   return 'Rekruteeropdracht bestaat niet.';
 }
 
+/** Dismisses troops at home for good: no refund. Only your own villages. */
+export function dismissUnits(state: WorldState, villageId: number, units: UnitCounts): string | null {
+  const v = state.villages[villageId];
+  if (!v || v.owner !== HUMAN_ID) return 'Dat is niet jouw dorp.';
+  let any = false;
+  for (const u of UNIT_IDS) {
+    const n = Math.floor(units[u] ?? 0);
+    if (n < 0) return 'Ongeldig aantal.';
+    if (n > v.units[u]) return `Er staan niet zoveel ${state.config.units[u].name.toLowerCase()} thuis.`;
+    if (n > 0) any = true;
+  }
+  if (!any) return 'Kies minstens één eenheid.';
+  const gone: string[] = [];
+  for (const u of UNIT_IDS) {
+    const n = Math.floor(units[u] ?? 0);
+    if (n > 0) { v.units[u] -= n; gone.push(`${n}× ${state.config.units[u].name}`); }
+  }
+  addLog(state, { time: state.time, text: `${v.name}: ${gone.join(', ')} weggestuurd.` });
+  return null;
+}
+
 export function onRecruitTick(state: WorldState, villageId: number, jobId: number): void {
   const v = state.villages[villageId];
   if (!v) return;

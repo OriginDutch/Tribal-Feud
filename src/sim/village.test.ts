@@ -420,3 +420,19 @@ describe('population fun option', () => {
     expect(popMax(two.config, b)).toBe(48000);
   });
 });
+
+describe('dismissing troops', () => {
+  it('removes troops at home for good, no refund; never more than at home', async () => {
+    const { createConfig } = await import('../shared/config');
+    const { createWorld, playerVillage } = await import('./state');
+    const { dismissUnits, currentResources } = await import('./village');
+    const s = createWorld(createConfig('classic', 'D', 3, { bots: { count: 0 }, map: { barbarianCount: 5 } } as never));
+    const v = playerVillage(s)!;
+    v.units.axe = 100;
+    const res = currentResources(s.config, v, s.time);
+    expect(dismissUnits(s, v.id, { axe: 150 })).toMatch(/niet zoveel/);
+    expect(dismissUnits(s, v.id, { axe: 40 })).toBeNull();
+    expect(v.units.axe).toBe(60);
+    expect(currentResources(s.config, v, s.time)).toEqual(res);
+  });
+});

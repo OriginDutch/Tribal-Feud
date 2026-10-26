@@ -44,6 +44,7 @@ import {
   cancelRecruit,
   cancelResearch,
   currentResources,
+  dismissUnits,
   isOperational,
   popMax,
   popUsed,
@@ -597,6 +598,12 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       const error = cmd.type === 'saveTroopTemplate' ? saveTroopTemplate(state, cmd.template) : deleteTroopTemplate(state, cmd.id);
       if (error) post({ type: 'notice', level: 'error', text: error });
+      break;
+    }
+    case 'dismissUnits': {
+      if (!state) return;
+      const error = dismissUnits(state, cmd.villageId, cmd.units);
+      if (error) notice(error, 'error');
       break;
     }
     case 'sendSupportMany': {

@@ -7,6 +7,7 @@ import { duration, num } from '../format';
 import { openSupport, mapData, placeTarget, send, snapshot } from '../store';
 import { distance, travelMs, unitsText } from '../units';
 import { CancelButton } from '../components/CancelButton';
+import { DismissTroops } from '../components/DismissTroops';
 
 /** Units offered as escort for noblemen 2..N, best attack first. */
 const ESCORT_UNITS: UnitId[] = ['axe', 'light', 'marcher', 'heavy', 'sword', 'spear'];
@@ -363,6 +364,8 @@ export function PlaceScreen() {
           </table>
         )}
       </section>
+
+      <DismissTroops villageId={v.id} units={v.units} />
 
       <section class="panel">
         <h3>Troepen van dit dorp elders</h3>

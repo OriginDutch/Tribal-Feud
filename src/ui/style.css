@@ -641,3 +641,6 @@ button.link.player-link:hover { color: var(--accent); }
 .support-from { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
 .small-text { font-size: 12px; }
 .refused { color: var(--danger); font-size: 12px; opacity: 0.85; }
+.panel.dismiss summary { cursor: pointer; font-weight: 600; color: var(--muted); }
+.panel.dismiss[open] summary { margin-bottom: 8px; color: var(--text); }
+.template-units .avail { font-size: 11px; color: var(--muted); text-align: right; }

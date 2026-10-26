@@ -65,6 +65,8 @@ export type Command =
   | { type: 'deleteTroopTemplate'; id: string }
   | { type: 'mintCoins'; villageId: number; count: number }
   | { type: 'sendSupport'; from: number; to: number; units: UnitCounts }
+  /** Dismiss troops at home for good (no refund). */
+  | { type: 'dismissUnits'; villageId: number; units: UnitCounts }
   /** Support from several of your villages at once (the support planner). */
   | { type: 'sendSupportMany'; to: number; orders: { from: number; units: UnitCounts }[] }
   | { type: 'sendNobleTrain'; from: number; to: number; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId }
