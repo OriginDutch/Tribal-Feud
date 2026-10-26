@@ -50,6 +50,6 @@ pack([t for t in items if '~' in t[0] or t[0].startswith('walk')])
 Image.open(f"{SRC}/{sprites['ground']['file']}").convert('RGB').save(os.path.join(DST, 'ground.webp'), 'WEBP', quality=86, method=6)
 f = raw['frame']
 L = raw['layout']
-json.dump({'w': f['w'], 'h': f['h'], 'ppu': f['ppu'], 'proj': f['proj'], 'loop': 3.2, 'frames': 32, 'walkSteps': 8, 'dirs': 16, 'stageLevels': L['STAGE_LEVELS'], 'homes': L['HOMES'], 'wallN': L['WALL_N'], 'wallKinds': L['KINDS'], 'atlases': atlases, 'staticAtlases': STATIC, 'sprites': out}, open(os.path.join(DST, 'manifest.json'), 'w'), separators=(',', ':'))
+json.dump({'w': f['w'], 'h': f['h'], 'ppu': f['ppu'], 'proj': f['proj'], 'loop': 3.2, 'frames': 32, 'walkSteps': 8, 'dirs': 16, 'stageLevels': L['STAGE_LEVELS'], 'homes': L['HOMES'], 'outerHomes': L['OUTER'], 'wallN': L['WALL_N'], 'wallKinds': L['KINDS'], 'atlases': atlases, 'staticAtlases': STATIC, 'sprites': out}, open(os.path.join(DST, 'manifest.json'), 'w'), separators=(',', ':'))
 tot = sum(os.path.getsize(os.path.join(DST, n)) for n in os.listdir(DST))
 print(mode, len(out), 'sprites', len(atlases), 'atlases', round(tot / 1e6, 2), 'MB')

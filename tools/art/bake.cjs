@@ -22,6 +22,7 @@ const ARGS = { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-uns
   const jobs = [{ type: 'ground' }];
   for (const id of L.SLOTS) { const n = L.STAGE_LEVELS[id].length; for (let s = 0; s <= n; s++) jobs.push({ type: 'building', id, stage: s }); }
   for (let i = 0; i < L.HOMES; i++) jobs.push({ type: 'home', i });
+  for (let i = 0; i < L.OUTER; i++) jobs.push({ type: 'outer', i });
   jobs.push({ type: 'well' });
   for (const kind of L.KINDS) { for (let i = 0; i < L.WALL_N; i++) jobs.push({ type: 'wall', kind, i }); jobs.push({ type: 'gate', kind }); }
   for (const c of cells) jobs.push({ type: 'trees', ...c });

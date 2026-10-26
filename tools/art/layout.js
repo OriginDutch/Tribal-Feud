@@ -23,6 +23,8 @@ export const SLOTS = {
 /** Villagers' homes, in the order they appear as the headquarters grows. */
 export const HOMES = [[-14.6, -3.6, 1.0, 2.2], [14.8, -3.2, -1.0, 2.2], [-4.4, -12.0, 0.05, 2.4], [4.8, -12.2, -0.05, 2.4], [-15.0, 5.0, 1.3, 2.0], [15.2, 5.4, -1.3, 2.0], [4.6, 11.8, -0.15, 2.0], [-8.8, -10.2, 0.6, 2.0], [9.0, -10.2, -0.6, 2.0]];
 export const WALL_KINDS = ['palisade', 'stone', 'full'];
+/** Homes outside the wall, simpler than anything inside: x, z, rotation, style (0 hut, 1 cottage, 2 small house). */
+export const OUTER_HOMES = [[-2.9, 22.4, Math.PI / 2 - 0.1, 1], [-5.2, 18.4, 0.05, 0], [6.2, 17.6, -0.05, 2], [2.9, 25.6, -Math.PI / 2 + 0.25, 0], [-11.2, 18.0, 0.15, 1], [13.2, 16.6, -0.2, 0], [-3.0, 28.8, Math.PI / 2 + 0.1, 2], [3.1, 32.0, -Math.PI / 2 + 0.2, 1]];
 
 function road(g, pts, w = 1.4, mat = M.dirt) {
   for (let i = 0; i < pts.length - 1; i++) {
@@ -40,7 +42,7 @@ export function buildGround(root) {
   gr.rotation.x = -Math.PI / 2; gr.receiveShadow = true; root.add(gr);
   const inner = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshStandardMaterial({ color: 0x8a7a50, transparent: true, opacity: 0.18, roughness: 1, depthWrite: false }));
   inner.rotation.x = -Math.PI / 2; inner.scale.set(RX - 1, RZ - 1, 1); inner.position.y = 0.005; root.add(inner);
-  road(root, [[0, 30], [0, 14], [0, 1.5], [0, -3.6]], 1.8);
+  road(root, [[0, 70], [0, 14], [0, 1.5], [0, -3.6]], 1.8);
   road(root, [[0, 1.5], [-6, 3.4], [-10.4, 2.6]]); road(root, [[0, 1.5], [6, 3.4], [10.6, 3.0]]);
   road(root, [[-6, 3.4], [-9.8, 8.4]]); road(root, [[6, 3.4], [9.8, 8.4]]);
   road(root, [[0, -1.2], [-8, -3.6]]); road(root, [[0, -1.2], [7.6, -3.8]]);
@@ -73,6 +75,17 @@ export function buildHome(root, i) {
   if (rnd() < 0.6) barrel(h, w / 2 + 0.3, 1.2); else crate(h, -w / 2 - 0.2, 1.2);
   return h;
 }
+export function buildOuterHome(root, i) {
+  reseed(3000 + i * 31);
+  const [x, z, ry, style] = OUTER_HOMES[i];
+  const h = group(root, x, z, ry); h.scale.setScalar(0.85);
+  if (style === 0) house(h, 0, 0, 1.8, 1.6, { f1: 1.2, f2: 0, roof: M.thatch, roofH: 1.0, wall: M.wood, gableMat: M.wood, chimney: rnd() < 0.5 });
+  else if (style === 1) house(h, 0, 0, 2.1, 1.8, { f1: 1.3, f2: 0, roof: M.thatch, roofH: 1.1, chimney: true });
+  else house(h, 0, 0, 2.3, 1.9, { f1: 1.4, f2: 0, roof: rnd() < 0.5 ? M.roofBrown : M.roofOrange, roofH: 1.2, chimney: true });
+  if (rnd() < 0.5) barrel(h, 1.3, 1.1); else crate(h, -1.3, 1.1);
+  if (style === 0) { box(h, 0.9, 0.5, 0.6, M.hay, 1.6, 0, -0.2); }
+  return h;
+}
 export function buildWell(root) { well(root, 4.8, -0.2); }
 /** One wall segment (and the tower that starts it). kind: palisade | stone | full. */
 export function buildWallSegment(root, kind, i) { wallRing(root, RX, RZ, { n: WALL_N, kind, only: (j) => j === i, noGate: true }); }
@@ -88,7 +101,7 @@ const inEllipse = (x, z, k = 1) => (x / (RX * k)) ** 2 + (z / (RZ * k)) ** 2 < 1
 export function forest() {
   reseed(4242);
   const out = [];
-  const avoid = [[-27, -3.5, 6], [-20.5, 18.5, 5.5], [26.5, -5, 6], [23, 16, 6.5], [0, 21, 3]];
+  const avoid = [[-27, -3.5, 6], [-20.5, 18.5, 5.5], [26.5, -5, 6], [23, 16, 6.5], [0, 21, 3], ...OUTER_HOMES.map(([x, z]) => [x, z, 2.6])];
   for (let i = 0; i < 520; i++) {
     const x = (rnd() - 0.5) * 74, z = (rnd() - 0.5) * 60 - 2;
     const k = rnd(), s = 0.9 + rnd() * 0.6;

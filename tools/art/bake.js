@@ -183,6 +183,9 @@ window.bake = (job) => {
   } else if (job.type === 'home') {
     const h = L.buildHome(root, job.i); settle();
     take(`home${job.i}`, 'all', h.getWorldPosition(new THREE.Vector3()));
+  } else if (job.type === 'outer') {
+    const h = L.buildOuterHome(root, job.i); settle();
+    take(`outer${job.i}`, 'all', h.getWorldPosition(new THREE.Vector3()));
   } else if (job.type === 'well') {
     L.buildWell(root); take('well', 'all', new THREE.Vector3(4.8, 0, -0.2));
   } else if (job.type === 'wall') {
@@ -240,5 +243,5 @@ window.forestCells = (cell = 3.5) => {
   all.forEach((t, i) => { const k = `${Math.floor(t.x / cell)},${Math.floor(t.z / cell)}`; if (!cells.has(k)) cells.set(k, []); cells.get(k).push(i); });
   return [...cells.entries()].map(([k, items]) => { const [a, b] = k.split(',').map(Number); return { cell: k.replace(',', '_'), items, center: [(a + 0.5) * cell, (b + 0.5) * cell] }; });
 };
-window.layout = { STAGE_LEVELS: L.STAGE_LEVELS, HOMES: L.HOMES.length, WALL_N: L.WALL_N, KINDS: L.WALL_KINDS, SLOTS: Object.keys(L.SLOTS) };
+window.layout = { STAGE_LEVELS: L.STAGE_LEVELS, HOMES: L.HOMES.length, OUTER: L.OUTER_HOMES.length, WALL_N: L.WALL_N, KINDS: L.WALL_KINDS, SLOTS: Object.keys(L.SLOTS) };
 window.__ready = true;

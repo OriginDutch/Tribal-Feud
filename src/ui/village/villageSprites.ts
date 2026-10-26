@@ -13,7 +13,7 @@ export interface Manifest {
   proj: [number[], number[], number[]];
   loop: number; frames: number; walkSteps: number; dirs: number;
   stageLevels: Record<string, number[]>;
-  homes: number; wallN: number; wallKinds: string[];
+  homes: number; outerHomes: number; wallN: number; wallKinds: string[];
   atlases: string[]; staticAtlases: number;
   sprites: Record<string, Sprite>;
 }
@@ -64,6 +64,9 @@ export function stageFor(m: Manifest, id: string, level: number): number {
 /** Homes that stand in the village, growing with the headquarters. */
 export const homesFor = (m: Manifest, main: number) => Math.max(0, Math.min(m.homes, Math.floor((main + 2) / 3)));
 
+/** Simpler homes outside the wall, once the village has outgrown it. */
+export const outerHomesFor = (m: Manifest, main: number) => Math.max(0, Math.min(m.outerHomes ?? 0, Math.floor((main - 8) / 2.5)));
+
 export interface Piece { key: string; s: Sprite; d: number; building?: string; frames?: Sprite[]; decal?: boolean }
 /** Every sprite to draw for these levels: ground decals first, then everything else back to front. */
 export function piecesFor(b: Baked, levels: Record<string, number>): { decals: Piece[]; bodies: Piece[] } {
@@ -83,6 +86,7 @@ export function piecesFor(b: Baked, levels: Record<string, number>): { decals: P
   const ws = stageFor(m, 'wall', levels.wall ?? 0);
   if (ws > 0) { const kind = m.wallKinds[ws - 1]; for (let i = 0; i < m.wallN; i++) add(`wall-${kind}-${i}`, 'wall'); add(`gate-${kind}`, 'wall'); }
   for (let i = 0; i < homesFor(m, levels.main ?? 1); i++) add(`home${i}`);
+  for (let i = 0; i < outerHomesFor(m, levels.main ?? 1); i++) add(`outer${i}`);
   add('well');
   for (const key of Object.keys(m.sprites)) if (key.startsWith('trees')) add(key);
   return { decals, bodies };
