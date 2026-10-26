@@ -71,6 +71,11 @@ export function farmCapacity(level: number): number {
   return FARM[level] ?? Math.round(240 * 1.172103 ** (level - 1));
 }
 
+/** Farm capacity on this world (the population fun option; old saves have none = 1). */
+export function farmCapacityIn(config: { farmMultiplier?: number }, level: number): number {
+  return Math.round(farmCapacity(level) * (config.farmMultiplier ?? 1));
+}
+
 export function hidingCapacity(level: number): number {
   if (level <= 0) return 0;
   return Math.round(150 * (4 / 3) ** (level - 1));

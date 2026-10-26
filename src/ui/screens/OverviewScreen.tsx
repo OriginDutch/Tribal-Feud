@@ -65,6 +65,7 @@ export function OverviewScreen() {
       <p class="muted">
         Wereld: snelheid ×{s.multipliers.world} · productie ×{s.multipliers.production} · bouwen ×{s.multipliers.build} ·
         rekruteren ×{s.multipliers.recruit}
+        {s.multipliers.farm !== 1 && <> · bevolking ×{s.multipliers.farm.toLocaleString('nl-NL')}</>}
       </p>
       </div>
       <div class="grid ov-side">

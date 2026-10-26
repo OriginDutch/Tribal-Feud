@@ -26,7 +26,7 @@ import {
   buildingCost,
   buildingPopCost,
   buildingPopTotal,
-  farmCapacity,
+  farmCapacity, farmCapacityIn,
   productionPerHour,
   recruitTimeMs,
   researchTimeMs,
@@ -223,8 +223,8 @@ export function popUsed(config: WorldConfig, v: Village): number {
   return used;
 }
 
-export function popMax(v: Village): number {
-  return farmCapacity(v.buildings.farm);
+export function popMax(config: WorldConfig, v: Village): number {
+  return farmCapacityIn(config, v.buildings.farm);
 }
 
 export function missingRequirements(
@@ -263,7 +263,7 @@ export function buildBlocker(state: WorldState, v: Village, b: BuildingId): stri
   if (cost.some((c) => c > cap)) return 'Opslagplaats te klein';
   // farm and storage need no workers: they can always be built, also when the village is over its farm
   const workers = buildingPopCost(def, target);
-  if (workers > 0 && popUsed(config, v) + workers > popMax(v)) return 'Boerderij is vol';
+  if (workers > 0 && popUsed(config, v) + workers > popMax(config, v)) return 'Boerderij is vol';
   if (!canAfford(currentResources(config, v, state.time), cost)) return 'Te weinig grondstoffen';
   return null;
 }
@@ -276,7 +276,7 @@ export function demolishBlocker(state: WorldState, v: Village, b: BuildingId): s
   if (v.buildings.main < DEMOLISH_HQ) return `Hoofdgebouw ${DEMOLISH_HQ} nodig`;
   if (target < def.minLevel) return 'Kan niet lager';
   if (v.buildQueue.length >= config.village.buildQueueSlots) return 'Bouwqueue is vol';
-  if (b === 'farm' && popUsed(config, v) > farmCapacity(target)) return 'Boerderij is te vol';
+  if (b === 'farm' && popUsed(config, v) > farmCapacityIn(config, target)) return 'Boerderij is te vol';
   if (target === 0 && (RECRUIT_BUILDINGS as readonly string[]).includes(b) && v.recruitQueues[b as RecruitBuilding].length > 0) {
     return 'Rekruteren loopt nog';
   }
@@ -531,7 +531,7 @@ export function maxRecruitable(state: WorldState, v: Village, u: UnitId): number
   const def = config.units[u];
   const have = currentResources(config, v, state.time);
   let n = Math.floor(Math.min(...[0, 1, 2].map((i) => (def.cost[i as 0 | 1 | 2] > 0 ? have[i as 0 | 1 | 2] / def.cost[i as 0 | 1 | 2] : Infinity))));
-  if (def.pop > 0) n = Math.min(n, Math.floor((popMax(v) - popUsed(config, v)) / def.pop));
+  if (def.pop > 0) n = Math.min(n, Math.floor((popMax(config, v) - popUsed(config, v)) / def.pop));
   if (u === 'knight') n = Math.min(n, 1 - paladinsOwned(state, v.owner));
   if (u === 'snob') n = Math.min(n, noblesAllowed(state, v));
   return Math.max(0, n);

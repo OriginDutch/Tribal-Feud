@@ -383,7 +383,7 @@ export function autoBuild(
     const res = currentResources(config, v, state.time);
     const cap = config.buildings.storage;
     const storageFull = res.some((r) => r >= 0.9 * storageOf(v));
-    const farmFull = popMax(v) - popUsed(config, v) < Math.max(10, popMax(v) * 0.08);
+    const farmFull = popMax(config, v) - popUsed(config, v) < Math.max(10, popMax(config, v) * 0.08);
     if (farmFull && plannedLevel(v, 'farm') < config.buildings.farm.maxLevel) target = 'farm';
     else if (storageFull && plannedLevel(v, 'storage') < cap.maxLevel) target = 'storage';
 
@@ -599,7 +599,7 @@ function farmTargets(state: WorldState, player: Player, v: Village, profile: Bot
  * keeps room for a full train of noblemen (100 each).
  */
 function troopRoom(state: WorldState, v: Village, pop: number): number {
-  const free = popMax(v) - popUsed(state.config, v);
+  const free = popMax(state.config, v) - popUsed(state.config, v);
   let keep = 0;
   if (v.buildings.snob > 0) {
     let nobles = v.units.snob + v.outside.snob;
@@ -627,7 +627,8 @@ function defensePop(state: WorldState, v: Village): number {
 /** Keeps a defense in proportion to the village's size before spending on anything else. */
 export function recruitDefense(state: WorldState, v: Village, profile: BotProfile, reserve: Res, share = 1): void {
   const { config } = state;
-  const want = villagePoints(config, v) * profile.defensePerPoint * share;
+  // more room in the farm (fun option): keep defense in step, not only offense
+  const want = villagePoints(config, v) * profile.defensePerPoint * share * (config.farmMultiplier ?? 1);
   const missing = want - defensePop(state, v);
   if (missing < 10) return;
   const have = currentResources(config, v, state.time);

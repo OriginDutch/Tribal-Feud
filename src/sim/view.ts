@@ -11,7 +11,7 @@ import {
   buildingCost,
   buildingPoints,
   buildingPopCost,
-  farmCapacity,
+  farmCapacity, farmCapacityIn,
   hidingCapacity,
   productionPerHour,
   recruitTimeMs,
@@ -149,7 +149,7 @@ function buildingEffect(state: WorldState, v: Village, b: BuildingId): BuildingE
     case 'storage':
       return { label: 'Opslag per grondstof', unit: 'amount', byLevel: levels((l) => storageCapacity(l)) };
     case 'farm':
-      return { label: 'Inwoners', unit: 'amount', byLevel: levels((l) => farmCapacity(l)) };
+      return { label: 'Inwoners', unit: 'amount', byLevel: levels((l) => farmCapacityIn(config, l)) };
     case 'hide':
       return { label: 'Verborgen per grondstof', unit: 'amount', byLevel: levels((l) => hidingCapacity(l)) };
     case 'wall':
@@ -261,7 +261,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
     storage: storageCapacity(v.buildings.storage),
     hide: hidingCapacity(v.buildings.hide),
     rates: productionRates(config, v),
-    pop: { used: popUsed(config, v), max: popMax(v) },
+    pop: { used: popUsed(config, v), max: popMax(config, v) },
     buildings,
     buildQueue: v.buildQueue.map((j) => ({
       id: j.id,

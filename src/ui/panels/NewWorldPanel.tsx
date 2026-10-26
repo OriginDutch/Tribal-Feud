@@ -35,6 +35,7 @@ export function NewWorldPanel() {
   const [seed, setSeed] = useState('');
   const [knobs, setKnobs] = useState(presetKnobs('classic'));
   const [difficulty, setDifficulty] = useState<BotDifficulty>(PRESETS.classic.bots.difficulty);
+  const [farm, setFarm] = useState(1);
 
   const changePreset = (p: Preset) => {
     setPreset(p);
@@ -50,6 +51,7 @@ export function NewWorldPanel() {
       if (value > 0 && value !== PRESETS[preset][key]) overrides[key] = value;
     }
     if (difficulty !== PRESETS[preset].bots.difficulty) overrides.bots = { difficulty };
+    if (farm !== 1) overrides.farmMultiplier = farm;
     const cmd: Command = { type: 'newWorld', preset, name, overrides };
     if (seed.trim() !== '') cmd.seed = Number(seed) >>> 0;
     autoPause.value = null;
@@ -94,6 +96,16 @@ export function NewWorldPanel() {
           </label>
         ))}
       </div>
+      <h3>Fun</h3>
+      <label title="Bevolkingslimiet van de boerderij. Gebouwen gebruiken evenveel als altijd, dus de ruimte voor troepen groeit nog iets harder. Je merkt het vooral laat in het spel, als je economie de legers kan betalen.">
+        Bevolking ×{farm.toLocaleString('nl-NL', { minimumFractionDigits: 2 })}
+        <input type="range" min={0.5} max={3} step={0.25} value={farm} onInput={(e) => setFarm(Number(e.currentTarget.value))} />
+      </label>
+      <p class="hint">
+        {farm === 1
+          ? 'Gewone boerderij (24.000 inwoners op level 30).'
+          : `Boerderij level 30: ${Math.round(24000 * farm).toLocaleString('nl-NL')} inwoners. Grotere legers aan beide kanten; edelen en schoonvegen worden ${farm > 1 ? 'zwaarder' : 'makkelijker'}. Alleen bij het aanmaken in te stellen.`}
+      </p>
       <p class="hint">
         Wereldsnelheid versnelt alles, zoals een speedwereld in TW. De andere knoppen komen daar bovenop. Ga met je muis
         over een veld voor uitleg.

@@ -212,7 +212,7 @@ export interface Snapshot {
   suspended: boolean;
   queueSize: number;
   /** World speed settings, for display. */
-  multipliers: { world: number; production: number; build: number; recruit: number };
+  multipliers: { world: number; production: number; build: number; recruit: number; farm: number };
   log: LogEntry[];
   /** The selected village, fully computed for display. */
   village: VillageView | null;

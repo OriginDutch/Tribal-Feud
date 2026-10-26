@@ -240,7 +240,7 @@ describe('barbarian farms', () => {
     const barbs = Object.values(s.villages).filter((v) => v.owner === BARBARIAN).slice(0, 40);
     for (const v of barbs) {
       seedBarbarian(s.config, v, 4000);
-      expect(popUsed(s.config, v)).toBeLessThanOrEqual(popMax(v));
+      expect(popUsed(s.config, v)).toBeLessThanOrEqual(popMax(s.config, v));
     }
   });
 
@@ -251,7 +251,7 @@ describe('barbarian farms', () => {
     Object.assign(v.buildings, { farm: 9, wood: 27, stone: 29, iron: 30, main: 7, storage: 18 });
     v.res = [100000, 100000, 100000];
     v.resAt = s.time;
-    expect(popUsed(s.config, v)).toBeGreaterThan(popMax(v));
+    expect(popUsed(s.config, v)).toBeGreaterThan(popMax(s.config, v));
     expect(buildBlocker(s, v, 'farm')).toBeNull();
     expect(buildBlocker(s, v, 'storage')).toBeNull();
     expect(buildBlocker(s, v, 'main')).toBe('Boerderij is vol');

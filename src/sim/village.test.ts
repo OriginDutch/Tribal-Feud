@@ -406,3 +406,17 @@ describe('demolishing and renaming', () => {
     expect(v.name).toBe('Fort Kakkerlak');
   });
 });
+
+describe('population fun option', () => {
+  it('farm × 2 doubles the population limit, buildings keep their workers', async () => {
+    const { createConfig } = await import('../shared/config');
+    const { createWorld, playerVillage } = await import('./state');
+    const { popMax } = await import('./village');
+    const one = createWorld(createConfig('classic', 'F', 4, { bots: { count: 0 }, map: { barbarianCount: 5 } } as never));
+    const two = createWorld(createConfig('classic', 'F', 4, { farmMultiplier: 2, bots: { count: 0 }, map: { barbarianCount: 5 } } as never));
+    const a = playerVillage(one)!, b = playerVillage(two)!;
+    a.buildings.farm = 30; b.buildings.farm = 30;
+    expect(popMax(one.config, a)).toBe(24000);
+    expect(popMax(two.config, b)).toBe(48000);
+  });
+});

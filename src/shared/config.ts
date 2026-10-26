@@ -61,6 +61,8 @@ export interface WorldConfig {
   unitSpeed: number;
   /** Extra multiplier on resource production only (on top of worldSpeed). */
   productionMultiplier: number;
+  /** Fun option: population limit of the farm × this (0.5..3). Buildings keep their workers. */
+  farmMultiplier: number;
   /** Extra speed-up of building and smithy research (on top of worldSpeed). */
   buildSpeed: number;
   /** Extra speed-up of recruiting (on top of worldSpeed). */
@@ -191,6 +193,7 @@ const BASE: PresetValues = {
   unitSpeed: 1,
   // No quest rewards (yet): without them the TW early game is far too slow.
   productionMultiplier: 10,
+  farmMultiplier: 1,
   buildSpeed: 1,
   recruitSpeed: 1,
   churches: false,
@@ -337,6 +340,7 @@ export function validateConfig(c: WorldConfig): string[] {
   if (!(c.worldSpeed > 0)) errors.push('Wereldsnelheid moet groter dan 0 zijn.');
   if (!(c.unitSpeed > 0)) errors.push('Unitsnelheid moet groter dan 0 zijn.');
   if (!(c.productionMultiplier > 0)) errors.push('Productie-multiplier moet groter dan 0 zijn.');
+  if (!(c.farmMultiplier >= 0.5 && c.farmMultiplier <= 3)) errors.push('Bevolking × moet tussen 0,5 en 3 liggen.');
   if (!(c.buildSpeed > 0)) errors.push('Bouwsnelheid moet groter dan 0 zijn.');
   if (!(c.recruitSpeed > 0)) errors.push('Rekruteersnelheid moet groter dan 0 zijn.');
   if (!(c.marchSpeed > 0)) errors.push('Loopsnelheid moet groter dan 0 zijn.');

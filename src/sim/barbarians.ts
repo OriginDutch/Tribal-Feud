@@ -14,7 +14,7 @@
 import { BARB_TYPES, BONUS_KINDS, type BarbType, type BonusKind } from '../shared/barbarianTypes';
 import type { WorldConfig } from '../shared/config';
 import { BUILDING_IDS, type BuildingId } from '../shared/gameData';
-import { buildingPoints, buildingPopTotal, farmCapacity, storageCapacity } from './formulas';
+import { buildingPoints, buildingPopTotal, farmCapacity, farmCapacityIn, storageCapacity } from './formulas';
 import { hashFloat } from './rng';
 import type { WorldState } from './state';
 import { productionRates, settle, type Village } from './village';
@@ -69,7 +69,7 @@ function raise(config: WorldConfig, v: Village, b: BuildingId): BuildingId {
   const def = config.buildings[b];
   const extra = buildingPopTotal(def, v.buildings[b] + 1) - buildingPopTotal(def, v.buildings[b]);
   if (b !== 'farm' && extra > 0 && v.buildings.farm < config.buildings.farm.maxLevel) {
-    if (buildingWorkers(config, v) + extra > farmCapacity(v.buildings.farm)) b = 'farm';
+    if (buildingWorkers(config, v) + extra > farmCapacityIn(config, v.buildings.farm)) b = 'farm';
   }
   v.buildings[b]++;
   return b;

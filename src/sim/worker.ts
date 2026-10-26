@@ -103,7 +103,7 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
         points: villagePoints(config, v),
         res: currentResources(config, v, s.time).map(Math.floor) as OwnVillageRow['res'],
         storage: storageCapacity(v.buildings.storage),
-        pop: { used: popUsed(config, v), max: popMax(v) },
+        pop: { used: popUsed(config, v), max: popMax(config, v) },
         building: job ? { name: config.buildings[job.building].name, level: job.level, end: job.end } : null,
         buildQueue: v.buildQueue.length,
         recruiting,
@@ -134,6 +134,7 @@ function snapshot(): Snapshot | null {
       production: state.config.productionMultiplier,
       build: state.config.buildSpeed,
       recruit: state.config.recruitSpeed,
+      farm: state.config.farmMultiplier ?? 1,
     },
     log: state.log.slice(-SNAPSHOT_LOG_LINES),
     village: (() => {
