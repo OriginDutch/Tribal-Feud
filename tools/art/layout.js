@@ -25,25 +25,85 @@ export const SLOTS = {
 export const HOMES = [[-14.6, -3.6, 1.0, 2.2], [14.8, -3.2, -1.0, 2.2], [-4.4, -12.0, 0.05, 2.4], [4.8, -12.2, -0.05, 2.4], [-15.0, 5.0, 1.3, 2.0], [15.2, 5.4, -1.3, 2.0], [4.6, 11.8, -0.15, 2.0], [-8.8, -10.2, 0.6, 2.0], [9.0, -10.2, -0.6, 2.0]];
 export const WALL_KINDS = ['palisade', 'stone', 'full'];
 /** Homes outside the wall, simpler than anything inside: x, z, rotation, style (0 hut, 1 cottage, 2 small house). */
-export const OUTER_HOMES = (() => {
-  // farmsteads scattered over the fields south of the wall, nearest the gate first.
-  // [x, z, rotation, style 0 hut | 1 cottage | 2 small house, yard, seed]
-  let sd = 9137; const r = () => ((sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0) / 4294967296);
-  const keepOut = [[-20.5, 18.5, 6.5], [23, 16, 7.5], [-27, -3.5, 6], [26.5, -5, 6]];
-  const ok = (x, z) => Math.abs(x) > 3.2 && (x / (RX * 1.2)) ** 2 + (z / (RZ * 1.2)) ** 2 > 1 && !keepOut.some(([a, b, d]) => Math.hypot(x - a, z - b) < d);
-  const pts = [];
-  for (let t = 0; t < 4000 && pts.length < 20; t++) {
-    const x = (r() - 0.5) * 36, z = 15 + r() * 24;
-    if (!ok(x, z) || pts.some(([a, b]) => Math.hypot(x - a, z - b) < 5.4)) continue;
-    pts.push([x, z]);
+// ---------- farmsteads outside the wall: planned so nothing overlaps ----------
+const ROADS_OUT = [
+  { pts: [[0, 14], [0, 70]], r: 0.9 + 0.5 },
+  { pts: [[0, 19.5], [-8, 22], [-17.5, 18.5]], r: 0.6 + 0.5 },
+  { pts: [[0, 19.5], [10, 20.5], [19.5, 16.5]], r: 0.6 + 0.5 },
+];
+function segDist(px, pz, [ax, az], [bx, bz]) { const dx = bx - ax, dz = bz - az, L = dx * dx + dz * dz; const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / L)); return Math.hypot(px - ax - dx * t, pz - az - dz * t); }
+function polyDist(px, pz, pts) { let d = Infinity; for (let k = 0; k < pts.length - 1; k++) d = Math.min(d, segDist(px, pz, pts[k], pts[k + 1])); return d; }
+/** Oriented rectangle: centre, half sizes, rotation (about y, like a three.js group). */
+const rect = (x, z, hw, hd, rot) => ({ x, z, hw, hd, rot });
+function corners(R) { const c = Math.cos(R.rot), s = Math.sin(R.rot); return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [R.x + a * R.hw * c + b * R.hd * s, R.z - a * R.hw * s + b * R.hd * c]); }
+function inRect(R, px, pz, pad = 0) { const c = Math.cos(R.rot), s = Math.sin(R.rot), dx = px - R.x, dz = pz - R.z; const u = dx * c - dz * s, v = dx * s + dz * c; return Math.abs(u) <= R.hw + pad && Math.abs(v) <= R.hd + pad; }
+function rectsOverlap(A, B, pad) {
+  const axes = (R) => { const c = Math.cos(R.rot), s = Math.sin(R.rot); return [[c, -s], [s, c]]; };
+  for (const [ax, az] of [...axes(A), ...axes(B)]) {
+    const pr = (R) => { const p = corners(R).map(([x, z]) => x * ax + z * az); return [Math.min(...p), Math.max(...p)]; };
+    const [a0, a1] = pr(A), [b0, b1] = pr(B);
+    if (a1 + pad < b0 || b1 + pad < a0) return false;
   }
-  pts.sort((a, b) => Math.hypot(a[0], a[1] - RZ) - Math.hypot(b[0], b[1] - RZ));
-  return pts.map(([x, z], n) => {
-    const style = n < 5 ? 2 - (n % 2) : n < 13 ? 1 - (n % 4 === 0 ? 1 : 0) : (n % 3 === 0 ? 1 : 0);
-    const face = Math.atan2(-x, 2) + (r() - 0.5) * 0.9; // roughly toward the road
-    return [x, z, face, style, n % 2, 400 + n * 13];
-  });
+  return true;
+}
+function samplesOf(R, n = 5) { const out = []; const c = Math.cos(R.rot), s = Math.sin(R.rot); for (let a = 0; a <= n; a++) for (let b = 0; b <= n; b++) { const u = (a / n * 2 - 1) * R.hw, v = (b / n * 2 - 1) * R.hd; out.push([R.x + u * c + v * s, R.z - u * s + v * c]); } return out; }
+const pathPts = (a, b, wob) => { const out = []; const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1, px = -dz / L, pz = dx / L; for (let k = 0; k <= 12; k++) { const t = k / 12, w = Math.sin(t * Math.PI) * wob * L; out.push([a[0] + dx * t + px * w, a[1] + dz * t + pz * w]); } return out; };
+
+export const FARMS = (() => {
+  let sd = 9137; const r = () => ((sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0) / 4294967296);
+  const keepOut = [[-20.5, 18.5, 6.8], [23, 16, 7.8], [-27, -3.5, 6.5], [26.5, -5, 6.5]];
+  const solids = []; // rects already taken (houses, yards, fields)
+  const paths = []; // polylines already taken, radius 0.45
+  const farms = [];
+  const clear = (R, pad = 0.35) => {
+    if (keepOut.some(([a, b, d]) => samplesOf(R).some(([x, z]) => Math.hypot(x - a, z - b) < d))) return false;
+    if ((R.x / (RX * 1.25)) ** 2 + (R.z / (RZ * 1.25)) ** 2 < 1 + 0.15) return false;
+    if (samplesOf(R).some(([x, z]) => ROADS_OUT.some((q) => polyDist(x, z, q.pts) < q.r + pad) || (x / (RX * 1.22)) ** 2 + (z / (RZ * 1.22)) ** 2 < 1)) return false;
+    if (solids.some((S) => rectsOverlap(R, S, pad))) return false;
+    if (paths.some((p) => samplesOf(R).some(([x, z]) => polyDist(x, z, p) < 0.45 + pad))) return false;
+    return true;
+  };
+  const pathClear = (pts, own) => pts.every(([x, z], k) => k < 1 || !solids.some((S) => !own.includes(S) && inRect(S, x, z, 0.4)));
+  for (let t = 0; t < 20000 && farms.length < 20; t++) {
+    const x = (r() - 0.5) * 42, z = 15.5 + r() * 26;
+    // face roughly toward the main road
+    const rot = (x > 0 ? -Math.PI / 2 : Math.PI / 2) + (r() - 0.5) * 0.7;
+    const style = 0;
+    const hs = rect(x, z, 1.25, 1.1, rot);
+    const fwd = [Math.sin(rot), Math.cos(rot)], side = [Math.cos(rot), -Math.sin(rot)];
+    const yard = rect(x - fwd[0] * 2.0, z - fwd[1] * 2.0, 1.3, 0.8, rot);
+    if (!clear(hs, 0.6) || !clear(yard, 0.3)) continue;
+    // fields: beside or behind the house, away from the road
+    const fields = [];
+    const away = x > 0 ? 1 : -1;
+    const want = r() < 0.6 ? 2 : 1;
+    for (let tries = 0; tries < 60 && fields.length < want; tries++) {
+      const fw = 1.3 + r() * 1.0, fd = 0.9 + r() * 0.7, fr = rot + (r() - 0.5) * 0.5;
+      const k = r();
+      const u = k < 0.4 ? -(1.9 + fw) - r() * 0.8 : k < 0.8 ? (1.9 + fw) + r() * 0.8 : (r() - 0.5) * 2; // sideways (local x)
+      const v = k < 0.8 ? (r() - 0.6) * 3 : -(3.4 + fd) - r() * 0.6; // forward (local z), negative = behind
+      const fx = x + side[0] * u + fwd[0] * v, fz = z + side[1] * u + fwd[1] * v;
+      const F = rect(fx, fz, fw, fd, fr);
+      if (clear(F, 0.4) && !rectsOverlap(F, hs, 0.5) && !rectsOverlap(F, yard, 0.4) && !fields.some((G) => rectsOverlap(F, G, 0.5))) fields.push(F);
+    }
+    // a path from the door to the main road, a side road or a neighbour's door, whichever is clear and short
+    const door = [x + fwd[0] * 1.6, z + fwd[1] * 1.6];
+    const targets = [[Math.sign(x) * 1.0, z + (r() - 0.5) * 1.5]];
+    for (const q of ROADS_OUT.slice(1)) { let best = null, bd = Infinity; for (let k = 0; k < q.pts.length - 1; k++) for (let u = 0; u <= 10; u++) { const a = q.pts[k], b = q.pts[k + 1]; const p = [a[0] + (b[0] - a[0]) * u / 10, a[1] + (b[1] - a[1]) * u / 10]; const d = Math.hypot(p[0] - door[0], p[1] - door[1]); if (d < bd) { bd = d; best = p; } } targets.push(best); }
+    for (const fm of farms) targets.push(fm.door);
+    targets.sort((a, b) => Math.hypot(a[0] - door[0], a[1] - door[1]) - Math.hypot(b[0] - door[0], b[1] - door[1]));
+    const own = [hs, yard, ...fields];
+    let path = null;
+    for (const tg of targets.slice(0, 4)) { for (const wob of [0.08, -0.08, 0.16, -0.16, 0]) { const p = pathPts(door, tg, wob); if (Math.hypot(tg[0] - door[0], tg[1] - door[1]) < 16 && pathClear(p, own) && !fields.some((F) => p.some(([px, pz]) => inRect(F, px, pz, 0.45)))) { path = p; break; } } if (path) break; }
+    if (!path || !fields.length) continue;
+    solids.push(hs, yard, ...fields); paths.push(path);
+    farms.push({ x, z, rot, door, fields, path, seed: 400 + farms.length * 13 });
+  }
+  farms.sort((a, b) => Math.hypot(a.x, a.z - RZ) - Math.hypot(b.x, b.z - RZ));
+  // anything that used another farm's door as target must come after it: keep the order stable by re-sorting dependants
+  return farms.map((f, n) => ({ ...f, style: n < 5 ? 2 - (n % 2) : n < 13 ? (n % 4 === 0 ? 0 : 1) : (n % 3 === 0 ? 1 : 0), yard: n % 2 }));
 })();
+export const OUTER_HOMES = FARMS.map((f) => [f.x, f.z]);
 
 function road(g, pts, w = 1.4, mat = M.dirt) {
   for (let i = 0; i < pts.length - 1; i++) {
@@ -104,10 +164,7 @@ function field(root, x, z, w, d, rot, mat) {
   const m = new THREE.Mesh(geo, mat); m.rotation.x = -Math.PI / 2; m.rotation.z = rot; m.position.set(x, 0.018, z); m.receiveShadow = true; root.add(m);
 }
 /** A winding footpath from a to b. */
-function footpath(root, a, b, w = 0.5) {
-  const n = 5, pts = [];
-  const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), px = -dz / L, pz = dx / L;
-  for (let k = 0; k <= n; k++) { const t = k / n, wob = k === 0 || k === n ? 0 : Math.sin(t * Math.PI + rnd()) * L * 0.07; pts.push([a[0] + dx * t + px * wob, a[1] + dz * t + pz * wob]); }
+function footpath(root, pts, w = 0.45) {
   const curve = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)));
   const N = 30, v = [];
   let prevL, prevR;
@@ -117,26 +174,25 @@ function footpath(root, a, b, w = 0.5) {
   const m = new THREE.Mesh(g, M.dirt.clone()); m.material.side = THREE.DoubleSide; m.receiveShadow = true; root.add(m);
 }
 export function buildOuterHome(root, i) {
-  const [x, z, ry, style, yard, seed] = OUTER_HOMES[i];
-  reseed(seed);
-  const h = group(root, x, z, ry); h.scale.setScalar(0.85);
-  if (style === 0) house(h, 0, 0, 1.8, 1.6, { f1: 1.2, f2: 0, roof: M.thatch, roofH: 1.0, wall: M.wood, gableMat: M.wood, chimney: rnd() < 0.5 });
-  else if (style === 1) house(h, 0, 0, 2.1, 1.8, { f1: 1.3, f2: 0, roof: M.thatch, roofH: 1.1, chimney: true });
+  const F = FARMS[i];
+  reseed(F.seed);
+  const h = group(root, F.x, F.z, F.rot); h.scale.setScalar(0.85);
+  if (F.style === 0) house(h, 0, 0, 1.8, 1.6, { f1: 1.2, f2: 0, roof: M.thatch, roofH: 1.0, wall: M.wood, gableMat: M.wood, chimney: rnd() < 0.5 });
+  else if (F.style === 1) house(h, 0, 0, 2.1, 1.8, { f1: 1.3, f2: 0, roof: M.thatch, roofH: 1.1, chimney: true });
   else house(h, 0, 0, 2.3, 1.9, { f1: 1.4, f2: 0, roof: rnd() < 0.5 ? M.roofBrown : M.roofOrange, roofH: 1.2, chimney: true });
-  if (rnd() < 0.5) barrel(h, 1.3, 1.1); else crate(h, -1.3, 1.1);
-  if (yard === 0) { logs(h, -1.4, -1.4, 4, 0.3); hay(h, 1.5, -1.2, 0.35); }
-  else { box(h, 1.0, 0.9, 0.8, M.wood, 1.6, 0, -1.4); gable(h, 1.0, 0.8, 0.4, 0.1, M.thatch, 1.6, 0.9, -1.4, M.wood); }
-  // one or two uneven fields beside the farmstead, partly fenced
-  const away = Math.sign(x) || 1;
-  const fx = x + away * (2.6 + rnd() * 1.2), fz = z + (rnd() - 0.4) * 2.4, fw = 2.8 + rnd() * 1.8, fd = 2.0 + rnd() * 1.4, fr = (rnd() - 0.5) * 0.8;
-  field(root, fx, fz, fw, fd, fr, rnd() < 0.55 ? M.wheat : M.greens);
-  if (rnd() < 0.6) field(root, fx + (rnd() - 0.5) * 1.5, fz + fd * 0.9 + 0.4, fw * (0.6 + rnd() * 0.3), fd * 0.7, fr + (rnd() - 0.5) * 0.4, rnd() < 0.5 ? M.wheat : M.greens);
-  if (rnd() < 0.6) { const c = Math.cos(-fr), s2 = Math.sin(-fr); const P = (a, b) => [fx + a * c - b * s2, fz + a * s2 + b * c]; fence(root, [P(-fw / 2, -fd / 2 - 0.2), P(fw / 2, -fd / 2 - 0.2), P(fw / 2, fd / 2)], 0.45); }
-  // winding footpath to the main road
-  const door = [x + Math.sin(ry) * 1.0, z + Math.cos(ry) * 1.0];
-  let to = [Math.sign(x) * 0.8, z], best = Math.abs(x);
-  for (let k = 0; k < i; k++) { const [ox, oz, ory] = OUTER_HOMES[k]; const od = [ox + Math.sin(ory) * 1.0, oz + Math.cos(ory) * 1.0]; const d = Math.hypot(od[0] - door[0], od[1] - door[1]); if (d < best * 0.8) { best = d; to = od; } }
-  footpath(root, door, to, 0.42);
+  if (F.yard === 0) { logs(h, -0.8, -2.3, 4, 0); hay(h, 0.9, -2.2, 0.35); }
+  else { box(h, 1.1, 0.9, 0.8, M.wood, 0.2, 0, -2.3); gable(h, 1.1, 0.8, 0.4, 0.1, M.thatch, 0.2, 0.9, -2.3, M.wood); }
+  for (const R of F.fields) {
+    // irregular field inside its planned rectangle, fence along the side away from the house
+    const g = group(root, R.x, R.z, R.rot);
+    const j = () => (rnd() - 0.5) * 0.35;
+    const c = [[-R.hw + 0.2 + j(), -R.hd + 0.2 + j()], [R.hw - 0.2 + j(), -R.hd + 0.2 + j()], [R.hw - 0.2 + j(), R.hd - 0.2 + j()], [-R.hw + 0.2 + j(), R.hd - 0.2 + j()]];
+    const geo = new THREE.ShapeGeometry(new THREE.Shape(c.map(([a, b]) => new THREE.Vector2(a, -b))));
+    const uv = geo.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) / 3, uv.getY(k) / 3);
+    const m = new THREE.Mesh(geo, rnd() < 0.55 ? M.wheat : M.greens); m.rotation.x = -Math.PI / 2; m.position.y = 0.018; m.receiveShadow = true; g.add(m);
+    if (rnd() < 0.65) fence(g, [[-R.hw + 0.1, -R.hd + 0.1], [R.hw - 0.1, -R.hd + 0.1], [R.hw - 0.1, R.hd - 0.1]], 0.45);
+  }
+  footpath(root, F.path, 0.42);
   return h;
 }
 /** In worlds without churches the church plot holds an ordinary home. */
@@ -163,7 +219,7 @@ const inEllipse = (x, z, k = 1) => (x / (RX * k)) ** 2 + (z / (RZ * k)) ** 2 < 1
 export function forest() {
   reseed(4242);
   const out = [];
-  const avoid = [[-27, -3.5, 6], [-20.5, 18.5, 5.5], [26.5, -5, 6], [23, 16, 6.5], [0, 21, 3], ...OUTER_HOMES.map(([x, z]) => [x, z, 3.2]), ...OUTER_HOMES.map(([x, z]) => [x + (Math.sign(x) || 1) * 3.2, z + 0.6, 3.2])];
+  const avoid = [[-27, -3.5, 6], [-20.5, 18.5, 5.5], [26.5, -5, 6], [23, 16, 6.5], [0, 21, 3], ...FARMS.flatMap((f) => [[f.x, f.z, 3.4], ...f.fields.map((R) => [R.x, R.z, Math.max(R.hw, R.hd) + 1.2]), ...f.path.filter((_, k) => k % 3 === 0).map(([x, z]) => [x, z, 1.1])])];
   for (let i = 0; i < 520; i++) {
     const x = (rnd() - 0.5) * 74, z = (rnd() - 0.5) * 60 - 2;
     const k = rnd(), s = 0.9 + rnd() * 0.6;

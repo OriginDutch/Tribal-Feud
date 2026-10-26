@@ -408,20 +408,42 @@ B.stone = (g, stage = 3) => {
   rock(g, -3.6, -1.4, 0.5); bush(g, 3.8, 1.2, 0.5);
 };
 
+/** A rock cliff behind the mine: a stepped, jagged face toward +z, grassy top, a few pines on it. */
+function cliff(g, H, front = 0.8) {
+  const back = [[4.6, -2.6], [3.2, -4.8], [0, -5.4], [-3.2, -4.8], [-4.6, -2.6]];
+  const faceOf = (seed, inset) => { const out = []; const N = 34; for (let i = 0; i <= N; i++) { const t = i / N, x = -4.6 + t * 9.2; const jag = Math.abs(Math.sin(t * 23.7 + seed)) * 0.35 + Math.abs(Math.sin(t * 7.3 + seed * 2)) * 0.3; out.push([x, front - inset - jag - (Math.abs(x) < 1.3 ? 0.45 : 0) - (Math.abs(x) > 3.0 ? (Math.abs(x) - 3.0) * 0.9 : 0)]); } return out; };
+  const layer = (face, y0, h, mat, topMat) => {
+    const pts = [...face, ...back];
+    const shape = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z)));
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+    geo.rotateX(-Math.PI / 2); geo.translate(0, y0, 0); geo.computeVertexNormals();
+    const uv = geo.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) * 0.35, uv.getY(k) * 0.35);
+    g.add(sh(new THREE.Mesh(geo, [topMat ?? mat, mat])));
+  };
+  const s1 = H * 0.5, s2 = H * 0.3, s3 = H - s1 - s2;
+  layer(faceOf(1, 0), 0, s1, M.rock, M.rock);
+  layer(faceOf(4, 0.35), s1, s2, M.rock, M.rock);
+  layer(faceOf(7, 0.8), s1 + s2, s3, M.rock, M.grass);
+  // boulders along the ledges and the rim
+  for (let i = 0; i < 7; i++) { const x = -4 + i * 1.3; if (Math.abs(x) < 1.4) continue; const r0 = rock(g, x, front - 0.6 + (i % 2) * 0.2, 0.22 + (i % 3) * 0.08); r0.position.y += s1; }
+  for (let i = 0; i < 6; i++) { const x = -3.6 + i * 1.45; const r0 = rock(g, x, front - 1.2 - (i % 2) * 0.3, 0.25); r0.position.y += H - 0.1; }
+  for (const [x, z, s] of [[-3.0, -4.0, 0.9], [-1.4, -4.6, 1.1], [1.2, -4.4, 1.0], [2.9, -3.6, 0.85], [0.1, -3.4, 0.7]]) { const p = group(g, 0, 0, 0, H); pine(p, x, z, s); }
+  for (let i = 0; i < 9; i++) if (Math.abs(-4 + i) > 1.3) rock(g, -4 + i, front + 0.25 + (i % 3) * 0.15, 0.18 + (i % 2) * 0.1);
+}
 // IJzermijn: rocky hill with a timbered entrance, rails, ore cart
 B.iron = (g, stage = 3) => {
   // hill
-  const hill = new THREE.Mesh(new THREE.IcosahedronGeometry(3.2, 1), M.rock); hill.scale.set(stage === 1 ? 0.95 : 1.25, stage === 1 ? 0.6 : 0.75, 0.85); hill.position.set(0, 0.4, -2.0); hill.castShadow = hill.receiveShadow = true; g.add(hill);
-  for (const [x, z, s] of [[-3.0, -0.6, 0.8], [2.8, -0.4, 0.7], [-1.8, 0.4, 0.4], [3.4, 1.0, 0.5]]) rock(g, x, z, s);
+  cliff(g, stage === 1 ? 2.2 : 3.0, stage === 1 ? 0.6 : 0.85);
+  for (const [x, z, s] of [[-3.6, 1.6, 0.5], [3.4, 1.5, 0.45], [-2.6, 2.1, 0.3]]) rock(g, x, z, s);
   if (stage === 1) {
-    box(g, 1.1, 1.3, 1.0, M.dark, 0, 0, 0.2);
-    for (let i = 0; i < 4; i++) for (const s of [-1, 1]) box(g, 0.05, 0.05, 0.05, M.beam, s * 0.2, 0.2 + i * 0.25, 0.75);
+    box(g, 1.1, 1.3, 0.6, M.dark, 0, 0, 0.3);
+    for (const s of [-1, 1]) { const p = box(g, 0.14, 1.4, 0.14, M.beam, s * 0.62, 0, 0.62); p.rotation.z = s * 0.08; } box(g, 1.5, 0.16, 0.18, M.beam, 0, 1.35, 0.62);
     for (let i = 0; i < 5; i++) { const o = sh(new THREE.Mesh(new THREE.DodecahedronGeometry(0.18, 0), std2())); o.position.set(1.2 + (rnd() - 0.5) * 0.6, 0.12, 1.4 + (rnd() - 0.5) * 0.5); g.add(o); }
     { const hit = burst(g, 1.2, 0.35, 1.4, M.rock, 6, 0.5); hammering(person(g, 0.8, 1.95, 2.6, { kind: 'smith' }), 1.0, 0, hit, true); }
     return;
   }
   // entrance
-  box(g, 1.8, 2.0, 1.2, M.dark, 0, 0, 0.25);
+  box(g, 1.8, 2.0, 0.6, M.dark, 0, 0, 0.55);
   for (const s of [-1, 1]) box(g, 0.25, 2.0, 0.25, M.beam, s * 0.9, 0, 0.9);
   box(g, 2.3, 0.28, 0.3, M.beam, 0, 2.0, 0.9);
   box(g, 2.6, 0.12, 1.4, M.roofBrown, 0, 2.35, 0.5).rotation.x = 0.25;
