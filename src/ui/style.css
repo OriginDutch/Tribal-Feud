@@ -596,3 +596,25 @@ tr.me td { background: rgba(226,169,59,0.06); }
 .template-io { display: grid; gap: 8px; margin: 8px 0 12px; }
 .template-io textarea { width: 100%; box-sizing: border-box; font-family: var(--mono, monospace); font-size: 13px; background: #191510; color: var(--text); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 8px 10px; resize: vertical; }
 .template-units input:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* support planner */
+.support-controls { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.4fr); gap: 14px; }
+.support-controls label { display: grid; gap: 4px; }
+.support-controls .row input { flex: 1; }
+.support-incoming, .support-units { gap: 8px; margin-top: 10px; align-items: center; }
+.unit-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; cursor: pointer; font-size: 13px; opacity: 0.6; }
+.unit-toggle.on { opacity: 1; border-color: rgba(226,169,59,0.5); }
+.unit-toggle input { display: none; }
+button.small.active { border-color: var(--accent); color: var(--accent); }
+.table-scroll { overflow-x: auto; }
+.support-table td { vertical-align: middle; }
+.support-table .unit-cell { white-space: nowrap; }
+.support-table .unit-cell input { width: 74px; text-align: right; }
+.support-table .unit-cell .avail { display: block; font-size: 11px; color: var(--muted); margin-left: auto; }
+.support-table .unit-cell.too-late input { border-color: var(--danger); opacity: 0.7; }
+.support-table .unit-cell.too-late .avail { color: var(--danger); }
+.support-table tr.ok td:first-child { box-shadow: inset 3px 0 var(--good); }
+.support-table tr.late td:first-child { box-shadow: inset 3px 0 var(--danger); }
+.support-table .good { color: var(--good); font-size: 12px; }
+.support-table .error { font-size: 12px; }
+.support-foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); }

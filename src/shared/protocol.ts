@@ -64,6 +64,8 @@ export type Command =
   | { type: 'deleteTroopTemplate'; id: string }
   | { type: 'mintCoins'; villageId: number; count: number }
   | { type: 'sendSupport'; from: number; to: number; units: UnitCounts }
+  /** Support from several of your villages at once (the support planner). */
+  | { type: 'sendSupportMany'; to: number; orders: { from: number; units: UnitCounts }[] }
   | { type: 'sendNobleTrain'; from: number; to: number; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId }
   | { type: 'returnSupport'; hostId: number; originId: number }
   | { type: 'dismissToast'; id: number | 'all' }
@@ -239,6 +241,8 @@ export interface Snapshot {
   farmTemplates: { A: UnitCounts; B: UnitCounts };
   /** worldSpeed * unitSpeed * marchSpeed, to preview travel times. */
   marchFactor: number;
+  /** Minutes per field at speed 1, per unit (travel = distance * speed / marchFactor). */
+  unitSpeeds: Record<UnitId, number>;
   quests: QuestsView;
   /** Market of the selected village; null without a market. */
   market: MarketView | null;
@@ -260,6 +264,8 @@ export interface OwnVillageRow {
   recruiting: number;
   /** Units at home. */
   units: UnitCounts;
+  /** Has a working rally point: can send troops. */
+  canSend: boolean;
   loyalty: number;
   /** Account manager in short ("Economie · troepen"), or null when off. */
   manager: string | null;

@@ -4,7 +4,7 @@ import { BuildingHeader } from '../buildings/BuildingHeader';
 import { CATAPULT_TARGETS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
-import { mapData, placeTarget, send, snapshot } from '../store';
+import { openSupport, mapData, placeTarget, send, snapshot } from '../store';
 import { distance, travelMs, unitsText } from '../units';
 import { CancelButton } from '../components/CancelButton';
 
@@ -202,6 +202,11 @@ export function PlaceScreen() {
             </button>
             <button disabled={!target || !hasUnits || target.id === v.id || target.kind === 'barb'} onClick={support}>
               Ondersteunen
+            </button>
+          </div>
+          <div class="row">
+            <button class="small" onClick={() => openSupport(v.id)}>
+              Support naar dit dorp plannen
             </button>
           </div>
           <div class="row">

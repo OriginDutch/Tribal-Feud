@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { MapVillage } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
-import { attackVillage, mapData, mapFocus, mapStyle, openTribe, selectedVillage, send, setMapStyle, snapshot } from '../store';
+import { attackVillage, mapData, mapFocus, mapStyle, openSupport, openTribe, selectedVillage, send, setMapStyle, snapshot } from '../store';
 import { OVERHANG, forestAt, onSpriteLoad, tierOf, villageAt } from '../map/mapSprites';
 import { distance, travelMs } from '../units';
 
@@ -639,7 +639,7 @@ export function MapScreen() {
                   <button class="primary" onClick={() => send({ type: 'selectVillage', id: selected.id })}>
                     Naar dit dorp
                   </button>
-                  <button onClick={() => attackVillage(selected.x, selected.y)}>Ondersteunen</button>
+                  <button onClick={() => openSupport(selected.id)}>Support plannen</button>
                 </div>
               )}
               {selected.kind !== 'own' && (

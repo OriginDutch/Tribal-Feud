@@ -1,3 +1,4 @@
+import { SupportScreen } from './screens/SupportScreen';
 import { InboxScreen } from './screens/InboxScreen';
 import { TribesScreen } from './screens/TribesScreen';
 import { useEffect } from 'preact/hooks';
@@ -77,6 +78,8 @@ function CurrentScreen() {
       return <TribesScreen />;
     case 'inbox':
       return <InboxScreen />;
+    case 'support':
+      return <SupportScreen />;
     case 'villages':
       return <VillagesScreen />;
     case 'manager':

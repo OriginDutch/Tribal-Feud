@@ -9,7 +9,7 @@ import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'debug' | 'building';
+export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'support' | 'debug' | 'building';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);
@@ -49,6 +49,12 @@ export const ranking = signal<RankingRow[]>([]);
 export const tribes = signal<TribeView[]>([]);
 /** Tribe opened on the tribe screen. */
 export const tribeFocus = signal<number | null>(null);
+/** Support planner request: to which village, and by when (null: no deadline). */
+export const supportPlan = signal<{ target: number; deadline: number | null } | null>(null);
+export function openSupport(target: number, deadline: number | null = null): void {
+  supportPlan.value = { target, deadline };
+  screen.value = 'support';
+}
 export function openTribe(id: number): void {
   tribeFocus.value = id;
   screen.value = 'tribes';

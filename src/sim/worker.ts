@@ -38,12 +38,13 @@ import {
 import { villagesOf } from './state';
 import { villagePoints } from './barbarians';
 import { ARCHETYPE_NAMES } from '../shared/botProfiles';
-import { UNIT_IDS, type UnitCounts } from '../shared/gameData';
+import { UNIT_IDS, type UnitCounts, type UnitId } from '../shared/gameData';
 import {
   cancelBuild,
   cancelRecruit,
   cancelResearch,
   currentResources,
+  isOperational,
   popMax,
   popUsed,
   queueBuild,
@@ -107,6 +108,7 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
         buildQueue: v.buildQueue.length,
         recruiting,
         units,
+        canSend: isOperational(config, v, 'place'),
         loyalty: Math.floor(loyaltyNow(config, v, s.time)),
         manager: v.manager
           ? [findTemplate(s, v.manager.template)?.name, v.manager.troops ? 'troepen' : undefined].filter(Boolean).join(' · ') || 'aan'
@@ -154,6 +156,7 @@ function snapshot(): Snapshot | null {
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
     marchFactor: state.config.worldSpeed * state.config.unitSpeed * state.config.marchSpeed,
+    unitSpeeds: Object.fromEntries(UNIT_IDS.map((u) => [u, state!.config.units[u].speed])) as Record<UnitId, number>,
     quests: questsView(state),
     market: marketView(state),
   };
@@ -549,6 +552,19 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       const error = cmd.type === 'saveTroopTemplate' ? saveTroopTemplate(state, cmd.template) : deleteTroopTemplate(state, cmd.id);
       if (error) post({ type: 'notice', level: 'error', text: error });
+      break;
+    }
+    case 'sendSupportMany': {
+      if (!state) return;
+      let sent = 0;
+      const errors: string[] = [];
+      for (const o of cmd.orders) {
+        const error = sendSupport(state, o.from, cmd.to, o.units);
+        if (error) errors.push(`${state.villages[o.from]?.name ?? '?'}: ${error}`);
+        else sent++;
+      }
+      if (sent) notice(`Support verstuurd vanuit ${sent} ${sent === 1 ? 'dorp' : 'dorpen'}.`, 'info');
+      if (errors.length) notice(errors.join(' · '), 'error');
       break;
     }
     case 'deleteTemplate': {

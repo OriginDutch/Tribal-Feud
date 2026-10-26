@@ -2,7 +2,7 @@ import { formatGameTime } from '../../shared/time';
 import { UnitIcon } from '../units/UnitIcon';
 import { MapLink } from '../components/MapLink';
 import { duration, num } from '../format';
-import { screen, snapshot } from '../store';
+import { openSupport, screen, snapshot } from '../store';
 import { VillageScene } from '../village/VillageScene';
 
 export function OverviewScreen() {
@@ -29,6 +29,7 @@ export function OverviewScreen() {
                 <th>Van</th>
                 <th>Aankomst</th>
                 <th class="right">Nog</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -43,6 +44,11 @@ export function OverviewScreen() {
                   </td>
                   <td class="mono muted">{formatGameTime(m.arrives)}</td>
                   <td class="right mono">{duration(m.arrives - s.time)}</td>
+                  <td class="right">
+                    <button class="small" onClick={() => openSupport(m.to.id, m.arrives)}>
+                      Verdediging
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
