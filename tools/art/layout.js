@@ -1,6 +1,6 @@
 // The village layout shared by the baker: where every building, home, tree and wall piece stands.
 import * as THREE from 'three';
-import { M, rnd, reseed, group, tree, pine, bush, rock, well, house, barrel, crate, box, cyl, fence, logs, gable } from './lib.js';
+import { M, rnd, reseed, group, tree, pine, bush, rock, well, house, barrel, crate, box, cyl, fence, logs, gable, hay } from './lib.js';
 import { B, wallRing, palisadeGate, stoneGate, gatehouse } from './buildings.js';
 
 export const RX = 18.5, RZ = 14, WALL_N = 28;
@@ -18,7 +18,7 @@ export const SLOTS = {
   barracks: [-11.6, 1.4, 0.6, 0.86, 6, 4], stable: [11.8, 1.8, -0.6, 0.86, 6, 4], place: [-5.4, 7.0, 0.2, 0.82, 5, 4],
   market: [5.6, 7.2, -0.2, 0.86, 5.5, 4], statue: [0, 1.3, 0, 0.62, 3, 3], storage: [-10.2, 7.4, 0.8, 0.8, 5, 3.5],
   garage: [10.2, 7.4, -0.8, 0.8, 5, 3.5], hide: [-4.2, 11.6, 0.15, 0.6, 3, 2.5],
-  church: [-5.4, -1.2, 1.2, 0.72, 4, 5], firstchurch: [-5.4, -1.2, 1.2, 0.72, 4, 5],
+  church: [-5.6, -1.4, 1.15, 1.0, 5, 6.5], firstchurch: [-5.6, -1.4, 1.15, 1.0, 5, 6.5],
   wood: [-27, -3.5, 0.5, 0.9, 5, 4], stone: [-20.5, 18.5, 0.35, 0.9, 5, 4], iron: [26.5, -5, -0.5, 0.9, 5, 4], farm: [23, 16, -0.45, 0.9, 6, 4],
 };
 /** Villagers' homes, in the order they appear as the headquarters grows. */
@@ -26,18 +26,23 @@ export const HOMES = [[-14.6, -3.6, 1.0, 2.2], [14.8, -3.2, -1.0, 2.2], [-4.4, -
 export const WALL_KINDS = ['palisade', 'stone', 'full'];
 /** Homes outside the wall, simpler than anything inside: x, z, rotation, style (0 hut, 1 cottage, 2 small house). */
 export const OUTER_HOMES = (() => {
-  // a ribbon of simple homes along the road out of the gate, nearest first; style 0 hut, 1 cottage, 2 small house
-  const out = [];
-  const zs = [17.4, 19.6, 21.8, 24.0, 26.2, 28.4, 30.6, 32.8, 35.0, 37.2];
-  zs.forEach((z, k) => {
-    for (const side of [-1, 1]) {
-      const n = out.length;
-      const x = side * (2.7 + ((k * 7 + (side > 0 ? 3 : 0)) % 5) * 0.25);
-      const style = k < 3 ? 2 - (n % 2) : k < 7 ? 1 - (n % 3 === 0 ? 1 : 0) + (n % 5 === 0 ? 1 : 0) : 0;
-      out.push([x, z + (side > 0 ? 0.9 : 0), side > 0 ? -Math.PI / 2 + 0.08 * ((k % 3) - 1) : Math.PI / 2 + 0.08 * ((k % 3) - 1), Math.max(0, Math.min(2, style)), k % 2]);
-    }
+  // farmsteads scattered over the fields south of the wall, nearest the gate first.
+  // [x, z, rotation, style 0 hut | 1 cottage | 2 small house, yard, seed]
+  let sd = 9137; const r = () => ((sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0) / 4294967296);
+  const keepOut = [[-20.5, 18.5, 6.5], [23, 16, 7.5], [-27, -3.5, 6], [26.5, -5, 6]];
+  const ok = (x, z) => Math.abs(x) > 3.2 && (x / (RX * 1.2)) ** 2 + (z / (RZ * 1.2)) ** 2 > 1 && !keepOut.some(([a, b, d]) => Math.hypot(x - a, z - b) < d);
+  const pts = [];
+  for (let t = 0; t < 4000 && pts.length < 20; t++) {
+    const x = (r() - 0.5) * 36, z = 15 + r() * 24;
+    if (!ok(x, z) || pts.some(([a, b]) => Math.hypot(x - a, z - b) < 5.4)) continue;
+    pts.push([x, z]);
+  }
+  pts.sort((a, b) => Math.hypot(a[0], a[1] - RZ) - Math.hypot(b[0], b[1] - RZ));
+  return pts.map(([x, z], n) => {
+    const style = n < 5 ? 2 - (n % 2) : n < 13 ? 1 - (n % 4 === 0 ? 1 : 0) : (n % 3 === 0 ? 1 : 0);
+    const face = Math.atan2(-x, 2) + (r() - 0.5) * 0.9; // roughly toward the road
+    return [x, z, face, style, n % 2, 400 + n * 13];
   });
-  return out;
 })();
 
 function road(g, pts, w = 1.4, mat = M.dirt) {
@@ -89,19 +94,49 @@ export function buildHome(root, i) {
   if (rnd() < 0.6) barrel(h, w / 2 + 0.3, 1.2); else crate(h, -w / 2 - 0.2, 1.2);
   return h;
 }
+/** A field: an irregular quad with furrows, at (x, z). */
+function field(root, x, z, w, d, rot, mat) {
+  const j = () => (rnd() - 0.5) * 0.7;
+  const c = [[-w / 2 + j(), -d / 2 + j()], [w / 2 + j(), -d / 2 + j()], [w / 2 + j(), d / 2 + j()], [-w / 2 + j(), d / 2 + j()]];
+  const sh2 = new THREE.Shape(c.map(([a, b]) => new THREE.Vector2(a, b)));
+  const geo = new THREE.ShapeGeometry(sh2);
+  const uv = geo.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) / 3, uv.getY(k) / 3);
+  const m = new THREE.Mesh(geo, mat); m.rotation.x = -Math.PI / 2; m.rotation.z = rot; m.position.set(x, 0.018, z); m.receiveShadow = true; root.add(m);
+}
+/** A winding footpath from a to b. */
+function footpath(root, a, b, w = 0.5) {
+  const n = 5, pts = [];
+  const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), px = -dz / L, pz = dx / L;
+  for (let k = 0; k <= n; k++) { const t = k / n, wob = k === 0 || k === n ? 0 : Math.sin(t * Math.PI + rnd()) * L * 0.07; pts.push([a[0] + dx * t + px * wob, a[1] + dz * t + pz * wob]); }
+  const curve = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)));
+  const N = 30, v = [];
+  let prevL, prevR;
+  for (let k = 0; k <= N; k++) { const p = curve.getPoint(k / N), d = curve.getTangent(k / N); const nx = -d.z, nz = d.x; const l = [p.x + nx * w / 2, p.z + nz * w / 2], r2 = [p.x - nx * w / 2, p.z - nz * w / 2]; if (prevL) v.push(prevL[0], 0.014, prevL[1], prevR[0], 0.014, prevR[1], l[0], 0.014, l[1], prevR[0], 0.014, prevR[1], r2[0], 0.014, r2[1], l[0], 0.014, l[1]); prevL = l; prevR = r2; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+  const uv = []; for (let k = 0; k < v.length / 3; k++) uv.push(v[k * 3] / 3, v[k * 3 + 2] / 3); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, M.dirt.clone()); m.material.side = THREE.DoubleSide; m.receiveShadow = true; root.add(m);
+}
 export function buildOuterHome(root, i) {
-  reseed(3000 + i * 31);
-  const [x, z, ry, style] = OUTER_HOMES[i];
+  const [x, z, ry, style, yard, seed] = OUTER_HOMES[i];
+  reseed(seed);
   const h = group(root, x, z, ry); h.scale.setScalar(0.85);
   if (style === 0) house(h, 0, 0, 1.8, 1.6, { f1: 1.2, f2: 0, roof: M.thatch, roofH: 1.0, wall: M.wood, gableMat: M.wood, chimney: rnd() < 0.5 });
   else if (style === 1) house(h, 0, 0, 2.1, 1.8, { f1: 1.3, f2: 0, roof: M.thatch, roofH: 1.1, chimney: true });
   else house(h, 0, 0, 2.3, 1.9, { f1: 1.4, f2: 0, roof: rnd() < 0.5 ? M.roofBrown : M.roofOrange, roofH: 1.2, chimney: true });
-  const yard = OUTER_HOMES[i][4];
   if (rnd() < 0.5) barrel(h, 1.3, 1.1); else crate(h, -1.3, 1.1);
-  if (style === 0) box(h, 0.9, 0.5, 0.6, M.hay, 1.6, 0, -0.2);
-  // a yard behind: veg patch with a fence, or a woodpile and shed
-  if (yard === 0) { const v = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.4), M.greens); v.rotation.x = -Math.PI / 2; v.position.set(0, 0.02, -2.0); v.receiveShadow = true; h.add(v); fence(h, [[-1.2, -1.2], [-1.2, -2.8], [1.2, -2.8], [1.2, -1.2]], 0.45); }
-  else { logs(h, -1.0, -1.6, 4, 0); box(h, 1.0, 0.9, 0.8, M.wood, 1.0, 0, -1.6); gable(h, 1.0, 0.8, 0.4, 0.1, M.thatch, 1.0, 0.9, -1.6, M.wood); }
+  if (yard === 0) { logs(h, -1.4, -1.4, 4, 0.3); hay(h, 1.5, -1.2, 0.35); }
+  else { box(h, 1.0, 0.9, 0.8, M.wood, 1.6, 0, -1.4); gable(h, 1.0, 0.8, 0.4, 0.1, M.thatch, 1.6, 0.9, -1.4, M.wood); }
+  // one or two uneven fields beside the farmstead, partly fenced
+  const away = Math.sign(x) || 1;
+  const fx = x + away * (2.6 + rnd() * 1.2), fz = z + (rnd() - 0.4) * 2.4, fw = 2.8 + rnd() * 1.8, fd = 2.0 + rnd() * 1.4, fr = (rnd() - 0.5) * 0.8;
+  field(root, fx, fz, fw, fd, fr, rnd() < 0.55 ? M.wheat : M.greens);
+  if (rnd() < 0.6) field(root, fx + (rnd() - 0.5) * 1.5, fz + fd * 0.9 + 0.4, fw * (0.6 + rnd() * 0.3), fd * 0.7, fr + (rnd() - 0.5) * 0.4, rnd() < 0.5 ? M.wheat : M.greens);
+  if (rnd() < 0.6) { const c = Math.cos(-fr), s2 = Math.sin(-fr); const P = (a, b) => [fx + a * c - b * s2, fz + a * s2 + b * c]; fence(root, [P(-fw / 2, -fd / 2 - 0.2), P(fw / 2, -fd / 2 - 0.2), P(fw / 2, fd / 2)], 0.45); }
+  // winding footpath to the main road
+  const door = [x + Math.sin(ry) * 1.0, z + Math.cos(ry) * 1.0];
+  let to = [Math.sign(x) * 0.8, z], best = Math.abs(x);
+  for (let k = 0; k < i; k++) { const [ox, oz, ory] = OUTER_HOMES[k]; const od = [ox + Math.sin(ory) * 1.0, oz + Math.cos(ory) * 1.0]; const d = Math.hypot(od[0] - door[0], od[1] - door[1]); if (d < best * 0.8) { best = d; to = od; } }
+  footpath(root, door, to, 0.42);
   return h;
 }
 /** In worlds without churches the church plot holds an ordinary home. */
@@ -128,7 +163,7 @@ const inEllipse = (x, z, k = 1) => (x / (RX * k)) ** 2 + (z / (RZ * k)) ** 2 < 1
 export function forest() {
   reseed(4242);
   const out = [];
-  const avoid = [[-27, -3.5, 6], [-20.5, 18.5, 5.5], [26.5, -5, 6], [23, 16, 6.5], [0, 21, 3], ...OUTER_HOMES.map(([x, z]) => [x, z, 3.0])];
+  const avoid = [[-27, -3.5, 6], [-20.5, 18.5, 5.5], [26.5, -5, 6], [23, 16, 6.5], [0, 21, 3], ...OUTER_HOMES.map(([x, z]) => [x, z, 3.2]), ...OUTER_HOMES.map(([x, z]) => [x + (Math.sign(x) || 1) * 3.2, z + 0.6, 3.2])];
   for (let i = 0; i < 520; i++) {
     const x = (rnd() - 0.5) * 74, z = (rnd() - 0.5) * 60 - 2;
     const k = rnd(), s = 0.9 + rnd() * 0.6;

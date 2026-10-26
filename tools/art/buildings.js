@@ -634,25 +634,25 @@ function cross(g, x, y, z, s = 1) { box(g, 0.06 * s, 0.5 * s, 0.06 * s, M.gold, 
 B.church = (g, stage = 3) => {
   patch(g, 3.4, 3.6, M.cobble, 0, 1.0);
   if (stage === 1) {
-    nave(g, 2.4, 3.6, 1.6, M.wood, M.thatch, 1.5);
-    doorZ(g, 0, 0.3, 1.82, 0.7, 1.0);
+    nave(g, 2.8, 4.2, 1.9, M.wood, M.thatch, 1.7);
+    doorZ(g, 0, 0.3, 2.12, 0.8, 1.1);
     // little bell frame on the front gable
-    for (const s of [-1, 1]) box(g, 0.08, 0.7, 0.08, M.beam, s * 0.22, 3.3, 1.6);
-    box(g, 0.6, 0.08, 0.12, M.beam, 0, 4.0, 1.6); cone(g, 0.14, 0.22, M.bronze, 0, 3.7, 1.6, 10);
-    cross(g, 0, 4.1, 1.6, 0.8);
+    for (const s of [-1, 1]) box(g, 0.1, 0.9, 0.1, M.beam, s * 0.26, 3.8, 1.9);
+    box(g, 0.7, 0.1, 0.14, M.beam, 0, 4.7, 1.9); cone(g, 0.17, 0.26, M.bronze, 0, 4.3, 1.9, 10);
+    cross(g, 0, 4.8, 1.9, 1);
     talking(person(g, 0.9, 2.6, -0.4, { color: 0x3a2f28, hat: false })); idle(person(g, -0.6, 3.0, 0.4, {}));
     return;
   }
-  const len = stage === 2 ? 4.2 : 4.8, w = 2.8;
-  nave(g, w, len, 2.4, M.stone, M.slate, 1.8);
+  const len = stage === 2 ? 4.6 : 5.6, w = 3.2;
+  nave(g, w, len, stage === 2 ? 2.6 : 3.0, M.stone, M.slate, 2.0);
   // apse at the back
-  const ap = sh(new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 2.4, 14, 1, false, Math.PI / 2, Math.PI), M.stone)); ap.position.set(0, 1.5, -len / 2); g.add(ap);
-  const apr = sh(new THREE.Mesh(new THREE.ConeGeometry(1.2, 1.2, 14, 1, false, Math.PI / 2, Math.PI), M.slate)); apr.position.set(0, 3.3, -len / 2); g.add(apr);
+  const ap = sh(new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 2.6, 14, 1, false, Math.PI / 2, Math.PI), M.stone)); ap.position.set(0, 1.5, -len / 2); g.add(ap);
+  const apr = sh(new THREE.Mesh(new THREE.ConeGeometry(1.2, 1.2, 14, 1, false, Math.PI / 2, Math.PI), M.slate)); apr.position.set(0, 3.5, -len / 2); g.add(apr);
   // tower at the front
-  const th = stage === 2 ? 4.2 : 6.0, tw = 1.5;
+  const th = stage === 2 ? 5.0 : 7.4, tw = 1.7;
   box(g, tw, th, tw, M.stone, 0, 0, len / 2 + tw / 2 - 0.2);
-  const spire = sh(new THREE.Mesh(new THREE.ConeGeometry(tw * 0.74, stage === 2 ? 1.6 : 3.4, 4), M.slate)); spire.rotation.y = Math.PI / 4; spire.position.set(0, th + (stage === 2 ? 0.8 : 1.7), len / 2 + tw / 2 - 0.2); g.add(spire);
-  cross(g, 0, th + (stage === 2 ? 1.6 : 3.4), len / 2 + tw / 2 - 0.2, stage === 2 ? 1 : 1.3);
+  const spire = sh(new THREE.Mesh(new THREE.ConeGeometry(tw * 0.74, stage === 2 ? 1.6 : 3.4, 4), M.slate)); spire.rotation.y = Math.PI / 4; spire.position.set(0, th + (stage === 2 ? 0.9 : 2.0), len / 2 + tw / 2 - 0.2); g.add(spire);
+  cross(g, 0, th + (stage === 2 ? 1.8 : 4.0), len / 2 + tw / 2 - 0.2, stage === 2 ? 1 : 1.3);
   for (const s of [-1, 1]) { arched(g, s * 0.0 + (s > 0 ? 0 : 0), th - 1.2, len / 2 + tw - 0.18, 0.3, 0.5); }
   doorZ(g, 0, 0, len / 2 + tw - 0.17, 0.8, 1.3);
   arched(g, 0, 2.0, len / 2 + tw - 0.17, 0.4, 0.7);
@@ -664,10 +664,10 @@ B.church = (g, stage = 3) => {
 // Eerste kerk: an old, squat stone chapel with a stubby tower.
 B.firstchurch = (g) => {
   patch(g, 3.0, 3.0, M.cobble, 0, 0.8);
-  nave(g, 2.4, 3.4, 1.9, M.stoneDark, M.roofBrown, 1.5);
-  box(g, 1.3, 3.4, 1.3, M.stoneDark, 0, 0, 2.2); crenels(g, 0, 3.4, 2.2, 1.2, 1.2); cross(g, 0, 3.7, 2.2, 1);
-  doorZ(g, 0, 0, 2.87, 0.7, 1.1);
+  nave(g, 2.9, 4.2, 2.3, M.stoneDark, M.roofBrown, 1.8);
+  box(g, 1.6, 4.4, 1.6, M.stoneDark, 0, 0, 2.7); crenels(g, 0, 4.4, 2.7, 1.5, 1.5); cross(g, 0, 4.8, 2.7, 1.2);
+  doorZ(g, 0, 0, 3.52, 0.8, 1.2);
   for (const [x, z] of [[-1.9, 1.6], [-2.1, 0.6], [1.9, 1.2]]) { box(g, 0.25, 0.45, 0.08, M.stone, x, 0, z); }
-  torch(g, -0.5, 0.9, 2.95); torch(g, 0.5, 0.9, 2.95);
-  idle(person(g, 1.2, 3.6, -0.4, { color: 0x3a2f28, hat: false }));
+  torch(g, -0.55, 0.9, 3.6); torch(g, 0.55, 0.9, 3.6);
+  idle(person(g, 1.3, 4.3, -0.4, { color: 0x3a2f28, hat: false }));
 };
