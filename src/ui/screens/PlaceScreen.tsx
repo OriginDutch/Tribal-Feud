@@ -138,7 +138,7 @@ export function PlaceScreen() {
   const ownTarget = target?.kind === 'own';
 
   return (
-    <div class="screen">
+    <div class="screen narrow">
       <h2>Verzamelplaats</h2>
       <BuildingHeader village={v} id="place" />
       {place && place.level === 0 ? (

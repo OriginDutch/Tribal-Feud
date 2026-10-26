@@ -92,7 +92,7 @@ export function FarmScreen() {
   const lightCarry = 80;
 
   return (
-    <div class="screen">
+    <div class="screen narrow">
       <h2>Farm-assistent</h2>
       <section class="panel">
         <div class="templates">

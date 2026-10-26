@@ -30,16 +30,17 @@ export function MainScreen() {
         <span class="chip gold">Level {v.buildings.find((b) => b.id === 'main')?.level}</span>
       </div>
 
-      <section class="panel">
+      <div class="main-grid">
+      <section class="panel mg-queue" style={{ '--slots': v.buildQueueSlots } as Record<string, number>}>
         <h3>
           Bouwqueue {v.buildQueue.length}/{v.buildQueueSlots}
         </h3>
         <table class="table fixed">
           <colgroup>
             <col />
-            <col style={{ width: '170px' }} />
-            <col style={{ width: '170px' }} />
-            <col style={{ width: '110px' }} />
+            <col style={{ width: '104px' }} />
+            <col style={{ width: '118px' }} />
+            <col style={{ width: '92px' }} />
           </colgroup>
           <tbody>
             {slots.map((job, i) =>
@@ -76,7 +77,7 @@ export function MainScreen() {
         </table>
       </section>
 
-      <section class="panel">
+      <section class="panel mg-list">
         <h3>Gebouwen</h3>
         <table class="table fixed">
           <colgroup>
@@ -122,7 +123,7 @@ export function MainScreen() {
         </table>
       </section>
 
-      <section class="panel">
+      <section class="panel mg-tear">
         <h3>Afbreken</h3>
         {hq < DEMOLISH_HQ ? (
           <p class="muted">Vanaf hoofdgebouw {DEMOLISH_HQ} kun je gebouwen afbreken.</p>
@@ -151,6 +152,7 @@ export function MainScreen() {
           </>
         )}
       </section>
+      </div>
     </div>
   );
 }

@@ -15,7 +15,7 @@ export function OverviewScreen() {
   const names = ['Hout', 'Leem', 'IJzer'];
 
   return (
-    <div class="screen">
+    <div class="screen wide">
       <h2>
         {v.name} <span class="muted">({v.x}|{v.y}) · {num(v.points)} punten</span>
       </h2>
@@ -53,12 +53,15 @@ export function OverviewScreen() {
       {s.time < s.protectionEndsAt && (
         <p class="muted">Beginnersbescherming tot {formatGameTime(s.protectionEndsAt)}: niemand kan jou aanvallen, en jij hen niet.</p>
       )}
+      <div class="ov-layout">
+      <div class="ov-main">
       <VillageScene village={v} />
       <p class="muted">
         Wereld: snelheid ×{s.multipliers.world} · productie ×{s.multipliers.production} · bouwen ×{s.multipliers.build} ·
         rekruteren ×{s.multipliers.recruit}
       </p>
-      <div class="grid">
+      </div>
+      <div class="grid ov-side">
         <section class="panel">
           <h3>Productie per uur</h3>
           <table class="table compact">
@@ -147,6 +150,7 @@ export function OverviewScreen() {
           </ul>
         </section>
       </div>
+    </div>
     </div>
   );
 }

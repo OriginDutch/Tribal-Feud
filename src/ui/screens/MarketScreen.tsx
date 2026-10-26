@@ -61,7 +61,7 @@ export function MarketScreen() {
   const level = v.buildings.find((b) => b.id === 'market')?.level ?? 0;
   if (!m || level === 0) {
     return (
-      <div class="screen">
+      <div class="screen narrow">
         <h2>Marktplaats</h2>
         <BuildingHeader village={v} id="market" />
         <section class="panel">
@@ -131,7 +131,7 @@ export function MarketScreen() {
         : null;
 
   return (
-    <div class="screen">
+    <div class="screen narrow">
       <div class="screen-head">
         <h2>Marktplaats</h2>
         <span class="chip gold">Level {level}</span>

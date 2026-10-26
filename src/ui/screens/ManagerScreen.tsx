@@ -44,7 +44,7 @@ export function ManagerScreen() {
   };
 
   return (
-    <div class="screen">
+    <div class="screen narrow">
       <h2>Accountmanager</h2>
       <section class="panel">
         <h3>

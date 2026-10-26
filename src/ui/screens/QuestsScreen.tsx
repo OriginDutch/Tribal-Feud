@@ -9,7 +9,7 @@ export function QuestsScreen() {
   if (!s || !q) return null;
 
   return (
-    <div class="screen">
+    <div class="screen narrow">
       <h2>Opdrachten</h2>
 
       <section class="panel">

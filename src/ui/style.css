@@ -521,3 +521,30 @@ select option:disabled { color: var(--faint); }
 .layout:has(.map-screen) { grid-template-columns: 76px minmax(0, 1fr); }
 .layout:has(.map-screen) .toast-col { position: fixed; right: 16px; bottom: 16px; top: auto; height: auto; width: 280px; padding: 0; z-index: 30; }
 .map-canvas { height: calc(100vh - 150px); }
+
+/* ---- page widths: centred; tables wide, forms narrow, overview and map use the room ---- */
+.layout { grid-template-columns: 76px minmax(0, 1fr) !important; }
+.toast-col { position: fixed !important; right: 16px; bottom: 16px; top: auto !important; height: auto !important; width: 280px; padding: 0 !important; z-index: 30; }
+.content > .screen { max-width: 1500px; margin-inline: auto; width: 100%; }
+.content > .screen.narrow { max-width: 1120px; }
+.content > .screen.wide { max-width: 2400px; }
+.content > .screen.map-screen { max-width: none; }
+
+/* overview: village left, the four cards right in a 2×2 grid */
+.ov-main { min-width: 0; }
+.ov-main > p { margin: 10px 0 0; }
+@media (min-width: 1500px) {
+  .ov-layout { display: grid; grid-template-columns: minmax(0, 1fr) clamp(520px, 30vw, 640px); gap: 16px; align-items: start; }
+  .ov-side { grid-template-columns: 1fr 1fr; align-content: start; }
+  .ov-side .panel { padding: 14px 16px; }
+}
+@media (max-width: 1499px) { .ov-side { margin-top: 14px; } }
+
+/* headquarters: queue + demolish beside the building list on wide screens; the queue keeps its height */
+.main-grid { display: flex; flex-direction: column; gap: 14px; }
+.mg-queue .table { min-height: calc(var(--slots, 5) * 34px); }
+@media (min-width: 1400px) {
+  .main-grid { display: grid; grid-template-columns: minmax(0, 1fr) 560px; grid-template-rows: auto 1fr; grid-template-areas: 'list queue' 'list tear'; align-items: start; gap: 14px 16px; }
+  .mg-list { grid-area: list; } .mg-queue { grid-area: queue; } .mg-tear { grid-area: tear; }
+}
+.mg-queue td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
