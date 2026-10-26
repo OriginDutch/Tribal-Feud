@@ -34,7 +34,7 @@ export interface LogEntry {
 
 export type BotTier = 'pro' | 'mid' | 'casual';
 
-export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info';
+export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request';
 export interface InboxMessage {
   id: number;
   time: number;
@@ -47,9 +47,40 @@ export interface InboxMessage {
   /** invite: the tribe inviting you. proposal: the tribe proposing, with the relation. application: the bot (from) asking to join yours. */
   tribe?: number;
   relation?: 'nap' | 'ally' | 'peace';
+  /** A tribe mate asking you something (kind 'request'). */
+  request?: BotRequest;
   /** Messages with a choice: open until answered or expired. */
   status?: 'open' | 'accepted' | 'declined' | 'expired';
   expires?: number;
+}
+
+/** What a tribe mate can ask you. */
+export type BotRequest =
+  | { type: 'support'; village: number; movement: number; arrives: number }
+  | { type: 'resources'; village: number; res: [number, number, number] }
+  | { type: 'permission'; target: number };
+
+/** You asked your tribe to help defend a village against an attack. */
+export interface HelpAsk {
+  id: number;
+  village: number;
+  movement: number;
+  arrives: number;
+  at: number;
+  /** Mates that answered (they answer once, when online). */
+  answered: number[];
+}
+
+/** An order (as leader) or a suggestion (as member) to your tribe. */
+export interface TribeOrder {
+  id: number;
+  kind: 'attack' | 'spare' | 'focus';
+  /** attack: a village id; spare / focus: a player id. */
+  target: number;
+  binding: boolean;
+  at: number;
+  expires: number;
+  answers: Record<number, 'yes' | 'half' | 'no'>;
 }
 
 /** Something you asked a bot: to join its tribe, to join yours, or a treaty with its tribe. */
@@ -77,6 +108,14 @@ export interface BotState {
   presence?: { online: boolean; until: number; n: number };
   /** Incoming attacks this bot has seen, by movement id (pruned when they are gone). */
   seen?: Record<number, SeenAttack>;
+  /** Give and take with you (tribe mates): + you helped it, − you let it down. About −2..2. */
+  favor?: number;
+  /** Players it leaves alone until a time (your order, or you said no to attacking them). */
+  spare?: Record<number, number>;
+  /** Players it goes after harder until a time (your order). */
+  focus?: Record<number, number>;
+  /** When it last asked you something (one open request at a time, not too often). */
+  lastAsk?: number;
   /** Who attacked it and how much it minds: player id -> score (fades over time). */
   grudges?: Record<number, { score: number; at: number }>;
   /** 0..1, higher = more turns. */
@@ -197,6 +236,10 @@ export interface WorldState {
   tribeAsks?: TribeAsk[];
   /** How often a bot turned down your invitation, and a tribe your application (for a note in the lists). */
   tribeRefusals?: { invites: Record<number, number>; applications: Record<number, number> };
+  /** Your requests for help to your tribe. */
+  helpAsks?: HelpAsk[];
+  /** Orders / suggestions to your tribe. */
+  tribeOrders?: TribeOrder[];
   /** Which tribe events pause the game. */
   tribePause?: { war: boolean; requests: boolean };
 }

@@ -8,6 +8,7 @@
 import { MAX_MEMBERS } from '../shared/tribes';
 import { DAY } from '../shared/time';
 import { isOnline } from './bots';
+import { answerRequest } from './tribeOrders';
 import { grudge } from './botReact';
 import { nextFloat } from './rng';
 import {
@@ -55,12 +56,12 @@ export function addMessage(state: WorldState, m: Omit<InboxMessage, 'id' | 'time
   return msg;
 }
 
-function pauses(state: WorldState, kind: 'war' | 'requests'): boolean {
+export function pauses(state: WorldState, kind: 'war' | 'requests'): boolean {
   return (state.tribePause ?? { war: true, requests: true })[kind];
 }
 
 /** Raises an auto-pause alert (same mechanism as incoming attacks). */
-function alertHuman(state: WorldState, text: string): void {
+export function alertHuman(state: WorldState, text: string): void {
   if (state.alert) state.alert.text = `${state.alert.text} · ${text}`;
   else state.alert = { time: state.time, text, autoPause: true };
 }
@@ -229,11 +230,12 @@ export function answerMessage(state: WorldState, id: number, accept: boolean): s
   if (!m || m.status !== 'open') return 'Dit bericht vraagt geen antwoord meer.';
   m.read = true;
   const t = m.tribe !== undefined ? state.tribes?.[m.tribe] : undefined;
-  if (!accept) {
+  if (!accept && m.kind !== 'request') {
     m.status = 'declined';
     if (t && m.kind === 'invite') addLog(state, { time: state.time, text: `Je slaat de uitnodiging van ${tag(t)} af.` });
     return null;
   }
+  if (m.kind === 'request') return answerRequest(state, m, accept);
   if (!t) { m.status = 'expired'; return 'Die stam bestaat niet meer.'; }
   if (m.kind === 'invite') {
     const me = human(state);

@@ -11,6 +11,7 @@ const KIND: Record<InboxView['kind'], string> = {
   answer: 'Antwoord',
   war: 'Oorlog',
   info: 'Bericht',
+  request: 'Verzoek',
 };
 const STATUS = { accepted: 'Geaccepteerd', declined: 'Afgewezen', expired: 'Verlopen' } as const;
 

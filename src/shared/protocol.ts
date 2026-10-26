@@ -6,6 +6,7 @@ import type { BarbType, BonusKind } from './barbarianTypes';
 import type { ConfigOverrides, PresetId } from './config';
 import type { Speed } from './time';
 import type { AlertMode, LogEntry } from '../sim/state';
+import type { BotRequest } from '../sim/state';
 import type { BuildTemplate, NobleTemplate, TroopTemplate, VillageManager } from '../sim/manager';
 import type { SaveMeta } from '../sim/save';
 import type { VillageView } from '../sim/view';
@@ -56,6 +57,9 @@ export type Command =
   | { type: 'inboxRead' }
   | { type: 'getInbox' }
   | { type: 'getPlayer'; id: number }
+  | { type: 'askTribeHelp'; movement: number }
+  | { type: 'giveOrder'; kind: 'attack' | 'spare' | 'focus'; target: number }
+  | { type: 'cancelOrder'; id: number }
   | { type: 'setTribePause'; war: boolean; requests: boolean }
   | { type: 'setManager'; villageId: number; manager: VillageManager | null }
   | { type: 'setManagerAll'; manager: VillageManager | null }
@@ -129,12 +133,28 @@ export type TribeAskView =
   | { kind: 'apply'; tribe: number; at: number }
   | { kind: 'invite'; player: number; at: number }
   | { kind: 'propose'; tribe: number; relation: 'nap' | 'ally' | 'peace'; at: number };
+export interface OrderView {
+  id: number;
+  kind: 'attack' | 'spare' | 'focus';
+  target: number;
+  /** "Dorp (x|y) van speler" or the player's name. */
+  targetName: string;
+  binding: boolean;
+  expires: number;
+  yes: number;
+  half: number;
+  no: number;
+  /** Mates that have not answered yet. */
+  waiting: number;
+}
+
 export interface InboxView {
   id: number;
   time: number;
-  kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info';
+  kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request';
   from: number;
   fromName: string;
+  request?: BotRequest;
   title: string;
   text: string;
   read: boolean;
@@ -270,6 +290,10 @@ export interface Snapshot {
   /** Open messages that ask for an answer. */
   inboxOpen: number;
   tribePause: { war: boolean; requests: boolean };
+  /** Incoming attacks you asked your tribe help for (movement ids). */
+  helpAsked: number[];
+  /** Your open orders / suggestions to the tribe. */
+  orders: OrderView[];
   /** Build templates: the presets first, then the player's own. */
   templates: BuildTemplate[];
   troopTemplates: TroopTemplate[];

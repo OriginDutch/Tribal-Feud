@@ -12,6 +12,7 @@ import { MINUTE } from '../shared/time';
 import { recruitDefense, villagesNear } from './bots';
 import { distance, protectionBlocker, sendAttack, sendSupport, travelTimeMs } from './movement';
 import { mayAttack } from './tribes';
+import { spares } from './tribeOrders';
 import { nextFloat } from './rng';
 import { BARBARIAN, movementIndex, villagesOf, type BotTier, type Player, type WorldState } from './state';
 import { isOperational, type Village } from './village';
@@ -186,7 +187,7 @@ const SCOUT_BACK: Record<BotTier, number> = { pro: 1, mid: 0.3, casual: 0 };
  */
 function counter(state: WorldState, player: Player, target: Village, from: Village, sent: number, arrives: number, danger: number): void {
   const tier = player.bot!.tier ?? 'pro';
-  if (from.owner < 0 || !mayAttack(state, player.id, from.owner) || protectionBlocker(state, player.id, from.owner) !== null) return;
+  if (from.owner < 0 || !mayAttack(state, player.id, from.owner) || protectionBlocker(state, player.id, from.owner) !== null || spares(state, player.bot, from.owner)) return;
   const mine = villagesOf(state, player.id).filter((o) => isOperational(state.config, o, 'place'));
   // scout back from the nearest village with scouts
   if (nextFloat(state.rng) < SCOUT_BACK[tier]) {

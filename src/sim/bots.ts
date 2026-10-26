@@ -19,6 +19,7 @@ import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { edgeSpot } from './map';
 import { grudge, reactToIncoming } from './botReact';
+import { focusWeight, spares, tribeDuties } from './tribeOrders';
 import { helpShare, isHelping, mayAttack, targetWeight, threatsFor } from './tribes';
 import { BARBARIAN, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type BotState, type BotTier, type Player, type WorldState } from './state';
 import {
@@ -156,6 +157,8 @@ export function onBotTurn(state: WorldState, playerId: number): void {
   if (!bot.reference && shouldAbandon(state, player)) abandonAndRestart(state, player);
   // incoming attacks show up account-wide: judge the new ones first
   reactToIncoming(state, player);
+  // in your tribe: help asks, orders, and requests to you
+  tribeDuties(state, player);
   // like a player, a bot looks at a few villages per turn, taking turns
   const villages = villagesOf(state, playerId);
   const per = bot.reference ? Infinity : Math.max(1, difficulty(state).villagesPerTurn);
@@ -590,7 +593,7 @@ export function forgetNeighbourhoods(state: WorldState): void {
 function farmTargets(state: WorldState, player: Player, v: Village, profile: BotProfile, radius: number): Village[] {
   const players = profile.attacksPlayers && state.time >= protectionEndsAt(state);
   return villagesNear(state, v, radius).filter(
-    (x) => x.owner === BARBARIAN || (players && x.owner !== player.id && x.owner >= 0 && mayAttack(state, player.id, x.owner)),
+    (x) => x.owner === BARBARIAN || (players && x.owner !== player.id && x.owner >= 0 && mayAttack(state, player.id, x.owner) && !spares(state, player.bot, x.owner)),
   );
 }
 
@@ -740,7 +743,7 @@ function nobleTarget(state: WorldState, player: Player, v: Village, profile: Bot
   const ok = (t: Village) => {
     if (t.owner === player.id || distance(t, v) > maxDist) return false;
     if (t.owner === BARBARIAN) return true;
-    if (!profile.attacksPlayers || protectionBlocker(state, player.id, t.owner) !== null || !mayAttack(state, player.id, t.owner)) return false;
+    if (!profile.attacksPlayers || protectionBlocker(state, player.id, t.owner) !== null || !mayAttack(state, player.id, t.owner) || spares(state, bot, t.owner)) return false;
     // only players it beat before
     return bot.farmLog[t.id]?.won === true;
   };
@@ -751,7 +754,7 @@ function nobleTarget(state: WorldState, player: Player, v: Village, profile: Bot
     if (!ok(t)) continue;
     const log = bot.farmLog[t.id];
     if (log && !log.won && state.time - log.at < 24 * 60 * MINUTE) continue;
-    const score = (villagePoints(state.config, t) / (3 + distance(t, v))) * (t.owner >= 0 ? targetWeight(state, player.id, t.owner) * (1 + Math.min(2, grudge(state, player, t.owner))) : 1);
+    const score = (villagePoints(state.config, t) / (3 + distance(t, v))) * (t.owner >= 0 ? targetWeight(state, player.id, t.owner) * (1 + Math.min(2, grudge(state, player, t.owner))) * focusWeight(state, bot, t.owner) : 1);
     if (score > bestScore) {
       bestScore = score;
       best = t;

@@ -2,6 +2,7 @@
  * Simulation worker: owns the world state, runs the clock, handles saves.
  * The UI never touches the state directly.
  */
+import { askTribeHelp, cancelOrder, giveOrder } from './tribeOrders';
 import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, proposeRelation, setOwnRelation } from './humanTribe';
 import { tribeNews, tribeViews } from './tribes';
 import { farmCUnits } from './intel';
@@ -22,7 +23,7 @@ import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteNobleTemplate, deleteTemplate, deleteTroopTemplate, findTemplate, saveNobleTemplate, saveTemplate, saveTroopTemplate, setManager, templateUse } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
-import type { CandidateView, MarketView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow } from '../shared/protocol';
+import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow } from '../shared/protocol';
 import {
   MERCHANT_CARRY,
   MERCHANT_MINUTES_PER_FIELD,
@@ -152,6 +153,8 @@ function snapshot(): Snapshot | null {
     inboxUnread: (state.inbox ?? []).filter((m) => !m.read).length,
     inboxOpen: (state.inbox ?? []).filter((m) => m.status === 'open').length,
     tribePause: state.tribePause ?? { war: true, requests: true },
+    helpAsked: (state.helpAsks ?? []).map((a) => a.movement),
+    orders: orderViews(state),
     templates: allTemplates(state),
     troopTemplates: state.troopTemplates ?? [],
     nobleTemplates: state.nobleTemplates ?? [],
@@ -208,11 +211,27 @@ function inviteCandidates(s: WorldState, ranking: RankingRow[]): CandidateView[]
   return out.sort((a, b) => a.distance - b.distance).slice(0, 20);
 }
 
+function orderViews(s: WorldState): OrderView[] {
+  const t = s.players[HUMAN_ID]?.tribe !== undefined ? s.tribes?.[s.players[HUMAN_ID]!.tribe!] : undefined;
+  const mates = t ? t.members.filter((m) => m !== HUMAN_ID).length : 0;
+  return (s.tribeOrders ?? []).filter((o) => o.expires > s.time).map((o) => {
+    const v = o.kind === 'attack' ? s.villages[o.target] : undefined;
+    const targetName = v ? `${v.name} (${v.x}|${v.y}) van ${v.owner < 0 ? 'barbaren' : (s.players[v.owner]?.name ?? '?')}` : (s.players[o.target]?.name ?? '?');
+    const answers = Object.values(o.answers);
+    return {
+      id: o.id, kind: o.kind, target: o.target, targetName, binding: o.binding, expires: o.expires,
+      yes: answers.filter((a) => a === 'yes').length, half: answers.filter((a) => a === 'half').length, no: answers.filter((a) => a === 'no').length,
+      waiting: Math.max(0, mates - answers.length),
+    };
+  });
+}
+
 function inboxViews(s: WorldState): InboxView[] {
   return [...(s.inbox ?? [])].reverse().map((m) => ({
     id: m.id, time: m.time, kind: m.kind, from: m.from, fromName: m.from >= 0 ? (s.players[m.from]?.name ?? '?') : 'Wereld',
     title: m.title, text: m.text, read: m.read,
     ...(m.tribe !== undefined ? { tribe: m.tribe } : {}),
+    ...(m.request ? { request: m.request } : {}),
     ...(m.status ? { status: m.status } : {}),
     ...(m.expires !== undefined ? { expires: m.expires } : {}),
   }));
@@ -666,6 +685,15 @@ async function handle(cmd: Command): Promise<void> {
       markInboxRead(state);
       post({ type: 'inbox', inbox: inboxViews(state) });
       break;
+    case 'askTribeHelp':
+    case 'giveOrder':
+    case 'cancelOrder': {
+      if (!state) return;
+      const error = cmd.type === 'askTribeHelp' ? askTribeHelp(state, cmd.movement) : cmd.type === 'giveOrder' ? giveOrder(state, cmd.kind, cmd.target) : cancelOrder(state, cmd.id);
+      if (error) notice(error, 'error');
+      else if (cmd.type === 'askTribeHelp') notice('Je stam is om hulp gevraagd. Stamgenoten antwoorden als ze online zijn.', 'info');
+      break;
+    }
     case 'getPlayer':
       if (state) post({ type: 'player', player: playerView(state, cmd.id) });
       return;
