@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { MINUTE } from '../shared/time';
-import { attackKind, reactToIncoming } from './botReact';
+import { attackKind, grudge, reactToIncoming } from './botReact';
 import { sendAttack } from './movement';
-import { createWorld, villagesOf, type Player, type WorldState } from './state';
+import { createWorld, invalidateOwners, villagesOf, type Player, type WorldState } from './state';
 import type { Village } from './village';
 
 /** Two bots far apart: an attacker with an army and a defender we control. */
@@ -79,5 +79,33 @@ describe('bots react to incoming attacks', () => {
     reactToIncoming(s, def);
     expect(def.bot!.seen?.[m.id]?.reacted).toBe(false);
     expect(dv.units.axe).toBe(100);
+  });
+});
+
+describe('pros hit back', () => {
+  it('scouts back, and counters the village whose army is on the road with another village', () => {
+    const { s, def, dv, att, av } = setup(22);
+    asTier(def, 'pro'); def.bot!.archetype = 'turtle';
+    // the defender gets a second village with an army, near the attacker
+    const second = Object.values(s.villages).filter((x) => x.owner < 0).sort((a, b) => Math.hypot(a.x - av.x, a.y - av.y) - Math.hypot(b.x - av.x, b.y - av.y))[3]!;
+    second.owner = def.id;
+    invalidateOwners(s);
+    second.buildings.place = 1; second.units.axe = 400; second.units.light = 100;
+    dv.units.spy = 10;
+    av.units.axe = 600; av.units.ram = 10;
+    sendAttack(s, av.id, dv.id, { axe: 600, ram: 10 });
+    reactToIncoming(s, def);
+    const back = Object.values(s.movements).filter((m) => m.owner === def.id && m.to === av.id);
+    expect(back.some((m) => (m.units.spy ?? 0) > 0)).toBe(true);
+    const hit = back.find((m) => (m.units.axe ?? 0) > 0);
+    expect(hit?.from).toBe(second.id);
+    expect(grudge(s, def, att.id)).toBeGreaterThan(0.5);
+  });
+
+  it('a grudge fades', () => {
+    const { s, def, att } = setup();
+    def.bot!.grudges = { [att.id]: { score: 1, at: 0 } };
+    s.time = 24 * 60 * MINUTE / s.config.worldSpeed;
+    expect(grudge(s, def, att.id)).toBeCloseTo(0.5, 5);
   });
 });

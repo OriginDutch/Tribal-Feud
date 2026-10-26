@@ -53,6 +53,8 @@ export interface BotState {
   presence?: { online: boolean; until: number; n: number };
   /** Incoming attacks this bot has seen, by movement id (pruned when they are gone). */
   seen?: Record<number, SeenAttack>;
+  /** Who attacked it and how much it minds: player id -> score (fades over time). */
+  grudges?: Record<number, { score: number; at: number }>;
   /** 0..1, higher = more turns. */
   activity: number;
   /** Game time of the next scheduled turn. */

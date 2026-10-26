@@ -18,7 +18,7 @@ import { MERCHANT_CARRY, acceptOffer, cancelOffer, createOffer, merchantsFree, o
 import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { edgeSpot } from './map';
-import { reactToIncoming } from './botReact';
+import { grudge, reactToIncoming } from './botReact';
 import { helpShare, isHelping, mayAttack, targetWeight, threatsFor } from './tribes';
 import { BARBARIAN, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type BotState, type BotTier, type Player, type WorldState } from './state';
 import {
@@ -750,7 +750,7 @@ function nobleTarget(state: WorldState, player: Player, v: Village, profile: Bot
     if (!ok(t)) continue;
     const log = bot.farmLog[t.id];
     if (log && !log.won && state.time - log.at < 24 * 60 * MINUTE) continue;
-    const score = (villagePoints(state.config, t) / (3 + distance(t, v))) * (t.owner >= 0 ? targetWeight(state, player.id, t.owner) : 1);
+    const score = (villagePoints(state.config, t) / (3 + distance(t, v))) * (t.owner >= 0 ? targetWeight(state, player.id, t.owner) * (1 + Math.min(2, grudge(state, player, t.owner))) : 1);
     if (score > bestScore) {
       bestScore = score;
       best = t;

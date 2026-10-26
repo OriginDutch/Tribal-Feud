@@ -10,7 +10,8 @@ import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../shared/gameData';
 import { MINUTE } from '../shared/time';
 import { recruitDefense, villagesNear } from './bots';
-import { distance, sendAttack, sendSupport, travelTimeMs } from './movement';
+import { distance, protectionBlocker, sendAttack, sendSupport, travelTimeMs } from './movement';
+import { mayAttack } from './tribes';
 import { nextFloat } from './rng';
 import { BARBARIAN, movementIndex, villagesOf, type BotTier, type Player, type WorldState } from './state';
 import { isOperational, type Village } from './village';
@@ -91,6 +92,11 @@ export function reactToIncoming(state: WorldState, player: Player): void {
       const reacts = inTime && nextFloat(state.rng) < reactChance(tier, danger);
       seen[id] = { reacted: reacts };
       if (reacts && react(state, player, v, m.arrives, danger)) seen[id]!.dodge = true;
+      // noticed at all (in time or not): it remembers who it was, and the sharp ones hit back
+      if (inTime || tier === 'pro') {
+        addGrudge(state, player, m.owner, danger);
+        if (reacts) counter(state, player, v, from, m.sent, m.arrives, danger);
+      }
     }
   }
   // forget attacks that landed or were called back
@@ -148,6 +154,60 @@ function restack(state: WorldState, player: Player, v: Village, arrives: number)
     if (!any || state.time + travelTimeMs(state, units, distance(o, v)) > arrives) continue;
     if (sendSupport(state, o.id, v.id, units) === null) senders++;
   }
+}
+
+// --- grudges and counters ------------------------------------------------------
+
+/** Grudge fades to half in a (speed-adjusted) day. */
+const GRUDGE_HALF_LIFE_MS = 24 * 60 * MINUTE;
+export function grudge(state: WorldState, player: Player, against: number): number {
+  const g = player.bot?.grudges?.[against];
+  if (!g) return 0;
+  const age = (state.time - g.at) * state.config.worldSpeed;
+  return g.score * 0.5 ** (age / GRUDGE_HALF_LIFE_MS);
+}
+function addGrudge(state: WorldState, player: Player, against: number, danger: number): void {
+  if (against < 0 || against === player.id) return;
+  const now = grudge(state, player, against);
+  (player.bot!.grudges ??= {})[against] = { score: now + danger, at: state.time };
+  // forget the ones that faded out
+  for (const id of Object.keys(player.bot!.grudges!)) if (grudge(state, player, Number(id)) < 0.05) delete player.bot!.grudges![Number(id)];
+}
+
+/** How often a tier hits back: pros always, a quarter of the middle group, casuals never. */
+const COUNTER: Record<BotTier, number> = { pro: 1, mid: 0.25, casual: 0 };
+/** And scouts back. */
+const SCOUT_BACK: Record<BotTier, number> = { pro: 1, mid: 0.3, casual: 0 };
+
+/**
+ * Hits back like a player would. It scouts the village the attack came from, and when the
+ * attack looks big, that village's army is on the road: it attacks it with ANOTHER village, timed
+ * to land before that army is home again.
+ */
+function counter(state: WorldState, player: Player, target: Village, from: Village, sent: number, arrives: number, danger: number): void {
+  const tier = player.bot!.tier ?? 'pro';
+  if (from.owner < 0 || !mayAttack(state, player.id, from.owner) || protectionBlocker(state, player.id, from.owner) !== null) return;
+  const mine = villagesOf(state, player.id).filter((o) => isOperational(state.config, o, 'place'));
+  // scout back from the nearest village with scouts
+  if (nextFloat(state.rng) < SCOUT_BACK[tier]) {
+    const scout = mine.filter((o) => o.units.spy >= 3).sort((a, b) => distance(a, from) - distance(b, from))[0];
+    if (scout) sendAttack(state, scout.id, from.id, { spy: Math.min(5, scout.units.spy) });
+  }
+  if (danger < 0.5 || nextFloat(state.rng) >= COUNTER[tier]) return;
+  // their army is home again at about arrives + (arrives - sent)
+  const home = arrives + (arrives - sent);
+  let best: { v: Village; units: UnitCounts; at: number } | null = null;
+  for (const o of mine) {
+    if (o.id === target.id) continue; // that one is busy dodging or defending
+    const units: UnitCounts = {};
+    let n = 0;
+    for (const u of OFFENSE) if (u !== 'snob' && o.units[u] > 0) { units[u] = o.units[u]; n += o.units[u]; }
+    if (n < 100) continue;
+    const at = state.time + travelTimeMs(state, units, distance(o, from));
+    if (at >= home) continue; // too slow: their army would be back
+    if (!best || at < best.at) best = { v: o, units, at };
+  }
+  if (best) sendAttack(state, best.v.id, from.id, best.units);
 }
 
 /** Did the owner of this village see (and act on) this attack? Tribe mates only help with those. */
