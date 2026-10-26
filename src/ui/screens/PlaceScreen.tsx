@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { UnitIcon } from '../units/UnitIcon';
 import { BuildingHeader } from '../buildings/BuildingHeader';
 import { CATAPULT_TARGETS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
@@ -150,8 +151,8 @@ export function PlaceScreen() {
           <div class="send-grid">
             {units.map((u) => (
               <label key={u.id} class="send-unit">
-                <span>
-                  {u.name}{' '}
+                <span class="unit-name">
+                  <UnitIcon id={u.id} size={20} /> {u.name}
                   <button class="link" onClick={() => setCounts({ ...counts, [u.id]: String(u.home) })}>
                     ({num(u.home)})
                   </button>

@@ -7,7 +7,6 @@ import { CANCEL_WINDOW_MS, cancelBlocker } from './movement';
 
 export function mapData(state: WorldState): MapData {
   const own = currentVillage(state);
-  const reportsById = new Map(state.reports.map((r) => [r.id, r]));
   const villages: MapVillage[] = [];
   for (const v of Object.values(state.villages)) {
     if (v.owner === BARBARIAN) growBarbarian(state, v, state.time);
@@ -30,16 +29,8 @@ export function mapData(state: WorldState): MapData {
       const estimate = estimateLoot(state, v.id);
       if (estimate !== undefined) mv.estimate = estimate;
     }
-    const reportId = state.lastReportByTarget[v.id];
-    const report = reportId !== undefined ? reportsById.get(reportId) : undefined;
-    if (report) {
-      mv.last = {
-        time: report.time,
-        result: report.result,
-        loot: report.loot ? report.loot[0] + report.loot[1] + report.loot[2] : 0,
-      };
-      if (report.scouted) mv.last.scouted = report.scouted.res;
-    }
+    const last = state.lastAttack[v.id];
+    if (last) mv.last = { ...last };
     villages.push(mv);
   }
   return { ownVillageId: own?.id ?? -1, villages };

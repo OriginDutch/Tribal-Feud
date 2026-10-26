@@ -11,7 +11,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 export interface SaveData {
   version: number;
@@ -63,7 +63,7 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     }
     state.movements ??= {};
     state.reports ??= [];
-    state.lastReportByTarget ??= {};
+    state.lastAttack ??= {};
     state.farmTemplates ??= { A: { light: 5 }, B: { spear: 10 } };
     generateMap(state);
     return { ...data, version: 4 };
@@ -125,6 +125,24 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
   9: (data) => {
     data.state.config.bots.difficulty = 'hard';
     return { ...data, version: 10 };
+  },
+  // v10 kept the last attack per target as a report id: keep the summary itself, so reports can be deleted.
+  10: (data) => {
+    const state = data.state as WorldState & { lastReportByTarget?: Record<number, number> };
+    const byId = new Map(state.reports.map((r) => [r.id, r]));
+    state.lastAttack = {};
+    for (const [target, id] of Object.entries(state.lastReportByTarget ?? {})) {
+      const r = byId.get(id);
+      if (!r) continue;
+      state.lastAttack[Number(target)] = {
+        time: r.time,
+        result: r.result,
+        loot: r.loot ? r.loot[0] + r.loot[1] + r.loot[2] : 0,
+        ...(r.scouted ? { scouted: r.scouted.res } : {}),
+      };
+    }
+    delete state.lastReportByTarget;
+    return { ...data, version: 11 };
   },
 };
 

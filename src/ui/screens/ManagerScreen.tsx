@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { UnitIcon } from '../units/UnitIcon';
 import { BUILDING_IDS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
 import type { BuildTemplate } from '../../sim/manager';
 import { num } from '../format';
@@ -69,7 +70,9 @@ export function ManagerScreen() {
         <div class="template-units">
           {units.map((u) => (
             <label key={u.id} title={u.name}>
-              {UNIT_SHORT[u.id]}
+              <span class="unit-name">
+                <UnitIcon id={u.id} size={18} /> {UNIT_SHORT[u.id]}
+              </span>
               <input
                 type="number"
                 min={0}

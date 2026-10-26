@@ -1,4 +1,5 @@
 import { formatGameTime } from '../../shared/time';
+import { UnitIcon } from '../units/UnitIcon';
 import { BuildingHeader } from '../buildings/BuildingHeader';
 import { Cost } from '../components/Cost';
 import { duration } from '../format';
@@ -40,7 +41,9 @@ export function SmithScreen() {
             {units.map((u) => (
               <tr key={u.id}>
                 <td>
-                  <strong>{u.name}</strong>
+                  <span class="unit-name">
+                    <UnitIcon id={u.id} size={26} /> <strong>{u.name}</strong>
+                  </span>
                 </td>
                 {u.researched ? (
                   <>

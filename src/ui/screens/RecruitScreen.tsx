@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { UnitIcon } from '../units/UnitIcon';
 import { BuildingHeader } from '../buildings/BuildingHeader';
 import type { RecruitBuilding, UnitId } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
@@ -19,7 +20,9 @@ function UnitRow({ villageId, u, have }: { villageId: number; u: UnitView; have:
   return (
     <tr>
       <td>
-        <strong>{u.name}</strong>
+        <span class="unit-name">
+          <UnitIcon id={u.id} size={26} /> <strong>{u.name}</strong>
+        </span>
       </td>
       <td>
         <Cost cost={u.cost} have={have} />

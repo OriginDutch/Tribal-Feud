@@ -39,6 +39,7 @@ export type Command =
   | { type: 'getMap' }
   | { type: 'getReports' }
   | { type: 'markReportsRead'; ids: number[] | 'all' }
+  | { type: 'deleteReports'; ids: number[] | 'read' }
   | { type: 'getRanking' }
   | { type: 'claimReward'; id: number; villageId?: number }
   | { type: 'claimAllRewards'; villageId?: number }

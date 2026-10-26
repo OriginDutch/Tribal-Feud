@@ -1,4 +1,5 @@
 import { BARB_TYPE_NAMES, BONUS_NAMES } from '../../shared/barbarianTypes';
+import { UnitIcon } from '../units/UnitIcon';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
@@ -30,8 +31,10 @@ function TemplateEditor({ name, units }: { name: 'A' | 'B'; units: UnitCounts })
       <strong>Template {name}</strong>
       <div class="template-units">
         {FARM_UNITS.map((u) => (
-          <label key={u} title={u}>
-            {UNIT_SHORT[u]}
+          <label key={u} title={UNIT_SHORT[u]}>
+            <span class="unit-name">
+              <UnitIcon id={u} size={18} /> {UNIT_SHORT[u]}
+            </span>
             <input type="number" min={0} value={draft[u] ?? ''} placeholder="0" onInput={(e) => setDraft({ ...draft, [u]: e.currentTarget.value })} />
           </label>
         ))}

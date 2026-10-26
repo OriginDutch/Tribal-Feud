@@ -82,6 +82,13 @@ export interface FarmTemplates {
  * The complete world. Plain data only: this object is what gets saved.
  * Runtime-only things (timers, suspended-because-tab-hidden) live in the worker.
  */
+export interface LastAttack {
+  time: number;
+  result: 'win' | 'winLosses' | 'loss';
+  loot: number;
+  scouted?: [number, number, number];
+}
+
 export interface WorldState {
   config: WorldConfig;
   /** Game time in ms since the world started. */
@@ -97,8 +104,8 @@ export interface WorldState {
   movements: Record<number, Movement>;
   /** Reports for the human player, newest last. */
   reports: Report[];
-  /** Last report id per target village (for the farm assistant). */
-  lastReportByTarget: Record<number, number>;
+  /** Your last attack per target village (map, farm assistant). Kept apart from reports, so deleting a report loses nothing. */
+  lastAttack: Record<number, LastAttack>;
   farmTemplates: FarmTemplates;
   /** What the human player knows about other villages. */
   intel: Record<number, Intel>;
@@ -154,7 +161,7 @@ export function createWorld(config: WorldConfig): WorldState {
     villages: {},
     movements: {},
     reports: [],
-    lastReportByTarget: {},
+    lastAttack: {},
     farmTemplates: { A: { light: 5 }, B: { spear: 10 } },
     intel: {},
     questProgress: {},

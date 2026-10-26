@@ -528,6 +528,13 @@ async function handle(cmd: Command): Promise<void> {
     case 'getReports':
       if (state) post({ type: 'reports', reports: state.reports });
       return;
+    case 'deleteReports': {
+      if (!state) return;
+      const drop = cmd.ids === 'read' ? new Set(state.reports.filter((r) => r.read).map((r) => r.id)) : new Set(cmd.ids);
+      state.reports = state.reports.filter((r) => !drop.has(r.id));
+      post({ type: 'reports', reports: state.reports });
+      break;
+    }
     case 'markReportsRead':
       if (!state) return;
       for (const r of state.reports) if (cmd.ids === 'all' || cmd.ids.includes(r.id)) r.read = true;

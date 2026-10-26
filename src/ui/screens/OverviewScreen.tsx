@@ -1,4 +1,5 @@
 import { formatGameTime } from '../../shared/time';
+import { UnitIcon } from '../units/UnitIcon';
 import { MapLink } from '../components/MapLink';
 import { duration, num } from '../format';
 import { screen, snapshot } from '../store';
@@ -106,7 +107,11 @@ export function OverviewScreen() {
               <tbody>
                 {units.map((u) => (
                   <tr key={u.id}>
-                    <td>{u.name}</td>
+                    <td>
+                      <span class="unit-name">
+                        <UnitIcon id={u.id} size={20} /> {u.name}
+                      </span>
+                    </td>
                     <td class="right mono">{num(u.home)}</td>
                   </tr>
                 ))}

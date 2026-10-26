@@ -1,4 +1,5 @@
 import { UNIT_IDS } from '../../shared/gameData';
+import { UnitIcon } from '../units/UnitIcon';
 import { formatGameTime } from '../../shared/time';
 import { num } from '../format';
 import { screen, send, snapshot } from '../store';
@@ -107,8 +108,8 @@ export function VillagesScreen() {
               <tr>
                 <th>Dorp</th>
                 {used.map((u) => (
-                  <th key={u} class="right">
-                    {UNIT_SHORT[u]}
+                  <th key={u} class="right" title={UNIT_SHORT[u]}>
+                    <UnitIcon id={u} size={20} title={UNIT_SHORT[u]} />
                   </th>
                 ))}
               </tr>

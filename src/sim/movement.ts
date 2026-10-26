@@ -418,7 +418,12 @@ function arriveAttack(state: WorldState, m: Movement): void {
     });
     state.reports.push(report);
     if (state.reports.length > MAX_REPORTS) state.reports.splice(0, state.reports.length - MAX_REPORTS);
-    state.lastReportByTarget[target.id] = report.id;
+    state.lastAttack[target.id] = {
+      time: report.time,
+      result: report.result,
+      loot: loot ? loot[0] + loot[1] + loot[2] : 0,
+      ...(report.scouted ? { scouted: report.scouted.res } : {}),
+    };
     if (battle.attackerWon && fighters && target.owner === BARBARIAN) state.stats.plunders++;
     if (loot) state.stats.loot += loot[0] + loot[1] + loot[2];
     const verdict = result === 'loss' ? 'verloren' : 'gewonnen';
