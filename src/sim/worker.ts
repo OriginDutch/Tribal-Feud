@@ -2,6 +2,7 @@
  * Simulation worker: owns the world state, runs the clock, handles saves.
  * The UI never touches the state directly.
  */
+import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, proposeRelation, setOwnRelation } from './humanTribe';
 import { tribeNews, tribeViews } from './tribes';
 import { farmCUnits } from './intel';
 import { createConfig, validateConfig } from '../shared/config';
@@ -21,7 +22,7 @@ import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteTemplate, findTemplate, saveTemplate, setManager } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
-import type { MarketView, MovementView, OfferView, OwnVillageRow, QuestsView, RankingRow } from '../shared/protocol';
+import type { MarketView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow } from '../shared/protocol';
 import {
   MERCHANT_CARRY,
   MERCHANT_MINUTES_PER_FIELD,
@@ -142,6 +143,11 @@ function snapshot(): Snapshot | null {
     incoming: incomingViews(state),
     protectionEndsAt: protectionEndsAt(state),
     alertMode: state.alertMode ?? 'perVillage',
+    myTribe: state.players[HUMAN_ID]?.tribe ?? null,
+    myTribeLeader: (() => { const t = state.players[HUMAN_ID]?.tribe; return t !== undefined && state.tribes?.[t]?.leader === HUMAN_ID; })(),
+    inboxUnread: (state.inbox ?? []).filter((m) => !m.read).length,
+    inboxOpen: (state.inbox ?? []).filter((m) => m.status === 'open').length,
+    tribePause: state.tribePause ?? { war: true, requests: true },
     templates: allTemplates(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
@@ -149,6 +155,38 @@ function snapshot(): Snapshot | null {
     quests: questsView(state),
     market: marketView(state),
   };
+}
+
+/** Ranking, tribes, diplomacy news and your pending tribe asks: the ranking and tribe screens. */
+function sendRanking(s: WorldState): void {
+  const ranking: RankingRow[] = s.players.map((p) => {
+    const villages = villagesOf(s, p.id);
+    const row: RankingRow = {
+      id: p.id,
+      name: p.name,
+      points: villages.reduce((sum, v) => sum + villagePoints(s.config, v), 0),
+      villages: villages.length,
+      isBot: p.isBot,
+    };
+    if (p.tribe !== undefined) row.tribe = p.tribe;
+    if (p.bot) {
+      row.archetype = ARCHETYPE_NAMES[p.bot.archetype];
+      row.activity = p.bot.activity;
+    }
+    return row;
+  });
+  ranking.sort((a, b) => b.points - a.points);
+  post({ type: 'ranking', ranking, tribes: tribeViews(s), news: tribeNews(s), asks: [...(s.tribeAsks ?? [])] });
+}
+
+function inboxViews(s: WorldState): InboxView[] {
+  return [...(s.inbox ?? [])].reverse().map((m) => ({
+    id: m.id, time: m.time, kind: m.kind, from: m.from, fromName: m.from >= 0 ? (s.players[m.from]?.name ?? '?') : 'Wereld',
+    title: m.title, text: m.text, read: m.read,
+    ...(m.tribe !== undefined ? { tribe: m.tribe } : {}),
+    ...(m.status ? { status: m.status } : {}),
+    ...(m.expires !== undefined ? { expires: m.expires } : {}),
+  }));
 }
 
 /** How far the market screen looks for other players' offers. */
@@ -494,6 +532,42 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       state.alertMode = cmd.mode;
       break;
+    case 'tribeFound':
+    case 'tribeApply':
+    case 'tribeLeave':
+    case 'tribeInvite':
+    case 'tribeKick':
+    case 'tribePropose':
+    case 'tribeRelation':
+    case 'inboxAnswer': {
+      if (!state) return;
+      const s = state;
+      const error =
+        cmd.type === 'tribeFound' ? foundTribe(s, cmd.name, cmd.tag)
+        : cmd.type === 'tribeApply' ? applyToTribe(s, cmd.tribe)
+        : cmd.type === 'tribeLeave' ? leaveTribe(s)
+        : cmd.type === 'tribeInvite' ? invitePlayer(s, cmd.player)
+        : cmd.type === 'tribeKick' ? kickMember(s, cmd.player)
+        : cmd.type === 'tribePropose' ? proposeRelation(s, cmd.tribe, cmd.relation)
+        : cmd.type === 'tribeRelation' ? setOwnRelation(s, cmd.tribe, cmd.action)
+        : answerMessage(s, cmd.id, cmd.accept);
+      if (error) post({ type: 'notice', level: 'error', text: error });
+      post({ type: 'inbox', inbox: inboxViews(s) });
+      sendRanking(s);
+      break;
+    }
+    case 'inboxRead':
+      if (!state) return;
+      markInboxRead(state);
+      post({ type: 'inbox', inbox: inboxViews(state) });
+      break;
+    case 'getInbox':
+      if (state) post({ type: 'inbox', inbox: inboxViews(state) });
+      return;
+    case 'setTribePause':
+      if (!state) return;
+      state.tribePause = { war: cmd.war, requests: cmd.requests };
+      break;
     case 'selectVillage':
       if (!state) return;
       if (state.villages[cmd.id]?.owner === HUMAN_ID) state.current = cmd.id;
@@ -515,29 +589,9 @@ async function handle(cmd: Command): Promise<void> {
     case 'getMap':
       if (state) post({ type: 'map', map: mapData(state) });
       return;
-    case 'getRanking': {
-      if (!state) return;
-      const s = state;
-      const ranking: RankingRow[] = s.players.map((p) => {
-        const villages = villagesOf(s, p.id);
-        const row: RankingRow = {
-          id: p.id,
-          name: p.name,
-          points: villages.reduce((sum, v) => sum + villagePoints(s.config, v), 0),
-          villages: villages.length,
-          isBot: p.isBot,
-        };
-        if (p.tribe !== undefined) row.tribe = p.tribe;
-        if (p.bot) {
-          row.archetype = ARCHETYPE_NAMES[p.bot.archetype];
-          row.activity = p.bot.activity;
-        }
-        return row;
-      });
-      ranking.sort((a, b) => b.points - a.points);
-      post({ type: 'ranking', ranking, tribes: tribeViews(s), news: tribeNews(s) });
+    case 'getRanking':
+      if (state) sendRanking(state);
       return;
-    }
     case 'getReports':
       if (state) post({ type: 'reports', reports: state.reports });
       return;

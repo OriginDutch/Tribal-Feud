@@ -1,6 +1,7 @@
 /**
  * Troops on the road: attacks and returns. Each movement is one event at its arrival time.
  */
+import { mayAttack } from './tribes';
 import type { BarbType } from '../shared/barbarianTypes';
 import { BUILDING_IDS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { growBarbarian, onBarbarianDamaged, villagePoints } from './barbarians';
@@ -180,6 +181,7 @@ export function sendAttack(
   }
   const protectedMsg = protectionBlocker(state, from.owner, to.owner);
   if (protectedMsg) return protectedMsg;
+  if (to.owner >= 0 && !mayAttack(state, from.owner, to.owner)) return 'Dat is een stamgenoot, bondgenoot of NAP-partner.';
   for (const u of UNIT_IDS) {
     if ((units[u] ?? 0) > from.units[u]) return `Niet genoeg ${config.units[u].name.toLowerCase()} in het dorp.`;
   }

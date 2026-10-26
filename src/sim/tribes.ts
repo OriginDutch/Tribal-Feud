@@ -12,6 +12,7 @@ import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
 import { HOUR, MINUTE } from '../shared/time';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { sawAttack } from './botReact';
+import { applyToHuman, humanTribeTick, proposeToHuman, warOnHuman } from './humanTribe';
 import { push } from './eventQueue';
 import { villagePoints } from './barbarians';
 import { nextFloat } from './rng';
@@ -107,7 +108,7 @@ export function targetWeight(state: WorldState, attacker: number, defender: numb
 }
 
 /** Centre of a player's villages, weighted by points. */
-function playerCentre(state: WorldState, id: number): { x: number; y: number; points: number } | null {
+export function playerCentre(state: WorldState, id: number): { x: number; y: number; points: number } | null {
   const vs = villagesOf(state, id);
   if (!vs.length) return null;
   let x = 0, y = 0, w = 0;
@@ -122,8 +123,8 @@ export function tribeCentre(state: WorldState, t: Tribe): { x: number; y: number
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
 /** Social appetite per archetype: how keen a bot is on tribes. */
-const SOCIAL: Record<Archetype, number> = { diplomat: 1, supporter: 0.9, opportunist: 0.7, farmer: 0.55, rusher: 0.5, turtle: 0.45 };
-const AGGRESSION: Record<Archetype, number> = { rusher: 1, opportunist: 0.8, farmer: 0.35, diplomat: 0.3, supporter: 0.3, turtle: 0.15 };
+export const SOCIAL: Record<Archetype, number> = { diplomat: 1, supporter: 0.9, opportunist: 0.7, farmer: 0.55, rusher: 0.5, turtle: 0.45 };
+export const AGGRESSION: Record<Archetype, number> = { rusher: 1, opportunist: 0.8, farmer: 0.35, diplomat: 0.3, supporter: 0.3, turtle: 0.15 };
 
 /**
  * Does `candidate` fit in tribe `t`? Close to the centre, not cut off by an enemy, and not a
@@ -147,7 +148,7 @@ export function fits(state: WorldState, t: Tribe, candidate: number): boolean {
   return true;
 }
 
-function setRelation(state: WorldState, a: Tribe, b: Tribe, rel: Relation | null): void {
+export function setRelation(state: WorldState, a: Tribe, b: Tribe, rel: Relation | null): void {
   for (const [x, y] of [[a, b], [b, a]] as const) {
     x.since ??= {};
     if (rel) { x.relations[y.id] = rel; x.since[y.id] = state.time; }
@@ -155,7 +156,7 @@ function setRelation(state: WorldState, a: Tribe, b: Tribe, rel: Relation | null
   }
 }
 
-function leave(state: WorldState, player: Player): void {
+export function leave(state: WorldState, player: Player): void {
   const t = player.tribe !== undefined ? state.tribes?.[player.tribe] : undefined;
   delete player.tribe;
   if (!t) return;
@@ -172,14 +173,14 @@ function leave(state: WorldState, player: Player): void {
   }
 }
 
-function join(state: WorldState, t: Tribe, player: Player): void {
+export function join(state: WorldState, t: Tribe, player: Player): void {
   if (player.tribe !== undefined) leave(state, player);
   player.tribe = t.id;
   t.members.push(player.id);
 }
 
-function found(state: WorldState, player: Player): Tribe {
-  const [name, tag] = tribeName(state);
+export function found(state: WorldState, player: Player, own?: { name: string; tag: string }): Tribe {
+  const [name, tag] = own ? [own.name, own.tag] : tribeName(state);
   const usedColors = new Set(Object.values(state.tribes ?? {}).map((t) => t.color));
   const color = COLORS.find((c) => !usedColors.has(c)) ?? extraColor(usedColors);
   const id = state.nextId++;
@@ -259,6 +260,8 @@ export function onDiplomacy(state: WorldState): void {
       // opportunists go for strength, the rest for closeness
       const score = (t: Tribe) => { const c = tribeCentre(state, t)!; return p.bot!.archetype === 'opportunist' ? c.points / (5 + dist(c, pc)) : -dist(c, pc) + c.points / 50_000; };
       const best = options.sort((a, b) => score(b) - score(a))[0]!;
+      // your tribe: the bot applies, you decide
+      if (best.leader === HUMAN_ID) { applyToHuman(state, p, best); continue; }
       join(state, best, p);
       addLog(state, { time: state.time, text: `${p.name} sluit zich aan bij [${best.tag}] ${best.name}.` });
       continue;
@@ -269,11 +272,12 @@ export function onDiplomacy(state: WorldState): void {
   }
 
   diplomacy(state);
+  humanTribeTick(state);
   push(state.queue, state.time + DIPLOMACY_EVERY, { kind: 'diplomacy' });
 }
 
 /** The leader's view of a candidate: not too weak, and the tribe has room. */
-function leaderAccepts(state: WorldState, t: Tribe, p: Player): boolean {
+export function leaderAccepts(state: WorldState, t: Tribe, p: Player): boolean {
   if (t.members.length >= MAX_MEMBERS) return false;
   const tc = tribeCentre(state, t), pc = playerCentre(state, p.id);
   if (!tc || !pc) return false;
@@ -286,6 +290,14 @@ function diplomacy(state: WorldState): void {
   const list = Object.values(state.tribes ?? {});
   const centres = new Map(list.map((t) => [t.id, tribeCentre(state, t)]));
   const lead = (t: Tribe) => state.players[t.leader]?.bot?.archetype ?? 'diplomat';
+  // a tribe you lead: bots don't decide for you, they propose (wars they simply declare)
+  const human = (t: Tribe) => t.leader === HUMAN_ID;
+  const offer = (a: Tribe, b: Tribe, rel: 'nap' | 'ally' | 'peace'): boolean => {
+    if (!human(a) && !human(b)) return false;
+    const bot = human(a) ? b : a;
+    proposeToHuman(state, bot, rel);
+    return true;
+  };
   const allies = (t: Tribe) => Object.values(t.relations).filter((r) => r === 'ally').length;
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const a = list[i]!, b = list[j]!;
@@ -302,10 +314,10 @@ function diplomacy(state: WorldState): void {
     if (!rel) {
       // the stronger side may smell blood; the more diplomatic side wants quiet
       const hunger = AGGRESSION[lead(strong)] * Math.min(1, (power - 1) / 1.5);
-      if (state.time > 36 * HOUR && roll < hunger * 0.05) {
-        setRelation(state, strong, weak, 'war');
-        addLog(state, { time: state.time, text: `[${strong.tag}] verklaart [${weak.tag}] de oorlog.` });
+      if (state.time > 36 * HOUR && roll < hunger * 0.05 && !human(strong)) {
+        declareWar(state, strong, weak);
       } else if (roll > 1 - (1 - AGGRESSION[lead(a)]) * (1 - AGGRESSION[lead(b)]) * 0.012) {
+        if (offer(a, b, 'nap')) continue;
         setRelation(state, a, b, 'nap');
         addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] sluiten een niet-aanvalsverdrag.` });
       }
@@ -313,20 +325,28 @@ function diplomacy(state: WorldState): void {
       // a long NAP between friendly leaders, both fighting the same enemy, becomes an alliance
       const shared = Object.entries(a.relations).some(([o, r]) => r === 'war' && b.relations[Number(o)] === 'war');
       if (since > 24 * HOUR && allies(a) < MAX_ALLIES && allies(b) < MAX_ALLIES && (shared || roll < 0.01) && SOCIAL[lead(a)] + SOCIAL[lead(b)] > 1.2) {
+        if (offer(a, b, 'ally')) continue;
         setRelation(state, a, b, 'ally');
         addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] worden bondgenoten.` });
-      } else if (roll < AGGRESSION[lead(strong)] * 0.01 * (power - 1)) {
-        setRelation(state, strong, weak, 'war');
-        addLog(state, { time: state.time, text: `[${strong.tag}] verbreekt het verdrag en verklaart [${weak.tag}] de oorlog.` });
+      } else if (roll < AGGRESSION[lead(strong)] * 0.01 * (power - 1) && !human(strong)) {
+        declareWar(state, strong, weak, true);
       }
     } else if (rel === 'war') {
       // a war that drags on between equals ends in peace
       if (since > 48 * HOUR && power < 1.4 && roll < 0.02) {
+        if (offer(a, b, 'peace')) continue;
         setRelation(state, a, b, null);
         addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] sluiten vrede.` });
       }
     }
   }
+}
+
+/** War between tribes; if it is declared on your tribe you hear it (and the game pauses, if you want). */
+export function declareWar(state: WorldState, by: Tribe, on: Tribe, breaksTreaty = false): void {
+  setRelation(state, by, on, 'war');
+  addLog(state, { time: state.time, text: breaksTreaty ? `[${by.tag}] verbreekt het verdrag en verklaart [${on.tag}] de oorlog.` : `[${by.tag}] verklaart [${on.tag}] de oorlog.` });
+  if (state.players[HUMAN_ID]?.tribe === on.id) warOnHuman(state, by, on, breaksTreaty);
 }
 
 /** Real attacks on the villages of a tribe that have not landed yet. Read from the movement index: no scans. */

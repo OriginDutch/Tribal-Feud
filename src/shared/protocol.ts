@@ -45,6 +45,17 @@ export type Command =
   | { type: 'claimAllRewards'; villageId?: number }
   | { type: 'selectVillage'; id: number }
   | { type: 'setAlertMode'; mode: AlertMode }
+  | { type: 'tribeFound'; name: string; tag: string }
+  | { type: 'tribeApply'; tribe: number }
+  | { type: 'tribeLeave' }
+  | { type: 'tribeInvite'; player: number }
+  | { type: 'tribeKick'; player: number }
+  | { type: 'tribePropose'; tribe: number; relation: 'nap' | 'ally' | 'peace' }
+  | { type: 'tribeRelation'; tribe: number; action: 'war' | 'end' }
+  | { type: 'inboxAnswer'; id: number; accept: boolean }
+  | { type: 'inboxRead' }
+  | { type: 'getInbox' }
+  | { type: 'setTribePause'; war: boolean; requests: boolean }
   | { type: 'setManager'; villageId: number; manager: VillageManager | null }
   | { type: 'setManagerAll'; manager: VillageManager | null }
   | { type: 'saveTemplate'; template: BuildTemplate }
@@ -95,6 +106,23 @@ export interface MapData {
 }
 
 export type TribeRelation = 'ally' | 'nap' | 'war';
+export type TribeAskView =
+  | { kind: 'apply'; tribe: number; at: number }
+  | { kind: 'invite'; player: number; at: number }
+  | { kind: 'propose'; tribe: number; relation: 'nap' | 'ally' | 'peace'; at: number };
+export interface InboxView {
+  id: number;
+  time: number;
+  kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info';
+  from: number;
+  fromName: string;
+  title: string;
+  text: string;
+  read: boolean;
+  tribe?: number;
+  status?: 'open' | 'accepted' | 'declined' | 'expired';
+  expires?: number;
+}
 export interface TribeView {
   id: number;
   name: string;
@@ -185,6 +213,13 @@ export interface Snapshot {
   /** Game time when beginner protection ends. */
   protectionEndsAt: number;
   alertMode: AlertMode;
+  /** Your tribe (id) and whether you lead it. */
+  myTribe: number | null;
+  myTribeLeader: boolean;
+  inboxUnread: number;
+  /** Open messages that ask for an answer. */
+  inboxOpen: number;
+  tribePause: { war: boolean; requests: boolean };
   /** Build templates: the presets first, then the player's own. */
   templates: BuildTemplate[];
   unreadReports: number;
@@ -239,7 +274,8 @@ export type WorkerMessage =
   | { type: 'saves'; saves: SaveMeta[] }
   | { type: 'map'; map: MapData }
   | { type: 'reports'; reports: Report[] }
-  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[] }
+  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[] }
+  | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'notice'; level: 'info' | 'error'; text: string };
 
 export const AUTOSAVE_SLOT = 'autosave';

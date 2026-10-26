@@ -34,6 +34,30 @@ export interface LogEntry {
 
 export type BotTier = 'pro' | 'mid' | 'casual';
 
+export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info';
+export interface InboxMessage {
+  id: number;
+  time: number;
+  kind: InboxKind;
+  /** Player that sent it (-1: the world). */
+  from: number;
+  title: string;
+  text: string;
+  read: boolean;
+  /** invite: the tribe inviting you. proposal: the tribe proposing, with the relation. application: the bot (from) asking to join yours. */
+  tribe?: number;
+  relation?: 'nap' | 'ally' | 'peace';
+  /** Messages with a choice: open until answered or expired. */
+  status?: 'open' | 'accepted' | 'declined' | 'expired';
+  expires?: number;
+}
+
+/** Something you asked a bot: to join its tribe, to join yours, or a treaty with its tribe. */
+export type TribeAsk =
+  | { kind: 'apply'; tribe: number; at: number }
+  | { kind: 'invite'; player: number; at: number }
+  | { kind: 'propose'; tribe: number; relation: 'nap' | 'ally' | 'peace'; at: number };
+
 /** A bot's judgement of an incoming attack, made once when it first sees it. */
 export interface SeenAttack {
   /** Did it react (dodge, restack, recruit, ask its tribe)? */
@@ -163,6 +187,12 @@ export interface WorldState {
   tribes?: Record<number, Tribe>;
   /** Recent diplomacy news. */
   tribeNews?: LogEntry[];
+  /** Your messages: invitations, proposals, answers, war declarations. */
+  inbox?: InboxMessage[];
+  /** What you asked bots, waiting for their answer (they answer when they are online). */
+  tribeAsks?: TribeAsk[];
+  /** Which tribe events pause the game. */
+  tribePause?: { war: boolean; requests: boolean };
 }
 
 /**
