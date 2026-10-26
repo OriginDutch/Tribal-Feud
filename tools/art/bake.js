@@ -249,4 +249,25 @@ window.forestCells = (cell = 3.5) => {
   return [...cells.entries()].map(([k, items]) => { const [a, b] = k.split(',').map(Number); return { cell: k.replace(',', '_'), items, center: [(a + 0.5) * cell, (b + 0.5) * cell] }; });
 };
 window.layout = { STAGE_LEVELS: L.STAGE_LEVELS, HOMES: L.HOMES.length, OUTER: L.OUTER_HOMES.length, WALL_N: L.WALL_N, KINDS: L.WALL_KINDS, SLOTS: Object.keys(L.SLOTS) };
+/** For every placed building: how close does any of its solid parts come to a road? (world units, < 0 = overlap) */
+window.checkRoads = () => {
+  const out = [];
+  const pd = (px, pz, pts) => { let d = Infinity; for (let k = 0; k < pts.length - 1; k++) { const [ax, az] = pts[k], [bx, bz] = pts[k + 1]; const dx = bx - ax, dz = bz - az, L = dx * dx + dz * dz; const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / L)); d = Math.min(d, Math.hypot(px - ax - dx * t, pz - az - dz * t)); } return d; };
+  const roads = [{ name: 'main', pts: [[0, -2.0], [0, -3.6]], w: 1.8 }, ...L.ROADS.map((q, i) => ({ name: 'road' + i, pts: q.pts, w: q.w }))];
+  const jobs = [...Object.keys(L.SLOTS).map((id) => ['b', id]), ...L.FARMS.map((_, i) => ['f', i])];
+  for (const [t, id] of jobs) {
+    for (const a of [lights, anims, smokes, people, blockers, gates]) a.length = 0;
+    const root = new THREE.Group();
+    if (t === 'b') L.buildBuilding(root, id, L.STAGE_LEVELS[id].length); else L.buildOuterHome(root, id);
+    root.updateMatrixWorld(true);
+    let worst = { d: Infinity };
+    root.traverse((o) => {
+      if (!o.isMesh || o.userData.path || o.geometry.type === 'CircleGeometry' || o.material?.transparent) return;
+      const p = o.geometry.attributes.position, v = new THREE.Vector3();
+      for (let k = 0; k < p.count; k += 3) { v.fromBufferAttribute(p, k).applyMatrix4(o.matrixWorld); for (const r of roads) { const d = pd(v.x, v.z, r.pts) - r.w / 2; if (d < worst.d) worst = { d, road: r.name, at: [v.x.toFixed(1), v.z.toFixed(1)] }; } }
+    });
+    out.push({ what: t === 'b' ? id : 'farm' + id, ...worst, d: +worst.d.toFixed(2) });
+  }
+  return out.sort((a, b) => a.d - b.d);
+};
 window.__ready = true;

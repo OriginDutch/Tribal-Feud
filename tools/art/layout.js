@@ -26,12 +26,15 @@ export const HOMES = [[-14.6, -3.6, 1.0, 2.2], [14.8, -3.2, -1.0, 2.2], [-4.4, -
 export const WALL_KINDS = ['palisade', 'stone', 'full'];
 /** Homes outside the wall, simpler than anything inside: x, z, rotation, style (0 hut, 1 cottage, 2 small house). */
 // ---------- farmsteads outside the wall: planned so nothing overlaps ----------
+export const ROADS = [];
 /** Roads outside the wall: the main road, and side roads to the clay pit + timber camp and to the farm + iron mine. */
 const ROADS_OUT = [
   { pts: [[0, 14], [0, 70]], r: 0.9 + 0.5, w: 1.8 },
-  { pts: [[0, 19.5], [-8, 22], [-17.5, 18.5], [-23.5, 12.5], [-26.8, 5.0], [-27.0, 0.6]], r: 0.6 + 0.5, w: 1.2 },
-  { pts: [[0, 19.5], [10, 20.5], [19.5, 16.5], [24.2, 9.5], [26.0, 3.5], [25.9, -1.4]], r: 0.6 + 0.5, w: 1.2 },
+  { pts: [[0, 17.2], [-7.5, 16.8], [-13.8, 15.0], [-19.0, 12.6], [-23.4, 8.6], [-26.0, 4.2], [-26.6, 1.0]], r: 0.6 + 0.5, w: 1.2 },
+  { pts: [[0, 17.2], [8.0, 16.8], [14.4, 14.2], [19.2, 11.2], [23.4, 8.0], [25.4, 4.0], [25.1, 0.2], [24.9, -0.5]], r: 0.6 + 0.5, w: 1.2 },
+  { pts: [[-19.0, 12.6], [-20.6, 14.0], [-21.4, 15.4]], r: 0.5 + 0.5, w: 1.0 },
 ];
+ROADS.push(...ROADS_OUT);
 function segDist(px, pz, [ax, az], [bx, bz]) { const dx = bx - ax, dz = bz - az, L = dx * dx + dz * dz; const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / L)); return Math.hypot(px - ax - dx * t, pz - az - dz * t); }
 function polyDist(px, pz, pts) { let d = Infinity; for (let k = 0; k < pts.length - 1; k++) d = Math.min(d, segDist(px, pz, pts[k], pts[k + 1])); return d; }
 /** Oriented rectangle: centre, half sizes, rotation (about y, like a three.js group). */
@@ -173,7 +176,7 @@ function footpath(root, pts, w = 0.45) {
   for (let k = 0; k <= N; k++) { const p = curve.getPoint(k / N), d = curve.getTangent(k / N); const nx = -d.z, nz = d.x; const l = [p.x + nx * w / 2, p.z + nz * w / 2], r2 = [p.x - nx * w / 2, p.z - nz * w / 2]; if (prevL) v.push(prevL[0], 0.014, prevL[1], prevR[0], 0.014, prevR[1], l[0], 0.014, l[1], prevR[0], 0.014, prevR[1], r2[0], 0.014, r2[1], l[0], 0.014, l[1]); prevL = l; prevR = r2; }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
   const uv = []; for (let k = 0; k < v.length / 3; k++) uv.push(v[k * 3] / 3, v[k * 3 + 2] / 3); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
-  const m = new THREE.Mesh(g, M.dirt.clone()); m.material.side = THREE.DoubleSide; m.receiveShadow = true; root.add(m);
+  const m = new THREE.Mesh(g, M.dirt.clone()); m.material.side = THREE.DoubleSide; m.receiveShadow = true; m.userData.path = true; root.add(m);
 }
 export function buildOuterHome(root, i) {
   const F = FARMS[i];
@@ -228,7 +231,7 @@ export function forest() {
     if (inEllipse(x, z, 1.22)) continue;
     if (Math.abs(x) < 2.4 && z > 10) continue;
     if (avoid.some(([ax, az, r]) => Math.hypot(x - ax, z - az) < r)) continue;
-    if (ROADS_OUT.some((q) => polyDist(x, z, q.pts) < q.w / 2 + 1.3 * s)) continue;
+    if (ROADS_OUT.some((q) => polyDist(x, z, q.pts) < q.w / 2 + 1.3 * s) || ROADS_OUT.some((q) => polyDist(x, z - 1.6 * s, q.pts) < q.w / 2 + 0.6)) continue;
     if (z > 20 && k < 0.7) continue;
     out.push({ x, z, s, kind: k < 0.45 ? 'pine' : 'tree', seed: i });
   }

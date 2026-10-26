@@ -58,6 +58,8 @@ const ARGS = { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-uns
   }));
   const mf = path.join(OUT, 'raw.json');
   const prev = only && fs.existsSync(mf) ? JSON.parse(fs.readFileSync(mf, 'utf8')).sprites : {};
+  // re-baked groups replace their old sprites entirely (a forest cell or farm may no longer exist)
+  for (const [t, pre] of [['trees', 'trees'], ['outer', 'outer']]) if (todo.some((j) => j.type === t)) for (const k of Object.keys(prev)) if (k.startsWith(pre)) delete prev[k];
   if (only) for (const k of Object.keys(prev)) if (k.includes('~') && todo.some((j) => j.anim && k.startsWith(j.type === 'gate' ? `gate-${j.kind}~` : `${j.id}@${j.stage}~`))) delete prev[k];
   fs.writeFileSync(mf, JSON.stringify({ frame, layout: L, sprites: { ...prev, ...sprites } }));
   console.log(`${mode}: done`);
