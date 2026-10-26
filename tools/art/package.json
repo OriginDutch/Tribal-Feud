@@ -1,0 +1,13 @@
+{
+  "name": "tribal-feud-art",
+  "private": true,
+  "description": "Bakes the 3D village into the sprites in public/village. Not part of the game build.",
+  "scripts": {
+    "serve": "python3 -m http.server 8766",
+    "bake": "node bake.cjs day 4 && node bake.cjs dusk 4 && python3 pack.py day && python3 pack.py dusk"
+  },
+  "dependencies": {
+    "playwright": "^1.50.0",
+    "three": "0.170.0"
+  }
+}

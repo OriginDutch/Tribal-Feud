@@ -67,6 +67,25 @@ export function setMapStyle(style: 'sprites' | 'flat'): void {
   }
 }
 
+/** Village overview lighting: day or dusk. Remembered per browser. */
+export const villageLight = signal<'day' | 'dusk'>(
+  (() => {
+    try {
+      return localStorage.getItem('tf-village-light') === 'day' ? 'day' : 'dusk';
+    } catch {
+      return 'dusk';
+    }
+  })(),
+);
+export function setVillageLight(light: 'day' | 'dusk'): void {
+  villageLight.value = light;
+  try {
+    localStorage.setItem('tf-village-light', light);
+  } catch {
+    // storage blocked: just not remembered
+  }
+}
+
 /** "Kijk op de kaart": a player (by id) or the owner of the village at x|y. */
 export const mapFocus = signal<{ owner?: number; x?: number; y?: number } | null>(null);
 /** Village selected on the map. */

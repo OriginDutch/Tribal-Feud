@@ -3,3 +3,4 @@ dist/
 *.log
 .DS_Store
 .vite/
+tools/art/node_modules
