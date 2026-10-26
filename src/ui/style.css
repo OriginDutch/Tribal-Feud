@@ -618,3 +618,20 @@ button.small.active { border-color: var(--accent); color: var(--accent); }
 .support-table .good { color: var(--good); font-size: 12px; }
 .support-table .error { font-size: 12px; }
 .support-foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); }
+
+/* incoming + player links */
+button.link.player-link { color: var(--text); text-decoration: underline dotted rgba(255,255,255,0.3); text-underline-offset: 3px; }
+button.link.player-link:hover { color: var(--accent); }
+.pace { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; white-space: nowrap; }
+.pace-3 { color: var(--danger); font-weight: 600; }
+.pace-2 { color: #e0a060; }
+.pace-1 { color: var(--text); }
+.pace-0 { color: var(--muted); }
+.incoming-group .group-head td { padding-top: 10px; border-bottom: none; }
+.incoming-group tr:not(.group-head) td:first-child { padding-left: 18px; }
+
+.player-head { margin-bottom: 12px; align-items: center; }
+.panel.player-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px 28px; }
+.player-stats > div { display: grid; gap: 2px; }
+.player-stats span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+.player-stats strong { font-size: 18px; font-variant-numeric: tabular-nums; }

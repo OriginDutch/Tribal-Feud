@@ -55,6 +55,7 @@ export type Command =
   | { type: 'inboxAnswer'; id: number; accept: boolean }
   | { type: 'inboxRead' }
   | { type: 'getInbox' }
+  | { type: 'getPlayer'; id: number }
   | { type: 'setTribePause'; war: boolean; requests: boolean }
   | { type: 'setManager'; villageId: number; manager: VillageManager | null }
   | { type: 'setManagerAll'; manager: VillageManager | null }
@@ -148,11 +149,42 @@ export interface TribeView {
   relations: { id: number; rel: TribeRelation; since: number }[];
 }
 
+/** Everything you can see about another player (profile screen). */
+export interface PlayerView {
+  id: number;
+  name: string;
+  isBot: boolean;
+  rank: number;
+  points: number;
+  tribe?: { id: number; tag: string; name: string; color: string };
+  /** Their villages, biggest first; distance to your nearest village. */
+  villages: { id: number; name: string; x: number; y: number; points: number; distance: number }[];
+  /** Weighted centre of their villages. */
+  centre: { x: number; y: number } | null;
+  /** From your reports: what happened between you two. */
+  history: {
+    theirAttacks: number;
+    theirWins: number;
+    lastTheirs?: number;
+    yourAttacks: number;
+    yourWins: number;
+    lastYours?: number;
+    villagesTakenFromYou: number;
+    villagesYouTook: number;
+  };
+  /** Their attacks on you right now. */
+  incoming: number;
+}
+
 export interface IncomingView {
   id: number;
-  from: { id: number; name: string; x: number; y: number; ownerName: string };
+  from: { id: number; name: string; x: number; y: number; ownerName: string; owner: number };
   to: { id: number; name: string; x: number; y: number };
   arrives: number;
+  /** Fields between the two villages. */
+  distance: number;
+  /** Slowest unit that fits the walking time (what TW players work out by hand). */
+  pace: 'noble' | 'siege' | 'sword' | 'infantry' | 'heavy' | 'cav' | 'scout';
 }
 
 export interface MovementView {
@@ -295,6 +327,7 @@ export type WorkerMessage =
   | { type: 'reports'; reports: Report[] }
   | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[] }
   | { type: 'inbox'; inbox: InboxView[] }
+  | { type: 'player'; player: PlayerView | null }
   | { type: 'notice'; level: 'info' | 'error'; text: string };
 
 export const AUTOSAVE_SLOT = 'autosave';

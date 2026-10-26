@@ -1,3 +1,4 @@
+import { PlayerLink } from '../components/PlayerLink';
 import { useEffect, useState } from 'preact/hooks';
 import type { TribeRelation, TribeView } from '../../shared/protocol';
 import { MAX_MEMBERS } from '../../shared/tribes';
@@ -94,7 +95,7 @@ function MyTribe({ t }: { t: TribeView }) {
                 return (
                   <tr key={c.id}>
                     <td class="ellipsis">
-                      {c.name}
+                      <PlayerLink id={c.id} name={c.name} />
                       <MapLink owner={c.id} />
                     </td>
                     <td>{ct ? <Tag t={ct} /> : <span class="muted">—</span>}</td>
@@ -255,7 +256,7 @@ export function TribesScreen() {
                         <tr key={p.id} class={p.isBot ? '' : 'me'}>
                           <td class="ellipsis">
                             {p.id === open.leader && <span title="Leider">♛ </span>}
-                            {p.isBot ? p.name : <strong>{p.name}</strong>}
+                            <PlayerLink id={p.id} name={p.name} strong={!p.isBot} />
                             <MapLink owner={p.id} />
                           </td>
                           <td class="right mono">{num(p.points)}</td>

@@ -3,7 +3,8 @@ import type { IncomingView, MapData, MapVillage, MovementView } from '../shared/
 import { growBarbarian, villagePoints } from './barbarians';
 import { estimateLoot } from './intel';
 import { BARBARIAN, HUMAN_ID, currentVillage, type WorldState } from './state';
-import { CANCEL_WINDOW_MS, cancelBlocker } from './movement';
+import { CANCEL_WINDOW_MS, cancelBlocker, distance } from './movement';
+import { attackKind } from './botReact';
 import { tribeViews } from './tribes';
 
 export function mapData(state: WorldState): MapData {
@@ -50,9 +51,11 @@ export function incomingViews(state: WorldState): IncomingView[] {
     if (!from) continue;
     out.push({
       id: m.id,
-      from: { id: from.id, name: from.name, x: from.x, y: from.y, ownerName: state.players[m.owner]?.name ?? '?' },
+      from: { id: from.id, name: from.name, x: from.x, y: from.y, ownerName: state.players[m.owner]?.name ?? '?', owner: m.owner },
       to: { id: to.id, name: to.name, x: to.x, y: to.y },
       arrives: m.arrives,
+      distance: Math.round(distance(from, to) * 10) / 10,
+      pace: attackKind(state, from, to, m.sent, m.arrives),
     });
   }
   return out.sort((a, b) => a.arrives - b.arrives);

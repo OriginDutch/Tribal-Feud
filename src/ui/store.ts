@@ -4,12 +4,12 @@
  */
 import { signal } from '@preact/signals';
 import type { BuildingId, RecruitBuilding } from '../shared/gameData';
-import type { CandidateView, Command, InboxView, MapData, RankingRow, Snapshot, TribeAskView, TribeView, WorkerMessage } from '../shared/protocol';
+import type { CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, TribeAskView, TribeView, WorkerMessage } from '../shared/protocol';
 import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'support' | 'debug' | 'building';
+export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'support' | 'player' | 'debug' | 'building';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);
@@ -54,6 +54,13 @@ export const supportPlan = signal<{ target: number; deadline: number | null } | 
 export function openSupport(target: number, deadline: number | null = null): void {
   supportPlan.value = { target, deadline };
   screen.value = 'support';
+}
+/** Player profile shown on the player screen. */
+export const playerFocus = signal<number | null>(null);
+export const playerView = signal<PlayerView | null>(null);
+export function openPlayer(id: number): void {
+  playerFocus.value = id;
+  screen.value = 'player';
 }
 export function openTribe(id: number): void {
   tribeFocus.value = id;
@@ -148,6 +155,9 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'inbox':
       inbox.value = msg.inbox;
+      break;
+    case 'player':
+      playerView.value = msg.player;
       break;
     case 'notice':
       showNotice(msg.text, msg.level);

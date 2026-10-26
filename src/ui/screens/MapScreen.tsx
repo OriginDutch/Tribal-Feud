@@ -1,3 +1,4 @@
+import { PlayerLink } from '../components/PlayerLink';
 import { OWNER_COLORS, tribeIndex, villageColor } from '../map/colors';
 import { Minimap } from '../map/Minimap';
 import { BARB_TYPE_NAMES, BONUS_NAMES, type BarbType } from '../../shared/barbarianTypes';
@@ -577,7 +578,7 @@ export function MapScreen() {
                   </tr>
                   <tr>
                     <td>Eigenaar</td>
-                    <td class="right">{selected.ownerName}</td>
+                    <td class="right"><PlayerLink id={selected.owner} name={selected.ownerName} /></td>
                   </tr>
                   {selectedTribe && (
                     <tr>

@@ -1,3 +1,4 @@
+import { PlayerLink } from '../components/PlayerLink';
 import { useEffect } from 'preact/hooks';
 import type { InboxView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
@@ -33,6 +34,7 @@ export function InboxScreen() {
       <div class="inbox-head">
         <span class={`inbox-kind kind-${m.kind}`}>{KIND[m.kind]}</span>
         <strong class="inbox-title">{m.title}</strong>
+        {m.from >= 0 && <PlayerLink id={m.from} name={m.fromName} />}
         <span class="mono muted">{formatGameTime(m.time)}</span>
       </div>
       <p>{m.text}</p>

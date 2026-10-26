@@ -22,7 +22,7 @@ import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteTemplate, deleteTroopTemplate, findTemplate, saveTemplate, saveTroopTemplate, setManager, templateUse } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
-import type { CandidateView, MarketView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow } from '../shared/protocol';
+import type { CandidateView, MarketView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow } from '../shared/protocol';
 import {
   MERCHANT_CARRY,
   MERCHANT_MINUTES_PER_FIELD,
@@ -213,6 +213,49 @@ function inboxViews(s: WorldState): InboxView[] {
     ...(m.status ? { status: m.status } : {}),
     ...(m.expires !== undefined ? { expires: m.expires } : {}),
   }));
+}
+
+/** Profile of a player: villages, tribe, and what your reports say about the two of you. */
+function playerView(s: WorldState, id: number): PlayerView | null {
+  const p = s.players[id];
+  if (!p) return null;
+  const vs = villagesOf(s, id);
+  const mine = villagesOf(s, HUMAN_ID);
+  const pts = (pid: number) => villagesOf(s, pid).reduce((t, v) => t + villagePoints(s.config, v), 0);
+  const points = pts(id);
+  const rank = 1 + s.players.filter((o) => o.id !== id && pts(o.id) > points).length;
+  const villages = vs
+    .map((v) => ({
+      id: v.id, name: v.name, x: v.x, y: v.y, points: villagePoints(s.config, v),
+      distance: mine.length ? Math.round(Math.min(...mine.map((m) => distance(m, v))) * 10) / 10 : 0,
+    }))
+    .sort((a, b) => b.points - a.points);
+  let cx = 0, cy = 0, w = 0;
+  for (const v of villages) { const k = v.points + 1; cx += v.x * k; cy += v.y * k; w += k; }
+  const t = p.tribe !== undefined ? s.tribes?.[p.tribe] : undefined;
+  const is = (r: { owner?: number; ownerName: string }) => (r.owner !== undefined ? r.owner === id : r.ownerName === p.name);
+  const history: PlayerView['history'] = { theirAttacks: 0, theirWins: 0, yourAttacks: 0, yourWins: 0, villagesTakenFromYou: 0, villagesYouTook: 0 };
+  for (const r of s.reports) {
+    const won = r.result !== 'loss';
+    if (r.defense && is(r.attacker)) {
+      history.theirAttacks++;
+      if (won) history.theirWins++;
+      if (r.conquered) history.villagesTakenFromYou++;
+      history.lastTheirs = Math.max(history.lastTheirs ?? 0, r.time);
+    } else if (!r.defense && is(r.defender)) {
+      history.yourAttacks++;
+      if (won) history.yourWins++;
+      if (r.conquered) history.villagesYouTook++;
+      history.lastYours = Math.max(history.lastYours ?? 0, r.time);
+    }
+  }
+  const incoming = Object.values(s.movements).filter((m) => m.kind === 'attack' && m.owner === id && s.villages[m.to]?.owner === HUMAN_ID).length;
+  return {
+    id, name: p.name, isBot: p.isBot, rank, points, villages,
+    centre: w ? { x: Math.round(cx / w), y: Math.round(cy / w) } : null,
+    ...(t ? { tribe: { id: t.id, tag: t.tag, name: t.name, color: t.color } } : {}),
+    history, incoming,
+  };
 }
 
 /** How far the market screen looks for other players' offers. */
@@ -607,6 +650,9 @@ async function handle(cmd: Command): Promise<void> {
       markInboxRead(state);
       post({ type: 'inbox', inbox: inboxViews(state) });
       break;
+    case 'getPlayer':
+      if (state) post({ type: 'player', player: playerView(state, cmd.id) });
+      return;
     case 'getInbox':
       if (state) post({ type: 'inbox', inbox: inboxViews(state) });
       return;

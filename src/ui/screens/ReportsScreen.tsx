@@ -1,3 +1,4 @@
+import { PlayerLink } from '../components/PlayerLink';
 import { BARB_TYPE_NAMES } from '../../shared/barbarianTypes';
 import { MapLink } from '../components/MapLink';
 import { useEffect, useState } from 'preact/hooks';
@@ -146,7 +147,7 @@ function ReportDetail({ r }: { r: Report }) {
 
       <div class="report-side">
         <h4>
-          Aanvaller · {r.attacker.ownerName} <span class="muted">· {r.attacker.name} ({r.attacker.x}|{r.attacker.y})</span>
+          Aanvaller · {r.attacker.owner !== undefined ? <PlayerLink id={r.attacker.owner} name={r.attacker.ownerName} /> : r.attacker.ownerName} <span class="muted">· {r.attacker.name} ({r.attacker.x}|{r.attacker.y})</span>
           <MapLink x={r.attacker.x} y={r.attacker.y} />
         </h4>
         <UnitTable
@@ -159,7 +160,7 @@ function ReportDetail({ r }: { r: Report }) {
 
       <div class="report-side">
         <h4>
-          Verdediger · {r.defender.ownerName} <span class="muted">· {r.defender.name} ({r.defender.x}|{r.defender.y})</span>
+          Verdediger · {r.defender.owner !== undefined ? <PlayerLink id={r.defender.owner} name={r.defender.ownerName} /> : r.defender.ownerName} <span class="muted">· {r.defender.name} ({r.defender.x}|{r.defender.y})</span>
           <MapLink x={r.defender.x} y={r.defender.y} />
         </h4>
         {r.defenderUnits ? (

@@ -1,3 +1,4 @@
+import { PlayerLink } from '../components/PlayerLink';
 import { useEffect, useState } from 'preact/hooks';
 import { MapLink } from '../components/MapLink';
 import { num } from '../format';
@@ -53,7 +54,7 @@ export function RankingScreen() {
               <tr key={r.id} class={r.isBot ? '' : 'me'}>
                 <td class="right mono">{i + 1}</td>
                 <td class="ellipsis">
-                  {r.isBot ? r.name : <strong>{r.name}</strong>}
+                  <PlayerLink id={r.id} name={r.name} strong={!r.isBot} />
                   {r.villages > 0 && <MapLink owner={r.id} />}
                 </td>
                 <td>

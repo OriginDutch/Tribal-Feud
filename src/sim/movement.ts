@@ -90,6 +90,8 @@ export interface ReportVillage {
   x: number;
   y: number;
   ownerName: string;
+  /** Owner's player id (reports from before this was kept only have the name). */
+  owner?: number;
 }
 
 export interface Report {
@@ -147,7 +149,7 @@ function ownerName(state: WorldState, owner: number): string {
 }
 
 function reportVillage(state: WorldState, v: Village): ReportVillage {
-  return { id: v.id, name: v.name, x: v.x, y: v.y, ownerName: ownerName(state, v.owner) };
+  return { id: v.id, name: v.name, x: v.x, y: v.y, ownerName: ownerName(state, v.owner), owner: v.owner };
 }
 
 function cleanCounts(units: UnitCounts): UnitCounts {
@@ -442,7 +444,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
       read: false,
       defense: true,
       attacker: reportVillage(state, from),
-      defender: { ...reportVillage(state, target), ownerName: ownerName(state, oldOwner) },
+      defender: { ...reportVillage(state, target), ownerName: ownerName(state, oldOwner), owner: oldOwner },
       result: !battle.attackerWon ? 'loss' : anyLost ? 'winLosses' : 'win',
       luck,
       morale: mor,

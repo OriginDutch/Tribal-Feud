@@ -1,3 +1,4 @@
+import { PlayerScreen } from './screens/PlayerScreen';
 import { SupportScreen } from './screens/SupportScreen';
 import { InboxScreen } from './screens/InboxScreen';
 import { TribesScreen } from './screens/TribesScreen';
@@ -80,6 +81,8 @@ function CurrentScreen() {
       return <InboxScreen />;
     case 'support':
       return <SupportScreen />;
+    case 'player':
+      return <PlayerScreen />;
     case 'villages':
       return <VillagesScreen />;
     case 'manager':
