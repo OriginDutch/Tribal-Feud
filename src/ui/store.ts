@@ -69,6 +69,7 @@ export function openTribe(id: number): void {
 export const tribeNews = signal<{ time: number; text: string }[]>([]);
 export const tribeAsks = signal<TribeAskView[]>([]);
 export const inviteCandidates = signal<CandidateView[]>([]);
+export const refusedApplications = signal<Record<number, number>>({});
 export const inbox = signal<InboxView[]>([]);
 /** Target picked on the map, prefilled in the rally point. */
 export const placeTarget = signal<{ x: number; y: number } | null>(null);
@@ -152,6 +153,7 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
       tribeNews.value = msg.news;
       tribeAsks.value = msg.asks;
       inviteCandidates.value = msg.candidates;
+      refusedApplications.value = msg.refusedApplications;
       break;
     case 'inbox':
       inbox.value = msg.inbox;

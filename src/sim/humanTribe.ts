@@ -311,6 +311,7 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
       addMessage(state, { kind: 'answer', from: leader.id, tribe: t.id, title: `Welkom bij ${tag(t)}`, text: `${leader.name} heeft je aanmelding geaccepteerd. Je bent nu lid van ${tag(t)} ${t.name}.` });
     } else {
       addMessage(state, { kind: 'answer', from: leader.id, tribe: t.id, title: `${tag(t)} wijst je af`, text: rejectReason(state, t, me, leader) });
+      refused(state, 'applications', t.id);
     }
     return true;
   }
@@ -333,6 +334,7 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
       join(state, t, p);
       addMessage(state, { kind: 'answer', from: p.id, tribe: t.id, title: `${p.name} komt erbij`, text: `${p.name} heeft je uitnodiging aangenomen en is lid van ${tag(t)}.` });
     } else {
+      refused(state, 'invites', p.id);
       addMessage(state, { kind: 'answer', from: p.id, title: `${p.name} slaat af`, text: current ? `${p.name} blijft liever bij ${tag(current)}.` : `${p.name} heeft geen interesse in ${tag(t)}.` });
     }
     return true;
@@ -365,6 +367,11 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
     addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: `${tag(o)} wijst je voorstel af`, text: `${leader.name} wil geen ${REL_NAME[ask.relation]} met ${tag(mine)}.` });
   }
   return true;
+}
+
+function refused(state: WorldState, kind: 'invites' | 'applications', id: number): void {
+  const r = (state.tribeRefusals ??= { invites: {}, applications: {} });
+  r[kind][id] = (r[kind][id] ?? 0) + 1;
 }
 
 function strongEnough(state: WorldState, t: Tribe, id: number): boolean {

@@ -640,3 +640,4 @@ button.link.player-link:hover { color: var(--accent); }
 .map-search .error { font-size: 12px; }
 .support-from { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
 .small-text { font-size: 12px; }
+.refused { color: var(--danger); font-size: 12px; opacity: 0.85; }

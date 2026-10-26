@@ -6,7 +6,7 @@ import { formatGameTime } from '../../shared/time';
 import { Confirm } from '../components/Confirm';
 import { MapLink } from '../components/MapLink';
 import { num } from '../format';
-import { inviteCandidates, ranking, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes } from '../store';
+import { inviteCandidates, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes } from '../store';
 
 const REL: Record<TribeRelation, string> = { ally: 'Bondgenoot', nap: 'Niet-aanvalsverdrag', war: 'Oorlog' };
 const ASK_REL = { nap: 'NAP', ally: 'bondgenootschap', peace: 'vrede' } as const;
@@ -96,6 +96,7 @@ function MyTribe({ t }: { t: TribeView }) {
                   <tr key={c.id}>
                     <td class="ellipsis">
                       <PlayerLink id={c.id} name={c.name} />
+                      {c.declined ? <span class="refused" title="Zo vaak sloeg hij je uitnodiging af"> · {c.declined}× afgewezen</span> : null}
                       <MapLink owner={c.id} />
                     </td>
                     <td>{ct ? <Tag t={ct} /> : <span class="muted">—</span>}</td>
@@ -183,6 +184,9 @@ export function TribesScreen() {
                     <td class="right mono">{i + 1}</td>
                     <td class="ellipsis">
                       <Tag t={t} /> {t.name}
+                      {!mine && refusedApplications.value[t.id] ? (
+                        <span class="refused" title="Zo vaak wees deze stam je aanmelding af"> · {refusedApplications.value[t.id]}× afgewezen</span>
+                      ) : null}
                     </td>
                     <td class="right mono">
                       {t.members.length}/{MAX_MEMBERS}

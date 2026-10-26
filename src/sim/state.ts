@@ -193,6 +193,8 @@ export interface WorldState {
   inbox?: InboxMessage[];
   /** What you asked bots, waiting for their answer (they answer when they are online). */
   tribeAsks?: TribeAsk[];
+  /** How often a bot turned down your invitation, and a tribe your application (for a note in the lists). */
+  tribeRefusals?: { invites: Record<number, number>; applications: Record<number, number> };
   /** Which tribe events pause the game. */
   tribePause?: { war: boolean; requests: boolean };
 }

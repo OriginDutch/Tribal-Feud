@@ -114,4 +114,18 @@ describe('your tribe', () => {
     v.buildings.place = 1; v.units.axe = 50;
     expect(sendAttack(s, v.id, villagesOf(s, mate.id)[0]!.id, { axe: 10 })).toMatch(/stamgenoot/);
   });
+  it('counts refusals: an invited bot that says no, and a tribe that turns your application down', () => {
+    const s = world();
+    const far = found(s, botsByDistance(s).at(-1)!);
+    applyToTribe(s, far.id);
+    humanTribeTick(s);
+    expect(s.tribeRefusals?.applications[far.id]).toBe(1);
+    foundTribe(s, 'De Testers', 'TEST');
+    const loner = botsByDistance(s).filter((p) => p.tribe === undefined).at(-1)!;
+    invitePlayer(s, loner.id);
+    humanTribeTick(s);
+    invitePlayer(s, loner.id);
+    humanTribeTick(s);
+    expect(s.tribeRefusals?.invites[loner.id]).toBe(2);
+  });
 });

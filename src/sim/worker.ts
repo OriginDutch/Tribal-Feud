@@ -182,7 +182,7 @@ function sendRanking(s: WorldState): void {
     return row;
   });
   ranking.sort((a, b) => b.points - a.points);
-  post({ type: 'ranking', ranking, tribes: tribeViews(s), news: tribeNews(s), asks: [...(s.tribeAsks ?? [])], candidates: inviteCandidates(s, ranking) });
+  post({ type: 'ranking', ranking, tribes: tribeViews(s), news: tribeNews(s), asks: [...(s.tribeAsks ?? [])], candidates: inviteCandidates(s, ranking), refusedApplications: { ...(s.tribeRefusals?.applications ?? {}) } });
 }
 
 /** For a leader: the 20 players nearest to your villages that are not in your tribe. */
@@ -200,7 +200,8 @@ function inviteCandidates(s: WorldState, ranking: RankingRow[]): CandidateView[]
     const vs = villagesOf(s, p.id);
     if (!vs.length) continue;
     const d = Math.min(...vs.map((v) => Math.hypot(v.x - cx, v.y - cy)));
-    out.push({ id: p.id, name: p.name, points: points.get(p.id) ?? 0, distance: Math.round(d * 10) / 10, ...(p.tribe !== undefined ? { tribe: p.tribe } : {}) });
+    const declined = s.tribeRefusals?.invites[p.id];
+    out.push({ id: p.id, name: p.name, points: points.get(p.id) ?? 0, distance: Math.round(d * 10) / 10, ...(p.tribe !== undefined ? { tribe: p.tribe } : {}), ...(declined ? { declined } : {}) });
   }
   return out.sort((a, b) => a.distance - b.distance).slice(0, 20);
 }
