@@ -53,6 +53,9 @@ export function initBots(state: WorldState): void {
   }
 }
 
+/** How sharp a tier plays: 1 = never forgets anything. */
+const SKILL: Record<BotTier, number> = { pro: 1, mid: 0.85, casual: 0.7 };
+
 // --- tiers and presence ----------------------------------------------------------
 
 /** Pyramid like a real world: a few no-lifers, a middle group, many casuals. */
@@ -72,9 +75,10 @@ function activityFor(state: WorldState, id: number, tier: BotTier): number {
 }
 
 /**
- * Online and offline stretches in game hours (not scaled by world speed: it is attention, not
- * tempo). Mid: online 0.5-2.5 h, away 1-4 h (~35% of the time). Casual: online 0.25-1 h, away
- * 3-9 h (~10%, a few short visits a "day"). Pros: always online.
+ * Online and offline stretches in game hours at world speed 1, divided by the world speed: on a
+ * fast world everything moves faster, being away included, so the pyramid looks the same at any
+ * speed (fixed hours made casuals stand still at speed 20). Mid: online 0.5-2.5 h, away 1-4 h
+ * (~35% of the time). Casual: online 0.25-1 h, away 3-9 h (~10%, a few short visits a "day"). Pros: always online.
  */
 const PRESENCE: Record<Exclude<BotTier, 'pro'>, { on: [number, number]; off: [number, number] }> = {
   mid: { on: [0.5, 2.5], off: [1, 4] },
@@ -83,7 +87,7 @@ const PRESENCE: Record<Exclude<BotTier, 'pro'>, { on: [number, number]; off: [nu
 const HOUR_MS = 60 * MINUTE;
 function stretch(state: WorldState, id: number, tier: Exclude<BotTier, 'pro'>, online: boolean, n: number): number {
   const [lo, hi] = PRESENCE[tier][online ? 'on' : 'off'];
-  return Math.round((lo + hashFloat(state.config.seed, id, 100, n) * (hi - lo)) * HOUR_MS);
+  return Math.round(((lo + hashFloat(state.config.seed, id, 100, n) * (hi - lo)) * HOUR_MS) / state.config.worldSpeed);
 }
 export function startPresence(state: WorldState, id: number, bot: BotState): void {
   const tier = bot.tier ?? 'pro';
@@ -178,13 +182,16 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   const attentive = checksIn(state, player.bot);
   // coins and noblemen come first once there is an academy; while saving, buildings wait too
   const saving = attentive ? nobleTurn(state, player, v, profile, [0, 0, 0]) : false;
-  const reserve = autoBuild(state, v, profile.buildOrder, saving ? nobleNeed(state, v) : [0, 0, 0]);
-  research(state, v, profile);
+  // sloppiness: less serious players forget things now and then
+  const skill = SKILL[player.bot.tier ?? 'pro'];
+  const forgets = (weight: number) => skill < 1 && nextFloat(state.rng) < (1 - skill) * weight;
+  const reserve = forgets(0.6) ? [0, 0, 0] as Res : autoBuild(state, v, profile.buildOrder, saving ? nobleNeed(state, v) : [0, 0, 0]);
+  if (!forgets(0.6)) research(state, v, profile);
   // saving: only the most needed defense, no other troops
-  recruitDefense(state, v, profile, reserve, saving ? 0.5 : 1);
+  if (!forgets(0.5)) recruitDefense(state, v, profile, reserve, saving ? 0.5 : 1);
   if (!saving) recruitTroops(state, v, profile, reserve);
   if (attentive) helpTribe(state, player, v, profile);
-  if (attentive) farm(state, player, v, profile);
+  if (attentive && !forgets(0.8)) farm(state, player, v, profile, skill);
   if (attentive) trade(state, player, v);
 }
 
@@ -475,10 +482,12 @@ function recruitTroops(state: WorldState, v: Village, profile: BotProfile, reser
 /** Group size per farm attack, by unit. */
 const FARM_GROUP: Partial<Record<UnitId, number>> = { light: 5, spear: 15, axe: 15, sword: 15 };
 
-function farm(state: WorldState, player: Player, v: Village, profile: BotProfile): void {
+function farm(state: WorldState, player: Player, v: Village, profile: BotProfile, skill = 1): void {
   const bot = player.bot;
   if (!bot || !isOperational(state.config, v, 'place')) return;
-  const { farmRadius, farmAttacksPerTurn } = state.config.bots;
+  const { farmRadius } = state.config.bots;
+  // sloppier players send fewer farm runs
+  const farmAttacksPerTurn = Math.max(1, Math.round(state.config.bots.farmAttacksPerTurn * skill));
 
   if (!profile.farmUnits.some((u) => v.units[u] >= (FARM_GROUP[u] ?? 10))) return;
   // villages this bot already has troops on the way to
