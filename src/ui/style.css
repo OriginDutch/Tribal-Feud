@@ -635,3 +635,6 @@ button.link.player-link:hover { color: var(--accent); }
 .player-stats > div { display: grid; gap: 2px; }
 .player-stats span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
 .player-stats strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.map-search { display: flex; align-items: center; gap: 6px; }
+.map-search input { width: 220px; }
+.map-search .error { font-size: 12px; }

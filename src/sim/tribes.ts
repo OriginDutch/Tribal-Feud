@@ -57,7 +57,7 @@ const NAMES: [string, string][] = [
 ];
 /** Distinct from gold (you) and grey (barbarians). */
 const COLORS = [
-  '#f0f0a0', '#4f8fd6', '#5fb56b', '#b06ad6', '#e07ad0', '#3fb5b0', '#d65a9a', '#8fa43a',
+  '#ff6f91', '#4f8fd6', '#5fb56b', '#b06ad6', '#e07ad0', '#3fb5b0', '#d65a9a', '#8fa43a',
   '#6a7ad6', '#70d6c8', '#3f9a6e', '#9ad65a', '#8a5cc2', '#5ac2d6', '#7ad6ff', '#7ab53f',
   '#d67a7a', '#4a6ab0', '#c0c0ff', '#5c9ec2', '#b55a7a', '#6ab09a', '#9a9ad6', '#ff9ab0',
 ];

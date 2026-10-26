@@ -58,7 +58,9 @@ export function MapScreen() {
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const [, redraw] = useState(0);
   /** "Kijk op de kaart": whose villages are marked (a player id, or one village id for a barbarian). */
-  const [focus, setFocus] = useState<{ owner?: number; villageId?: number; name: string; index: number } | null>(null);
+  const [focus, setFocus] = useState<{ owner?: number; tribe?: number; villageId?: number; name: string; index: number } | null>(null);
+  const [search, setSearch] = useState('');
+  const [searchError, setSearchError] = useState('');
 
   // fresh map data while the map is open (barbarians grow, reports come in)
   useEffect(() => {
@@ -88,6 +90,7 @@ export function MapScreen() {
   // villages of the focused player, biggest first
   const focusList = useMemo(() => {
     if (!focus || !data) return [];
+    if (focus.tribe !== undefined) return data.villages.filter((v) => v.tribe === focus.tribe).sort((a, b) => b.points - a.points);
     if (focus.owner === undefined) return data.villages.filter((v) => v.id === focus.villageId);
     return data.villages.filter((v) => v.owner === focus.owner).sort((a, b) => b.points - a.points);
   }, [focus, data]);
@@ -106,6 +109,14 @@ export function MapScreen() {
     const req = mapFocus.value;
     if (!req || !data) return;
     mapFocus.value = null;
+    if (req.tribe !== undefined) {
+      const t = data.tribes.find((x) => x.id === req.tribe);
+      const list = data.villages.filter((v) => v.tribe === req.tribe).sort((a, b) => b.points - a.points);
+      if (!t || !list[0]) return;
+      setFocus({ tribe: t.id, name: `[${t.tag}] ${t.name}`, index: 0 });
+      jumpTo(list[0]);
+      return;
+    }
     const at = req.x !== undefined && req.y !== undefined ? byCoord.get(key(req.x, req.y)) : undefined;
     const owner = req.owner ?? at?.owner;
     if (at?.kind === 'barb' || owner === undefined) {
@@ -178,6 +189,54 @@ export function MapScreen() {
     for (const m of s.incoming) arrow(m.from, m.to, '#e5533f');
     ctx.restore();
   };
+  /** The marked player's or tribe's ground: one soft fill over all their villages. */
+  const drawArea = (ctx: CanvasRenderingContext2D, toScreen: (x: number, y: number) => readonly [number, number], zoom: number) => {
+    if (!focus || focusList.length < 2) return;
+    const color = focus.tribe !== undefined ? (data?.tribes.find((t) => t.id === focus.tribe)?.color ?? COLORS.focus) : COLORS.focus;
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (const v of focusList) {
+      const [sx, sy] = toScreen(v.x, v.y);
+      ctx.moveTo(sx + zoom * 3.2, sy);
+      ctx.arc(sx, sy, zoom * 3.2, 0, Math.PI * 2);
+    }
+    ctx.fill('nonzero');
+    ctx.restore();
+  };
+
+  /** Search box: a player, a tribe ([TAG] or name) or coordinates. */
+  const runSearch = (q: string) => {
+    setSearchError('');
+    const text = q.trim();
+    if (!text || !data) return;
+    const xy = /^(\d{1,4})\s*[|,/ ]\s*(\d{1,4})$/.exec(text);
+    if (xy) {
+      const x = Number(xy[1]), y = Number(xy[2]);
+      cam.current.cx = x; cam.current.cy = y;
+      const v = byCoord.get(key(x, y));
+      if (v) selectedVillage.value = v.id;
+      draw();
+      return;
+    }
+    const low = text.toLowerCase().replace(/^\[|\]$/g, '');
+    const tribe = data.tribes.find((t) => t.tag.toLowerCase() === low) ?? data.tribes.find((t) => t.name.toLowerCase() === low) ?? data.tribes.find((t) => `[${t.tag}] ${t.name}`.toLowerCase() === text.toLowerCase());
+    if (tribe) { mapFocus.value = { tribe: tribe.id }; return; }
+    const owners = new Map<string, number>();
+    for (const v of data.villages) if (v.owner >= 0) owners.set(v.ownerName.toLowerCase(), v.owner);
+    const exact = owners.get(text.toLowerCase());
+    const id = exact ?? [...owners].find(([n]) => n.startsWith(text.toLowerCase()))?.[1];
+    if (id !== undefined) { mapFocus.value = { owner: id }; return; }
+    setSearchError('Niets gevonden');
+  };
+  const suggestions = useMemo(() => {
+    if (!data) return [];
+    const names = new Set<string>();
+    for (const v of data.villages) if (v.owner >= 0) names.add(v.ownerName);
+    return [...data.tribes.map((t) => `[${t.tag}] ${t.name}`), ...[...names].sort()];
+  }, [data]);
+
   const linesKey = s ? `${s.incoming.map((m) => m.id).join(',')}|${s.movements.map((m) => m.id).join(',')}` : '';
 
   const drawSprites = () => {
@@ -345,6 +404,7 @@ export function MapScreen() {
         square(v.x, v.y, 2);
       }
     }
+    drawArea(ctx, toScreen, zoom);
     drawLines(ctx, toScreen, zoom);
   };
 
@@ -449,6 +509,7 @@ export function MapScreen() {
         ctx.strokeRect(sx - size / 2 - 2, sy - size / 2 - 2, size + 4, size + 4);
       }
     }
+    drawArea(ctx, toScreen, zoom);
     drawLines(ctx, toScreen, zoom);
   };
 
@@ -574,10 +635,23 @@ export function MapScreen() {
           Bevelen {lines ? 'aan' : 'uit'}
           {s && s.incoming.length > 0 && <span class="badge">{s.incoming.length}</span>}
         </button>
+        <form class="map-search" onSubmit={(e) => { e.preventDefault(); runSearch(search); }}>
+          <input
+            list="map-search-list"
+            placeholder="Speler, [STAM] of 501|497"
+            value={search}
+            onInput={(e) => { setSearch(e.currentTarget.value); setSearchError(''); }}
+            onChange={(e) => runSearch(e.currentTarget.value)}
+          />
+          <datalist id="map-search-list">
+            {suggestions.map((n) => <option key={n} value={n} />)}
+          </datalist>
+          {searchError && <span class="error">{searchError}</span>}
+        </form>
         {focus && focusList.length > 0 && (
           <span class="map-focus">
             <i style={{ borderColor: COLORS.focus }} />
-            {focus.owner === undefined ? focus.name : `Dorpen van ${focus.name} (${focusList.length})`}
+            {focus.tribe !== undefined ? `Stam ${focus.name} (${focusList.length})` : focus.owner === undefined ? focus.name : `Dorpen van ${focus.name} (${focusList.length})`}
             {focusList.length > 1 && (
               <>
                 <button class="small" title="Vorig dorp" onClick={() => step(-1)}>

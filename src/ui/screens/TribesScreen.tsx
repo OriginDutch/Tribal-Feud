@@ -6,7 +6,7 @@ import { formatGameTime } from '../../shared/time';
 import { Confirm } from '../components/Confirm';
 import { MapLink } from '../components/MapLink';
 import { num } from '../format';
-import { inviteCandidates, ranking, send, snapshot, tribeAsks, tribeFocus, tribeNews, tribes } from '../store';
+import { inviteCandidates, ranking, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes } from '../store';
 
 const REL: Record<TribeRelation, string> = { ally: 'Bondgenoot', nap: 'Niet-aanvalsverdrag', war: 'Oorlog' };
 const ASK_REL = { nap: 'NAP', ally: 'bondgenootschap', peace: 'vrede' } as const;
@@ -211,9 +211,14 @@ export function TribesScreen() {
           {open && (
             <div class="tribes-side">
               <section class="panel tribe-card" style={{ '--tc': open.color }}>
-                <h3>
-                  <span class="tribe-tag" style={{ '--tc': open.color }}>[{open.tag}]</span> {open.name}
-                </h3>
+                <div class="row">
+                  <h3 style={{ flex: 1 }}>
+                    <span class="tribe-tag" style={{ '--tc': open.color }}>[{open.tag}]</span> {open.name}
+                  </h3>
+                  <button class="small" onClick={() => showOnMap({ tribe: open.id })}>
+                    Toon op kaart
+                  </button>
+                </div>
                 <p class="muted">
                   Opgericht {formatGameTime(open.founded)} · leider {players.get(open.leader)?.name ?? '?'}
                   {relToMine && <> · <span class={`rel rel-${relToMine}`}>{REL[relToMine]}</span> met jouw stam</>}
