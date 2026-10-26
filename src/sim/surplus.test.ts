@@ -4,7 +4,7 @@ import { MINUTE } from '../shared/time';
 import { storageCapacity } from './formulas';
 import { saveTemplate, setManager } from './manager';
 import { distance } from './movement';
-import { buildNeed, planSurplus, sendSurplus, setSurplus } from './surplus';
+import { buildNeed, mintAll, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
 import { advance, setPaused } from './simulation';
 import { BARBARIAN, HUMAN_ID, createWorld, invalidateOwners, playerVillage, type WorldState } from './state';
 import { currentResources, type Village } from './village';
@@ -68,5 +68,32 @@ describe('surplus to building villages', () => {
     const trades = (st: WorldState) => Object.values(st.movements).filter((m) => m.kind === 'trade').length;
     for (let i = 0; i < 12 && trades(s) === 0; i++) advance(s, 10 * MINUTE);
     expect(trades(s)).toBeGreaterThan(0);
+  });
+});
+
+describe('coins in finished villages', () => {
+  it('mints in villages whose template is done, keeping a share of storage', () => {
+    const { s, rich, cap } = setup();
+    Object.assign(rich.buildings, { snob: 1, smith: 20, market: 10, storage: 30 });
+    const big = storageCapacity(30);
+    expect(planMintAll(s, 0)).toEqual([]); // no template
+    expect(saveTemplate(s, { id: 'done', name: 'Klaar', steps: [['main', 20]] })).toBeNull();
+    setManager(s, rich.id, { template: 'done', troopShare: 0 });
+    rich.buildQueue = [];
+    rich.res = [big * 0.9, big * 0.9, big * 0.9];
+    rich.resAt = s.time;
+    void cap;
+    const all = planMintAll(s, 0);
+    expect(all.length).toBe(1);
+    const half = planMintAll(s, 0.5)[0]!.coins;
+    expect(half).toBeLessThan(all[0]!.coins);
+    const coins = s.players[HUMAN_ID]!.coins ?? 0;
+    expect(mintAll(s, 0.5)).toBe(half);
+    expect(s.players[HUMAN_ID]!.coins).toBe(coins + half);
+    expect(Math.min(...currentResources(s.config, rich, s.time))).toBeGreaterThanOrEqual(big * 0.5 - 1);
+    // a template that isn't done: nothing
+    saveTemplate(s, { id: 'more', name: 'Meer', steps: [['main', 30]] });
+    setManager(s, rich.id, { template: 'more', troopShare: 0 });
+    expect(planMintAll(s, 0)).toEqual([]);
   });
 });

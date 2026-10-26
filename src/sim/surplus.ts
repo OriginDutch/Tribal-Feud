@@ -2,12 +2,14 @@
  * Surplus to building villages: resources above a share of storage in any of your villages go,
  * with free merchants, to your villages whose account manager is building and runs short.
  * As a button (with a preview) and, when switched on, at every account-manager check.
+ * Also: mint coins in every village whose build template is done (button only).
  */
 import type { Res } from '../shared/gameData';
 import { nextBuildCost } from './bots';
 import { storageCapacity } from './formulas';
 import { findTemplate } from './manager';
 import { MERCHANT_CARRY, merchantsFree, sendResources, tradeTimeMs } from './market';
+import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { distance } from './movement';
 import { HUMAN_ID, villagesOf, type WorldState } from './state';
 import { currentResources, isOperational, type Village } from './village';
@@ -126,4 +128,38 @@ export function setSurplus(state: WorldState, s: SurplusSettings): string | null
   if (!(s.keep >= 0 && s.keep <= 1)) return 'Ongeldig percentage.';
   state.surplus = { keep: Math.round(s.keep * 100) / 100, auto: !!s.auto };
   return null;
+}
+
+// --- coins in finished villages ---------------------------------------------------
+
+/** The village's build template is done: every step reached (built, not just queued). */
+export function templateDone(state: WorldState, v: Village): boolean {
+  const t = findTemplate(state, v.manager?.template);
+  return !!t && t.steps.every(([b, level]) => v.buildings[b] >= level);
+}
+
+export interface MintPlan {
+  village: number;
+  coins: number;
+}
+
+/** Coins every finished village (own academy) can mint while keeping `keep` of its storage. */
+export function planMintAll(state: WorldState, keep: number, owner = HUMAN_ID): MintPlan[] {
+  const cost = state.config.conquest.coinCost;
+  const out: MintPlan[] = [];
+  for (const v of villagesOf(state, owner)) {
+    if (!templateDone(state, v) || mintBlocker(state, v) !== null) continue;
+    const have = currentResources(state.config, v, state.time);
+    const floor = storageCapacity(v.buildings.storage) * keep;
+    const n = Math.floor(Math.min(...([0, 1, 2] as const).map((i) => Math.max(0, have[i] - floor) / Math.max(1, cost[i]))));
+    if (n > 0) out.push({ village: v.id, coins: Math.min(n, maxMintable(state, v)) });
+  }
+  return out;
+}
+
+/** Mints the planned coins; returns how many coins were made. */
+export function mintAll(state: WorldState, keep: number, owner = HUMAN_ID): number {
+  let made = 0;
+  for (const p of planMintAll(state, keep, owner)) if (mintCoins(state, p.village, p.coins) === null) made += p.coins;
+  return made;
 }

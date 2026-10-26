@@ -58,7 +58,7 @@ import {
   startResearch,
   type Village,
 } from './village';
-import { DEFAULT_SURPLUS, planSurplus, sendSurplus, setSurplus } from './surplus';
+import { DEFAULT_SURPLUS, mintAll, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
 
 /** Minimal typing for the worker global, so the project only needs the DOM lib. */
 const ctx = self as unknown as {
@@ -197,6 +197,10 @@ function sendRanking(s: WorldState): void {
 }
 
 /** For a leader: the 20 players nearest to your villages that are not in your tribe. */
+function mintRows(s: WorldState, keep: number) {
+  return planMintAll(s, keep).map((p) => { const v = s.villages[p.village]!; return { id: v.id, name: v.name, x: v.x, y: v.y, coins: p.coins }; });
+}
+
 function surplusRows(s: WorldState, keep: number): SurplusRow[] {
   const ref = (id: number) => { const v = s.villages[id]!; return { id, name: v.name, x: v.x, y: v.y }; };
   return planSurplus(s, { keep, auto: false }).map((sh) => ({ from: ref(sh.from), to: ref(sh.to), res: [...sh.res] as [number, number, number], merchants: sh.merchants, travel: sh.travel }));
@@ -749,6 +753,16 @@ async function handle(cmd: Command): Promise<void> {
     case 'getInbox':
       if (state) post({ type: 'inbox', inbox: inboxViews(state) });
       return;
+    case 'getMintPlan':
+      if (state) post({ type: 'mintPlan', rows: mintRows(state, cmd.keep), keep: cmd.keep });
+      return;
+    case 'mintAll': {
+      if (!state) return;
+      const n = mintAll(state, cmd.keep);
+      notice(n ? `${n} munt${n === 1 ? '' : 'en'} geslagen.` : 'Geen munten geslagen: geen afgebouwd dorp met adelshoeve en genoeg grondstoffen.', n ? 'info' : 'error');
+      post({ type: 'mintPlan', rows: mintRows(state, cmd.keep), keep: cmd.keep });
+      break;
+    }
     case 'getSurplusPlan':
       if (state) post({ type: 'surplusPlan', rows: surplusRows(state, cmd.keep), keep: cmd.keep });
       return;

@@ -87,6 +87,8 @@ export type Command =
   | { type: 'setSurplus'; keep: number; auto: boolean }
   | { type: 'sendSurplus'; keep: number }
   | { type: 'getSurplusPlan'; keep: number }
+  | { type: 'getMintPlan'; keep: number }
+  | { type: 'mintAll'; keep: number }
   | { type: 'dismissToast'; id: number | 'all' }
   | { type: 'sendResources'; from: number; to: number; res: [number, number, number] }
   | { type: 'createOffer'; villageId: number; give: TradeSide; want: TradeSide; count: number }
@@ -379,6 +381,7 @@ export type WorkerMessage =
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'supportList'; rows: SupportRow[] }
   | { type: 'surplusPlan'; rows: SurplusRow[]; keep: number }
+  | { type: 'mintPlan'; rows: { id: number; name: string; x: number; y: number; coins: number }[]; keep: number }
   | { type: 'player'; player: PlayerView | null }
   | { type: 'notice'; level: 'info' | 'error'; text: string };
 

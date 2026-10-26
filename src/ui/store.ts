@@ -86,6 +86,7 @@ export const refusedApplications = signal<Record<number, number>>({});
 export const refusedInvites = signal<Record<number, number>>({});
 export const inbox = signal<InboxView[]>([]);
 export const supportRows = signal<SupportRow[] | null>(null);
+export const mintPlan = signal<{ rows: { id: number; name: string; x: number; y: number; coins: number }[]; keep: number } | null>(null);
 export const surplusPlan = signal<{ rows: SurplusRow[]; keep: number } | null>(null);
 /** Target picked on the map, prefilled in the rally point. */
 export const placeTarget = signal<{ x: number; y: number } | null>(null);
@@ -177,6 +178,9 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'supportList':
       supportRows.value = msg.rows;
+      break;
+    case 'mintPlan':
+      mintPlan.value = { rows: msg.rows, keep: msg.keep };
       break;
     case 'surplusPlan':
       surplusPlan.value = { rows: msg.rows, keep: msg.keep };
