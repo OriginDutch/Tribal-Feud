@@ -9,6 +9,7 @@ import { distance, travelMs, unitsText } from '../units';
 import { CancelButton } from '../components/CancelButton';
 import { DismissTroops } from '../components/DismissTroops';
 import { Confirm } from '../components/Confirm';
+import { SupportReturn } from '../components/SupportReturn';
 
 /** Units offered as escort for noblemen 2..N, best attack first. */
 const ESCORT_UNITS: UnitId[] = ['axe', 'light', 'marcher', 'heavy', 'sword', 'spear'];
@@ -19,6 +20,7 @@ export function PlaceScreen() {
   const s = snapshot.value;
   const v = s?.village;
   const [x, setX] = useState('');
+  const [bulk, setBulk] = useState(false);
   const [y, setY] = useState('');
   const [counts, setCounts] = useState<Partial<Record<UnitId, string>>>({});
   const [catTarget, setCatTarget] = useState<BuildingId>('main');
@@ -412,7 +414,12 @@ export function PlaceScreen() {
       </section>
 
       <section class="panel">
-        <h3>Ondersteuning in dit dorp</h3>
+        <div class="row">
+          <h3>Ondersteuning in dit dorp</h3>
+          <span style={{ flex: 1 }} />
+          <button class="small" onClick={() => setBulk(!bulk)}>{bulk ? 'Verbergen' : 'Alles terugsturen…'}</button>
+        </div>
+        {bulk && <SupportReturn village={v.id} onClose={() => setBulk(false)} />}
         {v.supportHere.length === 0 ? (
           <p class="muted">Geen troepen van andere dorpen.</p>
         ) : (

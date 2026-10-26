@@ -18,13 +18,13 @@ import { createWorld, currentVillage, playerVillage, type WorldState } from './s
 import { storageCapacity } from './formulas';
 import { villageView } from './view';
 import { incomingViews, mapData, movementViews } from './mapView';
-import { CANCEL_WINDOW_MS, cancelBlocker, cancelMovement, conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendNobleTrain, sendSupport } from './movement';
+import { CANCEL_WINDOW_MS, cancelBlocker, cancelMovement, conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendNobleTrain, sendSupport, travelTimeMs } from './movement';
 import { BARBARIAN } from './state';
 import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteNobleTemplate, deleteTemplate, deleteTroopTemplate, findTemplate, saveNobleTemplate, saveTemplate, saveTroopTemplate, setManager, templateUse } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
-import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow } from '../shared/protocol';
+import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow } from '../shared/protocol';
 import {
   MERCHANT_CARRY,
   MERCHANT_MINUTES_PER_FIELD,
@@ -56,6 +56,7 @@ import {
   recruit,
   settle,
   startResearch,
+  type Village,
 } from './village';
 
 /** Minimal typing for the worker global, so the project only needs the DOM lib. */
@@ -194,6 +195,27 @@ function sendRanking(s: WorldState): void {
 }
 
 /** For a leader: the 20 players nearest to your villages that are not in your tribe. */
+/** Every support that involves you: in your villages, yours elsewhere, and between your own villages. */
+function supportRows(s: WorldState): SupportRow[] {
+  const ref = (v: Village) => ({ id: v.id, name: v.name, x: v.x, y: v.y, owner: v.owner, ownerName: v.owner < 0 ? 'barbaren' : (s.players[v.owner]?.name ?? '?') });
+  const rows: SupportRow[] = [];
+  for (const host of Object.values(s.villages)) {
+    if (!host.support) continue;
+    for (const [originId, units] of Object.entries(host.support)) {
+      const origin = s.villages[Number(originId)];
+      if (!origin || Object.keys(units).length === 0) continue;
+      const hostMine = host.owner === HUMAN_ID, originMine = origin.owner === HUMAN_ID;
+      if (!hostMine && !originMine) continue;
+      rows.push({
+        kind: hostMine && originMine ? 'own' : hostMine ? 'foreign' : 'mine',
+        host: ref(host), origin: ref(origin), units: { ...units },
+        travel: travelTimeMs(s, units, distance(host, origin)),
+      });
+    }
+  }
+  return rows;
+}
+
 function inviteCandidates(s: WorldState, ranking: RankingRow[]): CandidateView[] {
   const me = s.players[HUMAN_ID];
   const t = me?.tribe !== undefined ? s.tribes?.[me.tribe] : undefined;
@@ -574,6 +596,14 @@ async function handle(cmd: Command): Promise<void> {
       if (error) notice(error, 'error');
       break;
     }
+    case 'returnSupportMany': {
+      if (!state) return;
+      let ok = 0;
+      for (const { hostId, originId } of cmd.pairs) if (returnSupport(state, HUMAN_ID, hostId, originId) === null) ok++;
+      notice(ok ? `${ok} ondersteuning${ok === 1 ? '' : 'en'} op weg naar huis.` : 'Niets teruggestuurd.', ok ? 'info' : 'error');
+      post({ type: 'supportList', rows: supportRows(state) });
+      break;
+    }
     case 'debugSkip': {
       if (!state) return;
       // run the world forward at speed 1, past any auto-pause
@@ -711,6 +741,9 @@ async function handle(cmd: Command): Promise<void> {
       return;
     case 'getInbox':
       if (state) post({ type: 'inbox', inbox: inboxViews(state) });
+      return;
+    case 'getSupportList':
+      if (state) post({ type: 'supportList', rows: supportRows(state) });
       return;
     case 'setTribePause':
       if (!state) return;

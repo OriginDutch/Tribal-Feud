@@ -7,6 +7,7 @@ import type { OwnVillageRow } from '../../shared/protocol';
 import type { UnitId } from '../../shared/gameData';
 import type { VillageGroup } from '../../sim/groups';
 import { Confirm } from '../components/Confirm';
+import { SupportReturn } from '../components/SupportReturn';
 import { groupFilter, groupVillages, screen, send, setGroupFilter, snapshot } from '../store';
 import { UNIT_SHORT } from '../units';
 
@@ -16,6 +17,7 @@ export function VillagesScreen() {
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [manage, setManage] = useState(false);
   const [suggest, setSuggest] = useState(false);
+  const [supports, setSupports] = useState(false);
   if (!s) return null;
   const list = groupVillages(s.villages, s.groups);
   const used = UNIT_IDS.filter((u) => list.some((v) => (v.units[u] ?? 0) > 0));
@@ -52,8 +54,9 @@ export function VillagesScreen() {
             </button>
           ))}
           <span style={{ flex: 1 }} />
-          <button class="small" onClick={() => { setSuggest(!suggest); setManage(false); }}>Voorstellen</button>
-          <button class="small" onClick={() => { setManage(!manage); setSuggest(false); }}>Groepen beheren</button>
+          <button class="small" onClick={() => { setSupports(!supports); setSuggest(false); setManage(false); }}>Ondersteuning terugsturen</button>
+          <button class="small" onClick={() => { setSuggest(!suggest); setManage(false); setSupports(false); }}>Voorstellen</button>
+          <button class="small" onClick={() => { setManage(!manage); setSuggest(false); setSupports(false); }}>Groepen beheren</button>
         </div>
         {picked.size > 0 && (
           <div class="row wrap group-actions">
@@ -70,6 +73,7 @@ export function VillagesScreen() {
           </div>
         )}
         {manage && <GroupManager groups={s.groups} />}
+        {supports && <SupportReturn onClose={() => setSupports(false)} />}
         {suggest && <GroupSuggestions villages={s.villages} groups={s.groups} onDone={() => setSuggest(false)} />}
       </section>
       <section class="panel">

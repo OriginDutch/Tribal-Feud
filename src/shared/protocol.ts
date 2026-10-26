@@ -81,6 +81,9 @@ export type Command =
   | { type: 'sendSupportMany'; to: number; orders: { from: number; units: UnitCounts }[] }
   | { type: 'sendNobleTrain'; from: number; to: number; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId }
   | { type: 'returnSupport'; hostId: number; originId: number }
+  /** Sends many supports home at once (rows of the support list). */
+  | { type: 'returnSupportMany'; pairs: { hostId: number; originId: number }[] }
+  | { type: 'getSupportList' }
   | { type: 'dismissToast'; id: number | 'all' }
   | { type: 'sendResources'; from: number; to: number; res: [number, number, number] }
   | { type: 'createOffer'; villageId: number; give: TradeSide; want: TradeSide; count: number }
@@ -369,6 +372,7 @@ export type WorkerMessage =
   | { type: 'reports'; reports: Report[] }
   | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number> }
   | { type: 'inbox'; inbox: InboxView[] }
+  | { type: 'supportList'; rows: SupportRow[] }
   | { type: 'player'; player: PlayerView | null }
   | { type: 'notice'; level: 'info' | 'error'; text: string };
 
@@ -384,4 +388,17 @@ export interface RankingRow {
   /** Debug info, only for bots. */
   archetype?: string;
   activity?: number;
+}
+
+/**
+ * A support standing somewhere that involves you. foreign: someone else's troops in your
+ * village; mine: your troops in someone else's village; own: between two of your villages.
+ */
+export interface SupportRow {
+  kind: 'foreign' | 'mine' | 'own';
+  host: { id: number; name: string; x: number; y: number; owner: number; ownerName: string };
+  origin: { id: number; name: string; x: number; y: number; owner: number; ownerName: string };
+  units: UnitCounts;
+  /** Walking time home (slowest unit). */
+  travel: number;
 }

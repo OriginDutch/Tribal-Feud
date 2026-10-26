@@ -673,3 +673,6 @@ tr.total-row td { border-top: 1px solid rgba(255,255,255,0.15); }
 .group-chip.filter { margin-left: 6px; border-style: dashed; font-weight: 600; }
 tr.dim td { opacity: 0.55; }
 td.bad { color: var(--danger, #e5533f); }
+.support-return { margin-top: 12px; }
+.support-return-section { margin-top: 14px; }
+.support-return-section h4 { margin: 0; }
