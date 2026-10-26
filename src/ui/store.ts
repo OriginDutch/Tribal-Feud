@@ -17,6 +17,8 @@ export const saves = signal<SaveMeta[]>([]);
 export const autoPause = signal<LogEntry | null>(null);
 export const notice = signal<{ text: string; level: 'info' | 'error' } | null>(null);
 export const screen = signal<Screen>('overview');
+/** The Ctrl+K search. */
+export const paletteOpen = signal(false);
 /** The building shown on the 'building' screen. */
 export const infoBuilding = signal<BuildingId>('wood');
 

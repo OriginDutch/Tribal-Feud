@@ -24,7 +24,10 @@ export function MainScreen() {
 
   return (
     <div class="screen">
-      <h2>Hoofdgebouw (level {v.buildings.find((b) => b.id === 'main')?.level})</h2>
+      <div class="screen-head">
+        <h2>Hoofdgebouw</h2>
+        <span class="chip gold">Level {v.buildings.find((b) => b.id === 'main')?.level}</span>
+      </div>
 
       <section class="panel">
         <h3>

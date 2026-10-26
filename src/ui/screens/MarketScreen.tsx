@@ -132,7 +132,10 @@ export function MarketScreen() {
 
   return (
     <div class="screen">
-      <h2>Marktplaats (niveau {level})</h2>
+      <div class="screen-head">
+        <h2>Marktplaats</h2>
+        <span class="chip gold">Level {level}</span>
+      </div>
       <BuildingHeader village={v} id="market" />
       <p class="muted">
         Handelaren: <strong>{m.merchantsFree}</strong> / {m.merchantsTotal} vrij · elk draagt {num(m.carry)} · {duration(m.minutesPerField * 60_000)}{' '}

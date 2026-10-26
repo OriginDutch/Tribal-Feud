@@ -108,7 +108,7 @@ export function NewWorldPanel() {
           onInput={(e) => setSeed(e.currentTarget.value)}
         />
       </label>
-      <button onClick={create}>Nieuwe wereld</button>
+      <button class="primary" onClick={create}>Nieuwe wereld</button>
     </section>
   );
 }

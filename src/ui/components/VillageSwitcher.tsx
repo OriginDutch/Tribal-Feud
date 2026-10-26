@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { num } from '../format';
 import { send, snapshot } from '../store';
 
 const NAME_MAX = 32;
@@ -12,12 +13,13 @@ export function stepVillage(delta: number): void {
   if (next) send({ type: 'selectVillage', id: next.id });
 }
 
-/** Village name in the menu; with more than one village it becomes a switcher. */
+/** The current village in the top bar: name (rename with the pencil), coordinates, and switching. */
 export function VillageSwitcher() {
   const s = snapshot.value;
   const v = s?.village;
   const [editing, setEditing] = useState<string | null>(null);
   if (!s || !v) return null;
+  const many = s.villages.length > 1;
 
   if (editing !== null) {
     const save = () => {
@@ -26,11 +28,13 @@ export function VillageSwitcher() {
       setEditing(null);
     };
     return (
-      <div class="village-rename">
+      <div class="vswitch">
         <input
+          class="vrename"
           autoFocus
           maxLength={NAME_MAX}
           value={editing}
+          aria-label="Nieuwe naam"
           onInput={(e) => setEditing(e.currentTarget.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') save();
@@ -41,35 +45,44 @@ export function VillageSwitcher() {
       </div>
     );
   }
-  const pencil = (
-    <button class="link rename" title="Dorp hernoemen" onClick={() => setEditing(v.name)}>
-      ✎
-    </button>
-  );
 
-  if (s.villages.length < 2) {
-    return (
-      <div class="village-name">
-        {v.name} <span class="muted">({v.x}|{v.y})</span> {pencil}
-      </div>
-    );
-  }
   return (
-    <div class="village-switch">
-      <button class="small" title="Vorig dorp (A)" onClick={() => stepVillage(-1)}>
-        ◀
-      </button>
-      <select value={String(v.id)} onChange={(e) => send({ type: 'selectVillage', id: Number(e.currentTarget.value) })}>
-        {s.villages.map((x) => (
-          <option key={x.id} value={String(x.id)}>
-            {x.name} ({x.x}|{x.y})
-          </option>
-        ))}
-      </select>
-      <button class="small" title="Volgend dorp (D)" onClick={() => stepVillage(1)}>
-        ▶
-      </button>
-      {pencil}
+    <div class="vswitch">
+      {many && (
+        <button class="vstep" title="Vorig dorp (A)" aria-label="Vorig dorp" onClick={() => stepVillage(-1)}>
+          ‹
+        </button>
+      )}
+      <div class="vname">
+        <div class="vname-top">
+          <b>{v.name}</b>
+          <button class="link rename" title="Dorp hernoemen" aria-label="Dorp hernoemen" onClick={() => setEditing(v.name)}>
+            ✎
+          </button>
+        </div>
+        <span>
+          {v.x}|{v.y} · {num(v.points)} p
+        </span>
+        {many && (
+          <select
+            class="vselect"
+            value={String(v.id)}
+            aria-label="Kies een dorp"
+            onChange={(e) => send({ type: 'selectVillage', id: Number(e.currentTarget.value) })}
+          >
+            {s.villages.map((x) => (
+              <option key={x.id} value={String(x.id)}>
+                {x.name} ({x.x}|{x.y})
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+      {many && (
+        <button class="vstep" title="Volgend dorp (D)" aria-label="Volgend dorp" onClick={() => stepVillage(1)}>
+          ›
+        </button>
+      )}
     </div>
   );
 }

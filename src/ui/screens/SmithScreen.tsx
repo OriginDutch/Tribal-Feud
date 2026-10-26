@@ -14,7 +14,10 @@ export function SmithScreen() {
 
   return (
     <div class="screen">
-      <h2>Smederij {smith && smith.level > 0 ? `(level ${smith.level})` : ''}</h2>
+      <div class="screen-head">
+        <h2>Smederij</h2>
+        {smith && smith.level > 0 && <span class="chip gold">Level {smith.level}</span>}
+      </div>
       <BuildingHeader village={v} id="smith" />
       {smith && smith.level === 0 && (
         <section class="panel">

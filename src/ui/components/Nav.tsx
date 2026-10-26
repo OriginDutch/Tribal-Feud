@@ -1,60 +1,68 @@
-import { QuestToasts } from './QuestToasts';
-import { VillageSwitcher } from './VillageSwitcher';
+import { NavIcon } from './NavIcon';
 import { screen, snapshot, type Screen } from '../store';
 
-export function Nav() {
-  const v = snapshot.value?.village;
-  if (!v) return null;
-  const level = (id: string) => v.buildings.find((b) => b.id === id)?.level ?? 0;
+type Item = { id: Screen; label: string; building?: string } | 'sep';
 
-  const items: { id: Screen; label: string; building?: string }[] = [
-    { id: 'overview', label: 'Overzicht' },
-    { id: 'villages', label: `Dorpen (${snapshot.value?.villages.length ?? 1})` },
-    { id: 'manager', label: 'Accountmanager' },
-    { id: 'quests', label: 'Opdrachten' },
-    { id: 'main', label: 'Hoofdgebouw', building: 'main' },
-    { id: 'barracks', label: 'Kazerne', building: 'barracks' },
-    { id: 'stable', label: 'Stal', building: 'stable' },
-    { id: 'garage', label: 'Werkplaats', building: 'garage' },
-    { id: 'statue', label: 'Standbeeld', building: 'statue' },
-    { id: 'snob', label: 'Adelshoeve', building: 'snob' },
-    { id: 'smith', label: 'Smederij', building: 'smith' },
-    { id: 'place', label: 'Verzamelplaats', building: 'place' },
-    { id: 'market', label: 'Marktplaats', building: 'market' },
-    { id: 'map', label: 'Kaart' },
-    { id: 'farm', label: 'Farm-assistent' },
-    { id: 'reports', label: 'Rapporten' },
-    { id: 'ranking', label: 'Ranglijst' },
-    { id: 'debug', label: 'Log & debug' },
-  ];
-  const unread = snapshot.value?.unreadReports ?? 0;
-  const incoming = snapshot.value?.incoming.length ?? 0;
-  const rewardCount = snapshot.value?.quests.rewards.length ?? 0;
+const ITEMS: Item[] = [
+  { id: 'overview', label: 'Overzicht' },
+  { id: 'villages', label: 'Dorpen' },
+  { id: 'manager', label: 'Accountmanager' },
+  { id: 'quests', label: 'Opdrachten' },
+  'sep',
+  { id: 'main', label: 'Hoofdgebouw', building: 'main' },
+  { id: 'barracks', label: 'Kazerne', building: 'barracks' },
+  { id: 'stable', label: 'Stal', building: 'stable' },
+  { id: 'garage', label: 'Werkplaats', building: 'garage' },
+  { id: 'statue', label: 'Standbeeld', building: 'statue' },
+  { id: 'snob', label: 'Adelshoeve', building: 'snob' },
+  { id: 'smith', label: 'Smederij', building: 'smith' },
+  { id: 'place', label: 'Verzamelplaats', building: 'place' },
+  { id: 'market', label: 'Marktplaats', building: 'market' },
+  'sep',
+  { id: 'map', label: 'Kaart' },
+  { id: 'farm', label: 'Farm-assistent' },
+  { id: 'reports', label: 'Rapporten' },
+  { id: 'ranking', label: 'Ranglijst' },
+  { id: 'debug', label: 'Log & debug' },
+];
+
+/** The menu: a slim rail of icons, the name shows on hover (and to screen readers). */
+export function Nav() {
+  const s = snapshot.value;
+  const v = s?.village;
+  if (!s || !v) return null;
+  const level = (id: string) => v.buildings.find((b) => b.id === id)?.level ?? 0;
+  const unread = s.unreadReports;
+  const incoming = s.incoming.length;
+  const rewards = s.quests.rewards.length;
 
   return (
-    <nav class="nav">
-      <VillageSwitcher />
-      {items.map((item) => {
+    <nav class="rail" aria-label="Menu">
+      {ITEMS.map((item, i) => {
+        if (item === 'sep') return <div key={`sep-${i}`} class="rail-sep" />;
         const lvl = item.building ? level(item.building) : null;
+        const active = screen.value === item.id;
+        const badge =
+          item.id === 'reports' && unread > 0 ? { n: unread, kind: 'danger' } : item.id === 'overview' && incoming > 0 ? { n: incoming, kind: 'danger' } : item.id === 'quests' && rewards > 0 ? { n: rewards, kind: 'good' } : item.id === 'villages' ? { n: s.villages.length, kind: 'plain' } : null;
         return (
           <button
             key={item.id}
-            class={`nav-item ${screen.value === item.id ? 'active' : ''} ${lvl === 0 ? 'unbuilt' : ''}`}
+            class={`rail-item ${active ? 'active' : ''} ${lvl === 0 ? 'unbuilt' : ''}`}
+            aria-label={`${item.label}${lvl ? `, level ${lvl}` : ''}`}
+            aria-current={active ? 'page' : undefined}
             onClick={() => (screen.value = item.id)}
           >
-            <span>{item.label}</span>
-            {lvl !== null && <span class="lvl">{lvl > 0 ? lvl : '—'}</span>}
-            {item.id === 'reports' && unread > 0 && <span class="badge">{unread}</span>}
-            {item.id === 'overview' && incoming > 0 && (
-              <span class="badge danger" title="Inkomende aanvallen">
-                ⚔ {incoming}
-              </span>
-            )}
-            {item.id === 'quests' && rewardCount > 0 && <span class="badge good">{rewardCount}</span>}
+            <NavIcon name={item.id} />
+            {lvl !== null && lvl > 0 && <small class="rail-lvl">{lvl}</small>}
+            {badge && badge.kind !== 'plain' && <span class={`rail-badge ${badge.kind}`}>{badge.n}</span>}
+            {badge && badge.kind === 'plain' && <small class="rail-lvl">{badge.n}</small>}
+            <span class="rail-tip">
+              {item.label}
+              {lvl ? <em> · level {lvl}</em> : lvl === 0 ? <em> · niet gebouwd</em> : null}
+            </span>
           </button>
         );
       })}
-      <QuestToasts />
     </nav>
   );
 }

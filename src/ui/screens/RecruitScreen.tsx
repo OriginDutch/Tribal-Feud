@@ -8,7 +8,15 @@ import { Cost } from '../components/Cost';
 import { duration, num } from '../format';
 import { send, snapshot } from '../store';
 
-function UnitRow({ villageId, u, have }: { villageId: number; u: UnitView; have: [number, number, number] }) {
+function StatIcon({ d }: { d: string }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
+      <path d={d} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  );
+}
+
+function UnitCard({ villageId, u, have }: { villageId: number; u: UnitView; have: [number, number, number] }) {
   const [count, setCount] = useState('');
   const n = Number(count);
   const go = () => {
@@ -18,25 +26,43 @@ function UnitRow({ villageId, u, have }: { villageId: number; u: UnitView; have:
     }
   };
   return (
-    <tr>
-      <td>
-        <span class="unit-name">
-          <UnitIcon id={u.id} size={26} /> <strong>{u.name}</strong>
+    <div class={`unit-card${u.recruit.blocker ? ' blocked' : ''}`}>
+      <div class="uc-head">
+        <div class="uc-icon">
+          <UnitIcon id={u.id} size={44} />
+        </div>
+        <div>
+          <h3>{u.name}</h3>
+          <div class="uc-sub">{num(u.home)} in dorp</div>
+        </div>
+      </div>
+      <div class="uc-stats">
+        <span class="stat" title="Aanval">
+          <StatIcon d="M5 19 19 5M15 5h4v4" />
+          <b>{num(u.stats.attack)}</b>
         </span>
-      </td>
-      <td>
+        <span class="stat" title="Verdediging">
+          <StatIcon d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z" />
+          <b>{num(u.stats.defense)}</b>
+        </span>
+        <span class="stat" title="Verdediging tegen cavalerie">
+          <StatIcon d="M4 18c0-5 3-8 6-9l3-3 2 2-1 3c2 2 3 4 3 7" />
+          <b>{num(u.stats.defenseCavalry)}</b>
+        </span>
+        <span class="stat" title="Boerderijplaatsen">
+          <StatIcon d="M3 11 12 4l9 7v9H3z" />
+          <b>{u.pop}</b>
+        </span>
+      </div>
+      <div class="uc-meta">
         <Cost cost={u.cost} have={have} />
-      </td>
-      <td class="right mono">{u.pop}</td>
-      <td class="right mono">{duration(u.recruit.perUnit)}</td>
-      <td class="right mono">{num(u.home)}</td>
-      <td class="right">
-        {u.recruit.blocker ? (
-          <button class="small action" disabled title={u.recruit.blocker}>
-            {u.recruit.blocker}
-          </button>
-        ) : (
-          <span class="recruit-input">
+        <span class="mono muted">{duration(u.recruit.perUnit)}</span>
+      </div>
+      {u.recruit.blocker ? (
+        <div class="uc-blocker">{u.recruit.blocker}</div>
+      ) : (
+        <div class="uc-train">
+          <div class="num-input">
             <input
               type="number"
               min={1}
@@ -46,16 +72,16 @@ function UnitRow({ villageId, u, have }: { villageId: number; u: UnitView; have:
               onInput={(e) => setCount(e.currentTarget.value)}
               onKeyDown={(e) => e.key === 'Enter' && go()}
             />
-            <button class="link" onClick={() => setCount(String(u.recruit.max))} title="Maximaal">
-              ({num(u.recruit.max)})
+            <button type="button" onClick={() => setCount(String(u.recruit.max))} title="Maximaal">
+              max {num(u.recruit.max)}
             </button>
-            <button class="small" disabled={!(n > 0)} onClick={go}>
-              Rekruteer
-            </button>
-          </span>
-        )}
-      </td>
-    </tr>
+          </div>
+          <button class="primary" disabled={!(n > 0)} onClick={go}>
+            Train
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -139,9 +165,10 @@ export function RecruitScreen({ building }: { building: RecruitBuilding }) {
 
   return (
     <div class="screen">
-      <h2>
-        {TITLES[building]} {b && b.level > 0 ? `(level ${b.level})` : ''}
-      </h2>
+      <div class="screen-head">
+        <h2>{TITLES[building]}</h2>
+        {b && b.level > 0 && <span class="chip gold">Level {b.level}</span>}
+      </div>
       <BuildingHeader village={v} id={building} />
       {b && b.level === 0 ? (
         <section class="panel">
@@ -150,33 +177,11 @@ export function RecruitScreen({ building }: { building: RecruitBuilding }) {
       ) : (
         <>
           {building === 'snob' && <CoinPanel />}
-          <section class="panel">
-            <table class="table fixed">
-              <colgroup>
-                <col />
-                <col style={{ width: '220px' }} />
-                <col style={{ width: '80px' }} />
-                <col style={{ width: '110px' }} />
-                <col style={{ width: '80px' }} />
-                <col style={{ width: '270px' }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Eenheid</th>
-                  <th>Kosten</th>
-                  <th class="right">Boerderij</th>
-                  <th class="right">Tijd per stuk</th>
-                  <th class="right">In dorp</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {units.map((u) => (
-                  <UnitRow key={u.id} villageId={v.id} u={u} have={v.res} />
-                ))}
-              </tbody>
-            </table>
-          </section>
+          <div class="unit-grid">
+            {units.map((u) => (
+              <UnitCard key={u.id} villageId={v.id} u={u} have={v.res} />
+            ))}
+          </div>
           {queue.length > 0 && (
             <section class="panel">
               <h3>Rekruteren</h3>
@@ -185,33 +190,33 @@ export function RecruitScreen({ building }: { building: RecruitBuilding }) {
                 <span class="mono">{duration((queue.at(-1)?.end ?? s.time) - s.time)}</span> · klaar op{' '}
                 <span class="mono">{formatGameTime(queue.at(-1)?.end ?? s.time)}</span>
               </p>
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Opdracht</th>
-                    <th>Volgende</th>
-                    <th>Alles klaar op</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {queue.map((job, i) => (
-                    <tr key={job.id}>
-                      <td>
-                        {job.total - job.done}× {job.name}
-                        {job.done > 0 && <span class="muted"> ({job.done} klaar)</span>}
-                      </td>
-                      <td class="mono">{i === 0 ? duration(job.nextAt - s.time) : '—'}</td>
-                      <td class="mono muted">{formatGameTime(job.end)}</td>
-                      <td class="right">
-                        <button class="danger small" onClick={() => send({ type: 'cancelRecruit', villageId: v.id, jobId: job.id })}>
-                          Annuleer
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div class="jobs">
+                {queue.map((job, i) => {
+                  const pct = job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
+                  return (
+                    <div class="job" key={job.id}>
+                      <UnitIcon id={job.unit} size={34} />
+                      <div class="job-text">
+                        <b>
+                          {num(job.total - job.done)} {job.name}
+                        </b>
+                        <div class="muted small-text">
+                          {i === 0
+                            ? `${job.done > 0 ? `${num(job.done)} klaar · ` : ''}volgende over ${duration(job.nextAt - s.time)}`
+                            : 'wacht in de rij'}
+                        </div>
+                      </div>
+                      <div class="bar">
+                        <b style={{ width: `${pct}%` }} />
+                      </div>
+                      <div class="mono muted small-text">klaar {formatGameTime(job.end)}</div>
+                      <button class="small ghost" onClick={() => send({ type: 'cancelRecruit', villageId: v.id, jobId: job.id })}>
+                        Annuleer
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </section>
           )}
         </>

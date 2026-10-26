@@ -20,6 +20,8 @@ import { RankingScreen } from './screens/RankingScreen';
 import { VillagesScreen } from './screens/VillagesScreen';
 import { ManagerScreen } from './screens/ManagerScreen';
 import { stepVillage } from './components/VillageSwitcher';
+import { QuestToasts } from './components/QuestToasts';
+import { CommandPalette } from './components/CommandPalette';
 
 /** Spacebar toggles pause, except while typing in a field. */
 function useSpacebarPause(): void {
@@ -102,6 +104,10 @@ export function App() {
           <main class="content">
             <CurrentScreen />
           </main>
+          <aside class="toast-col" aria-label="Meldingen">
+            <QuestToasts />
+          </aside>
+          <CommandPalette />
         </div>
       ) : (
         <StartScreen />
