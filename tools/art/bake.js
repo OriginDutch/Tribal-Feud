@@ -185,7 +185,9 @@ window.bake = (job) => {
     take(`home${job.i}`, 'all', h.getWorldPosition(new THREE.Vector3()));
   } else if (job.type === 'outer') {
     const h = L.buildOuterHome(root, job.i); settle();
-    take(`outer${job.i}`, 'all', h.getWorldPosition(new THREE.Vector3()));
+    const a = h.getWorldPosition(new THREE.Vector3());
+    take(`outer${job.i}:decal`, 'decal', a, { ao: false });
+    take(`outer${job.i}`, 'body', a);
   } else if (job.type === 'slothome') {
     const h = L.buildSlotHome(root); settle();
     take('slothome', 'all', h.getWorldPosition(new THREE.Vector3()));
