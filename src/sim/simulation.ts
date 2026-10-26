@@ -46,6 +46,8 @@ function touch(state: WorldState, event: GameEvent): void {
       return;
     }
     case 'botTurn':
+      // stale turn events (rescheduled since) look at nothing
+      if (state.players[event.playerId]?.bot?.nextTurn !== state.time) return;
       for (const v of villagesOf(state, event.playerId)) settleRecruits(state, v, true);
       return;
   }

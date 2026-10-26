@@ -32,8 +32,17 @@ export interface LogEntry {
   autoPause?: boolean;
 }
 
+export type BotTier = 'pro' | 'mid' | 'casual';
+
 export interface BotState {
   archetype: Archetype;
+  /** How serious this "player" is: presence, sharpness and reactions follow from it. */
+  tier?: BotTier;
+  /**
+   * When the bot is at the game. Random stretches online/offline, derived from the seed
+   * (no clock: there is no night to time your attacks to). Pros have none: always online.
+   */
+  presence?: { online: boolean; until: number; n: number };
   /** 0..1, higher = more turns. */
   activity: number;
   /** Game time of the next scheduled turn. */

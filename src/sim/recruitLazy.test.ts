@@ -25,7 +25,7 @@ describe('lazy recruiting', () => {
   it('a bot job has one event; units are there the moment anything looks', () => {
     const s = world();
     const bot = s.players.find((p) => p.isBot)!;
-    bot.bot!.nextTurn = Infinity; // keep the bot out of it
+    for (const p of s.players) if (p.bot) p.bot.nextTurn = Infinity; // keep the bot out of it
     const v = villagesOf(s, bot.id)[0]!;
     const before = v.units.spear;
     expect(recruit(s, v.id, 'spear', 50)).toBeNull();
@@ -56,8 +56,9 @@ describe('lazy recruiting', () => {
   it('cancelling a bot job refunds only units that were not finished yet', () => {
     const s = world();
     const bot = s.players.find((p) => p.isBot)!;
-    bot.bot!.nextTurn = Infinity;
+    for (const p of s.players) if (p.bot) p.bot.nextTurn = Infinity;
     const v = villagesOf(s, bot.id)[0]!;
+    v.buildQueue = []; // no build events in this village: only the cancel touches it
     recruit(s, v.id, 'spear', 20);
     const job = v.recruitQueues.barracks[0]!;
     const start = v.units.spear;

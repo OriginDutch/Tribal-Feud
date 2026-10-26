@@ -1,3 +1,4 @@
+import { assignTiers } from './bots';
 import { rescheduleBotRecruits } from './village';
 import { initDiplomacy } from './tribes';
 import { PRESETS, defaultTables } from '../shared/config';
@@ -13,7 +14,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 export interface SaveData {
   version: number;
@@ -155,6 +156,11 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
   12: (data) => {
     rescheduleBotRecruits(data.state);
     return { ...data, version: 13 };
+  },
+  // v13 bots were all equally "there": give them a tier (pro / mid / casual) and presence.
+  13: (data) => {
+    assignTiers(data.state);
+    return { ...data, version: 14 };
   },
 };
 

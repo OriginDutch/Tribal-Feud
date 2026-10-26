@@ -19,7 +19,7 @@ import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { edgeSpot } from './map';
 import { helpShare, isHelping, mayAttack, targetWeight, threatsFor } from './tribes';
-import { BARBARIAN, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type Player, type WorldState } from './state';
+import { BARBARIAN, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type BotState, type BotTier, type Player, type WorldState } from './state';
 import {
   buildBlocker,
   createVillage,
@@ -42,14 +42,79 @@ import {
 export function initBots(state: WorldState): void {
   for (const p of state.players) {
     if (!p.isBot || p.bot) continue;
-    const { activityMin, activityMax } = state.config.bots;
     const archetype = ARCHETYPES[Math.floor(hashFloat(state.config.seed, p.id, 1) * ARCHETYPES.length)] ?? 'farmer';
-    const activity = activityMin + hashFloat(state.config.seed, p.id, 2) * (activityMax - activityMin);
+    const tier = tierFor(state, p.id);
+    const activity = activityFor(state, p.id, tier);
     // spread the first turns so not all bots think at the same moment
     const first = state.time + Math.round(hashFloat(state.config.seed, p.id, 3) * turnInterval(state, activity));
-    p.bot = { archetype, activity, nextTurn: first, farmLog: {}, outgoing: [] };
+    p.bot = { archetype, tier, activity, nextTurn: first, farmLog: {}, outgoing: [] };
+    startPresence(state, p.id, p.bot);
     push(state.queue, first, { kind: 'botTurn', playerId: p.id });
   }
+}
+
+// --- tiers and presence ----------------------------------------------------------
+
+/** Pyramid like a real world: a few no-lifers, a middle group, many casuals. */
+function tierFor(state: WorldState, id: number): BotTier {
+  const { pro, mid } = state.config.bots.tiers ?? { pro: 0.1, mid: 0.3 };
+  const h = hashFloat(state.config.seed, id, 5);
+  return h < pro ? 'pro' : h < pro + mid ? 'mid' : 'casual';
+}
+
+/** Where in the activity range (config) each tier sits. */
+const ACTIVITY_BAND: Record<BotTier, [number, number]> = { pro: [0.8, 1], mid: [0.4, 0.8], casual: [0, 0.45] };
+function activityFor(state: WorldState, id: number, tier: BotTier): number {
+  const { activityMin, activityMax } = state.config.bots;
+  const [lo, hi] = ACTIVITY_BAND[tier];
+  const f = lo + hashFloat(state.config.seed, id, 2) * (hi - lo);
+  return activityMin + f * (activityMax - activityMin);
+}
+
+/**
+ * Online and offline stretches in game hours (not scaled by world speed: it is attention, not
+ * tempo). Mid: online 0.5-2.5 h, away 1-4 h (~35% of the time). Casual: online 0.25-1 h, away
+ * 3-9 h (~10%, a few short visits a "day"). Pros: always online.
+ */
+const PRESENCE: Record<Exclude<BotTier, 'pro'>, { on: [number, number]; off: [number, number] }> = {
+  mid: { on: [0.5, 2.5], off: [1, 4] },
+  casual: { on: [0.25, 1], off: [3, 9] },
+};
+const HOUR_MS = 60 * MINUTE;
+function stretch(state: WorldState, id: number, tier: Exclude<BotTier, 'pro'>, online: boolean, n: number): number {
+  const [lo, hi] = PRESENCE[tier][online ? 'on' : 'off'];
+  return Math.round((lo + hashFloat(state.config.seed, id, 100, n) * (hi - lo)) * HOUR_MS);
+}
+export function startPresence(state: WorldState, id: number, bot: BotState): void {
+  const tier = bot.tier ?? 'pro';
+  if (tier === 'pro') { delete bot.presence; return; }
+  // start somewhere in a stretch, online or not
+  const online = hashFloat(state.config.seed, id, 99) < (tier === 'mid' ? 0.35 : 0.1);
+  const len = stretch(state, id, tier, online, 0);
+  bot.presence = { online, until: state.time + Math.round(len * hashFloat(state.config.seed, id, 98)), n: 0 };
+}
+/** Old saves: every bot gets a tier, an activity that fits it and its presence. */
+export function assignTiers(state: WorldState): void {
+  state.config.bots.tiers ??= { pro: 0.1, mid: 0.3 };
+  for (const p of state.players) {
+    if (!p.bot || p.bot.tier) continue;
+    p.bot.tier = tierFor(state, p.id);
+    p.bot.activity = activityFor(state, p.id, p.bot.tier);
+    startPresence(state, p.id, p.bot);
+  }
+}
+
+/** Is the bot at the game now? Walks its stretches up to the current time. */
+export function isOnline(state: WorldState, id: number, bot: BotState): boolean {
+  const p = bot.presence;
+  const tier = bot.tier ?? 'pro';
+  if (!p || tier === 'pro' || bot.reference) return true;
+  while (p.until <= state.time) {
+    p.online = !p.online;
+    p.n++;
+    p.until += Math.max(MINUTE, stretch(state, id, tier, p.online, p.n));
+  }
+  return p.online;
 }
 
 /**
@@ -75,6 +140,13 @@ export function onBotTurn(state: WorldState, playerId: number): void {
   const player = state.players[playerId];
   const bot = player?.bot;
   if (!player || !bot || bot.nextTurn !== state.time) return; // stale event
+
+  // away from the game: nothing new happens until it comes back (queues keep running)
+  if (!isOnline(state, playerId, bot)) {
+    bot.nextTurn = bot.presence!.until;
+    push(state.queue, bot.nextTurn, { kind: 'botTurn', playerId });
+    return;
+  }
 
   if (!bot.reference && shouldAbandon(state, player)) abandonAndRestart(state, player);
   // like a player, a bot looks at a few villages per turn, taking turns

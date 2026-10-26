@@ -136,6 +136,11 @@ export interface WorldConfig {
     farmAttacksPerTurn: number;
     /** A bot whose points don't grow for this many game days gives up and restarts at the edge. */
     abandonAfterDays: number;
+    /**
+     * Share of bots per tier; the rest is casual. Pros are always "online" (like you: the clock
+     * only runs while you play), the others come and go at random moments.
+     */
+    tiers: { pro: number; mid: number };
   };
 
   winCondition: {
@@ -233,6 +238,7 @@ const BASE: PresetValues = {
     farmRadius: 15,
     farmAttacksPerTurn: 5,
     abandonAfterDays: 3,
+    tiers: { pro: 0.1, mid: 0.3 },
   },
   winCondition: {
     villageShare: 0.75,

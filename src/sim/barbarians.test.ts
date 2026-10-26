@@ -197,7 +197,7 @@ describe('intel and template C', () => {
 
 describe('abandoned bots', () => {
   it('a stalled bot gives its village to the barbarians and restarts at the edge', () => {
-    const s = createWorld(createConfig('classic', 'Quit', 7, { bots: { count: 5 } }));
+    const s = createWorld(createConfig('classic', 'Quit', 7, { bots: { tiers: { pro: 1, mid: 0 }, count: 5 } }));
     const bot = s.players.find((p) => p.isBot);
     if (!bot?.bot) throw new Error('no bot');
     const [oldVillage] = villagesOf(s, bot.id);
