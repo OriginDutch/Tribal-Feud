@@ -332,7 +332,7 @@ export type WorkerMessage =
   | { type: 'saves'; saves: SaveMeta[] }
   | { type: 'map'; map: MapData }
   | { type: 'reports'; reports: Report[] }
-  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number> }
+  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number> }
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'player'; player: PlayerView | null }
   | { type: 'notice'; level: 'info' | 'error'; text: string };

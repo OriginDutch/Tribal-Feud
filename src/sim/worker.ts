@@ -184,7 +184,7 @@ function sendRanking(s: WorldState): void {
     return row;
   });
   ranking.sort((a, b) => b.points - a.points);
-  post({ type: 'ranking', ranking, tribes: tribeViews(s), news: tribeNews(s), asks: [...(s.tribeAsks ?? [])], candidates: inviteCandidates(s, ranking), refusedApplications: { ...(s.tribeRefusals?.applications ?? {}) } });
+  post({ type: 'ranking', ranking, tribes: tribeViews(s), news: tribeNews(s), asks: [...(s.tribeAsks ?? [])], candidates: inviteCandidates(s, ranking), refusedApplications: { ...(s.tribeRefusals?.applications ?? {}) }, refusedInvites: { ...(s.tribeRefusals?.invites ?? {}) } });
 }
 
 /** For a leader: the 20 players nearest to your villages that are not in your tribe. */

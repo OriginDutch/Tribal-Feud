@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { MapVillage } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
-import { attackVillage, mapData, mapFocus, mapStyle, openSupport, openTribe, selectedVillage, send, setMapStyle, snapshot } from '../store';
+import { attackVillage, mapData, mapFocus, mapStyle, openPlayer, openSupport, openTribe, refusedInvites, tribeAsks, selectedVillage, send, setMapStyle, snapshot } from '../store';
 import { OVERHANG, forestAt, onSpriteLoad, tierOf, villageAt } from '../map/mapSprites';
 import { distance, travelMs } from '../units';
 
@@ -573,6 +573,11 @@ export function MapScreen() {
       const f = fieldAt(e);
       const v = byCoord.get(key(f.x, f.y));
       selectedVillage.value = v ? v.id : null;
+      // a player's village: show all of that player's villages at once
+      if (v && v.kind === 'bot') {
+        const list = (data?.villages ?? []).filter((x) => x.owner === v.owner).sort((a, b) => b.points - a.points);
+        setFocus({ owner: v.owner, name: v.ownerName, index: Math.max(0, list.findIndex((x) => x.id === v.id)) });
+      }
     }
   };
   const onWheel = (e: WheelEvent) => {
@@ -793,10 +798,81 @@ export function MapScreen() {
                   </button>
                 </div>
               )}
+              {selected.kind === 'bot' && data && (
+                <PlayerPanel
+                  owner={selected.owner}
+                  name={selected.ownerName}
+                  tribeId={selected.tribe}
+                  villages={data.villages.filter((x) => x.owner === selected.owner).sort((a, b) => b.points - a.points)}
+                  selectedId={selected.id}
+                  onPick={(x) => { jumpTo(x); setFocus((f) => (f ? { ...f, index: Math.max(0, focusList.findIndex((y) => y.id === x.id)) } : f)); }}
+                />
+              )}
             </>
           )}
           </section>
         </aside>
+      </div>
+    </div>
+  );
+}
+
+/** The owner of the selected village: all their villages, and what you can do with them as a player. */
+function PlayerPanel({ owner, name, tribeId, villages, selectedId, onPick }: {
+  owner: number;
+  name: string;
+  tribeId?: number;
+  villages: MapVillage[];
+  selectedId: number;
+  onPick: (v: MapVillage) => void;
+}) {
+  const s = snapshot.value;
+  const data = mapData.value;
+  useEffect(() => { send({ type: 'getRanking' }); }, [owner]);
+  const tribe = tribeId !== undefined ? data?.tribes.find((t) => t.id === tribeId) : undefined;
+  const leader = !!s?.myTribeLeader && s.myTribe !== null;
+  const inMine = tribeId !== undefined && tribeId === s?.myTribe;
+  const invited = tribeAsks.value.some((a) => a.kind === 'invite' && a.player === owner);
+  const declined = refusedInvites.value[owner] ?? 0;
+  const total = villages.reduce((t, v) => t + v.points, 0);
+  return (
+    <div class="player-panel">
+      <h3>
+        <PlayerLink id={owner} name={name} />{' '}
+        {tribe && (
+          <button class="link tribe-tag" style={{ '--tc': tribe.color }} onClick={() => openTribe(tribe.id)}>
+            [{tribe.tag}]
+          </button>
+        )}
+      </h3>
+      <p class="muted">
+        {villages.length} {villages.length === 1 ? 'dorp' : 'dorpen'} · {num(total)} punten
+      </p>
+      <ul class="player-villages">
+        {villages.map((v) => (
+          <li key={v.id} class={v.id === selectedId ? 'on' : ''}>
+            <button class="link" onClick={() => onPick(v)}>
+              {v.name} <span class="muted">({v.x}|{v.y})</span>
+            </button>
+            <span class="mono muted">{num(v.points)}</span>
+          </li>
+        ))}
+      </ul>
+      <div class="row wrap">
+        <button class="small" onClick={() => openPlayer(owner)}>
+          Profiel
+        </button>
+        {leader && !inMine && (
+          invited ? (
+            <span class="muted">uitgenodigd</span>
+          ) : (
+            <button class="small" onClick={() => send({ type: 'tribeInvite', player: owner })}>
+              Uitnodigen voor je stam
+            </button>
+          )
+        )}
+        {inMine && <span class="muted">zit in jouw stam</span>}
+        {declined > 0 && <span class="refused">{declined}× afgewezen</span>}
       </div>
     </div>
   );
