@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
-import { BUILDING_IDS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
-import { templateToText, textToTemplate, textToTroops, troopsToText } from '../../shared/templateText';
-import type { BuildTemplate, TroopTemplate } from '../../sim/manager';
+import { BUILDING_IDS, CATAPULT_TARGETS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
+import { templateToText, textToTemplate, textToTrain, textToTroops, trainToText, troopsToText } from '../../shared/templateText';
+import type { BuildTemplate, NobleTemplate, TroopTemplate } from '../../sim/manager';
 import { Confirm } from '../components/Confirm';
 import { num } from '../format';
 import { send, snapshot } from '../store';
@@ -125,6 +125,7 @@ export function ManagerScreen() {
       </section>
       <BuildTemplates templates={s.templates} use={s.templateUse} />
       <TroopTemplates templates={s.troopTemplates} use={s.templateUse} />
+      <NobleTemplates templates={s.nobleTemplates} />
     </div>
   );
 }
@@ -446,6 +447,163 @@ function TroopTemplates({ templates, use }: { templates: TroopTemplate[]; use: R
             <Confirm label="Annuleren" sure="Wijzigingen weggooien?" onConfirm={() => setEditing(null)} />
           </div>
           <p class="hint">Telt troepen thuis, onderweg en in opleiding, zoals de eigen aantallen per dorp.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+type Wave = Partial<Record<UnitId, string>>;
+const waveCounts = (w: Wave): UnitCounts => {
+  const out: UnitCounts = {};
+  for (const u of TROOP_UNITS) {
+    const n = Math.floor(Number(w[u] ?? 0));
+    if (n > 0) out[u] = n;
+  }
+  return out;
+};
+const waveStrings = (u: UnitCounts): Wave => Object.fromEntries(Object.entries(u).map(([k, n]) => [k, String(n)]));
+
+/** Noble trains you use often: the first attack, an escort per extra nobleman, and the catapult target. */
+function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
+  const s = snapshot.value;
+  const [editing, setEditing] = useState<{ id: string; name: string; waves: Wave[]; catapultTarget: BuildingId | '' } | null>(null);
+  const [io, setIo] = useState<{ mode: 'import' } | { mode: 'export'; text: string } | null>(null);
+  const names = Object.fromEntries((s?.village?.buildings ?? []).map((b) => [b.id, b.name])) as Record<BuildingId, string>;
+  const summary = (t: NobleTemplate) => {
+    const total: UnitCounts = { ...t.first };
+    for (const e of t.escorts) for (const [u, n] of Object.entries(e) as [UnitId, number][]) total[u] = (total[u] ?? 0) + n;
+    return `${1 + t.escorts.length} edels · ` + TROOP_UNITS.filter((u) => (total[u] ?? 0) > 0).map((u) => `${num(total[u]!)} ${UNIT_SHORT[u]}`).join(' · ');
+  };
+  const setWave = (i: number, u: UnitId, value: string) => {
+    if (!editing) return;
+    const waves = [...editing.waves];
+    waves[i] = { ...waves[i], [u]: value };
+    setEditing({ ...editing, waves });
+  };
+
+  return (
+    <section class="panel">
+      <div class="row">
+        <h3 style={{ flex: 1 }}>Edeltrein-sjablonen</h3>
+        {!editing && (
+          <>
+            <button class="small" onClick={() => { setIo(null); setEditing({ id: `train:${Date.now()}`, name: 'Nieuwe edeltrein', waves: [{}, {}, {}, {}], catapultTarget: '' }); }}>
+              Nieuw
+            </button>
+            <button class="small" onClick={() => setIo(io?.mode === 'import' ? null : { mode: 'import' })}>
+              Importeren
+            </button>
+          </>
+        )}
+      </div>
+      {io?.mode === 'import' && !editing && (
+        <ImportBox
+          parse={textToTrain}
+          summary={(t) => `${1 + t.escorts.length} edels${t.catapultTarget ? `, katapulten op ${names[t.catapultTarget] ?? t.catapultTarget}` : ''}`}
+          placeholder={'# Clear + 3 edels\nKatapultdoel: Smederij\nEdel 1: Bijl 6000, LC 2000, Ram 250, Katapult 50\nEdel 2: Bijl 200, LC 50\nEdel 3: Bijl 200, LC 50\nEdel 4: LC 100'}
+          onAdd={(t) => send({ type: 'saveNobleTemplate', template: { id: `train:${Date.now()}`, name: t.name, first: t.first, escorts: t.escorts, ...(t.catapultTarget ? { catapultTarget: t.catapultTarget } : {}) } })}
+          onClose={() => setIo(null)}
+        />
+      )}
+      {io?.mode === 'export' && !editing && <ExportBox text={io.text} onClose={() => setIo(null)} />}
+      {!editing ? (
+        templates.length === 0 ? (
+          <p class="muted">Nog geen edeltrein-sjablonen. Maak er hier een, of stel een trein samen in de verzamelplaats en kies "Opslaan als sjabloon".</p>
+        ) : (
+          <table class="table">
+            <tbody>
+              {templates.map((t) => (
+                <tr key={t.id}>
+                  <td>{t.name}</td>
+                  <td class="muted">
+                    {summary(t)}
+                    {t.catapultTarget ? ` · kata op ${names[t.catapultTarget] ?? t.catapultTarget}` : ''}
+                  </td>
+                  <td class="right nowrap">
+                    <button class="small" onClick={() => setEditing({ id: t.id, name: t.name, waves: [waveStrings(t.first), ...t.escorts.map(waveStrings)], catapultTarget: t.catapultTarget ?? '' })}>
+                      Bewerken
+                    </button>{' '}
+                    <button class="small" onClick={() => setIo({ mode: 'export', text: trainToText(t.name, t.first, t.escorts, t.catapultTarget) })}>
+                      Exporteren
+                    </button>{' '}
+                    <Confirm label="Verwijderen" onConfirm={() => send({ type: 'deleteNobleTemplate', id: t.id })} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )
+      ) : (
+        <div>
+          <div class="row wrap">
+            <label style={{ flex: 1 }}>
+              Naam
+              <input type="text" maxLength={40} value={editing.name} onInput={(e) => setEditing({ ...editing, name: e.currentTarget.value })} />
+            </label>
+            <label>
+              Katapultdoel
+              <select value={editing.catapultTarget} onChange={(e) => setEditing({ ...editing, catapultTarget: e.currentTarget.value as BuildingId | '' })}>
+                <option value="">geen</option>
+                {CATAPULT_TARGETS.map((b) => (
+                  <option key={b} value={b}>
+                    {names[b] ?? b}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div class="table-scroll">
+            <table class="table compact train-editor">
+              <thead>
+                <tr>
+                  <th />
+                  {TROOP_UNITS.map((u) => (
+                    <th key={u} class="right" title={UNIT_SHORT[u]}>
+                      <UnitIcon id={u} size={16} />
+                    </th>
+                  ))}
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {editing.waves.map((w, i) => (
+                  <tr key={i}>
+                    <td class="nowrap">Edel {i + 1}</td>
+                    {TROOP_UNITS.map((u) => (
+                      <td key={u} class="right">
+                        <input type="number" min={0} placeholder="0" value={w[u] ?? ''} onInput={(e) => setWave(i, u, e.currentTarget.value)} />
+                      </td>
+                    ))}
+                    <td class="right">
+                      {i > 1 && (
+                        <button class="small danger" title="Edel weghalen" onClick={() => setEditing({ ...editing, waves: editing.waves.filter((_, j) => j !== i) })}>
+                          ✕
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div class="row">
+            <button disabled={editing.waves.length >= 5} onClick={() => setEditing({ ...editing, waves: [...editing.waves, {}] })}>
+              Edel toevoegen
+            </button>
+            <button
+              class="primary"
+              onClick={() => {
+                const [first, ...escorts] = editing.waves.map(waveCounts);
+                send({ type: 'saveNobleTemplate', template: { id: editing.id, name: editing.name, first: first ?? {}, escorts, ...(editing.catapultTarget ? { catapultTarget: editing.catapultTarget } : {}) } });
+                setEditing(null);
+              }}
+            >
+              Opslaan
+            </button>
+            <Confirm label="Annuleren" sure="Wijzigingen weggooien?" onConfirm={() => setEditing(null)} />
+          </div>
+          <p class="hint">Edel 1 is de eerste aanval (de clear), elke volgende edel krijgt zijn eigen escort. Elke rij krijgt er zelf één edelman bij. 2 tot 5 edels.</p>
         </div>
       )}
     </section>

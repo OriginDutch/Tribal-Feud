@@ -74,3 +74,51 @@ export function textToTroops(text: string): { name: string; troops: UnitCounts }
   if (!Object.keys(troops).length) return { error: 'Geen eenheden gevonden.' };
   return { name, troops };
 }
+
+// --- noble trains: "# Naam", "Katapultdoel: Smederij", "Edel 1: Bijl 6000, LC 2000", "Edel 2: Bijl 200" ---------
+
+export function trainToText(name: string, first: UnitCounts, escorts: UnitCounts[], catapultTarget?: BuildingId): string {
+  const line = (u: UnitCounts) => UNIT_IDS.filter((x) => (u[x] ?? 0) > 0).map((x) => `${DEFAULT_UNITS[x].name} ${u[x]}`).join(', ') || '-';
+  return [
+    `# ${name}`,
+    ...(catapultTarget ? [`Katapultdoel: ${DEFAULT_BUILDINGS[catapultTarget].name}`] : []),
+    `Edel 1: ${line(first)}`,
+    ...escorts.map((e, i) => `Edel ${i + 2}: ${line(e)}`),
+  ].join('\n');
+}
+
+export function textToTrain(text: string): { name: string; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId } | { error: string } {
+  let name = 'Geïmporteerde edeltrein';
+  let catapultTarget: BuildingId | undefined;
+  const waves: UnitCounts[] = [];
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!.trim();
+    if (!line) continue;
+    if (line.startsWith('#')) { name = line.slice(1).trim().slice(0, 40) || name; continue; }
+    const cat = /^katapult(?:doel)?\s*:?\s*(.+)$/i.exec(line);
+    if (cat) {
+      const id = lookup.get(cat[1]!.trim().toLowerCase());
+      if (!id) return { error: `Regel ${i + 1}: onbekend gebouw "${cat[1]}"` };
+      catapultTarget = id;
+      continue;
+    }
+    const wave = /^edel\s*(\d)\s*:\s*(.*)$/i.exec(line);
+    if (!wave) return { error: `Regel ${i + 1} snap ik niet: "${line}"` };
+    const n = Number(wave[1]);
+    if (n !== waves.length + 1 || n > 5) return { error: `Regel ${i + 1}: verwacht Edel ${waves.length + 1}.` };
+    const units: UnitCounts = {};
+    const body = wave[2]!.trim();
+    if (body && body !== '-') {
+      for (const part of body.split(',')) {
+        const m = /^(.+?)\s+([\d.]+)$/.exec(part.trim());
+        const id = m ? unitLookup.get(m[1]!.trim().toLowerCase()) : undefined;
+        if (!m || !id || id === 'snob') return { error: `Regel ${i + 1}: "${part.trim()}" snap ik niet.` };
+        units[id] = (units[id] ?? 0) + Number(m[2]!.replace(/\./g, ''));
+      }
+    }
+    waves.push(units);
+  }
+  if (waves.length < 2) return { error: 'Een edeltrein heeft minstens Edel 1 en Edel 2.' };
+  return { name, first: waves[0]!, escorts: waves.slice(1), ...(catapultTarget ? { catapultTarget } : {}) };
+}

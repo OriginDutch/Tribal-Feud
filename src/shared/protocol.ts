@@ -6,7 +6,7 @@ import type { BarbType, BonusKind } from './barbarianTypes';
 import type { ConfigOverrides, PresetId } from './config';
 import type { Speed } from './time';
 import type { AlertMode, LogEntry } from '../sim/state';
-import type { BuildTemplate, TroopTemplate, VillageManager } from '../sim/manager';
+import type { BuildTemplate, NobleTemplate, TroopTemplate, VillageManager } from '../sim/manager';
 import type { SaveMeta } from '../sim/save';
 import type { VillageView } from '../sim/view';
 import type { BuildingId, UnitCounts, UnitId } from './gameData';
@@ -63,6 +63,8 @@ export type Command =
   | { type: 'deleteTemplate'; id: string }
   | { type: 'saveTroopTemplate'; template: TroopTemplate }
   | { type: 'deleteTroopTemplate'; id: string }
+  | { type: 'saveNobleTemplate'; template: NobleTemplate }
+  | { type: 'deleteNobleTemplate'; id: string }
   | { type: 'mintCoins'; villageId: number; count: number }
   | { type: 'sendSupport'; from: number; to: number; units: UnitCounts }
   /** Dismiss troops at home for good (no refund). */
@@ -271,6 +273,7 @@ export interface Snapshot {
   /** Build templates: the presets first, then the player's own. */
   templates: BuildTemplate[];
   troopTemplates: TroopTemplate[];
+  nobleTemplates: NobleTemplate[];
   /** Villages using each template (build and troop), by id. */
   templateUse: Record<string, number>;
   unreadReports: number;

@@ -32,6 +32,15 @@ export interface TroopTemplate {
   troops: UnitCounts;
 }
 
+/** A saved noble train: the first attack, an escort per extra nobleman (2..5 nobles) and the catapult target. */
+export interface NobleTemplate {
+  id: string;
+  name: string;
+  first: UnitCounts;
+  escorts: UnitCounts[];
+  catapultTarget?: BuildingId;
+}
+
 export interface VillageManager {
   /** Build template id (a preset or one of the player's own). */
   template?: string;
@@ -193,6 +202,37 @@ export function deleteTroopTemplate(state: WorldState, id: string): string | nul
     delete v.manager.troopTemplate;
     v.manager.troops = { ...t.troops };
   }
+  return null;
+}
+
+const cleanUnits = (u: UnitCounts): UnitCounts => {
+  const out: UnitCounts = {};
+  for (const id of UNIT_IDS) {
+    if (id === 'snob') continue; // nobles are added by the train itself
+    const n = Math.floor(u[id] ?? 0);
+    if (n > 0) out[id] = n;
+  }
+  return out;
+};
+
+/** Adds or replaces a noble train template. */
+export function saveNobleTemplate(state: WorldState, t: NobleTemplate): string | null {
+  const name = t.name.trim().slice(0, 40);
+  if (!name) return 'Geef het sjabloon een naam.';
+  if (t.escorts.length < 1 || t.escorts.length > 4) return 'Een edeltrein heeft 2 tot 5 edels.';
+  if (t.catapultTarget && !BUILDING_IDS.includes(t.catapultTarget)) return 'Ongeldig katapultdoel.';
+  const clean: NobleTemplate = { id: t.id, name, first: cleanUnits(t.first), escorts: t.escorts.map(cleanUnits) };
+  if (t.catapultTarget) clean.catapultTarget = t.catapultTarget;
+  state.nobleTemplates ??= [];
+  const i = state.nobleTemplates.findIndex((x) => x.id === t.id);
+  if (i >= 0) state.nobleTemplates[i] = clean;
+  else state.nobleTemplates.push(clean);
+  return null;
+}
+
+export function deleteNobleTemplate(state: WorldState, id: string): string | null {
+  if (!state.nobleTemplates?.some((x) => x.id === id)) return 'Dat sjabloon bestaat niet.';
+  state.nobleTemplates = state.nobleTemplates.filter((x) => x.id !== id);
   return null;
 }
 

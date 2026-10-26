@@ -24,6 +24,7 @@ export function PlaceScreen() {
   // noble train: escorts for noblemen 2..N (the first one goes with the army above)
   const [trainSize, setTrainSize] = useState(0);
   const [escorts, setEscorts] = useState<Partial<Record<UnitId, string>>[]>([]);
+  const [saveName, setSaveName] = useState<string | null>(null);
 
   // villages by coordinate, to resolve the target
   useEffect(() => {
@@ -78,6 +79,15 @@ export function PlaceScreen() {
       out.push(e);
     }
     return out;
+  };
+  const toStrings = (u: UnitCounts) => Object.fromEntries(Object.entries(u).map(([k, n]) => [k, String(n)])) as Partial<Record<UnitId, string>>;
+  const applyTemplate = (id: string) => {
+    const t = s.nobleTemplates.find((x) => x.id === id);
+    if (!t) return;
+    setCounts(toStrings(t.first));
+    setTrainSize(1 + t.escorts.length);
+    setEscorts(t.escorts.map(toStrings));
+    if (t.catapultTarget) setCatTarget(t.catapultTarget);
   };
   const startTrain = (size: number) => {
     setTrainSize(size);
@@ -222,11 +232,49 @@ export function PlaceScreen() {
                 ))}
               </select>
             </label>
+            {s.nobleTemplates.length > 0 && (
+              <label class="inline">
+                Sjabloon
+                <select value="" onChange={(e) => applyTemplate(e.currentTarget.value)}>
+                  <option value="">kies…</option>
+                  {s.nobleTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({1 + t.escorts.length} edels)
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {trainSize > 1 && (
               <>
                 <button class="small" onClick={() => setEscorts(suggest(trainSize))}>
                   Escort opnieuw voorstellen
                 </button>
+                {saveName === null ? (
+                  <button class="small" onClick={() => setSaveName('')}>
+                    Opslaan als sjabloon
+                  </button>
+                ) : (
+                  <form
+                    class="row inline-save"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      send({
+                        type: 'saveNobleTemplate',
+                        template: { id: `train:${Date.now()}`, name: saveName, first, escorts: escortCounts, ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}) },
+                      });
+                      setSaveName(null);
+                    }}
+                  >
+                    <input autoFocus placeholder="Naam van het sjabloon" maxLength={40} value={saveName} onInput={(e) => setSaveName(e.currentTarget.value)} />
+                    <button class="small primary" type="submit" disabled={!saveName.trim()}>
+                      Opslaan
+                    </button>
+                    <button class="small" type="button" onClick={() => setSaveName(null)}>
+                      ✕
+                    </button>
+                  </form>
+                )}
                 <button class="primary" disabled={trainBlocker !== null} title={trainBlocker ?? ''} onClick={sendTrain}>
                   {trainBlocker ?? `Edeltrein sturen (${trainSize})`}
                 </button>
