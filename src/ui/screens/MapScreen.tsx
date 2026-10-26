@@ -134,6 +134,52 @@ export function MapScreen() {
   const pretty = mapStyle.value === 'sprites';
   const draw = () => (mapStyle.value === 'sprites' ? drawSprites() : drawFlat());
 
+  /** Commands on the map: incoming attacks red, your attacks gold, support green, returns dashed grey. */
+  const [lines, setLinesState] = useState(() => {
+    try { return localStorage.getItem('tf-map-lines') !== 'off'; } catch { return true; }
+  });
+  const setLines = (on: boolean) => {
+    setLinesState(on);
+    try { localStorage.setItem('tf-map-lines', on ? 'on' : 'off'); } catch { /* fine */ }
+  };
+  const drawLines = (ctx: CanvasRenderingContext2D, toScreen: (x: number, y: number) => readonly [number, number], zoom: number) => {
+    if (!lines || !s) return;
+    const arrow = (from: { x: number; y: number }, to: { x: number; y: number }, color: string, dashed = false) => {
+      const [x1, y1] = toScreen(from.x, from.y);
+      const [x2, y2] = toScreen(to.x, to.y);
+      const len = Math.hypot(x2 - x1, y2 - y1);
+      if (len < 4) return;
+      // stop short of the village so the arrowhead stays visible
+      const back = Math.min(len * 0.3, zoom * 0.45);
+      const ex = x2 - ((x2 - x1) / len) * back, ey = y2 - ((y2 - y1) / len) * back;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = Math.max(1.5, Math.min(3, zoom / 14));
+      ctx.setLineDash(dashed ? [6, 5] : []);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const a = Math.atan2(ey - y1, ex - x1), head = Math.max(7, Math.min(13, zoom / 4));
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - head * Math.cos(a - 0.45), ey - head * Math.sin(a - 0.45));
+      ctx.lineTo(ex - head * Math.cos(a + 0.45), ey - head * Math.sin(a + 0.45));
+      ctx.closePath();
+      ctx.fill();
+    };
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    for (const m of s.movements) {
+      if (m.kind === 'trade' || m.kind === 'tradeReturn') continue;
+      arrow(m.from, m.to, m.kind === 'support' ? '#7fbf5a' : m.kind === 'return' ? 'rgba(220,210,190,0.7)' : '#e2a93b', m.kind === 'return');
+    }
+    for (const m of s.incoming) arrow(m.from, m.to, '#e5533f');
+    ctx.restore();
+  };
+  const linesKey = s ? `${s.incoming.map((m) => m.id).join(',')}|${s.movements.map((m) => m.id).join(',')}` : '';
+
   const drawSprites = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -299,6 +345,7 @@ export function MapScreen() {
         square(v.x, v.y, 2);
       }
     }
+    drawLines(ctx, toScreen, zoom);
   };
 
   const drawFlat = () => {
@@ -402,12 +449,13 @@ export function MapScreen() {
         ctx.strokeRect(sx - size / 2 - 2, sy - size / 2 - 2, size + 4, size + 4);
       }
     }
+    drawLines(ctx, toScreen, zoom);
   };
 
   // redraw only when what is drawn changes, not on every game update
   const sel = selectedVillage.value;
   const style = mapStyle.value;
-  useEffect(draw, [data, focusIds, sel, style, here?.id]);
+  useEffect(draw, [data, focusIds, sel, style, here?.id, lines, linesKey]);
   // sprites load in the background: redraw when one is ready
   useEffect(() => {
     onSpriteLoad(() => draw());
@@ -517,6 +565,14 @@ export function MapScreen() {
           onClick={() => setMapStyle(pretty ? 'flat' : 'sprites')}
         >
           {pretty ? 'Klassieke weergave' : 'Dorpjes-weergave'}
+        </button>
+        <button
+          class={`small ${lines ? 'active' : ''}`}
+          title="Rood: aanvallen op jou · goud: jouw aanvallen · groen: support · gestippeld: terugkeer"
+          onClick={() => setLines(!lines)}
+        >
+          Bevelen {lines ? 'aan' : 'uit'}
+          {s && s.incoming.length > 0 && <span class="badge">{s.incoming.length}</span>}
         </button>
         {focus && focusList.length > 0 && (
           <span class="map-focus">
