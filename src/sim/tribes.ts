@@ -11,6 +11,7 @@
 import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
 import { HOUR, MINUTE } from '../shared/time';
 import { MAX_MEMBERS } from '../shared/tribes';
+import { sawAttack } from './botReact';
 import { push } from './eventQueue';
 import { villagePoints } from './barbarians';
 import { nextFloat } from './rng';
@@ -339,7 +340,8 @@ export function threatsFor(state: WorldState, tribeId: number): { village: numbe
     for (const v of villagesOf(state, member)) {
       const at = ix.attacks.get(v.id);
       if (!at) continue;
-      for (const arrives of at.values()) if (arrives > state.time) out.push({ village: v.id, arrives });
+      // only attacks the member saw and called out: an unseen attack gets no help
+      for (const [id, arrives] of at) if (arrives > state.time && sawAttack(state, member, id)) out.push({ village: v.id, arrives });
     }
   }
   return out;

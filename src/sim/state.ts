@@ -34,6 +34,14 @@ export interface LogEntry {
 
 export type BotTier = 'pro' | 'mid' | 'casual';
 
+/** A bot's judgement of an incoming attack, made once when it first sees it. */
+export interface SeenAttack {
+  /** Did it react (dodge, restack, recruit, ask its tribe)? */
+  reacted: boolean;
+  /** A dodge it still plans to do just before the attack lands. */
+  dodge?: boolean;
+}
+
 export interface BotState {
   archetype: Archetype;
   /** How serious this "player" is: presence, sharpness and reactions follow from it. */
@@ -43,6 +51,8 @@ export interface BotState {
    * (no clock: there is no night to time your attacks to). Pros have none: always online.
    */
   presence?: { online: boolean; until: number; n: number };
+  /** Incoming attacks this bot has seen, by movement id (pruned when they are gone). */
+  seen?: Record<number, SeenAttack>;
   /** 0..1, higher = more turns. */
   activity: number;
   /** Game time of the next scheduled turn. */
@@ -275,6 +285,8 @@ export interface MovementIndex {
   attacks: Map<number, Map<number, number>>;
   /** Supports underway, per "owner:target". */
   supports: Map<string, number>;
+  /** Every attack underway (any size), per target village. What a defender sees coming. */
+  incoming: Map<number, Set<number>>;
 }
 const movementIndexes = new WeakMap<WorldState, MovementIndex>();
 const REAL_ATTACK = 100;
@@ -287,6 +299,14 @@ function track(ix: MovementIndex, m: Movement, sign: 1 | -1): void {
     return;
   }
   if (m.kind !== 'attack') return;
+  let inc = ix.incoming.get(m.to);
+  if (sign > 0) {
+    if (!inc) ix.incoming.set(m.to, (inc = new Set()));
+    inc.add(m.id);
+  } else if (inc) {
+    inc.delete(m.id);
+    if (!inc.size) ix.incoming.delete(m.to);
+  }
   let n = 0;
   for (const k in m.units) n += m.units[k as keyof typeof m.units] ?? 0;
   if (n < REAL_ATTACK) return;
@@ -302,7 +322,7 @@ function track(ix: MovementIndex, m: Movement, sign: 1 | -1): void {
 export function movementIndex(state: WorldState): MovementIndex {
   let ix = movementIndexes.get(state);
   if (!ix) {
-    ix = { attacks: new Map(), supports: new Map() };
+    ix = { attacks: new Map(), supports: new Map(), incoming: new Map() };
     for (const m of Object.values(state.movements)) track(ix, m, 1);
     movementIndexes.set(state, ix);
   }

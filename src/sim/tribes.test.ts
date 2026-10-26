@@ -113,6 +113,8 @@ describe('tribes', () => {
     const mate = near[0]!, foe = near[near.length - 1]!;
     s.tribes = { 1: { id: 1, name: 'T', tag: 'T', color: '#fff', leader: a.id, members: [a.id, mate.id], founded: 0, relations: {} } };
     a.tribe = 1; mate.tribe = 1; a.bot!.archetype = 'supporter'; a.bot!.activity = 1;
+    // the victim must see the attack itself: a pro, always online
+    for (const p of [a, mate]) { p.bot!.tier = 'pro'; delete p.bot!.presence; }
     home.units.spear = 400; home.buildings.place = 1;
     const fv = villagesOf(s, foe.id)[0]!; fv.units.axe = 500; fv.buildings.place = 1;
     const target = villagesOf(s, mate.id)[0]!;

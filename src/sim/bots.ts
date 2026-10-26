@@ -18,6 +18,7 @@ import { MERCHANT_CARRY, acceptOffer, cancelOffer, createOffer, merchantsFree, o
 import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { edgeSpot } from './map';
+import { reactToIncoming } from './botReact';
 import { helpShare, isHelping, mayAttack, targetWeight, threatsFor } from './tribes';
 import { BARBARIAN, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type BotState, type BotTier, type Player, type WorldState } from './state';
 import {
@@ -153,6 +154,8 @@ export function onBotTurn(state: WorldState, playerId: number): void {
   }
 
   if (!bot.reference && shouldAbandon(state, player)) abandonAndRestart(state, player);
+  // incoming attacks show up account-wide: judge the new ones first
+  reactToIncoming(state, player);
   // like a player, a bot looks at a few villages per turn, taking turns
   const villages = villagesOf(state, playerId);
   const per = bot.reference ? Infinity : Math.max(1, difficulty(state).villagesPerTurn);
@@ -542,7 +545,7 @@ function grid(state: WorldState): Map<number, number[]> {
 
 /** All villages within `radius` of `v`, nearest first (any owner). Cached per world and village. */
 const nearCache = new WeakMap<WorldState, Map<string, number[]>>();
-function villagesNear(state: WorldState, v: Village, radius: number): Village[] {
+export function villagesNear(state: WorldState, v: Village, radius: number): Village[] {
   let cache = nearCache.get(state);
   if (!cache) {
     cache = new Map();
@@ -622,7 +625,7 @@ function defensePop(state: WorldState, v: Village): number {
 }
 
 /** Keeps a defense in proportion to the village's size before spending on anything else. */
-function recruitDefense(state: WorldState, v: Village, profile: BotProfile, reserve: Res, share = 1): void {
+export function recruitDefense(state: WorldState, v: Village, profile: BotProfile, reserve: Res, share = 1): void {
   const { config } = state;
   const want = villagePoints(config, v) * profile.defensePerPoint * share;
   const missing = want - defensePop(state, v);

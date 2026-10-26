@@ -28,7 +28,8 @@ for (let h = 1; h <= hours; h++) {
     for (const it of s.queue.heap) { const k = (it.event as { kind: string }).kind; kinds[k] = (kinds[k] ?? 0) + 1; }
     const kinds2: Record<string, number> = {};
     for (const m of Object.values(s.movements)) kinds2[m.kind] = (kinds2[m.kind] ?? 0) + 1;
-    console.log('   queue:', JSON.stringify(kinds), 'moves:', JSON.stringify(kinds2), 'conq:', JSON.stringify(s.conquests ?? {}));
+    let seenN = 0, reactedN = 0; for (const p of s.players) for (const x of Object.values(p.bot?.seen ?? {})) { seenN++; if (x.reacted) reactedN++; }
+    console.log('   queue:', JSON.stringify(kinds), 'moves:', JSON.stringify(kinds2), 'conq:', JSON.stringify(s.conquests ?? {}), `gezien ${seenN} gereageerd ${reactedN}`);
     block = performance.now(); events = 0;
   }
 }
