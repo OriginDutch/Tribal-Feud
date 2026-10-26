@@ -5,7 +5,7 @@
 import { deleteGroup, saveGroup, setGroup } from './groups';
 import { askTribeHelp, cancelOrder, giveOrder } from './tribeOrders';
 import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, proposeRelation, setOwnRelation } from './humanTribe';
-import { tribeNews, tribeViews } from './tribes';
+import { fitCheck, tribeNews, tribeViews } from './tribes';
 import { farmCUnits } from './intel';
 import { createConfig, validateConfig } from '../shared/config';
 import { AUTOSAVE_SLOT, type Command, type Snapshot, type WorkerMessage } from '../shared/protocol';
@@ -198,18 +198,19 @@ function inviteCandidates(s: WorldState, ranking: RankingRow[]): CandidateView[]
   const me = s.players[HUMAN_ID];
   const t = me?.tribe !== undefined ? s.tribes?.[me.tribe] : undefined;
   if (!t || t.leader !== HUMAN_ID) return [];
-  const mine = villagesOf(s, HUMAN_ID);
-  if (!mine.length) return [];
-  const cx = mine.reduce((a, v) => a + v.x, 0) / mine.length, cy = mine.reduce((a, v) => a + v.y, 0) / mine.length;
   const points = new Map(ranking.map((r) => [r.id, r.points]));
   const out: CandidateView[] = [];
   for (const p of s.players) {
     if (!p.bot || p.tribe === t.id) continue;
-    const vs = villagesOf(s, p.id);
-    if (!vs.length) continue;
-    const d = Math.min(...vs.map((v) => Math.hypot(v.x - cx, v.y - cy)));
+    const fit = fitCheck(s, t, p.id);
+    if (fit.reason === 'gone') continue;
     const declined = s.tribeRefusals?.invites[p.id];
-    out.push({ id: p.id, name: p.name, points: points.get(p.id) ?? 0, distance: Math.round(d * 10) / 10, ...(p.tribe !== undefined ? { tribe: p.tribe } : {}), ...(declined ? { declined } : {}) });
+    out.push({
+      id: p.id, name: p.name, points: points.get(p.id) ?? 0,
+      distance: Math.round(fit.distance * 10) / 10, reach: Math.round(fit.reach * 10) / 10,
+      ...(fit.reason !== 'ok' ? { blocked: fit.reason } : {}),
+      ...(p.tribe !== undefined ? { tribe: p.tribe } : {}), ...(declined ? { declined } : {}),
+    });
   }
   return out.sort((a, b) => a.distance - b.distance).slice(0, 20);
 }

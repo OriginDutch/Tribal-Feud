@@ -132,6 +132,10 @@ export interface CandidateView {
   tribe?: number;
   /** Times this player turned down your invitation. */
   declined?: number;
+  /** Why he can't join now (same check the bot makes); missing = he could say yes. */
+  blocked?: 'full' | 'far' | 'prey' | 'blocked';
+  /** Distance to your tribe's centre and how far your tribe reaches (fields). */
+  reach: number;
 }
 export type TribeAskView =
   | { kind: 'apply'; tribe: number; at: number }

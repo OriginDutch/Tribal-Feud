@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { MapVillage } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
-import { attackVillage, mapData, mapFocus, mapStyle, openPlayer, openSupport, openTribe, refusedInvites, tribeAsks, selectedVillage, send, setMapStyle, snapshot } from '../store';
+import { attackVillage, inviteCandidates, mapData, mapFocus, mapStyle, openPlayer, openSupport, openTribe, refusedInvites, tribeAsks, selectedVillage, send, setMapStyle, snapshot } from '../store';
 import { OVERHANG, forestAt, onSpriteLoad, tierOf, villageAt } from '../map/mapSprites';
 import { distance, travelMs } from '../units';
 
@@ -834,6 +834,7 @@ function PlayerPanel({ owner, name, tribeId, villages, selectedId, onPick }: {
   const inMine = tribeId !== undefined && tribeId === s?.myTribe;
   const invited = tribeAsks.value.some((a) => a.kind === 'invite' && a.player === owner);
   const declined = refusedInvites.value[owner] ?? 0;
+  const cand = inviteCandidates.value.find((c) => c.id === owner);
   const total = villages.reduce((t, v) => t + v.points, 0);
   return (
     <div class="player-panel">
@@ -862,14 +863,17 @@ function PlayerPanel({ owner, name, tribeId, villages, selectedId, onPick }: {
         <button class="small" onClick={() => openPlayer(owner)}>
           Profiel
         </button>
-        {leader && !inMine && (
-          invited ? (
-            <span class="muted">uitgenodigd</span>
-          ) : (
-            <button class="small" onClick={() => send({ type: 'tribeInvite', player: owner })}>
-              Uitnodigen voor je stam
-            </button>
-          )
+        {leader && !inMine && (invited ? (
+          <span class="muted">uitgenodigd</span>
+        ) : (
+          <button class="small" onClick={() => send({ type: 'tribeInvite', player: owner })}>
+            Uitnodigen voor je stam
+          </button>
+        ))}
+        {leader && !inMine && cand?.blocked === 'far' && (
+          <span class="refused" title="Hij zegt nee: te ver van het centrum van je stam">
+            te ver ({cand.distance} / max {cand.reach})
+          </span>
         )}
         {inMine && <span class="muted">zit in jouw stam</span>}
         {s?.myTribe !== null && s?.myTribe !== undefined && !inMine && (

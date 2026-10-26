@@ -85,7 +85,9 @@ function MyTribe({ t }: { t: TribeView }) {
                 <th>Speler</th>
                 <th>Stam</th>
                 <th class="right">Punten</th>
-                <th class="right">Afstand</th>
+                <th class="right" title="Afstand van hun centrum tot het centrum van je stam (gewogen naar punten)">
+                  Afstand{inviteCandidates.value[0] ? <span class="muted"> (max {inviteCandidates.value[0].reach})</span> : null}
+                </th>
                 <th />
               </tr>
             </thead>
@@ -93,7 +95,7 @@ function MyTribe({ t }: { t: TribeView }) {
               {inviteCandidates.value.map((c) => {
                 const ct = c.tribe !== undefined ? byId.get(c.tribe) : undefined;
                 return (
-                  <tr key={c.id}>
+                  <tr key={c.id} class={c.blocked ? 'dim' : ''}>
                     <td class="ellipsis">
                       <PlayerLink id={c.id} name={c.name} />
                       {c.declined ? <span class="refused" title="Zo vaak sloeg hij je uitnodiging af"> · {c.declined}× afgewezen</span> : null}
@@ -101,10 +103,12 @@ function MyTribe({ t }: { t: TribeView }) {
                     </td>
                     <td>{ct ? <Tag t={ct} /> : <span class="muted">—</span>}</td>
                     <td class="right mono">{num(c.points)}</td>
-                    <td class="right mono">{c.distance}</td>
+                    <td class={`right mono ${c.blocked === 'far' ? 'bad' : ''}`}>{c.distance}</td>
                     <td class="right">
                       {invited.has(c.id) ? (
                         <span class="muted">uitgenodigd</span>
+                      ) : c.blocked ? (
+                        <span class="muted" title={BLOCKED_HINT[c.blocked]}>{BLOCKED_LABEL[c.blocked]}</span>
                       ) : (
                         <button class="small" onClick={() => send({ type: 'tribeInvite', player: c.id })}>
                           Uitnodigen
@@ -116,7 +120,10 @@ function MyTribe({ t }: { t: TribeView }) {
               })}
             </tbody>
           </table>
-          <p class="muted">Bots antwoorden als ze online zijn. Spelers die al in een stam zitten, stappen zelden over.</p>
+          <p class="muted">
+            Bots antwoorden als ze online zijn. Spelers die al in een stam zitten, stappen zelden over. Je stam neemt spelers tot{' '}
+            {inviteCandidates.value[0]?.reach ?? 16} velden van zijn centrum; hoe verder je stam uitgespreid is, hoe groter dat bereik (max 32).
+          </p>
         </details>
       )}
       {t.members.length > 1 && <TribeOrders />}
@@ -389,3 +396,11 @@ export function TribesScreen() {
     </div>
   );
 }
+
+const BLOCKED_LABEL = { far: 'te ver', prey: 'te klein', full: 'stam vol', blocked: 'vijand ertussen' } as const;
+const BLOCKED_HINT = {
+  far: 'Te ver van het centrum van je stam: hij zegt altijd nee.',
+  prey: 'Zit midden in je gebied en is veel kleiner: hij vertrouwt het niet.',
+  full: 'Je stam zit vol.',
+  blocked: 'Er zit een stam waarmee je in oorlog bent tussen jullie in.',
+} as const;

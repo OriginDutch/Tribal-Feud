@@ -36,6 +36,7 @@ export function NewWorldPanel() {
   const [knobs, setKnobs] = useState(presetKnobs('classic'));
   const [difficulty, setDifficulty] = useState<BotDifficulty>(PRESETS.classic.bots.difficulty);
   const [farm, setFarm] = useState(1);
+  const [curve, setCurve] = useState<'tiered' | 'classic'>('tiered');
 
   const changePreset = (p: Preset) => {
     setPreset(p);
@@ -52,6 +53,7 @@ export function NewWorldPanel() {
     }
     if (difficulty !== PRESETS[preset].bots.difficulty) overrides.bots = { difficulty };
     if (farm !== 1) overrides.farmMultiplier = farm;
+    if (curve !== 'tiered') overrides.nobleCurve = curve;
     const cmd: Command = { type: 'newWorld', preset, name, overrides };
     if (seed.trim() !== '') cmd.seed = Number(seed) >>> 0;
     autoPause.value = null;
@@ -106,6 +108,13 @@ export function NewWorldPanel() {
           ? 'Gewone boerderij (24.000 inwoners op level 30).'
           : `Boerderij level 30: ${Math.round(24000 * farm).toLocaleString('nl-NL')} inwoners. Grotere legers aan beide kanten; edelen en schoonvegen worden ${farm > 1 ? 'zwaarder' : 'makkelijker'}. Alleen bij het aanmaken in te stellen.`}
       </p>
+      <label title="Hoeveel munten een edel kost.">
+        Edelprijs
+        <select value={curve} onChange={(e) => setCurve(e.currentTarget.value as 'tiered' | 'classic')}>
+          <option value="tiered">Getrapt: max 25 per edel (tot plek 200), dan 50, 75, ...</option>
+          <option value="classic">TW-klassiek: edel n kost n munten</option>
+        </select>
+      </label>
       <p class="hint">
         Wereldsnelheid versnelt alles, zoals een speedwereld in TW. De andere knoppen komen daar bovenop. Ga met je muis
         over een veld voor uitleg.

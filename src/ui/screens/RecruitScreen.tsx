@@ -115,9 +115,11 @@ function CoinPanel() {
             <td class="right mono">{n.slotsUsed}</td>
           </tr>
           <tr>
-            <td>Volgende edel vereist</td>
+            <td>{coins ? `Volgende plek (nr. ${n.nextSlot})` : 'Volgende edel vereist'}</td>
             <td class="right mono">
-              {coins ? `${n.need} munten in totaal` : `${n.need} pakketten`}
+              {coins
+                ? `${n.slotPrice} munten · ${n.missing > 0 ? `nog ${num(n.missing)} slaan` : 'betaald'}`
+                : `${n.need} pakketten`}
             </td>
           </tr>
           <tr>
@@ -147,7 +149,9 @@ function CoinPanel() {
       </div>
       <p class="hint">
         {coins
-          ? 'Elke edel en elk extra dorp neemt een plek in. Plek 1 kost 1 munt, plek 2 nog 2, plek 3 nog 3, enz. Munten raak je niet kwijt als een edel sneuvelt.'
+          ? `Elke edel en elk extra dorp neemt een plek in. Plek 1 kost 1 munt, plek 2 nog 2, plek 3 nog 3, enz.${
+              n.curve === 'tiered' ? ' Maximaal 25 per plek tot plek 200, daarna 50, vanaf 300 75, enzovoort.' : ''
+            } Munten raak je niet kwijt als een edel sneuvelt.`
           : 'Pakketten blijven in dit dorp en worden opgebruikt bij het trainen van een edel.'}{' '}
         Je hebt nu {word} genoeg voor {n.allowed} edel{n.allowed === 1 ? '' : 's'}.
       </p>

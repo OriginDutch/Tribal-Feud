@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createConfig, type ConfigOverrides } from '../shared/config';
 import { DAY, HOUR, MINUTE } from '../shared/time';
-import { coinsForSlots, mintCoins, noblesAllowed, slotsForCoins, slotsUsed } from './nobles';
+import { coinsForSlots, mintCoins, noblesAllowed, slotCost, slotsForCoins, slotsUsed } from './nobles';
 import { distance, loyaltyNow, returnSupport, sendAttack, sendNobleTrain, sendSupport } from './movement';
 import { advance, setPaused } from './simulation';
 import { BARBARIAN, HUMAN_ID, createWorld, invalidateOwners, playerVillage, villagesOf, type WorldState } from './state';
@@ -34,9 +34,26 @@ const nearestBarb = (s: WorldState, v: Village) =>
     .sort((a, b) => distance(a, v) - distance(b, v))[0] as Village;
 
 describe('coins and noble slots', () => {
-  it('slot n costs n coins', () => {
-    expect([1, 2, 3, 4].map(coinsForSlots)).toEqual([1, 3, 6, 10]);
-    expect([0, 1, 2, 3, 5, 6].map(slotsForCoins)).toEqual([0, 1, 1, 2, 2, 3]);
+  it('slot n costs n coins (classic and early tiered)', () => {
+    for (const c of ['classic', 'tiered'] as const) {
+      expect([1, 2, 3, 4].map((n) => coinsForSlots(n, c))).toEqual([1, 3, 6, 10]);
+      expect([0, 1, 2, 3, 5, 6].map((n) => slotsForCoins(n, c))).toEqual([0, 1, 1, 2, 2, 3]);
+    }
+  });
+
+  it('tiered: at most 25 per slot below 200, then 25 more per hundred', () => {
+    expect([25, 26, 199, 200, 299, 300, 450].map((n) => slotCost(n))).toEqual([25, 25, 25, 50, 50, 75, 100]);
+    // brute force agrees with the closed form
+    let sum = 0;
+    for (let n = 1; n <= 700; n++) {
+      sum += slotCost(n);
+      expect(coinsForSlots(n)).toBe(sum);
+      expect(slotsForCoins(sum)).toBe(n);
+      expect(slotsForCoins(sum - 1)).toBe(n - 1);
+    }
+    // Marcel's world: 772 coins, 36 slots used -> 42 slots
+    expect(slotsForCoins(772)).toBe(42);
+    expect(coinsForSlots(37)).toBe(325 + 12 * 25);
   });
 
   it('mints coins for the player and limits noblemen by slots', () => {

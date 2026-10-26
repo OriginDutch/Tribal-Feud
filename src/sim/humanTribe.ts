@@ -24,6 +24,7 @@ import {
   AGGRESSION,
   SOCIAL,
   declareWar,
+  fitCheck,
   fits,
   found,
   join,
@@ -337,7 +338,7 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
       addMessage(state, { kind: 'answer', from: p.id, tribe: t.id, title: `${p.name} komt erbij`, text: `${p.name} heeft je uitnodiging aangenomen en is lid van ${tag(t)}.` });
     } else {
       refused(state, 'invites', p.id);
-      addMessage(state, { kind: 'answer', from: p.id, title: `${p.name} slaat af`, text: current ? `${p.name} blijft liever bij ${tag(current)}.` : `${p.name} heeft geen interesse in ${tag(t)}.` });
+      addMessage(state, { kind: 'answer', from: p.id, title: `${p.name} slaat af`, text: inviteRefusal(state, t, p, current) });
     }
     return true;
   }
@@ -382,15 +383,29 @@ function strongEnough(state: WorldState, t: Tribe, id: number): boolean {
 }
 
 /** The leader says why, like a player would (roughly). */
+/** Why a bot turned down your invitation, in his words. */
+function inviteRefusal(state: WorldState, t: Tribe, p: Player, current: Tribe | undefined): string {
+  if (current) return `${p.name} blijft liever bij ${tag(current)}.`;
+  if (grudge(state, p, HUMAN_ID) >= 0.5) return `${p.name}: bij jou? Na wat je mij hebt aangedaan? Nee.`;
+  const fit = fitCheck(state, t, p.id);
+  if (fit.reason === 'full') return `${p.name}: jullie zitten vol.`;
+  if (fit.reason === 'far') return `${p.name}: jullie zitten te ver bij mij vandaan (${fit.distance.toFixed(1)} velden van jullie centrum, max ${fit.reach.toFixed(1)}).`;
+  if (fit.reason === 'blocked') return `${p.name}: er zit een vijandige stam tussen ons in.`;
+  if (fit.reason === 'prey') return `${p.name}: ik zit midden in jullie gebied en ben veel kleiner. Daar vertrouw ik niks van.`;
+  return p.bot?.archetype === 'turtle' || p.bot?.archetype === 'rusher'
+    ? `${p.name} speelt liever op zichzelf. Misschien later.`
+    : `${p.name} heeft nu geen interesse in ${tag(t)}. Misschien later.`;
+}
+
 function rejectReason(state: WorldState, t: Tribe, me: Player, leader: Player): string {
   const who = `${leader.name} (${tag(t)})`;
   if (t.members.length >= MAX_MEMBERS) return `${who}: we zitten vol.`;
   if (grudge(state, leader, HUMAN_ID) >= 0.5) return `${who}: na wat je ons hebt aangedaan? Nee.`;
-  if (!fits(state, t, HUMAN_ID)) {
-    const tc = tribeCentre(state, t), pc = playerCentre(state, HUMAN_ID);
-    const far = tc && pc && Math.hypot(tc.x - pc.x, tc.y - pc.y) > 16;
-    return far ? `${who}: je zit te ver van ons vandaan.` : `${who}: je ligt niet goed voor ons.`;
-  }
+  const fit = fitCheck(state, t, HUMAN_ID);
+  if (fit.reason === 'far') return `${who}: je zit te ver van ons vandaan (${fit.distance.toFixed(1)} velden van ons centrum, wij nemen tot ${fit.reach.toFixed(1)}).`;
+  if (fit.reason === 'prey') return `${who}: je zit midden in ons gebied en bent veel kleiner dan wij. Jij bent eerder een doelwit dan een lid.`;
+  if (fit.reason === 'blocked') return `${who}: er zit een vijandige stam tussen jou en ons in.`;
+  if (fit.reason !== 'ok') return `${who}: je ligt niet goed voor ons.`;
   if (!leaderAccepts(state, t, me)) return `${who}: kom terug als je wat groter bent.`;
   return `${who}: nu even niet.`;
 }

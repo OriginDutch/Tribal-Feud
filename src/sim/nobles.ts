@@ -7,23 +7,43 @@
  * Coins are never used up: a nobleman that dies frees his slot.
  *
  * Packages (world option): the same price, but stored in one village and used up when a
- * nobleman is trained there; the next nobleman costs (slots in use + 1) packages.
+ * nobleman is trained there; the next nobleman costs slotCost(slots in use + 1) packages.
+ *
+ * Tiered curve (default): slot n costs n, at most 25 below slot 200, 50 from 200, 75 from 300...
  */
+import type { NobleCurve } from '../shared/config';
 import type { Res } from '../shared/gameData';
 import { storageCapacity } from './formulas';
 import { villagesOf, type WorldState } from './state';
 import { currentResources, isOperational, settle, type Village } from './village';
 
-export function coinsForSlots(slots: number): number {
-  return (slots * (slots + 1)) / 2;
+/** Coins (or packages) slot n costs. Tiered: n, capped at 25 below slot 200, then 25 per started hundred. */
+export function slotCost(n: number, curve: NobleCurve = 'tiered'): number {
+  if (curve === 'classic') return n;
+  return Math.min(n, 25 * Math.max(1, Math.floor(n / 100)));
+}
+
+/** Coins all slots 1..s cost together. */
+export function coinsForSlots(slots: number, curve: NobleCurve = 'tiered'): number {
+  if (slots <= 0) return 0;
+  if (curve === 'classic') return (slots * (slots + 1)) / 2;
+  const a = Math.min(slots, 25);
+  let total = (a * (a + 1)) / 2;
+  if (slots <= 25) return total;
+  total += (Math.min(slots, 199) - 25) * 25;
+  for (let start = 200; start <= slots; start += 100) total += (Math.min(slots, start + 99) - start + 1) * slotCost(start, curve);
+  return total;
 }
 
 /** Most slots `coins` pays for. */
-export function slotsForCoins(coins: number): number {
-  let s = 0;
-  while (coinsForSlots(s + 1) <= coins) s++;
-  return s;
+export function slotsForCoins(coins: number, curve: NobleCurve = 'tiered'): number {
+  let lo = 0, hi = 1;
+  while (coinsForSlots(hi, curve) <= coins) hi *= 2;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (coinsForSlots(mid, curve) <= coins) lo = mid; else hi = mid; }
+  return lo;
 }
+
+export const curveOf = (state: WorldState): NobleCurve => state.config.nobleCurve ?? 'tiered';
 
 /** Slots in use: extra villages plus every nobleman (home, on the road, in training). */
 export function slotsUsed(state: WorldState, owner: number): number {
@@ -44,13 +64,13 @@ export function playerCoins(state: WorldState, owner: number): number {
 export function noblesAllowed(state: WorldState, v: Village): number {
   const used = slotsUsed(state, v.owner);
   if (state.config.nobleCost === 'coins') {
-    return Math.max(0, slotsForCoins(playerCoins(state, v.owner)) - used);
+    return Math.max(0, slotsForCoins(playerCoins(state, v.owner), curveOf(state)) - used);
   }
   // packages: n-th extra noble costs (used + n) packages
   let left = v.packages ?? 0;
   let n = 0;
-  while (left >= used + n + 1) {
-    left -= used + n + 1;
+  while (left >= slotCost(used + n + 1, curveOf(state))) {
+    left -= slotCost(used + n + 1, curveOf(state));
     n++;
   }
   return n;
@@ -61,15 +81,15 @@ export function payPackages(state: WorldState, v: Village, count: number): void 
   if (state.config.nobleCost !== 'packages') return;
   const used = slotsUsed(state, v.owner);
   let cost = 0;
-  for (let i = 1; i <= count; i++) cost += used + i;
+  for (let i = 1; i <= count; i++) cost += slotCost(used + i, curveOf(state));
   v.packages = Math.max(0, (v.packages ?? 0) - cost);
 }
 
 /** What's needed for the next nobleman, for display. */
 export function nextNobleNeed(state: WorldState, v: Village): { have: number; need: number } {
   const used = slotsUsed(state, v.owner);
-  if (state.config.nobleCost === 'coins') return { have: playerCoins(state, v.owner), need: coinsForSlots(used + 1) };
-  return { have: v.packages ?? 0, need: used + 1 };
+  if (state.config.nobleCost === 'coins') return { have: playerCoins(state, v.owner), need: coinsForSlots(used + 1, curveOf(state)) };
+  return { have: v.packages ?? 0, need: slotCost(used + 1, curveOf(state)) };
 }
 
 export function maxMintable(state: WorldState, v: Village): number {

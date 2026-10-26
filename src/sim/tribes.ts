@@ -130,22 +130,50 @@ export const AGGRESSION: Record<Archetype, number> = { rusher: 1, opportunist: 0
  * Does `candidate` fit in tribe `t`? Close to the centre, not cut off by an enemy, and not a
  * weak village right in the tribe's own ground (that is prey).
  */
-export function fits(state: WorldState, t: Tribe, candidate: number): boolean {
-  if (t.members.length >= MAX_MEMBERS) return false;
+export type FitReason = 'ok' | 'full' | 'far' | 'prey' | 'blocked' | 'gone';
+
+/**
+ * How far (fields) a member may live from the tribe's centre: REACH, plus how spread out the
+ * tribe already is (points-weighted average distance of its villages to the centre), capped at
+ * twice REACH. A big tribe covers more map, so its reach grows with it.
+ */
+export function reachOf(state: WorldState, t: Tribe, tc = tribeCentre(state, t)): number {
+  if (!tc) return REACH;
+  let sum = 0, w = 0;
+  for (const m of t.members) {
+    for (const v of villagesOf(state, m)) {
+      const p = villagePoints(state.config, v) + 1;
+      sum += Math.hypot(v.x - tc.x, v.y - tc.y) * p;
+      w += p;
+    }
+  }
+  const spread = w ? sum / w : 0;
+  return Math.min(REACH * 2, REACH + spread);
+}
+
+/** Why `candidate` does (not) fit in tribe `t`; see fits(). Also gives the distance and reach used. */
+export function fitCheck(state: WorldState, t: Tribe, candidate: number): { reason: FitReason; distance: number; reach: number } {
   const tc = tribeCentre(state, t), cc = playerCentre(state, candidate);
-  if (!tc || !cc) return false;
+  if (!tc || !cc) return { reason: 'gone', distance: 0, reach: REACH };
   const d = dist(tc, cc);
-  if (d > REACH) return false;
+  const reach = reachOf(state, t, tc);
+  const out = (reason: FitReason) => ({ reason, distance: d, reach });
+  if (t.members.length >= MAX_MEMBERS) return out('full');
+  if (d > reach) return out('far');
   const avg = tc.points / Math.max(1, t.members.length);
-  if (d < CORE && cc.points < avg * 0.3) return false;
+  if (d < CORE && cc.points < avg * 0.3) return out('prey');
   // in the way: an enemy tribe sits between the candidate and us
   for (const [other, rel] of Object.entries(t.relations)) {
     if (rel !== 'war') continue;
     const e = state.tribes?.[Number(other)];
     const ec = e && tribeCentre(state, e);
-    if (ec && dist(cc, ec) < d && dist(ec, tc) < d) return false;
+    if (ec && dist(cc, ec) < d && dist(ec, tc) < d) return out('blocked');
   }
-  return true;
+  return out('ok');
+}
+
+export function fits(state: WorldState, t: Tribe, candidate: number): boolean {
+  return fitCheck(state, t, candidate).reason === 'ok';
 }
 
 export function setRelation(state: WorldState, a: Tribe, b: Tribe, rel: Relation | null): void {
@@ -238,9 +266,10 @@ export function onDiplomacy(state: WorldState): void {
   for (const t of tribes()) {
     if (t.members.length < 2) continue;
     const tc = tribeCentre(state, t);
+    const leaveAt = tc ? reachOf(state, t, tc) * 1.6 : Infinity;
     for (const m of [...t.members]) {
       const c = playerCentre(state, m), p = state.players[m];
-      if (tc && c && p?.isBot && dist(tc, c) > REACH * 1.6) {
+      if (tc && c && p?.isBot && dist(tc, c) > leaveAt) {
         leave(state, p);
         addLog(state, { time: state.time, text: `${p.name} verlaat [${t.tag}]: te ver weg.` });
       }

@@ -19,6 +19,7 @@ import { DEFAULT_BARB_TYPES, type BarbType, type BarbTypeDef } from './barbarian
 export type ResearchMode = 'simple' | 'levels3' | 'levels10';
 export type PaladinMode = 'off' | 'on' | 'items';
 export type NobleCostMode = 'coins' | 'packages';
+export type NobleCurve = 'tiered' | 'classic';
 export type MoraleMode = 'off' | 'points' | 'pointsTime';
 export type BotDifficulty = 'easy' | 'normal' | 'hard';
 
@@ -74,6 +75,11 @@ export interface WorldConfig {
   archers: boolean;
   paladin: PaladinMode;
   nobleCost: NobleCostMode;
+  /**
+   * Price per noble slot. tiered (default, also for old saves): slot n costs n, but at most
+   * 25 below slot 200, 50 from 200, 75 from 300, ... classic: slot n costs n (TW).
+   */
+  nobleCurve?: NobleCurve;
   morale: MoraleMode;
   luck: boolean;
   nightBonus: boolean;

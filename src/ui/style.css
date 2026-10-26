@@ -671,3 +671,5 @@ button.link.player-link:hover { color: var(--accent); }
 input.pick { margin-right: 6px; vertical-align: -1px; }
 tr.total-row td { border-top: 1px solid rgba(255,255,255,0.15); }
 .group-chip.filter { margin-left: 6px; border-style: dashed; font-weight: 600; }
+tr.dim td { opacity: 0.55; }
+td.bad { color: var(--danger, #e5533f); }

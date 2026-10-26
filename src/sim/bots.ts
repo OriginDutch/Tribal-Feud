@@ -13,7 +13,7 @@ const DAY = 86_400_000;
 import { push } from './eventQueue';
 import { buildingCost } from './formulas';
 import { distance, protectionBlocker, protectionEndsAt, sendAttack, sendSupport, travelTimeMs } from './movement';
-import { coinsForSlots, mintCoins, noblesAllowed, playerCoins, slotsUsed } from './nobles';
+import { coinsForSlots, curveOf, mintCoins, noblesAllowed, playerCoins, slotsUsed } from './nobles';
 import { MERCHANT_CARRY, acceptOffer, cancelOffer, createOffer, merchantsFree, offersOf, type TradeOffer } from './market';
 import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
@@ -694,7 +694,7 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
       if (n > 0) recruit(state, v.id, 'snob', n);
     } else if (free(config.conquest.coinCost)) {
       const used = slotsUsed(state, v.owner) + missing;
-      const need = Math.max(1, coinsForSlots(used) - playerCoins(state, v.owner));
+      const need = Math.max(1, coinsForSlots(used, curveOf(state)) - playerCoins(state, v.owner));
       const n = config.nobleCost === 'coins' ? Math.min(need, affordable(config.conquest.coinCost)) : 1;
       if (n > 0) mintCoins(state, v.id, n);
     }

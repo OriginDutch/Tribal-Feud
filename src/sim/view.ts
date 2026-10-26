@@ -4,7 +4,7 @@
  */
 import { loyaltyNow } from './movement';
 import type { VillageManager } from './manager';
-import { maxMintable, mintBlocker, nextNobleNeed, noblesAllowed, slotsUsed } from './nobles';
+import { coinsForSlots, curveOf, maxMintable, mintBlocker, nextNobleNeed, noblesAllowed, slotCost, slotsForCoins, slotsUsed } from './nobles';
 import { BUILDING_IDS, RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type RecruitBuilding, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import {
   buildTimeMs,
@@ -112,6 +112,11 @@ export interface VillageView {
     /** Needed (in total for coins, extra for packages) for one more nobleman. */
     need: number;
     slotsUsed: number;
+    /** Coins: the next slot you haven't paid for yet, what it costs on its own, and how many coins you still miss for it. */
+    nextSlot: number;
+    slotPrice: number;
+    missing: number;
+    curve: 'tiered' | 'classic';
     allowed: number;
     coinCost: Res;
     maxMint: number;
@@ -279,7 +284,14 @@ export function villageView(state: WorldState, v: Village): VillageView {
     loyalty: Math.floor(loyaltyNow(config, v, state.time)),
     nobles: (() => {
       const next = nextNobleNeed(state, v);
+      const curve = curveOf(state);
+      const used = slotsUsed(state, v.owner);
+      const nextSlot = Math.max(used, config.nobleCost === 'coins' ? slotsForCoins(next.have, curve) : used) + 1;
       return {
+        nextSlot,
+        slotPrice: slotCost(nextSlot, curve),
+        missing: config.nobleCost === 'coins' ? Math.max(0, coinsForSlots(nextSlot, curve) - next.have) : Math.max(0, next.need - next.have),
+        curve,
         mode: config.nobleCost,
         have: next.have,
         need: next.need,
