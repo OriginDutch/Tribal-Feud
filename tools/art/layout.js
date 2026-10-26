@@ -26,10 +26,11 @@ export const HOMES = [[-14.6, -3.6, 1.0, 2.2], [14.8, -3.2, -1.0, 2.2], [-4.4, -
 export const WALL_KINDS = ['palisade', 'stone', 'full'];
 /** Homes outside the wall, simpler than anything inside: x, z, rotation, style (0 hut, 1 cottage, 2 small house). */
 // ---------- farmsteads outside the wall: planned so nothing overlaps ----------
+/** Roads outside the wall: the main road, and side roads to the clay pit + timber camp and to the farm + iron mine. */
 const ROADS_OUT = [
-  { pts: [[0, 14], [0, 70]], r: 0.9 + 0.5 },
-  { pts: [[0, 19.5], [-8, 22], [-17.5, 18.5]], r: 0.6 + 0.5 },
-  { pts: [[0, 19.5], [10, 20.5], [19.5, 16.5]], r: 0.6 + 0.5 },
+  { pts: [[0, 14], [0, 70]], r: 0.9 + 0.5, w: 1.8 },
+  { pts: [[0, 19.5], [-8, 22], [-17.5, 18.5], [-23.5, 12.5], [-26.8, 5.0], [-27.0, 0.6]], r: 0.6 + 0.5, w: 1.2 },
+  { pts: [[0, 19.5], [10, 20.5], [19.5, 16.5], [24.2, 9.5], [26.0, 3.5], [25.9, -1.4]], r: 0.6 + 0.5, w: 1.2 },
 ];
 function segDist(px, pz, [ax, az], [bx, bz]) { const dx = bx - ax, dz = bz - az, L = dx * dx + dz * dz; const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / L)); return Math.hypot(px - ax - dx * t, pz - az - dz * t); }
 function polyDist(px, pz, pts) { let d = Infinity; for (let k = 0; k < pts.length - 1; k++) d = Math.min(d, segDist(px, pz, pts[k], pts[k + 1])); return d; }
@@ -96,6 +97,8 @@ export const FARMS = (() => {
     let path = null;
     for (const tg of targets.slice(0, 4)) { for (const wob of [0.08, -0.08, 0.16, -0.16, 0]) { const p = pathPts(door, tg, wob); if (Math.hypot(tg[0] - door[0], tg[1] - door[1]) < 16 && pathClear(p, own) && !fields.some((F) => p.some(([px, pz]) => inRect(F, px, pz, 0.45)))) { path = p; break; } } if (path) break; }
     if (!path || !fields.length) continue;
+    // stop the path at the edge of whatever road it joins, so it never paints over it
+    { const cut = path.findIndex(([px, pz]) => ROADS_OUT.some((q) => polyDist(px, pz, q.pts) < q.w / 2 + 0.05)); if (cut > 1) path = path.slice(0, cut + 1); }
     solids.push(hs, yard, ...fields); paths.push(path);
     farms.push({ x, z, rot, door, fields, path, seed: 400 + farms.length * 13 });
   }
@@ -125,8 +128,7 @@ export function buildGround(root) {
   road(root, [[0, 1.5], [-6, 3.4], [-10.4, 2.6]]); road(root, [[0, 1.5], [6, 3.4], [10.6, 3.0]]);
   road(root, [[-6, 3.4], [-9.8, 8.4]]); road(root, [[6, 3.4], [9.8, 8.4]]);
   road(root, [[0, -1.2], [-8, -3.6]]); road(root, [[0, -1.2], [7.6, -3.8]]);
-  road(root, [[0, 19.5], [-8, 22], [-17.5, 18.5]], 1.2); road(root, [[0, 19.5], [10, 20.5], [19.5, 16.5]], 1.2);
-  road(root, [[-18, 9], [-25, -1]], 1.1); road(root, [[18.5, 5], [23, -2]], 1.1);
+  for (const q of ROADS_OUT.slice(1)) road(root, q.pts, q.w);
   const plaza = new THREE.Mesh(new THREE.CircleGeometry(4.2, 48), M.cobble); plaza.rotation.x = -Math.PI / 2; plaza.scale.y = 0.8; plaza.position.set(0, 0.02, 1.4); plaza.receiveShadow = true; root.add(plaza);
 }
 
@@ -226,11 +228,12 @@ export function forest() {
     if (inEllipse(x, z, 1.22)) continue;
     if (Math.abs(x) < 2.4 && z > 10) continue;
     if (avoid.some(([ax, az, r]) => Math.hypot(x - ax, z - az) < r)) continue;
+    if (ROADS_OUT.some((q) => polyDist(x, z, q.pts) < q.w / 2 + 1.3 * s)) continue;
     if (z > 20 && k < 0.7) continue;
     out.push({ x, z, s, kind: k < 0.45 ? 'pine' : 'tree', seed: i });
   }
   for (const [x, z] of [[-1.9, 11.4], [2.2, 12.0]]) out.push({ x, z, s: 0.75, kind: 'tree', seed: 900 + x });
-  for (let i = 0; i < 50; i++) { const x = (rnd() - 0.5) * 64, z = (rnd() - 0.5) * 50; if (!inEllipse(x, z, 1.15) && !avoid.some(([ax, az, r]) => Math.hypot(x - ax, z - az) < r)) out.push({ x, z, s: 0.4 + rnd() * 0.3, kind: rnd() < 0.5 ? 'bush' : 'rock', seed: 2000 + i }); }
+  for (let i = 0; i < 50; i++) { const x = (rnd() - 0.5) * 64, z = (rnd() - 0.5) * 50; if (!inEllipse(x, z, 1.15) && !avoid.some(([ax, az, r]) => Math.hypot(x - ax, z - az) < r) && !ROADS_OUT.some((q) => polyDist(x, z, q.pts) < q.w / 2 + 0.6)) out.push({ x, z, s: 0.4 + rnd() * 0.3, kind: rnd() < 0.5 ? 'bush' : 'rock', seed: 2000 + i }); }
   return out;
 }
 export function buildTree(root, t) {
