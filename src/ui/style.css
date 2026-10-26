@@ -658,3 +658,16 @@ button.link.player-link:hover { color: var(--accent); }
 .order-form { gap: 8px; margin: 8px 0; align-items: center; }
 .order-form input { width: 220px; }
 .good { color: var(--good); }
+
+/* village groups */
+.group-chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 4px; color: var(--gc); border: 1px solid color-mix(in srgb, var(--gc) 55%, transparent); background: color-mix(in srgb, var(--gc) 14%, transparent); line-height: 16px; vertical-align: 1px; }
+.group-btn i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--gc); }
+.group-bar .row { gap: 6px; align-items: center; }
+.group-actions { margin-top: 10px; gap: 10px; }
+.group-act { display: inline-flex; gap: 4px; align-items: center; }
+.group-manager, .group-suggest { margin-top: 12px; }
+.group-manager input[type=text] { width: 140px; }
+.group-manager input[type=color] { width: 40px; height: 26px; padding: 0; border: none; background: none; }
+input.pick { margin-right: 6px; vertical-align: -1px; }
+tr.total-row td { border-top: 1px solid rgba(255,255,255,0.15); }
+.group-chip.filter { margin-left: 6px; border-style: dashed; font-weight: 600; }

@@ -499,6 +499,7 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   for (const b of Object.keys(v.recruitQueues) as (keyof Village['recruitQueues'])[]) v.recruitQueues[b] = [];
   v.research = null;
   delete v.manager;
+  delete v.groups;
   // troops that belonged to this village are lost: on the road, coming home, or supporting elsewhere
   for (const m of Object.values(state.movements)) {
     if (m.owner !== old) continue;

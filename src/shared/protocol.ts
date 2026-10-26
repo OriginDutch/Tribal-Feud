@@ -7,6 +7,7 @@ import type { ConfigOverrides, PresetId } from './config';
 import type { Speed } from './time';
 import type { AlertMode, LogEntry } from '../sim/state';
 import type { BotRequest } from '../sim/state';
+import type { VillageGroup } from '../sim/groups';
 import type { BuildTemplate, NobleTemplate, TroopTemplate, VillageManager } from '../sim/manager';
 import type { SaveMeta } from '../sim/save';
 import type { VillageView } from '../sim/view';
@@ -60,6 +61,9 @@ export type Command =
   | { type: 'askTribeHelp'; movement: number }
   | { type: 'giveOrder'; kind: 'attack' | 'spare' | 'focus'; target: number }
   | { type: 'cancelOrder'; id: number }
+  | { type: 'saveGroup'; group: VillageGroup }
+  | { type: 'deleteGroup'; id: string }
+  | { type: 'setGroup'; group: string; villages: number[]; member: boolean }
   | { type: 'setTribePause'; war: boolean; requests: boolean }
   | { type: 'setManager'; villageId: number; manager: VillageManager | null }
   | { type: 'setManagerAll'; manager: VillageManager | null }
@@ -298,6 +302,7 @@ export interface Snapshot {
   templates: BuildTemplate[];
   troopTemplates: TroopTemplate[];
   nobleTemplates: NobleTemplate[];
+  groups: VillageGroup[];
   /** Villages using each template (build and troop), by id. */
   templateUse: Record<string, number>;
   unreadReports: number;
@@ -329,6 +334,8 @@ export interface OwnVillageRow {
   units: UnitCounts;
   /** Has a working rally point: can send troops. */
   canSend: boolean;
+  /** Your groups this village is in (ids). */
+  groups: string[];
   loyalty: number;
   /** Account manager in short ("Economie · troepen"), or null when off. */
   manager: string | null;

@@ -2,6 +2,7 @@
  * Simulation worker: owns the world state, runs the clock, handles saves.
  * The UI never touches the state directly.
  */
+import { deleteGroup, saveGroup, setGroup } from './groups';
 import { askTribeHelp, cancelOrder, giveOrder } from './tribeOrders';
 import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, proposeRelation, setOwnRelation } from './humanTribe';
 import { tribeNews, tribeViews } from './tribes';
@@ -111,6 +112,7 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
         recruiting,
         units,
         canSend: isOperational(config, v, 'place'),
+        groups: [...(v.groups ?? [])],
         loyalty: Math.floor(loyaltyNow(config, v, s.time)),
         manager: v.manager
           ? [findTemplate(s, v.manager.template)?.name, v.manager.troops ? 'troepen' : undefined].filter(Boolean).join(' · ') || 'aan'
@@ -158,6 +160,7 @@ function snapshot(): Snapshot | null {
     templates: allTemplates(state),
     troopTemplates: state.troopTemplates ?? [],
     nobleTemplates: state.nobleTemplates ?? [],
+    groups: state.villageGroups ?? [],
     templateUse: templateUse(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
@@ -685,6 +688,14 @@ async function handle(cmd: Command): Promise<void> {
       markInboxRead(state);
       post({ type: 'inbox', inbox: inboxViews(state) });
       break;
+    case 'saveGroup':
+    case 'deleteGroup':
+    case 'setGroup': {
+      if (!state) return;
+      const error = cmd.type === 'saveGroup' ? saveGroup(state, cmd.group) : cmd.type === 'deleteGroup' ? deleteGroup(state, cmd.id) : setGroup(state, cmd.group, cmd.villages, cmd.member);
+      if (error) notice(error, 'error');
+      break;
+    }
     case 'askTribeHelp':
     case 'giveOrder':
     case 'cancelOrder': {

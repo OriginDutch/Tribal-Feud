@@ -114,6 +114,8 @@ export interface Village {
   support?: Record<number, UnitCounts>;
   /** Account manager settings (player villages). */
   manager?: VillageManager;
+  /** Your village groups this village is in. */
+  groups?: string[];
   /** Noble packages stored here (packages worlds). */
   packages?: number;
   /** Loyalty at `loyaltyAt`; regenerates over time. Missing = 100. */

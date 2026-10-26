@@ -48,6 +48,7 @@ export function SupportScreen() {
   const [deadlineText, setDeadlineText] = useState(plan?.deadline ? formatGameTime(plan.deadline).replace(' ·', '') : '');
   const [units, setUnits] = useState<UnitId[]>(loadUnits);
   const [amounts, setAmounts] = useState<Record<number, Partial<Record<UnitId, string>>>>({});
+  const [fromGroup, setFromGroup] = useState<string>(() => localStorage.getItem('tf-support-group') ?? '');
 
   // a new request from elsewhere (an incoming attack, a village)
   useEffect(() => {
@@ -69,10 +70,10 @@ export function SupportScreen() {
   const rows = useMemo(() => {
     if (!s || !to) return [];
     return s.villages
-      .filter((v) => v.id !== to.id && v.canSend)
+      .filter((v) => v.id !== to.id && v.canSend && (!fromGroup || !s.groups.some((g) => g.id === fromGroup) || v.groups.includes(fromGroup)))
       .map((v) => ({ v, dist: distance(v, to) }))
       .sort((a, b) => a.dist - b.dist);
-  }, [s?.villages, to?.id]);
+  }, [s?.villages, to?.id, fromGroup]);
 
   if (!s) return null;
   const travel = (u: UnitId, dist: number) => Math.round(((dist * s.unitSpeeds[u]) / s.marchFactor) * 60_000);
@@ -135,6 +136,25 @@ export function SupportScreen() {
               ))}
             </select>
           </label>
+          {s.groups.length > 0 && (
+            <label>
+              Vanuit groep
+              <select
+                value={fromGroup}
+                onChange={(e) => {
+                  const g = e.currentTarget.value;
+                  setFromGroup(g);
+                  setAmounts({});
+                  try { localStorage.setItem('tf-support-group', g); } catch { /* fine */ }
+                }}
+              >
+                <option value="">Alle dorpen</option>
+                {s.groups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>
             Moet er zijn vóór
             <div class="row">

@@ -55,6 +55,19 @@ export function openSupport(target: number, deadline: number | null = null): voi
   supportPlan.value = { target, deadline };
   screen.value = 'support';
 }
+/** Village group filter (null = all villages): the village switcher, A/D and the village lists follow it. */
+export const groupFilter = signal<string | null>((() => { try { return localStorage.getItem('tf-group') || null; } catch { return null; } })());
+export function setGroupFilter(id: string | null): void {
+  groupFilter.value = id;
+  try { if (id) localStorage.setItem('tf-group', id); else localStorage.removeItem('tf-group'); } catch { /* fine */ }
+}
+/** Your villages in the active group (all when no group, or the group is gone). */
+export function groupVillages<T extends { groups: string[] }>(villages: T[], groups: { id: string }[]): T[] {
+  const g = groupFilter.value;
+  if (!g || !groups.some((x) => x.id === g)) return villages;
+  return villages.filter((v) => v.groups.includes(g));
+}
+
 /** Player profile shown on the player screen. */
 export const playerFocus = signal<number | null>(null);
 export const playerView = signal<PlayerView | null>(null);
