@@ -21,6 +21,7 @@ const SCREENS: { id: Screen; label: string; icon: string }[] = [
   { id: 'reports', label: 'Rapporten', icon: 'reports' },
   { id: 'ranking', label: 'Ranglijst', icon: 'ranking' },
   { id: 'tribes', label: 'Stammen', icon: 'tribes' },
+  { id: 'inbox', label: 'Inbox', icon: 'inbox' },
   { id: 'debug', label: 'Log & debug', icon: 'debug' },
 ];
 

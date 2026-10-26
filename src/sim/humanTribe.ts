@@ -36,8 +36,11 @@ import {
 } from './tribes';
 
 const MAX_ALLIES = 2;
-/** Open invitations and proposals expire after two (speed-adjusted) days. */
-const expiry = (state: WorldState) => state.time + (2 * DAY) / state.config.worldSpeed;
+/**
+ * Open invitations, applications and proposals expire after a fixed game day: it is about your
+ * attention, which does not speed up with the world (like the bots' reaction time).
+ */
+const expiry = (state: WorldState) => state.time + DAY;
 
 // --- inbox -----------------------------------------------------------------------
 

@@ -106,6 +106,14 @@ export interface MapData {
 }
 
 export type TribeRelation = 'ally' | 'nap' | 'war';
+/** A player near you that you could invite (leaders only). */
+export interface CandidateView {
+  id: number;
+  name: string;
+  points: number;
+  distance: number;
+  tribe?: number;
+}
 export type TribeAskView =
   | { kind: 'apply'; tribe: number; at: number }
   | { kind: 'invite'; player: number; at: number }
@@ -274,7 +282,7 @@ export type WorkerMessage =
   | { type: 'saves'; saves: SaveMeta[] }
   | { type: 'map'; map: MapData }
   | { type: 'reports'; reports: Report[] }
-  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[] }
+  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[] }
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'notice'; level: 'info' | 'error'; text: string };
 

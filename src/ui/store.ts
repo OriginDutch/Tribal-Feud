@@ -4,12 +4,12 @@
  */
 import { signal } from '@preact/signals';
 import type { BuildingId, RecruitBuilding } from '../shared/gameData';
-import type { Command, MapData, RankingRow, Snapshot, TribeView, WorkerMessage } from '../shared/protocol';
+import type { CandidateView, Command, InboxView, MapData, RankingRow, Snapshot, TribeAskView, TribeView, WorkerMessage } from '../shared/protocol';
 import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'debug' | 'building';
+export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'debug' | 'building';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);
@@ -54,6 +54,9 @@ export function openTribe(id: number): void {
   screen.value = 'tribes';
 }
 export const tribeNews = signal<{ time: number; text: string }[]>([]);
+export const tribeAsks = signal<TribeAskView[]>([]);
+export const inviteCandidates = signal<CandidateView[]>([]);
+export const inbox = signal<InboxView[]>([]);
 /** Target picked on the map, prefilled in the rally point. */
 export const placeTarget = signal<{ x: number; y: number } | null>(null);
 /** Map style: drawn villages, or the classic flat squares. Remembered per browser. */
@@ -134,6 +137,11 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
       ranking.value = msg.ranking;
       tribes.value = msg.tribes;
       tribeNews.value = msg.news;
+      tribeAsks.value = msg.asks;
+      inviteCandidates.value = msg.candidates;
+      break;
+    case 'inbox':
+      inbox.value = msg.inbox;
       break;
     case 'notice':
       showNotice(msg.text, msg.level);

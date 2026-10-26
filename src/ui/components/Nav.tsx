@@ -22,6 +22,7 @@ const ITEMS: Item[] = [
   { id: 'map', label: 'Kaart' },
   { id: 'farm', label: 'Farm-assistent' },
   { id: 'reports', label: 'Rapporten' },
+  { id: 'inbox', label: 'Inbox' },
   { id: 'ranking', label: 'Ranglijst' },
   { id: 'tribes', label: 'Stammen' },
   { id: 'debug', label: 'Log & debug' },
@@ -44,7 +45,7 @@ export function Nav() {
         const lvl = item.building ? level(item.building) : null;
         const active = screen.value === item.id;
         const badge =
-          item.id === 'reports' && unread > 0 ? { n: unread, kind: 'danger' } : item.id === 'overview' && incoming > 0 ? { n: incoming, kind: 'danger' } : item.id === 'quests' && rewards > 0 ? { n: rewards, kind: 'good' } : item.id === 'villages' ? { n: s.villages.length, kind: 'plain' } : null;
+          item.id === 'reports' && unread > 0 ? { n: unread, kind: 'danger' } : item.id === 'inbox' && (s.inboxOpen > 0 || s.inboxUnread > 0) ? { n: s.inboxOpen || s.inboxUnread, kind: s.inboxOpen ? 'good' : 'danger' } : item.id === 'overview' && incoming > 0 ? { n: incoming, kind: 'danger' } : item.id === 'quests' && rewards > 0 ? { n: rewards, kind: 'good' } : item.id === 'villages' ? { n: s.villages.length, kind: 'plain' } : null;
         return (
           <button
             key={item.id}

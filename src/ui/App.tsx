@@ -1,3 +1,4 @@
+import { InboxScreen } from './screens/InboxScreen';
 import { TribesScreen } from './screens/TribesScreen';
 import { useEffect } from 'preact/hooks';
 import { formatGameTime } from '../shared/time';
@@ -74,6 +75,8 @@ function CurrentScreen() {
       return <RankingScreen />;
     case 'tribes':
       return <TribesScreen />;
+    case 'inbox':
+      return <InboxScreen />;
     case 'villages':
       return <VillagesScreen />;
     case 'manager':
