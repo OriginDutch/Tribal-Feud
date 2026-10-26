@@ -236,6 +236,82 @@ export function villagesOf(state: WorldState, owner: number): Village[] {
   return out;
 }
 
+/** A village changed owner: update the index in place instead of rebuilding it (conquests are frequent). */
+export function moveOwner(state: WorldState, villageId: number, from: number, to: number): void {
+  const index = ownerIndex.get(state);
+  if (index) {
+    const list = index.get(from);
+    if (list) {
+      const i = list.indexOf(villageId);
+      if (i >= 0) list.splice(i, 1);
+    }
+    const target = index.get(to);
+    if (target) {
+      // keep ids ascending, like a fresh build
+      let i = target.length;
+      while (i > 0 && target[i - 1]! > villageId) i--;
+      target.splice(i, 0, villageId);
+    } else index.set(to, [villageId]);
+  }
+  if (from === HUMAN_ID || to === HUMAN_ID) humanVillageCache.delete(state);
+}
+
+/**
+ * All adding and removing of movements goes through these two, so indexes over movements stay
+ * exact without rescanning. Indexes are derived from state only (rebuilt after a load), so a
+ * loaded save plays out the same as one that kept running.
+ */
+export interface MovementIndex {
+  /** Real attacks (100+ units) per target village: movement id -> arrival. */
+  attacks: Map<number, Map<number, number>>;
+  /** Supports underway, per "owner:target". */
+  supports: Map<string, number>;
+}
+const movementIndexes = new WeakMap<WorldState, MovementIndex>();
+const REAL_ATTACK = 100;
+function track(ix: MovementIndex, m: Movement, sign: 1 | -1): void {
+  if (m.kind === 'support') {
+    const k = `${m.owner}:${m.to}`;
+    const n = (ix.supports.get(k) ?? 0) + sign;
+    if (n > 0) ix.supports.set(k, n);
+    else ix.supports.delete(k);
+    return;
+  }
+  if (m.kind !== 'attack') return;
+  let n = 0;
+  for (const k in m.units) n += m.units[k as keyof typeof m.units] ?? 0;
+  if (n < REAL_ATTACK) return;
+  let at = ix.attacks.get(m.to);
+  if (sign > 0) {
+    if (!at) ix.attacks.set(m.to, (at = new Map()));
+    at.set(m.id, m.arrives);
+  } else if (at) {
+    at.delete(m.id);
+    if (!at.size) ix.attacks.delete(m.to);
+  }
+}
+export function movementIndex(state: WorldState): MovementIndex {
+  let ix = movementIndexes.get(state);
+  if (!ix) {
+    ix = { attacks: new Map(), supports: new Map() };
+    for (const m of Object.values(state.movements)) track(ix, m, 1);
+    movementIndexes.set(state, ix);
+  }
+  return ix;
+}
+export function addMovement(state: WorldState, m: Movement): void {
+  state.movements[m.id] = m;
+  const ix = movementIndexes.get(state);
+  if (ix) track(ix, m, 1);
+}
+export function removeMovement(state: WorldState, id: number): void {
+  const m = state.movements[id];
+  if (!m) return;
+  delete state.movements[id];
+  const ix = movementIndexes.get(state);
+  if (ix) track(ix, m, -1);
+}
+
 export function invalidateOwners(state: WorldState): void {
   ownerIndex.delete(state);
   humanVillageCache.delete(state);

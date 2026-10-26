@@ -8,7 +8,7 @@ import type { Res } from '../shared/gameData';
 import { push } from './eventQueue';
 import { storageCapacity } from './formulas';
 import { distance, type Movement } from './movement';
-import { HUMAN_ID, addLog, nextId, villagesOf, type WorldState } from './state';
+import { HUMAN_ID, addLog, addMovement, nextId, removeMovement, villagesOf, type WorldState } from './state';
 import { currentResources, isOperational, settle, type Village } from './village';
 
 export const MERCHANT_CARRY = 1000;
@@ -99,13 +99,13 @@ function launch(state: WorldState, from: Village, to: Village, res: Res, merchan
     merchants,
   };
   if (offer) m.offer = true;
-  state.movements[m.id] = m;
+  addMovement(state, m);
   push(state.queue, m.arrives, { kind: 'arrive', movementId: m.id });
 }
 
 /** Merchants arrive: unload (what doesn't fit in storage is lost, like TW) and walk home. */
 export function arriveTrade(state: WorldState, m: Movement): void {
-  delete state.movements[m.id];
+  removeMovement(state, m.id);
   const to = state.villages[m.to];
   if (to && m.res) {
     settle(state.config, to, state.time);
@@ -126,12 +126,12 @@ export function arriveTrade(state: WorldState, m: Movement): void {
     arrives: state.time + (m.arrives - m.sent),
     merchants: m.merchants ?? 0,
   };
-  state.movements[back.id] = back;
+  addMovement(state, back);
   push(state.queue, back.arrives, { kind: 'arrive', movementId: back.id });
 }
 
 export function arriveTradeReturn(state: WorldState, m: Movement): void {
-  delete state.movements[m.id];
+  removeMovement(state, m.id);
   // called back before delivering: the load comes home in full, like a cancelled order
   const home = state.villages[m.to];
   if (m.res && home && home.owner === m.owner) {

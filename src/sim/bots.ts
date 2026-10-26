@@ -18,8 +18,8 @@ import { MERCHANT_CARRY, acceptOffer, cancelOffer, createOffer, merchantsFree, o
 import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { edgeSpot } from './map';
-import { helpShare, mayAttack, targetWeight, threatsFor } from './tribes';
-import { BARBARIAN, addLog, invalidateOwners, nextId, villagesOf, type Player, type WorldState } from './state';
+import { helpShare, isHelping, mayAttack, targetWeight, threatsFor } from './tribes';
+import { BARBARIAN, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type Player, type WorldState } from './state';
 import {
   buildBlocker,
   createVillage,
@@ -126,7 +126,7 @@ function helpTribe(state: WorldState, player: Player, v: Village, profile: BotPr
     const target = state.villages[threat.village];
     if (!target || target.owner === player.id || distance(target, v) > 12) continue;
     // already helping this village
-    if (Object.values(state.movements).some((m) => m.kind === 'support' && m.owner === player.id && m.to === target.id)) continue;
+    if (isHelping(state, player.id, target.id)) continue;
     const share = helpShare(player.bot.archetype);
     const units: UnitCounts = {};
     let any = false;
@@ -232,9 +232,9 @@ export function abandonAndRestart(state: WorldState, player: Player): Village {
     startBarbarianGrowth(config, v, state.time);
   }
   // troops on the road are lost with the player
-  for (const m of Object.values(state.movements)) if (m.owner === player.id) delete state.movements[m.id];
+  for (const m of Object.values(state.movements)) if (m.owner === player.id) removeMovement(state, m.id);
   invalidateOwners(state);
-  nearCache.delete(state);
+  forgetNeighbourhoods(state);
 
   const [x, y] = edgeSpot(state);
   const fresh = createVillage(config, nextId(state), player.id, `${player.name}s dorp`, x, y, state.time);
@@ -436,6 +436,29 @@ function farm(state: WorldState, player: Player, v: Village, profile: BotProfile
   }
 }
 
+/**
+ * Spatial grid of village ids (cells of GRID fields), so "who is near" never scans the whole world.
+ * Villages never move; new ones (restarts at the edge) are added by forgetNeighbourhoods().
+ */
+const GRID = 8;
+const gridCache = new WeakMap<WorldState, { cells: Map<number, number[]>; size: number }>();
+const cellKey = (cx: number, cy: number) => cx * 4096 + cy;
+function grid(state: WorldState): Map<number, number[]> {
+  let g = gridCache.get(state);
+  if (!g) {
+    const cells = new Map<number, number[]>();
+    for (const x of Object.values(state.villages)) {
+      const k = cellKey(Math.floor(x.x / GRID), Math.floor(x.y / GRID));
+      const list = cells.get(k);
+      if (list) list.push(x.id);
+      else cells.set(k, [x.id]);
+    }
+    g = { cells, size: Object.keys(state.villages).length };
+    gridCache.set(state, g);
+  }
+  return g.cells;
+}
+
 /** All villages within `radius` of `v`, nearest first (any owner). Cached per world and village. */
 const nearCache = new WeakMap<WorldState, Map<string, number[]>>();
 function villagesNear(state: WorldState, v: Village, radius: number): Village[] {
@@ -447,10 +470,19 @@ function villagesNear(state: WorldState, v: Village, radius: number): Village[] 
   const key = `${v.id}:${radius}`;
   let ids = cache.get(key);
   if (!ids) {
-    ids = Object.values(state.villages)
-      .filter((x) => x.id !== v.id && distance(x, v) <= radius)
-      .sort((a, b) => distance(a, v) - distance(b, v))
-      .map((x) => x.id);
+    const cells = grid(state);
+    const found: { id: number; d: number }[] = [];
+    for (let cx = Math.floor((v.x - radius) / GRID); cx <= Math.floor((v.x + radius) / GRID); cx++) {
+      for (let cy = Math.floor((v.y - radius) / GRID); cy <= Math.floor((v.y + radius) / GRID); cy++) {
+        for (const id of cells.get(cellKey(cx, cy)) ?? []) {
+          const x = state.villages[id];
+          if (!x || x.id === v.id) continue;
+          const d = distance(x, v);
+          if (d <= radius) found.push({ id, d });
+        }
+      }
+    }
+    ids = found.sort((a, b) => a.d - b.d || a.id - b.id).map((f) => f.id);
     cache.set(key, ids);
   }
   const out: Village[] = [];
@@ -464,6 +496,7 @@ function villagesNear(state: WorldState, v: Village, radius: number): Village[] 
 /** New villages appeared (a restart at the edge): forget the cached neighbourhoods. */
 export function forgetNeighbourhoods(state: WorldState): void {
   nearCache.delete(state);
+  gridCache.delete(state);
 }
 
 /**

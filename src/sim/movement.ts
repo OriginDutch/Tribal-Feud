@@ -10,7 +10,7 @@ import { fight, morale } from './combat';
 import { push } from './eventQueue';
 import { hidingCapacity, storageCapacity } from './formulas';
 import { nextFloat, nextInt } from './rng';
-import { BARBARIAN, HUMAN_ID, addLog, invalidateOwners, nextId, villagesOf, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, addLog, addMovement, invalidateOwners, moveOwner, nextId, removeMovement, villagesOf, type WorldState } from './state';
 import { onHumanVillageLost, onIncomingAttack } from './alerts';
 import { formatGameTime } from '../shared/time';
 import { arriveTrade, arriveTradeReturn } from './market';
@@ -62,7 +62,7 @@ export function cancelMovement(state: WorldState, movementId: number, by: number
   const group = m.train !== undefined ? Object.values(state.movements).filter((x) => x.train === m.train && x.owner === by) : [m];
   for (const g of group) {
     if (cancelBlocker(state, g)) continue;
-    delete state.movements[g.id];
+    removeMovement(state, g.id);
     const walked = state.time - g.sent;
     const back: Movement = {
       id: nextId(state),
@@ -77,7 +77,7 @@ export function cancelMovement(state: WorldState, movementId: number, by: number
     };
     if (g.res) back.res = [...g.res] as Res;
     if (g.merchants !== undefined) back.merchants = g.merchants;
-    state.movements[back.id] = back;
+    addMovement(state, back);
     push(state.queue, back.arrives, { kind: 'arrive', movementId: back.id });
   }
   return null;
@@ -204,7 +204,7 @@ export function sendAttack(
   };
   if (catapultTarget && (units.catapult ?? 0) > 0) movement.catapultTarget = catapultTarget;
   if (train !== undefined) movement.train = train;
-  state.movements[movement.id] = movement;
+  addMovement(state, movement);
   push(state.queue, movement.arrives, { kind: 'arrive', movementId: movement.id });
   if (to.owner === HUMAN_ID && from.owner !== HUMAN_ID) {
     onIncomingAttack(state, from.id, `Inkomende aanval op ${to.name} (${to.x}|${to.y}) van ${ownerName(state, from.owner)}, aankomst ${formatGameTime(movement.arrives)}.`);
@@ -275,7 +275,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
   const from = state.villages[m.from];
   const target = state.villages[m.to];
   if (!from || !target) {
-    delete state.movements[m.id];
+    removeMovement(state, m.id);
     return;
   }
 
@@ -368,10 +368,10 @@ function arriveAttack(state: WorldState, m: Movement): void {
       arrives: state.time + (m.arrives - m.sent),
     };
     if (loot) back.loot = loot;
-    state.movements[back.id] = back;
+    addMovement(state, back);
     push(state.queue, back.arrives, { kind: 'arrive', movementId: back.id });
   }
-  delete state.movements[m.id];
+  removeMovement(state, m.id);
 
   if (m.owner !== HUMAN_ID) rememberFarm(state, m.owner, target.id, battle.attackerWon);
 
@@ -498,7 +498,7 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   // troops that belonged to this village are lost: on the road, coming home, or supporting elsewhere
   for (const m of Object.values(state.movements)) {
     if (m.owner !== old) continue;
-    if (m.from === v.id || (m.kind === 'return' && m.to === v.id)) delete state.movements[m.id];
+    if (m.from === v.id || (m.kind === 'return' && m.to === v.id)) removeMovement(state, m.id);
   }
   for (const w of Object.values(state.villages)) if (w.support?.[v.id]) delete w.support[v.id];
   // open market offers of this village go with it
@@ -513,7 +513,7 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   delete v.barbType;
   v.loyalty = config.conquest.loyaltyAfterConquest;
   v.loyaltyAt = state.time;
-  invalidateOwners(state);
+  moveOwner(state, v.id, old, newOwner);
 }
 
 // --- support ------------------------------------------------------------------
@@ -637,7 +637,7 @@ export function sendSupport(state: WorldState, fromId: number, toId: number, req
     sent: state.time,
     arrives: state.time + duration,
   };
-  state.movements[movement.id] = movement;
+  addMovement(state, movement);
   push(state.queue, movement.arrives, { kind: 'arrive', movementId: movement.id });
   return null;
 }
@@ -664,13 +664,13 @@ export function returnSupport(state: WorldState, by: number, hostId: number, ori
     sent: state.time,
     arrives: state.time + duration,
   };
-  state.movements[back.id] = back;
+  addMovement(state, back);
   push(state.queue, back.arrives, { kind: 'arrive', movementId: back.id });
   return null;
 }
 
 function arriveSupport(state: WorldState, m: Movement): void {
-  delete state.movements[m.id];
+  removeMovement(state, m.id);
   const host = state.villages[m.to];
   const origin = state.villages[m.from];
   // if the home village was lost meanwhile, conquer() already removed this movement
@@ -698,7 +698,7 @@ export function protectionBlocker(state: WorldState, attacker: number, defender:
 function arriveReturn(state: WorldState, m: Movement): void {
   const { config } = state;
   const home = state.villages[m.to];
-  delete state.movements[m.id];
+  removeMovement(state, m.id);
   // home lost meanwhile: the troops are gone
   if (!home || home.owner !== m.owner) return;
   for (const u of UNIT_IDS) {

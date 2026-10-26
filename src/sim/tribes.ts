@@ -15,7 +15,7 @@ import { push } from './eventQueue';
 import { villagePoints } from './barbarians';
 import { nextFloat } from './rng';
 import type { TribeView } from '../shared/protocol';
-import { BARBARIAN, HUMAN_ID, addLog as addWorldLog, villagesOf, type Player, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, addLog as addWorldLog, movementIndex, villagesOf, type Player, type WorldState } from './state';
 
 export type Relation = 'ally' | 'nap' | 'war';
 
@@ -65,6 +65,17 @@ function addLog(state: WorldState, entry: { time: number; text: string }): void 
   addWorldLog(state, entry);
   (state.tribeNews ??= []).push(entry);
   if (state.tribeNews.length > 60) state.tribeNews.splice(0, state.tribeNews.length - 60);
+}
+
+/** More colours once the palette is used up: spread hues by the golden angle, skipping gold/brown (you, loners). */
+function extraColor(used: Set<string>): string {
+  for (let i = 0; i < 720; i++) {
+    const hue = Math.round((i * 137.508) % 360);
+    if (hue >= 20 && hue <= 60) continue;
+    const c = `hsl(${hue} ${i % 2 ? 55 : 70}% ${i % 3 ? 62 : 72}%)`;
+    if (!used.has(c)) return c;
+  }
+  return 'hsl(200 60% 65%)';
 }
 
 // --- helpers ------------------------------------------------------------------
@@ -166,13 +177,10 @@ function join(state: WorldState, t: Tribe, player: Player): void {
   t.members.push(player.id);
 }
 
-function found(state: WorldState, player: Player): Tribe | null {
-  const taken = new Set(Object.values(state.tribes ?? {}).map((t) => t.tag));
-  const free = NAMES.filter(([, tag]) => !taken.has(tag));
-  if (!free.length) return null;
-  const [name, tag] = free[Math.floor(nextFloat(state.rng) * free.length)]!;
+function found(state: WorldState, player: Player): Tribe {
+  const [name, tag] = tribeName(state);
   const usedColors = new Set(Object.values(state.tribes ?? {}).map((t) => t.color));
-  const color = COLORS.find((c) => !usedColors.has(c)) ?? COLORS[Math.floor(nextFloat(state.rng) * COLORS.length)]!;
+  const color = COLORS.find((c) => !usedColors.has(c)) ?? extraColor(usedColors);
   const id = state.nextId++;
   const t: Tribe = { id, name, tag, color, leader: player.id, members: [], founded: state.time, relations: {}, since: {} };
   state.tribes ??= {};
@@ -180,6 +188,33 @@ function found(state: WorldState, player: Player): Tribe | null {
   join(state, t, player);
   addLog(state, { time: state.time, text: `${player.name} richt de stam [${tag}] ${name} op.` });
   return t;
+}
+
+/** Generated names once the classic list runs out: "De Rode Wolven" [RWOLF]. */
+const ADJ: [string, string][] = [
+  ['Rode', 'R'], ['Zwarte', 'Z'], ['Witte', 'W'], ['Grijze', 'G'], ['Gouden', 'GD'], ['Zilveren', 'ZL'], ['IJzeren', 'IJ'], ['Stenen', 'ST'],
+  ['Wilde', 'WL'], ['Oude', 'O'], ['Laatste', 'L'], ['Stille', 'S'], ['Woeste', 'WO'], ['Koude', 'K'], ['Verborgen', 'V'], ['Eerste', 'E'],
+];
+const NOUN: [string, string][] = [
+  ['Wolven', 'WOLF'], ['Raven', 'RAAF'], ['Beren', 'BEER'], ['Valken', 'VALK'], ['Speren', 'SPEER'], ['Bijlen', 'BIJL'], ['Torens', 'TOREN'], ['Eiken', 'EIK'],
+  ['Heuvels', 'HEUVEL'], ['Zwaarden', 'ZWAARD'], ['Schilden', 'SCHILD'], ['Ruiters', 'RUITER'], ['Stieren', 'STIER'], ['Vossen', 'VOS'], ['Adelaars', 'AREND'], ['Kraaien', 'KRAAI'],
+  ['Broeders', 'BROER'], ['Wachters', 'WACHT'], ['Jagers', 'JAGER'], ['Zonen', 'ZOON'],
+];
+function tribeName(state: WorldState): [string, string] {
+  const all = Object.values(state.tribes ?? {});
+  const tags = new Set(all.map((t) => t.tag)), names = new Set(all.map((t) => t.name));
+  const free = NAMES.filter(([n, tag]) => !tags.has(tag) && !names.has(n));
+  if (free.length) return free[Math.floor(nextFloat(state.rng) * free.length)]!;
+  for (let tries = 0; tries < 50; tries++) {
+    const [a, at] = ADJ[Math.floor(nextFloat(state.rng) * ADJ.length)]!;
+    const [n, nt] = NOUN[Math.floor(nextFloat(state.rng) * NOUN.length)]!;
+    const name = `De ${a} ${n}`, tag = (at + nt).slice(0, 6);
+    if (!names.has(name) && !tags.has(tag)) return [name, tag];
+  }
+  // 16 x 20 combinations taken: number them
+  let i = 2;
+  while (tags.has(`STAM${i}`)) i++;
+  return [`Stam ${i}`, `STAM${i}`];
 }
 
 // --- the diplomacy turn -------------------------------------------------------
@@ -293,29 +328,25 @@ function diplomacy(state: WorldState): void {
   }
 }
 
-/** Tribe mates and allies get each other's help: incoming attacks on their villages, per tribe. Cached per moment. */
-const helpCache = new WeakMap<WorldState, { time: number; byTribe: Map<number, { village: number; arrives: number }[]> }>();
+/** Real attacks on the villages of a tribe that have not landed yet. Read from the movement index: no scans. */
 export function threatsFor(state: WorldState, tribeId: number): { village: number; arrives: number }[] {
-  let c = helpCache.get(state);
-  if (!c || c.time !== state.time) {
-    const byTribe = new Map<number, { village: number; arrives: number }[]>();
-    for (const m of Object.values(state.movements)) {
-      if (m.kind !== 'attack') continue;
-      const to = state.villages[m.to];
-      if (!to || to.owner < 0 || to.owner === HUMAN_ID) continue;
-      const t = state.players[to.owner]?.tribe;
-      if (t === undefined) continue;
-      // only real attacks (with a lot of troops) count, not farm runs
-      let n = 0; for (const k in m.units) n += m.units[k as keyof typeof m.units] ?? 0;
-      if (n < 100) continue;
-      const list = byTribe.get(t) ?? [];
-      list.push({ village: to.id, arrives: m.arrives });
-      byTribe.set(t, list);
+  const t = state.tribes?.[tribeId];
+  if (!t) return [];
+  const ix = movementIndex(state);
+  const out: { village: number; arrives: number }[] = [];
+  for (const member of t.members) {
+    if (member === HUMAN_ID) continue;
+    for (const v of villagesOf(state, member)) {
+      const at = ix.attacks.get(v.id);
+      if (!at) continue;
+      for (const arrives of at.values()) if (arrives > state.time) out.push({ village: v.id, arrives });
     }
-    c = { time: state.time, byTribe };
-    helpCache.set(state, c);
   }
-  return c.byTribe.get(tribeId) ?? [];
+  return out;
+}
+/** Is `owner` already sending support to `villageId`? */
+export function isHelping(state: WorldState, owner: number, villageId: number): boolean {
+  return movementIndex(state).supports.has(`${owner}:${villageId}`);
 }
 
 /** How much of its defense a bot sends to help: supporters a lot, turtles little. */

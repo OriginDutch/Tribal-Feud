@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "bench": "esbuild tools/bench/bench.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/bench.mjs --log-level=error && node node_modules/.cache/bench.mjs"
   },
   "repository": {
     "type": "git",
