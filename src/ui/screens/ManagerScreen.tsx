@@ -1,3 +1,4 @@
+import { templateToText, textToTemplate } from '../../shared/templateText';
 import { useEffect, useState } from 'preact/hooks';
 import { UnitIcon } from '../units/UnitIcon';
 import { BUILDING_IDS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
@@ -111,6 +112,8 @@ export function ManagerScreen() {
 function TemplateEditor({ templates }: { templates: BuildTemplate[] }) {
   const s = snapshot.value;
   const [editing, setEditing] = useState<BuildTemplate | null>(null);
+  /** Import/export box: text, and what it is for. */
+  const [io, setIo] = useState<{ mode: 'import' | 'export'; text: string; error?: string } | null>(null);
   const names = Object.fromEntries((s?.village?.buildings ?? []).map((b) => [b.id, b.name])) as Record<BuildingId, string>;
 
   const copy = (t: BuildTemplate) =>
@@ -118,7 +121,49 @@ function TemplateEditor({ templates }: { templates: BuildTemplate[] }) {
 
   return (
     <section class="panel">
-      <h3>Sjablonen</h3>
+      <div class="row">
+        <h3 style={{ flex: 1 }}>Sjablonen</h3>
+        {!editing && (
+          <button class="small" onClick={() => setIo(io?.mode === 'import' ? null : { mode: 'import', text: '' })}>
+            Sjabloon importeren
+          </button>
+        )}
+      </div>
+      {io && !editing && (
+        <div class="template-io">
+          <textarea
+            rows={10}
+            value={io.text}
+            readOnly={io.mode === 'export'}
+            placeholder={'# Naam van het sjabloon\nHouthakker 2\nLeemgroeve 2\nHoofdgebouw 3\n...'}
+            onInput={(e) => setIo({ ...io, text: e.currentTarget.value, error: undefined })}
+            onFocus={(e) => io.mode === 'export' && e.currentTarget.select()}
+          />
+          {io.error && <p class="error">{io.error}</p>}
+          <div class="row">
+            {io.mode === 'import' ? (
+              <button
+                class="primary small"
+                onClick={() => {
+                  const parsed = textToTemplate(io.text);
+                  if ('error' in parsed) return setIo({ ...io, error: parsed.error });
+                  send({ type: 'saveTemplate', template: { id: `own:${Date.now()}`, name: parsed.name, steps: parsed.steps } });
+                  setIo(null);
+                }}
+              >
+                Importeren
+              </button>
+            ) : (
+              <button class="small" onClick={() => navigator.clipboard?.writeText(io.text).catch(() => undefined)}>
+                Kopiëren
+              </button>
+            )}
+            <button class="small" onClick={() => setIo(null)}>
+              Sluiten
+            </button>
+          </div>
+        </div>
+      )}
       {!editing ? (
         <table class="table">
           <tbody>
@@ -129,6 +174,9 @@ function TemplateEditor({ templates }: { templates: BuildTemplate[] }) {
                 <td class="right nowrap">
                   <button class="small" onClick={() => copy(t)}>
                     Kopie maken
+                  </button>{' '}
+                  <button class="small" onClick={() => setIo({ mode: 'export', text: templateToText(t.name, t.steps) })}>
+                    Exporteren
                   </button>{' '}
                   {!t.id.startsWith('preset:') && (
                     <>
