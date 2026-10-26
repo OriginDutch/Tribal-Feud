@@ -170,6 +170,15 @@ export function SupportScreen() {
                 ⚔ {formatGameTime(m.arrives)} · {m.from.ownerName}
               </button>
             ))}
+            {s.myTribe !== null && incomingHere.some((m) => !s.helpAsked.includes(m.id)) && (
+              <button
+                class="small"
+                title="Vraagt je stam om hulp bij alle aanvallen op dit dorp"
+                onClick={() => { for (const m of incomingHere) if (!s.helpAsked.includes(m.id)) send({ type: 'askTribeHelp', movement: m.id }); }}
+              >
+                Stam om hulp vragen
+              </button>
+            )}
           </div>
         )}
         <div class="row wrap support-units">

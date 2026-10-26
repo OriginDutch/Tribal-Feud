@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import type { IncomingView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration } from '../format';
-import { openSupport, snapshot } from '../store';
+import { openSupport, send, snapshot } from '../store';
 import { UnitIcon } from '../units/UnitIcon';
 import { MapLink } from './MapLink';
 import { PlayerLink } from './PlayerLink';
@@ -59,10 +59,19 @@ export function IncomingPanel() {
       </td>
       <td class="mono muted">{formatGameTime(m.arrives)}</td>
       <td class="right mono">{duration(m.arrives - s.time)}</td>
-      <td class="right">
+      <td class="right nowrap">
         <button class="small" onClick={() => openSupport(m.to.id, m.arrives)}>
           Verdediging
         </button>
+        {s.myTribe !== null && (
+          s.helpAsked.includes(m.id) ? (
+            <span class="muted small-text"> stam gevraagd</span>
+          ) : (
+            <button class="small" title="Je stamgenoten beslissen zelf, als ze online zijn" onClick={() => send({ type: 'askTribeHelp', movement: m.id })}>
+              Stam om hulp
+            </button>
+          )
+        )}
       </td>
     </tr>
   );

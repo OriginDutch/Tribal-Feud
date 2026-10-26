@@ -2,7 +2,7 @@ import { PlayerLink } from '../components/PlayerLink';
 import { useEffect } from 'preact/hooks';
 import type { InboxView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
-import { inbox, openTribe, send, snapshot } from '../store';
+import { inbox, openSupport, openTribe, send, snapshot } from '../store';
 
 const KIND: Record<InboxView['kind'], string> = {
   invite: 'Uitnodiging',
@@ -13,6 +13,7 @@ const KIND: Record<InboxView['kind'], string> = {
   info: 'Bericht',
   request: 'Verzoek',
 };
+const ACCEPT: Record<string, string> = { none: 'Accepteren', support: 'Support plannen', resources: 'Versturen', permission: 'Toestaan' };
 const STATUS = { accepted: 'Geaccepteerd', declined: 'Afgewezen', expired: 'Verlopen' } as const;
 
 /** Messages from other players, Football Manager style: some ask for an answer. */
@@ -42,11 +43,18 @@ export function InboxScreen() {
       <div class="row inbox-actions">
         {m.status === 'open' ? (
           <>
-            <button class="small primary" onClick={() => send({ type: 'inboxAnswer', id: m.id, accept: true })}>
-              Accepteren
+            <button
+              class="small primary"
+              onClick={() => {
+                send({ type: 'inboxAnswer', id: m.id, accept: true });
+                // agreeing to support: plan it right away
+                if (m.request?.type === 'support') openSupport(m.request.village, m.request.arrives);
+              }}
+            >
+              {ACCEPT[m.request?.type ?? 'none']}
             </button>
             <button class="small" onClick={() => send({ type: 'inboxAnswer', id: m.id, accept: false })}>
-              Afwijzen
+              {m.request?.type === 'permission' ? 'Weigeren' : 'Afwijzen'}
             </button>
             {m.expires !== undefined && <span class="muted">verloopt {formatGameTime(m.expires)}</span>}
           </>

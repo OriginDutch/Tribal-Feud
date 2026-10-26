@@ -653,3 +653,8 @@ button.link.player-link:hover { color: var(--accent); }
 .player-villages { list-style: none; margin: 8px 0; padding: 0; max-height: 220px; overflow-y: auto; display: grid; gap: 2px; font-size: 13px; }
 .player-villages li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 6px; border-radius: 4px; }
 .player-villages li.on { background: rgba(95,211,232,0.12); }
+.tribe-orders { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+.tribe-orders h3 { margin: 0 0 4px; }
+.order-form { gap: 8px; margin: 8px 0; align-items: center; }
+.order-form input { width: 220px; }
+.good { color: var(--good); }

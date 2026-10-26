@@ -872,6 +872,19 @@ function PlayerPanel({ owner, name, tribeId, villages, selectedId, onPick }: {
           )
         )}
         {inMine && <span class="muted">zit in jouw stam</span>}
+        {s?.myTribe !== null && s?.myTribe !== undefined && !inMine && (
+          <>
+            <button class="small" title="Vraag je stam dit dorp aan te vallen" onClick={() => send({ type: 'giveOrder', kind: 'attack', target: selectedId })}>
+              Stam: aanvallen
+            </button>
+            <button class="small" title="Vraag je stam deze speler met rust te laten" onClick={() => send({ type: 'giveOrder', kind: 'spare', target: owner })}>
+              Stam: met rust laten
+            </button>
+            <button class="small" title="Vraag je stam zich op deze speler te richten" onClick={() => send({ type: 'giveOrder', kind: 'focus', target: owner })}>
+              Stam: focus
+            </button>
+          </>
+        )}
         {declined > 0 && <span class="refused">{declined}× afgewezen</span>}
       </div>
     </div>

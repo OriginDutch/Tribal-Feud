@@ -240,7 +240,8 @@ function answerOrders(state: WorldState, player: Player): void {
 function askHuman(state: WorldState, player: Player): void {
   const bot = player.bot!;
   const open = (state.inbox ?? []).some((m) => m.kind === 'request' && m.from === player.id && m.status === 'open');
-  const cooldown = (12 * HOUR) / state.config.worldSpeed;
+  // a fixed game time, like your attention: at most ~2 requests per mate per game day
+  const cooldown = 12 * HOUR;
   if (open || (bot.lastAsk !== undefined && state.time - bot.lastAsk < cooldown)) return;
   const mine = villagesOf(state, HUMAN_ID);
   if (!mine.length) return;
@@ -262,7 +263,7 @@ function askHuman(state: WorldState, player: Player): void {
   }
 
   // 2. resources: saving for a nobleman and short of it
-  if (nextFloat(state.rng) < 0.06) {
+  if (nextFloat(state.rng) < 0.03) {
     for (const v of villagesOf(state, player.id)) {
       if (!isOperational(state.config, v, 'snob')) continue;
       const need = state.config.units.snob.cost;
@@ -277,7 +278,7 @@ function askHuman(state: WorldState, player: Player): void {
 
   // 3. permission: when you lead, it asks before going after a player
   const t = tribeOf(state, HUMAN_ID);
-  if (t?.leader !== HUMAN_ID || nextFloat(state.rng) > 0.04) return;
+  if (t?.leader !== HUMAN_ID || nextFloat(state.rng) > 0.02) return;
   for (const v of villagesOf(state, player.id)) {
     const prey = villagesNear(state, v, 12).find((x) => x.owner >= 0 && x.owner !== player.id && x.owner !== HUMAN_ID && x.owner !== BARBARIAN && mayAttack(state, player.id, x.owner) && !spares(state, bot, x.owner));
     if (!prey) continue;

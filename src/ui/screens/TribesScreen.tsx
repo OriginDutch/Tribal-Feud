@@ -6,7 +6,7 @@ import { formatGameTime } from '../../shared/time';
 import { Confirm } from '../components/Confirm';
 import { MapLink } from '../components/MapLink';
 import { num } from '../format';
-import { inviteCandidates, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes } from '../store';
+import { inviteCandidates, mapData, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes } from '../store';
 
 const REL: Record<TribeRelation, string> = { ally: 'Bondgenoot', nap: 'Niet-aanvalsverdrag', war: 'Oorlog' };
 const ASK_REL = { nap: 'NAP', ally: 'bondgenootschap', peace: 'vrede' } as const;
@@ -119,7 +119,80 @@ function MyTribe({ t }: { t: TribeView }) {
           <p class="muted">Bots antwoorden als ze online zijn. Spelers die al in een stam zitten, stappen zelden over.</p>
         </details>
       )}
+      {t.members.length > 1 && <TribeOrders />}
     </section>
+  );
+}
+
+const ORDER_KIND = { attack: 'Aanvallen', spare: 'Met rust laten', focus: 'Focus op' } as const;
+
+/** Orders (leader) or suggestions (member) to your tribe, and how the mates answered. */
+function TribeOrders() {
+  const s = snapshot.value!;
+  const leader = s.myTribeLeader;
+  const [kind, setKind] = useState<'attack' | 'spare' | 'focus'>('attack');
+  const [target, setTarget] = useState('');
+  const [error, setError] = useState('');
+  const players = ranking.value.filter((r) => r.villages > 0 && r.isBot);
+  const give = () => {
+    setError('');
+    const map = mapData.value;
+    if (kind === 'attack') {
+      const xy = /^(\d{1,4})\s*[|,/ ]\s*(\d{1,4})$/.exec(target.trim());
+      const v = xy && map ? map.villages.find((x) => x.x === Number(xy[1]) && x.y === Number(xy[2])) : undefined;
+      if (!map) { send({ type: 'getMap' }); setError('Kaart laden… probeer het zo nog eens.'); return; }
+      if (!v) { setError('Geen dorp op die coördinaten (schrijf bijv. 501|497).'); return; }
+      send({ type: 'giveOrder', kind, target: v.id });
+    } else {
+      const p = players.find((x) => x.name.toLowerCase() === target.trim().toLowerCase());
+      if (!p) { setError('Die speler ken ik niet.'); return; }
+      send({ type: 'giveOrder', kind, target: p.id });
+    }
+    setTarget('');
+  };
+  return (
+    <div class="tribe-orders">
+      <h3>{leader ? 'Orders' : 'Suggesties'}</h3>
+      <p class="hint">
+        {leader
+          ? 'Als leider geef je orders. Stamgenoten volgen ze vaak, maar niet blind: hun type en wat jullie voor elkaar doen telt mee.'
+          : 'Als lid doe je suggesties. Die worden minder vaak opgevolgd dan orders van de leider.'}{' '}
+        Ze antwoorden als ze online zijn; een order loopt een speldag.
+      </p>
+      <form class="row wrap order-form" onSubmit={(e) => { e.preventDefault(); give(); }}>
+        <select value={kind} onChange={(e) => setKind(e.currentTarget.value as typeof kind)}>
+          <option value="attack">Aanvallen: dorp</option>
+          <option value="spare">Met rust laten: speler</option>
+          <option value="focus">Focus op: speler</option>
+        </select>
+        <input list="order-players" placeholder={kind === 'attack' ? '501|497' : 'naam van de speler'} value={target} onInput={(e) => setTarget(e.currentTarget.value)} />
+        <datalist id="order-players">{kind !== 'attack' && players.map((p) => <option key={p.id} value={p.name} />)}</datalist>
+        <button class="small primary" type="submit" disabled={!target.trim()}>
+          {leader ? 'Order geven' : 'Voorstellen'}
+        </button>
+        {error && <span class="error">{error}</span>}
+      </form>
+      {s.orders.length > 0 && (
+        <table class="table compact">
+          <tbody>
+            {s.orders.map((o) => (
+              <tr key={o.id}>
+                <td>
+                  <strong>{ORDER_KIND[o.kind]}</strong> {o.targetName} {!o.binding && <span class="muted">(suggestie)</span>}
+                </td>
+                <td class="right nowrap">
+                  <span class="good">{o.yes} ja</span> · <span class="muted">{o.half} deels</span> · <span class="error">{o.no} nee</span>
+                  {o.waiting > 0 && <span class="muted"> · {o.waiting} wacht</span>}
+                </td>
+                <td class="right">
+                  <Confirm label="Intrekken" sure="Order intrekken?" onConfirm={() => send({ type: 'cancelOrder', id: o.id })} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
