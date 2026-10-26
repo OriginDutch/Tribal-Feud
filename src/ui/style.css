@@ -298,3 +298,11 @@ button.link.map-link:hover { opacity: 1; color: var(--text); }
 .village-label:hover { background: rgba(28, 24, 19, 0.95); border-color: var(--accent); }
 .village-label.unbuilt { opacity: 0.6; border-style: dashed; }
 .village-label.unbuilt:hover { opacity: 1; }
+
+/* --- building screens --- */
+.building-head .building-text { margin: 0 0 10px; color: var(--muted); max-width: 70ch; }
+.building-row { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: center; justify-content: space-between; }
+.building-effect { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.building-upgrade { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.village-hit { position: absolute; background: transparent; border: 2px solid transparent; border-radius: 10px; padding: 0; min-width: 0; cursor: pointer; }
+.village-hit:hover, .village-hit:focus-visible { background: rgba(255, 236, 190, 0.1); border-color: rgba(224, 176, 74, 0.75); box-shadow: 0 0 14px rgba(224, 176, 74, 0.35); }

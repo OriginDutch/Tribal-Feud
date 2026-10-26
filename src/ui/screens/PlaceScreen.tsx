@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { BuildingHeader } from '../buildings/BuildingHeader';
 import { CATAPULT_TARGETS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
@@ -138,6 +139,7 @@ export function PlaceScreen() {
   return (
     <div class="screen">
       <h2>Verzamelplaats</h2>
+      <BuildingHeader village={v} id="place" />
       {place && place.level === 0 ? (
         <section class="panel">
           <p class="muted">Je hebt een verzamelplaats nodig om troepen te sturen. Bouw hem in het hoofdgebouw.</p>

@@ -18,7 +18,7 @@ export const MERCHANT_MINUTES_PER_FIELD = 6;
  * Merchants per market level. Levels 1-16 and 18-20 are TW's official values; 17 and 21-25
  * come from memory and still need checking against an official source.
  */
-const MERCHANTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 19, 26, 35, 46, 59, 74, 91, 110, 131, 154, 179, 206, 235];
+export const MERCHANTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 19, 26, 35, 46, 59, 74, 91, 110, 131, 154, 179, 206, 235];
 
 export const RES_NAMES = ['hout', 'leem', 'ijzer'] as const;
 

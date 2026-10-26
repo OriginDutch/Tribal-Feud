@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { BuildingHeader } from '../buildings/BuildingHeader';
 import { MapLink } from '../components/MapLink';
 import { CancelButton } from '../components/CancelButton';
 import type { OfferView, TradeSide } from '../../shared/protocol';
@@ -62,6 +63,7 @@ export function MarketScreen() {
     return (
       <div class="screen">
         <h2>Marktplaats</h2>
+        <BuildingHeader village={v} id="market" />
         <section class="panel">
           <p class="muted">Je hebt een marktplaats nodig om te handelen. Bouw hem in het hoofdgebouw (hoofdgebouw 3, opslag 2).</p>
         </section>
@@ -131,6 +133,7 @@ export function MarketScreen() {
   return (
     <div class="screen">
       <h2>Marktplaats (niveau {level})</h2>
+      <BuildingHeader village={v} id="market" />
       <p class="muted">
         Handelaren: <strong>{m.merchantsFree}</strong> / {m.merchantsTotal} vrij · elk draagt {num(m.carry)} · {duration(m.minutesPerField * 60_000)}{' '}
         per veld

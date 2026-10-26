@@ -3,13 +3,13 @@
  * Components read these signals; only the parts that use a changed signal re-render.
  */
 import { signal } from '@preact/signals';
-import type { RecruitBuilding } from '../shared/gameData';
+import type { BuildingId, RecruitBuilding } from '../shared/gameData';
 import type { Command, MapData, RankingRow, Snapshot, WorkerMessage } from '../shared/protocol';
 import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'debug';
+export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'debug' | 'building';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);
@@ -17,6 +17,30 @@ export const saves = signal<SaveMeta[]>([]);
 export const autoPause = signal<LogEntry | null>(null);
 export const notice = signal<{ text: string; level: 'info' | 'error' } | null>(null);
 export const screen = signal<Screen>('overview');
+/** The building shown on the 'building' screen. */
+export const infoBuilding = signal<BuildingId>('wood');
+
+/** Opens a building: its own screen if it has one, else its info screen. */
+export function openBuilding(id: BuildingId): void {
+  const own: Partial<Record<BuildingId, Screen>> = {
+    main: 'main',
+    barracks: 'barracks',
+    stable: 'stable',
+    garage: 'garage',
+    statue: 'statue',
+    snob: 'snob',
+    smith: 'smith',
+    place: 'place',
+    market: 'market',
+  };
+  const target = own[id];
+  if (target) {
+    screen.value = target;
+    return;
+  }
+  infoBuilding.value = id;
+  screen.value = 'building';
+}
 export const mapData = signal<MapData | null>(null);
 export const reports = signal<Report[]>([]);
 export const ranking = signal<RankingRow[]>([]);

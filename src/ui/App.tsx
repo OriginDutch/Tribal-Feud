@@ -12,6 +12,7 @@ import { StartScreen } from './screens/StartScreen';
 import { MapScreen } from './screens/MapScreen';
 import { PlaceScreen } from './screens/PlaceScreen';
 import { MarketScreen } from './screens/MarketScreen';
+import { BuildingScreen } from './buildings/BuildingScreen';
 import { FarmScreen } from './screens/FarmScreen';
 import { ReportsScreen } from './screens/ReportsScreen';
 import { QuestsScreen } from './screens/QuestsScreen';
@@ -56,6 +57,8 @@ function CurrentScreen() {
       return <MapScreen />;
     case 'place':
       return <PlaceScreen />;
+    case 'building':
+      return <BuildingScreen />;
     case 'market':
       return <MarketScreen />;
     case 'farm':

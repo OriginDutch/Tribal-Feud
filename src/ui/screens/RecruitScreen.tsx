@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { BuildingHeader } from '../buildings/BuildingHeader';
 import type { RecruitBuilding, UnitId } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
 import type { UnitView } from '../../sim/view';
@@ -138,10 +139,10 @@ export function RecruitScreen({ building }: { building: RecruitBuilding }) {
       <h2>
         {TITLES[building]} {b && b.level > 0 ? `(level ${b.level})` : ''}
       </h2>
+      <BuildingHeader village={v} id={building} />
       {b && b.level === 0 ? (
         <section class="panel">
-          <p class="muted">Dit gebouw bestaat nog niet. Bouw het in het hoofdgebouw.</p>
-          {b.blocker && <p class="blocker">{b.blocker}</p>}
+          <p class="muted">Dit gebouw bestaat nog niet. Bouw het hierboven of in het hoofdgebouw.</p>
         </section>
       ) : (
         <>

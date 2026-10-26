@@ -1,4 +1,5 @@
 import { formatGameTime } from '../../shared/time';
+import { BuildingHeader } from '../buildings/BuildingHeader';
 import { Cost } from '../components/Cost';
 import { duration } from '../format';
 import { send, snapshot } from '../store';
@@ -13,6 +14,7 @@ export function SmithScreen() {
   return (
     <div class="screen">
       <h2>Smederij {smith && smith.level > 0 ? `(level ${smith.level})` : ''}</h2>
+      <BuildingHeader village={v} id="smith" />
       {smith && smith.level === 0 && (
         <section class="panel">
           <p class="muted">Je hebt nog geen smederij. Speerdragers en zwaardvechters kun je zonder smederij rekruteren.</p>

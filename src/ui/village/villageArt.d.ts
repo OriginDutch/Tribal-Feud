@@ -6,3 +6,5 @@ export function villageSvg(levels: Record<string, number>, homes: number): strin
 export const LABELS: Record<string, [number, number]>;
 export const SCENE_W: number;
 export const SCENE_H: number;
+/** The clickable box of a building at its level: [x, y, width, height] in scene units, or null. */
+export function hitbox(id: string, level: number): [number, number, number, number] | null;

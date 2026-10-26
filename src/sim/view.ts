@@ -11,12 +11,16 @@ import {
   buildingCost,
   buildingPoints,
   buildingPopCost,
+  farmCapacity,
   hidingCapacity,
+  productionPerHour,
   recruitTimeMs,
   researchTimeMs,
   storageCapacity,
 } from './formulas';
 import type { WorldState } from './state';
+import { MERCHANTS } from './market';
+import { BONUS_FACTORS } from '../shared/barbarianTypes';
 import {
   buildBlocker,
   demolishBlocker,
@@ -44,8 +48,18 @@ export interface BuildingView {
   operational: boolean;
   next: { level: number; cost: Res; pop: number; time: number } | null;
   blocker: string | null;
+  /** What the building does at its level, and at the next ones (for its info screen). */
+  effect: BuildingEffect | null;
   /** Tearing one level down (from the planned level); null when it is already at its lowest. */
   demolish: { level: number; time: number; blocker: string | null } | null;
+}
+
+export interface BuildingEffect {
+  /** What the number means, e.g. "Productie per uur". */
+  label: string;
+  unit: 'perHour' | 'amount' | 'percent';
+  /** The value at the current level and at each level from 1 to the max. */
+  byLevel: number[];
 }
 
 export interface UnitView {
@@ -119,6 +133,40 @@ export interface SupportView {
   units: UnitCounts;
 }
 
+/** The effect of a building per level, for its info screen; null when it has no single number. */
+function buildingEffect(state: WorldState, v: Village, b: BuildingId): BuildingEffect | null {
+  const { config } = state;
+  const max = config.buildings[b].maxLevel;
+  const levels = (fn: (level: number) => number) => Array.from({ length: max + 1 }, (_, l) => fn(l));
+  const bonus = v.bonus ? BONUS_FACTORS[v.bonus] : ([1, 1, 1] as const);
+  switch (b) {
+    case 'wood':
+    case 'stone':
+    case 'iron': {
+      const i = b === 'wood' ? 0 : b === 'stone' ? 1 : 2;
+      return { label: 'Productie per uur', unit: 'perHour', byLevel: levels((l) => productionPerHour(config, l) * bonus[i]) };
+    }
+    case 'storage':
+      return { label: 'Opslag per grondstof', unit: 'amount', byLevel: levels((l) => storageCapacity(l)) };
+    case 'farm':
+      return { label: 'Inwoners', unit: 'amount', byLevel: levels((l) => farmCapacity(l)) };
+    case 'hide':
+      return { label: 'Verborgen per grondstof', unit: 'amount', byLevel: levels((l) => hidingCapacity(l)) };
+    case 'wall':
+      return { label: 'Verdedigingsbonus', unit: 'percent', byLevel: levels((l) => (config.combat.wallFactor ** l - 1) * 100) };
+    case 'main':
+      return { label: 'Sneller bouwen', unit: 'percent', byLevel: levels((l) => (1 - 1.05 ** -l) * 100) };
+    case 'barracks':
+    case 'stable':
+    case 'garage':
+      return { label: 'Sneller rekruteren', unit: 'percent', byLevel: levels((l) => (l <= 0 ? 0 : (1 - 1.06 ** -l) * 100)) };
+    case 'market':
+      return { label: 'Handelaren', unit: 'amount', byLevel: levels((l) => MERCHANTS[l] ?? 0) };
+    default:
+      return null;
+  }
+}
+
 export function villageView(state: WorldState, v: Village): VillageView {
   const { config } = state;
 
@@ -144,6 +192,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
       operational: missingRequirements(config, v, def.requires).length === 0,
       next,
       blocker: buildBlocker(state, v, b),
+      effect: buildingEffect(state, v, b),
       demolish:
         planned > def.minLevel
           ? { level: planned - 1, time: buildTimeMs(config, def, planned, v.buildings.main), blocker: demolishBlocker(state, v, b) }

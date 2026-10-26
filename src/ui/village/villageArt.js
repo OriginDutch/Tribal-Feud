@@ -358,3 +358,22 @@ export function villageSvg(levels, homes) {
   for (const [x, y, r, k] of front) s += tree(x, y, r, k);
   return s;
 }
+
+// ---------- click areas ----------
+
+/** Size of each building at its biggest stage, in scene units (width, height above its base). */
+const HIT = {
+  main: [170, 105], barracks: [110, 75], stable: [110, 65], garage: [100, 60], snob: [130, 100], smith: [86, 68],
+  place: [90, 45], statue: [34, 52], market: [150, 46], storage: [100, 75], farm: [90, 70], hide: [50, 22],
+  wood: [110, 55], stone: [110, 32], iron: [140, 72],
+};
+/** The clickable box of a building at its current level: [x, y, width, height] in scene units. */
+export function hitbox(id, level) {
+  const at = LAYOUT[id];
+  const size = HIT[id];
+  if (!at || !size) return null;
+  const st = stageOf(level);
+  const w = st === 0 ? PLOT_W[id] + 8 : size[0] * [0, 0.6, 0.82, 1][st];
+  const h = st === 0 ? 26 : size[1] * [0, 0.65, 0.84, 1][st];
+  return [at[0] - w / 2, at[1] - h + 4, w, h];
+}
