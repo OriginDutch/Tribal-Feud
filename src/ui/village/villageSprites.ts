@@ -65,11 +65,12 @@ export function stageFor(m: Manifest, id: string, level: number): number {
 export const homesFor = (m: Manifest, main: number) => Math.max(0, Math.min(m.homes, Math.floor((main + 2) / 3)));
 
 /** Simpler homes outside the wall, once the village has outgrown it. */
-export const outerHomesFor = (m: Manifest, main: number) => Math.max(0, Math.min(m.outerHomes ?? 0, Math.floor((main - 8) / 2.5)));
+export const outerHomesFor = (m: Manifest, main: number) => Math.max(0, Math.min(m.outerHomes ?? 0, Math.round(((main - 6) / 24) * (m.outerHomes ?? 0))));
 
 export interface Piece { key: string; s: Sprite; d: number; building?: string; frames?: Sprite[]; decal?: boolean }
 /** Every sprite to draw for these levels: ground decals first, then everything else back to front. */
-export function piecesFor(b: Baked, levels: Record<string, number>): { decals: Piece[]; bodies: Piece[] } {
+/** churches: does this world have churches (then the church plot shows the church, or a building plot). */
+export function piecesFor(b: Baked, levels: Record<string, number>, churches = false): { decals: Piece[]; bodies: Piece[] } {
   const { m } = b;
   const decals: Piece[] = [], bodies: Piece[] = [];
   const add = (key: string, building?: string) => {
@@ -80,9 +81,12 @@ export function piecesFor(b: Baked, levels: Record<string, number>): { decals: P
     for (const frames of b.anim.get(key) ?? []) if (frames?.length) bodies.push({ key: `${key}~`, s: frames[0]!, d: frames[0]!.d + 1e-3, building, frames });
   };
   for (const id of Object.keys(m.stageLevels)) {
-    if (id === 'wall') continue;
+    if (id === 'wall' || id === 'church' || id === 'firstchurch') continue;
     add(`${id}@${stageFor(m, id, levels[id] ?? 0)}`, id);
   }
+  if (!churches) add('slothome');
+  else if ((levels.firstchurch ?? 0) > 0) add('firstchurch@1', 'firstchurch');
+  else add(`church@${stageFor(m, 'church', levels.church ?? 0)}`, 'church');
   const ws = stageFor(m, 'wall', levels.wall ?? 0);
   if (ws > 0) { const kind = m.wallKinds[ws - 1]; for (let i = 0; i < m.wallN; i++) add(`wall-${kind}-${i}`, 'wall'); add(`gate-${kind}`, 'wall'); }
   for (let i = 0; i < homesFor(m, levels.main ?? 1); i++) add(`home${i}`);

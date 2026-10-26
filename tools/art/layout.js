@@ -1,6 +1,6 @@
 // The village layout shared by the baker: where every building, home, tree and wall piece stands.
 import * as THREE from 'three';
-import { M, rnd, reseed, group, tree, pine, bush, rock, well, house, barrel, crate, box, cyl } from './lib.js';
+import { M, rnd, reseed, group, tree, pine, bush, rock, well, house, barrel, crate, box, cyl, fence, logs, gable } from './lib.js';
 import { B, wallRing, palisadeGate, stoneGate, gatehouse } from './buildings.js';
 
 export const RX = 18.5, RZ = 14, WALL_N = 28;
@@ -10,7 +10,7 @@ export const BOUNDS = new THREE.Box3(new THREE.Vector3(-31, 0, -16), new THREE.V
 export const STAGE_LEVELS = {
   main: [1, 5, 15, 25], barracks: [1, 10, 20], stable: [1, 7, 15], garage: [1, 5, 10], smith: [1, 7, 15],
   market: [1, 10, 20], storage: [1, 10, 20], wood: [1, 10, 20], stone: [1, 10, 20], iron: [1, 10, 20], farm: [1, 10, 20],
-  hide: [1, 5], snob: [1], place: [1], statue: [1], wall: [1, 6, 15],
+  hide: [1, 5], snob: [1], place: [1], statue: [1], wall: [1, 6, 15], church: [1, 2, 3], firstchurch: [1],
 };
 /** Where each building stands: x, z, rotation, scale, plot size (w, d) for level 0. */
 export const SLOTS = {
@@ -18,13 +18,27 @@ export const SLOTS = {
   barracks: [-11.6, 1.4, 0.6, 0.86, 6, 4], stable: [11.8, 1.8, -0.6, 0.86, 6, 4], place: [-5.4, 7.0, 0.2, 0.82, 5, 4],
   market: [5.6, 7.2, -0.2, 0.86, 5.5, 4], statue: [0, 1.3, 0, 0.62, 3, 3], storage: [-10.2, 7.4, 0.8, 0.8, 5, 3.5],
   garage: [10.2, 7.4, -0.8, 0.8, 5, 3.5], hide: [-4.2, 11.6, 0.15, 0.6, 3, 2.5],
+  church: [-5.4, -1.2, 1.2, 0.72, 4, 5], firstchurch: [-5.4, -1.2, 1.2, 0.72, 4, 5],
   wood: [-27, -3.5, 0.5, 0.9, 5, 4], stone: [-20.5, 18.5, 0.35, 0.9, 5, 4], iron: [26.5, -5, -0.5, 0.9, 5, 4], farm: [23, 16, -0.45, 0.9, 6, 4],
 };
 /** Villagers' homes, in the order they appear as the headquarters grows. */
 export const HOMES = [[-14.6, -3.6, 1.0, 2.2], [14.8, -3.2, -1.0, 2.2], [-4.4, -12.0, 0.05, 2.4], [4.8, -12.2, -0.05, 2.4], [-15.0, 5.0, 1.3, 2.0], [15.2, 5.4, -1.3, 2.0], [4.6, 11.8, -0.15, 2.0], [-8.8, -10.2, 0.6, 2.0], [9.0, -10.2, -0.6, 2.0]];
 export const WALL_KINDS = ['palisade', 'stone', 'full'];
 /** Homes outside the wall, simpler than anything inside: x, z, rotation, style (0 hut, 1 cottage, 2 small house). */
-export const OUTER_HOMES = [[-2.9, 22.4, Math.PI / 2 - 0.1, 1], [-5.2, 18.4, 0.05, 0], [6.2, 17.6, -0.05, 2], [2.9, 25.6, -Math.PI / 2 + 0.25, 0], [-11.2, 18.0, 0.15, 1], [13.2, 16.6, -0.2, 0], [-3.0, 28.8, Math.PI / 2 + 0.1, 2], [3.1, 32.0, -Math.PI / 2 + 0.2, 1]];
+export const OUTER_HOMES = (() => {
+  // a ribbon of simple homes along the road out of the gate, nearest first; style 0 hut, 1 cottage, 2 small house
+  const out = [];
+  const zs = [17.4, 19.6, 21.8, 24.0, 26.2, 28.4, 30.6, 32.8, 35.0, 37.2];
+  zs.forEach((z, k) => {
+    for (const side of [-1, 1]) {
+      const n = out.length;
+      const x = side * (2.7 + ((k * 7 + (side > 0 ? 3 : 0)) % 5) * 0.25);
+      const style = k < 3 ? 2 - (n % 2) : k < 7 ? 1 - (n % 3 === 0 ? 1 : 0) + (n % 5 === 0 ? 1 : 0) : 0;
+      out.push([x, z + (side > 0 ? 0.9 : 0), side > 0 ? -Math.PI / 2 + 0.08 * ((k % 3) - 1) : Math.PI / 2 + 0.08 * ((k % 3) - 1), Math.max(0, Math.min(2, style)), k % 2]);
+    }
+  });
+  return out;
+})();
 
 function road(g, pts, w = 1.4, mat = M.dirt) {
   for (let i = 0; i < pts.length - 1; i++) {
@@ -82,8 +96,21 @@ export function buildOuterHome(root, i) {
   if (style === 0) house(h, 0, 0, 1.8, 1.6, { f1: 1.2, f2: 0, roof: M.thatch, roofH: 1.0, wall: M.wood, gableMat: M.wood, chimney: rnd() < 0.5 });
   else if (style === 1) house(h, 0, 0, 2.1, 1.8, { f1: 1.3, f2: 0, roof: M.thatch, roofH: 1.1, chimney: true });
   else house(h, 0, 0, 2.3, 1.9, { f1: 1.4, f2: 0, roof: rnd() < 0.5 ? M.roofBrown : M.roofOrange, roofH: 1.2, chimney: true });
+  const yard = OUTER_HOMES[i][4];
   if (rnd() < 0.5) barrel(h, 1.3, 1.1); else crate(h, -1.3, 1.1);
-  if (style === 0) { box(h, 0.9, 0.5, 0.6, M.hay, 1.6, 0, -0.2); }
+  if (style === 0) box(h, 0.9, 0.5, 0.6, M.hay, 1.6, 0, -0.2);
+  // a yard behind: veg patch with a fence, or a woodpile and shed
+  if (yard === 0) { const v = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.4), M.greens); v.rotation.x = -Math.PI / 2; v.position.set(0, 0.02, -2.0); v.receiveShadow = true; h.add(v); fence(h, [[-1.2, -1.2], [-1.2, -2.8], [1.2, -2.8], [1.2, -1.2]], 0.45); }
+  else { logs(h, -1.0, -1.6, 4, 0); box(h, 1.0, 0.9, 0.8, M.wood, 1.0, 0, -1.6); gable(h, 1.0, 0.8, 0.4, 0.1, M.thatch, 1.0, 0.9, -1.6, M.wood); }
+  return h;
+}
+/** In worlds without churches the church plot holds an ordinary home. */
+export function buildSlotHome(root) {
+  reseed(5150);
+  const [x, z, ry] = SLOTS.church;
+  const h = group(root, x, z, ry); h.scale.setScalar(0.85);
+  house(h, 0, 0, 2.6, 2.0, { f2: 1.0, roof: M.roofOrange, chimney: true, roofH: 1.2 });
+  barrel(h, 1.6, 1.2);
   return h;
 }
 export function buildWell(root) { well(root, 4.8, -0.2); }
@@ -101,7 +128,7 @@ const inEllipse = (x, z, k = 1) => (x / (RX * k)) ** 2 + (z / (RZ * k)) ** 2 < 1
 export function forest() {
   reseed(4242);
   const out = [];
-  const avoid = [[-27, -3.5, 6], [-20.5, 18.5, 5.5], [26.5, -5, 6], [23, 16, 6.5], [0, 21, 3], ...OUTER_HOMES.map(([x, z]) => [x, z, 2.6])];
+  const avoid = [[-27, -3.5, 6], [-20.5, 18.5, 5.5], [26.5, -5, 6], [23, 16, 6.5], [0, 21, 3], ...OUTER_HOMES.map(([x, z]) => [x, z, 3.0])];
   for (let i = 0; i < 520; i++) {
     const x = (rnd() - 0.5) * 74, z = (rnd() - 0.5) * 60 - 2;
     const k = rnd(), s = 0.9 + rnd() * 0.6;
@@ -111,7 +138,7 @@ export function forest() {
     if (z > 20 && k < 0.7) continue;
     out.push({ x, z, s, kind: k < 0.45 ? 'pine' : 'tree', seed: i });
   }
-  for (const [x, z] of [[-3.6, -1.9], [-1.9, 11.4], [2.2, 12.0]]) out.push({ x, z, s: 0.75, kind: 'tree', seed: 900 + x });
+  for (const [x, z] of [[-1.9, 11.4], [2.2, 12.0]]) out.push({ x, z, s: 0.75, kind: 'tree', seed: 900 + x });
   for (let i = 0; i < 50; i++) { const x = (rnd() - 0.5) * 64, z = (rnd() - 0.5) * 50; if (!inEllipse(x, z, 1.15) && !avoid.some(([ax, az, r]) => Math.hypot(x - ax, z - az) < r)) out.push({ x, z, s: 0.4 + rnd() * 0.3, kind: rnd() < 0.5 ? 'bush' : 'rock', seed: 2000 + i }); }
   return out;
 }
