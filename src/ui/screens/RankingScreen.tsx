@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { MapLink } from '../components/MapLink';
 import { num } from '../format';
-import { ranking, send } from '../store';
+import { openTribe, ranking, send, tribes } from '../store';
 
 export function RankingScreen() {
   const [debug, setDebug] = useState(false);
@@ -14,6 +14,7 @@ export function RankingScreen() {
   }, []);
 
   const rows = ranking.value;
+  const tribeById = new Map(tribes.value.map((t) => [t.id, t]));
   const meIndex = rows.findIndex((r) => !r.isBot);
 
   return (
@@ -30,6 +31,7 @@ export function RankingScreen() {
           <colgroup>
             <col style={{ width: '60px' }} />
             <col />
+            <col style={{ width: '90px' }} />
             <col style={{ width: '120px' }} />
             <col style={{ width: '90px' }} />
             {debug && <col style={{ width: '130px' }} />}
@@ -39,6 +41,7 @@ export function RankingScreen() {
             <tr>
               <th class="right">#</th>
               <th>Speler</th>
+              <th>Stam</th>
               <th class="right">Punten</th>
               <th class="right">Dorpen</th>
               {debug && <th>Persoonlijkheid</th>}
@@ -52,6 +55,13 @@ export function RankingScreen() {
                 <td class="ellipsis">
                   {r.isBot ? r.name : <strong>{r.name}</strong>}
                   {r.villages > 0 && <MapLink owner={r.id} />}
+                </td>
+                <td>
+                  {r.tribe !== undefined && tribeById.get(r.tribe) && (
+                    <button class="link tribe-tag" style={{ '--tc': tribeById.get(r.tribe)!.color }} onClick={() => openTribe(r.tribe!)}>
+                      [{tribeById.get(r.tribe)!.tag}]
+                    </button>
+                  )}
                 </td>
                 <td class="right mono">{num(r.points)}</td>
                 <td class="right mono">{r.villages}</td>

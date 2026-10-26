@@ -2,6 +2,7 @@
  * Simulation worker: owns the world state, runs the clock, handles saves.
  * The UI never touches the state directly.
  */
+import { tribeNews, tribeViews } from './tribes';
 import { farmCUnits } from './intel';
 import { createConfig, validateConfig } from '../shared/config';
 import { AUTOSAVE_SLOT, type Command, type Snapshot, type WorkerMessage } from '../shared/protocol';
@@ -440,6 +441,17 @@ async function handle(cmd: Command): Promise<void> {
       if (error) notice(error, 'error');
       break;
     }
+    case 'debugSkip': {
+      if (!state) return;
+      // run the world forward at speed 1, past any auto-pause
+      const speed = state.speed, paused = state.paused;
+      state.speed = 1;
+      const end = state.time + cmd.hours * 3_600_000;
+      while (state.time < end) { state.paused = false; advance(state, Math.min(end - state.time, 3_600_000)); }
+      state.speed = speed; state.paused = paused;
+      addLog(state, { time: state.time, text: `Debug: ${cmd.hours} uur doorgespoeld.` });
+      break;
+    }
     case 'debugConquer': {
       if (!state) return;
       const here = currentVillage(state);
@@ -515,6 +527,7 @@ async function handle(cmd: Command): Promise<void> {
           villages: villages.length,
           isBot: p.isBot,
         };
+        if (p.tribe !== undefined) row.tribe = p.tribe;
         if (p.bot) {
           row.archetype = ARCHETYPE_NAMES[p.bot.archetype];
           row.activity = p.bot.activity;
@@ -522,7 +535,7 @@ async function handle(cmd: Command): Promise<void> {
         return row;
       });
       ranking.sort((a, b) => b.points - a.points);
-      post({ type: 'ranking', ranking });
+      post({ type: 'ranking', ranking, tribes: tribeViews(s), news: tribeNews(s) });
       return;
     }
     case 'getReports':

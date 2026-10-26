@@ -1,3 +1,4 @@
+import { TribesScreen } from './screens/TribesScreen';
 import { useEffect } from 'preact/hooks';
 import { formatGameTime } from '../shared/time';
 import { TopBar } from './components/TopBar';
@@ -71,6 +72,8 @@ function CurrentScreen() {
       return <QuestsScreen />;
     case 'ranking':
       return <RankingScreen />;
+    case 'tribes':
+      return <TribesScreen />;
     case 'villages':
       return <VillagesScreen />;
     case 'manager':

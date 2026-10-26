@@ -11,6 +11,7 @@ import { generateMap } from './map';
 import type { Movement, Report } from './movement';
 import { checkQuests, type PendingReward, type QuestStats, type QuestToast } from './quests';
 import { initBots } from './bots';
+import { initDiplomacy, type Tribe } from './tribes';
 import { createVillage, type Village } from './village';
 
 /** Everything that can be scheduled in game time. Grows per phase. */
@@ -22,7 +23,8 @@ export type GameEvent =
   | { kind: 'research'; villageId: number; jobId: number }
   | { kind: 'arrive'; movementId: number }
   | { kind: 'botTurn'; playerId: number }
-  | { kind: 'manager' };
+  | { kind: 'manager' }
+  | { kind: 'diplomacy' };
 
 export interface LogEntry {
   time: number;
@@ -66,6 +68,8 @@ export interface Player {
   bot?: BotState;
   /** Coins minted (coins worlds). */
   coins?: number;
+  /** Tribe this player belongs to. */
+  tribe?: number;
 }
 
 /** The human player always has id 0. */
@@ -134,6 +138,10 @@ export interface WorldState {
   alertMode?: AlertMode;
   /** perVillage mode: when each attacking village last caused a pause. */
   alertSeen?: Record<number, number>;
+  /** Tribes by id. */
+  tribes?: Record<number, Tribe>;
+  /** Recent diplomacy news. */
+  tribeNews?: LogEntry[];
 }
 
 /**
@@ -174,6 +182,7 @@ export function createWorld(config: WorldConfig): WorldState {
   state.villages[village.id] = village;
   generateMap(state);
   initBots(state);
+  initDiplomacy(state);
   checkQuests(state);
   return state;
 }

@@ -62,7 +62,8 @@ export type Command =
   | { type: 'cancelMovement'; id: number }
   /** Debug cheats for testing. */
   | { type: 'debugGive'; units?: UnitCounts; resources?: number; buildings?: Partial<Record<BuildingId, number>> }
-  | { type: 'debugConquer' };
+  | { type: 'debugConquer' }
+  | { type: 'debugSkip'; hours: number };
 
 export interface MapVillage {
   id: number;
@@ -81,6 +82,8 @@ export interface MapVillage {
   wall?: number;
   /** Estimated loot now, from your last scout (template C). */
   estimate?: number;
+  /** Tribe of the owner. */
+  tribe?: number;
   /** Your last attack on this village. */
   last?: { time: number; result: Report['result']; loot: number; scouted?: [number, number, number] };
 }
@@ -88,6 +91,21 @@ export interface MapVillage {
 export interface MapData {
   ownVillageId: number;
   villages: MapVillage[];
+  tribes: TribeView[];
+}
+
+export type TribeRelation = 'ally' | 'nap' | 'war';
+export interface TribeView {
+  id: number;
+  name: string;
+  tag: string;
+  color: string;
+  leader: number;
+  members: number[];
+  founded: number;
+  points: number;
+  villages: number;
+  relations: { id: number; rel: TribeRelation; since: number }[];
 }
 
 export interface IncomingView {
@@ -221,7 +239,7 @@ export type WorkerMessage =
   | { type: 'saves'; saves: SaveMeta[] }
   | { type: 'map'; map: MapData }
   | { type: 'reports'; reports: Report[] }
-  | { type: 'ranking'; ranking: RankingRow[] }
+  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[] }
   | { type: 'notice'; level: 'info' | 'error'; text: string };
 
 export const AUTOSAVE_SLOT = 'autosave';
@@ -232,6 +250,7 @@ export interface RankingRow {
   points: number;
   villages: number;
   isBot: boolean;
+  tribe?: number;
   /** Debug info, only for bots. */
   archetype?: string;
   activity?: number;

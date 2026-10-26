@@ -12,12 +12,13 @@ import { DIFFICULTIES, type DifficultyDef } from '../shared/config';
 const DAY = 86_400_000;
 import { push } from './eventQueue';
 import { buildingCost } from './formulas';
-import { distance, protectionBlocker, protectionEndsAt, sendAttack } from './movement';
+import { distance, protectionBlocker, protectionEndsAt, sendAttack, sendSupport, travelTimeMs } from './movement';
 import { coinsForSlots, mintCoins, noblesAllowed, playerCoins, slotsUsed } from './nobles';
 import { MERCHANT_CARRY, acceptOffer, cancelOffer, createOffer, merchantsFree, offersOf, type TradeOffer } from './market';
 import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { edgeSpot } from './map';
+import { helpShare, mayAttack, targetWeight, threatsFor } from './tribes';
 import { BARBARIAN, addLog, invalidateOwners, nextId, villagesOf, type Player, type WorldState } from './state';
 import {
   buildBlocker,
@@ -110,8 +111,30 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   // saving: only the most needed defense, no other troops
   recruitDefense(state, v, profile, reserve, saving ? 0.5 : 1);
   if (!saving) recruitTroops(state, v, profile, reserve);
+  if (attentive) helpTribe(state, player, v, profile);
   if (attentive) farm(state, player, v, profile);
   if (attentive) trade(state, player, v);
+}
+
+// --- tribe ---------------------------------------------------------------------
+
+/** Sends part of the home defense to a tribe mate under a real attack nearby, if it gets there in time. */
+function helpTribe(state: WorldState, player: Player, v: Village, profile: BotProfile): void {
+  if (player.tribe === undefined || !player.bot || !isOperational(state.config, v, 'place')) return;
+  void profile;
+  for (const threat of threatsFor(state, player.tribe)) {
+    const target = state.villages[threat.village];
+    if (!target || target.owner === player.id || distance(target, v) > 12) continue;
+    // already helping this village
+    if (Object.values(state.movements).some((m) => m.kind === 'support' && m.owner === player.id && m.to === target.id)) continue;
+    const share = helpShare(player.bot.archetype);
+    const units: UnitCounts = {};
+    let any = false;
+    for (const u of ['spear', 'sword', 'archer', 'heavy'] as const) { const n = Math.floor(v.units[u] * share); if (n > 0) { units[u] = n; any = true; } }
+    if (!any) continue;
+    if (state.time + travelTimeMs(state, units, distance(v, target)) > threat.arrives) continue;
+    if (sendSupport(state, v.id, target.id, units) === null) return; // one help per turn
+  }
 }
 
 // --- market -----------------------------------------------------------------------
@@ -450,7 +473,7 @@ export function forgetNeighbourhoods(state: WorldState): void {
 function farmTargets(state: WorldState, player: Player, v: Village, profile: BotProfile, radius: number): Village[] {
   const players = profile.attacksPlayers && state.time >= protectionEndsAt(state);
   return villagesNear(state, v, radius).filter(
-    (x) => x.owner === BARBARIAN || (players && x.owner !== player.id && x.owner >= 0),
+    (x) => x.owner === BARBARIAN || (players && x.owner !== player.id && x.owner >= 0 && mayAttack(state, player.id, x.owner)),
   );
 }
 
@@ -599,7 +622,7 @@ function nobleTarget(state: WorldState, player: Player, v: Village, profile: Bot
   const ok = (t: Village) => {
     if (t.owner === player.id || distance(t, v) > maxDist) return false;
     if (t.owner === BARBARIAN) return true;
-    if (!profile.attacksPlayers || protectionBlocker(state, player.id, t.owner) !== null) return false;
+    if (!profile.attacksPlayers || protectionBlocker(state, player.id, t.owner) !== null || !mayAttack(state, player.id, t.owner)) return false;
     // only players it beat before
     return bot.farmLog[t.id]?.won === true;
   };
@@ -610,7 +633,7 @@ function nobleTarget(state: WorldState, player: Player, v: Village, profile: Bot
     if (!ok(t)) continue;
     const log = bot.farmLog[t.id];
     if (log && !log.won && state.time - log.at < 24 * 60 * MINUTE) continue;
-    const score = villagePoints(state.config, t) / (3 + distance(t, v));
+    const score = (villagePoints(state.config, t) / (3 + distance(t, v))) * (t.owner >= 0 ? targetWeight(state, player.id, t.owner) : 1);
     if (score > bestScore) {
       bestScore = score;
       best = t;

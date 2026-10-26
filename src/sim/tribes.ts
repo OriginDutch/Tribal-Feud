@@ -1,0 +1,344 @@
+/**
+ * Tribes (stammen) and diplomacy between them — the bots' strategy layer.
+ *
+ * Bots found tribes, apply to tribes nearby and accept members that fit: close to the tribe,
+ * not on the other side of an enemy and not a weak village in the middle of the tribe's own
+ * ground (that one is prey, not a member). Tribes keep relations: ally, NAP or war.
+ * Members never attack each other or allies / NAP partners, and help each other defend.
+ *
+ * Runs on its own slow clock ('diplomacy' event), deterministic through the world rng.
+ */
+import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
+import { HOUR, MINUTE } from '../shared/time';
+import { MAX_MEMBERS } from '../shared/tribes';
+import { push } from './eventQueue';
+import { villagePoints } from './barbarians';
+import { nextFloat } from './rng';
+import type { TribeView } from '../shared/protocol';
+import { BARBARIAN, HUMAN_ID, addLog as addWorldLog, villagesOf, type Player, type WorldState } from './state';
+
+export type Relation = 'ally' | 'nap' | 'war';
+
+export interface Tribe {
+  id: number;
+  name: string;
+  tag: string;
+  /** Map colour (#rrggbb). */
+  color: string;
+  leader: number;
+  members: number[];
+  founded: number;
+  /** Relation to other tribes; missing = neutral. Always kept symmetric. */
+  relations: Record<number, Relation>;
+  /** When each relation started (for peace after a long war, alliances after a long NAP). */
+  since?: Record<number, number>;
+}
+
+export { MAX_MEMBERS };
+/** How far (in fields) a member may live from the tribe's centre. */
+export const REACH = 16;
+/** Within this distance of the centre a much weaker bot is prey, not a member. */
+const CORE = 6;
+/** How often the diplomacy layer runs (game time). */
+export const DIPLOMACY_EVERY = 90 * MINUTE;
+const MAX_ALLIES = 2;
+
+// --- naming -------------------------------------------------------------------
+
+const NAMES: [string, string][] = [
+  ['De Wolven', 'WOLF'], ['IJzeren Vuist', 'VUIST'], ['Zonen van de Storm', 'STORM'], ['Het Zwarte Woud', 'WOUD'],
+  ['De Rode Raven', 'RAVEN'], ['Orde van de Eik', 'EIK'], ['Bergvolk', 'BERG'], ['De Zilveren Speer', 'SPEER'],
+  ['Kinderen van de Nacht', 'NACHT'], ['Het Gouden Paard', 'PAARD'], ['De Stenen Wacht', 'WACHT'], ['Moerasvolk', 'MOER'],
+  ['De Bijlbroeders', 'BIJL'], ['Vuur en Zwaard', 'VUUR'], ['Het Noorderlicht', 'NOORD'], ['De Grijze Valk', 'VALK'],
+  ['Heren van de Heuvel', 'HEUVEL'], ['De Laatste Wal', 'WAL'], ['Bloedmaan', 'MAAN'], ['De Oude Eed', 'EED'],
+  ['Zwarte Toren', 'TOREN'], ['Kraaiennest', 'KRAAI'], ['De Lange Boog', 'BOOG'], ['Wintervolk', 'WINTER'],
+];
+/** Distinct from gold (you) and grey (barbarians). */
+const COLORS = [
+  '#f0f0a0', '#4f8fd6', '#5fb56b', '#b06ad6', '#e07ad0', '#3fb5b0', '#d65a9a', '#8fa43a',
+  '#6a7ad6', '#70d6c8', '#3f9a6e', '#9ad65a', '#8a5cc2', '#5ac2d6', '#7ad6ff', '#7ab53f',
+  '#d67a7a', '#4a6ab0', '#c0c0ff', '#5c9ec2', '#b55a7a', '#6ab09a', '#9a9ad6', '#ff9ab0',
+];
+
+/** Diplomacy news: kept apart (the world log scrolls fast) and in the world log. */
+function addLog(state: WorldState, entry: { time: number; text: string }): void {
+  addWorldLog(state, entry);
+  (state.tribeNews ??= []).push(entry);
+  if (state.tribeNews.length > 60) state.tribeNews.splice(0, state.tribeNews.length - 60);
+}
+
+// --- helpers ------------------------------------------------------------------
+
+export function tribeOf(state: WorldState, playerId: number): Tribe | undefined {
+  const id = state.players[playerId]?.tribe;
+  return id !== undefined ? state.tribes?.[id] : undefined;
+}
+
+export function relationBetween(state: WorldState, a: number, b: number): Relation | 'same' | null {
+  const ta = tribeOf(state, a), tb = tribeOf(state, b);
+  if (!ta || !tb) return null;
+  if (ta.id === tb.id) return 'same';
+  return ta.relations[tb.id] ?? null;
+}
+
+/** May `attacker` attack villages of `defender`? No for tribe mates, allies and NAP partners. */
+export function mayAttack(state: WorldState, attacker: number, defender: number): boolean {
+  if (attacker === defender) return false;
+  if (attacker === BARBARIAN || defender === BARBARIAN) return true;
+  const r = relationBetween(state, attacker, defender);
+  return r !== 'same' && r !== 'ally' && r !== 'nap';
+}
+
+/** Weight for choosing targets: enemies at war are preferred. */
+export function targetWeight(state: WorldState, attacker: number, defender: number): number {
+  return relationBetween(state, attacker, defender) === 'war' ? 2.5 : 1;
+}
+
+/** Centre of a player's villages, weighted by points. */
+function playerCentre(state: WorldState, id: number): { x: number; y: number; points: number } | null {
+  const vs = villagesOf(state, id);
+  if (!vs.length) return null;
+  let x = 0, y = 0, w = 0;
+  for (const v of vs) { const p = villagePoints(state.config, v) + 1; x += v.x * p; y += v.y * p; w += p; }
+  return { x: x / w, y: y / w, points: w - vs.length };
+}
+export function tribeCentre(state: WorldState, t: Tribe): { x: number; y: number; points: number } | null {
+  let x = 0, y = 0, w = 0;
+  for (const m of t.members) { const c = playerCentre(state, m); if (!c) continue; const p = c.points + 1; x += c.x * p; y += c.y * p; w += p; }
+  return w ? { x: x / w, y: y / w, points: w } : null;
+}
+const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+
+/** Social appetite per archetype: how keen a bot is on tribes. */
+const SOCIAL: Record<Archetype, number> = { diplomat: 1, supporter: 0.9, opportunist: 0.7, farmer: 0.55, rusher: 0.5, turtle: 0.45 };
+const AGGRESSION: Record<Archetype, number> = { rusher: 1, opportunist: 0.8, farmer: 0.35, diplomat: 0.3, supporter: 0.3, turtle: 0.15 };
+
+/**
+ * Does `candidate` fit in tribe `t`? Close to the centre, not cut off by an enemy, and not a
+ * weak village right in the tribe's own ground (that is prey).
+ */
+export function fits(state: WorldState, t: Tribe, candidate: number): boolean {
+  if (t.members.length >= MAX_MEMBERS) return false;
+  const tc = tribeCentre(state, t), cc = playerCentre(state, candidate);
+  if (!tc || !cc) return false;
+  const d = dist(tc, cc);
+  if (d > REACH) return false;
+  const avg = tc.points / Math.max(1, t.members.length);
+  if (d < CORE && cc.points < avg * 0.3) return false;
+  // in the way: an enemy tribe sits between the candidate and us
+  for (const [other, rel] of Object.entries(t.relations)) {
+    if (rel !== 'war') continue;
+    const e = state.tribes?.[Number(other)];
+    const ec = e && tribeCentre(state, e);
+    if (ec && dist(cc, ec) < d && dist(ec, tc) < d) return false;
+  }
+  return true;
+}
+
+function setRelation(state: WorldState, a: Tribe, b: Tribe, rel: Relation | null): void {
+  for (const [x, y] of [[a, b], [b, a]] as const) {
+    x.since ??= {};
+    if (rel) { x.relations[y.id] = rel; x.since[y.id] = state.time; }
+    else { delete x.relations[y.id]; delete x.since[y.id]; }
+  }
+}
+
+function leave(state: WorldState, player: Player): void {
+  const t = player.tribe !== undefined ? state.tribes?.[player.tribe] : undefined;
+  delete player.tribe;
+  if (!t) return;
+  t.members = t.members.filter((m) => m !== player.id);
+  if (!t.members.length) {
+    for (const o of Object.values(state.tribes ?? {})) { delete o.relations[t.id]; delete o.since?.[t.id]; }
+    delete state.tribes![t.id];
+    addLog(state, { time: state.time, text: `Stam [${t.tag}] ${t.name} is opgeheven.` });
+    return;
+  }
+  if (t.leader === player.id) {
+    // the strongest member takes over
+    t.leader = [...t.members].sort((a, b) => (playerCentre(state, b)?.points ?? 0) - (playerCentre(state, a)?.points ?? 0))[0]!;
+  }
+}
+
+function join(state: WorldState, t: Tribe, player: Player): void {
+  if (player.tribe !== undefined) leave(state, player);
+  player.tribe = t.id;
+  t.members.push(player.id);
+}
+
+function found(state: WorldState, player: Player): Tribe | null {
+  const taken = new Set(Object.values(state.tribes ?? {}).map((t) => t.tag));
+  const free = NAMES.filter(([, tag]) => !taken.has(tag));
+  if (!free.length) return null;
+  const [name, tag] = free[Math.floor(nextFloat(state.rng) * free.length)]!;
+  const usedColors = new Set(Object.values(state.tribes ?? {}).map((t) => t.color));
+  const color = COLORS.find((c) => !usedColors.has(c)) ?? COLORS[Math.floor(nextFloat(state.rng) * COLORS.length)]!;
+  const id = state.nextId++;
+  const t: Tribe = { id, name, tag, color, leader: player.id, members: [], founded: state.time, relations: {}, since: {} };
+  state.tribes ??= {};
+  state.tribes[id] = t;
+  join(state, t, player);
+  addLog(state, { time: state.time, text: `${player.name} richt de stam [${tag}] ${name} op.` });
+  return t;
+}
+
+// --- the diplomacy turn -------------------------------------------------------
+
+export function initDiplomacy(state: WorldState): void {
+  state.tribes ??= {};
+  push(state.queue, state.time + 5 * MINUTE, { kind: 'diplomacy' });
+}
+
+export function onDiplomacy(state: WorldState): void {
+  state.tribes ??= {};
+  const tribes = () => Object.values(state.tribes!);
+  const bots = state.players.filter((p) => p.isBot && p.bot && villagesOf(state, p.id).length > 0);
+
+  // members that lost everything leave
+  for (const p of state.players) if (p.tribe !== undefined && villagesOf(state, p.id).length === 0) leave(state, p);
+
+  // drift: a member that ended up far from the rest leaves (moved by conquests or a restart)
+  for (const t of tribes()) {
+    if (t.members.length < 2) continue;
+    const tc = tribeCentre(state, t);
+    for (const m of [...t.members]) {
+      const c = playerCentre(state, m), p = state.players[m];
+      if (tc && c && p?.isBot && dist(tc, c) > REACH * 1.6) {
+        leave(state, p);
+        addLog(state, { time: state.time, text: `${p.name} verlaat [${t.tag}]: te ver weg.` });
+      }
+    }
+  }
+
+  // solo bots: apply to a tribe nearby, or found one
+  const solos = bots.filter((p) => p.tribe === undefined);
+  for (let i = solos.length - 1; i > 0; i--) { const j = Math.floor(nextFloat(state.rng) * (i + 1)); [solos[i], solos[j]] = [solos[j]!, solos[i]!]; }
+  for (const p of solos) {
+    const social = SOCIAL[p.bot!.archetype] * (0.6 + p.bot!.activity * 0.4);
+    if (nextFloat(state.rng) > social * 0.05) continue;
+    const pc = playerCentre(state, p.id);
+    if (!pc) continue;
+    const options = tribes().filter((t) => fits(state, t, p.id) && leaderAccepts(state, t, p));
+    if (options.length) {
+      // opportunists go for strength, the rest for closeness
+      const score = (t: Tribe) => { const c = tribeCentre(state, t)!; return p.bot!.archetype === 'opportunist' ? c.points / (5 + dist(c, pc)) : -dist(c, pc) + c.points / 50_000; };
+      const best = options.sort((a, b) => score(b) - score(a))[0]!;
+      join(state, best, p);
+      addLog(state, { time: state.time, text: `${p.name} sluit zich aan bij [${best.tag}] ${best.name}.` });
+      continue;
+    }
+    // nothing fits: the social ones start their own
+    const nearby = tribes().some((t) => { const c = tribeCentre(state, t); return c && dist(c, pc) < REACH * 0.6; });
+    if (!nearby && nextFloat(state.rng) < (p.bot!.archetype === 'diplomat' ? 0.5 : 0.1 * social)) found(state, p);
+  }
+
+  diplomacy(state);
+  push(state.queue, state.time + DIPLOMACY_EVERY, { kind: 'diplomacy' });
+}
+
+/** The leader's view of a candidate: not too weak, and the tribe has room. */
+function leaderAccepts(state: WorldState, t: Tribe, p: Player): boolean {
+  if (t.members.length >= MAX_MEMBERS) return false;
+  const tc = tribeCentre(state, t), pc = playerCentre(state, p.id);
+  if (!tc || !pc) return false;
+  const avg = tc.points / Math.max(1, t.members.length);
+  return pc.points >= avg * 0.15;
+}
+
+/** Relations between neighbouring tribes: NAPs, alliances, wars and peace. */
+function diplomacy(state: WorldState): void {
+  const list = Object.values(state.tribes ?? {});
+  const centres = new Map(list.map((t) => [t.id, tribeCentre(state, t)]));
+  const lead = (t: Tribe) => state.players[t.leader]?.bot?.archetype ?? 'diplomat';
+  const allies = (t: Tribe) => Object.values(t.relations).filter((r) => r === 'ally').length;
+  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+    const a = list[i]!, b = list[j]!;
+    const ca = centres.get(a.id), cb = centres.get(b.id);
+    if (!ca || !cb) continue;
+    const d = dist(ca, cb);
+    if (d > REACH * 2.4) { if (a.relations[b.id] && a.relations[b.id] !== 'war') setRelation(state, a, b, null); continue; }
+    const rel = a.relations[b.id];
+    const since = state.time - (a.since?.[b.id] ?? state.time);
+    const ratio = ca.points / Math.max(1, cb.points);
+    const strong = ratio >= 1 ? a : b, weak = strong === a ? b : a;
+    const power = Math.max(ratio, 1 / ratio);
+    const roll = nextFloat(state.rng);
+    if (!rel) {
+      // the stronger side may smell blood; the more diplomatic side wants quiet
+      const hunger = AGGRESSION[lead(strong)] * Math.min(1, (power - 1) / 1.5);
+      if (state.time > 36 * HOUR && roll < hunger * 0.05) {
+        setRelation(state, strong, weak, 'war');
+        addLog(state, { time: state.time, text: `[${strong.tag}] verklaart [${weak.tag}] de oorlog.` });
+      } else if (roll > 1 - (1 - AGGRESSION[lead(a)]) * (1 - AGGRESSION[lead(b)]) * 0.012) {
+        setRelation(state, a, b, 'nap');
+        addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] sluiten een niet-aanvalsverdrag.` });
+      }
+    } else if (rel === 'nap') {
+      // a long NAP between friendly leaders, both fighting the same enemy, becomes an alliance
+      const shared = Object.entries(a.relations).some(([o, r]) => r === 'war' && b.relations[Number(o)] === 'war');
+      if (since > 24 * HOUR && allies(a) < MAX_ALLIES && allies(b) < MAX_ALLIES && (shared || roll < 0.01) && SOCIAL[lead(a)] + SOCIAL[lead(b)] > 1.2) {
+        setRelation(state, a, b, 'ally');
+        addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] worden bondgenoten.` });
+      } else if (roll < AGGRESSION[lead(strong)] * 0.01 * (power - 1)) {
+        setRelation(state, strong, weak, 'war');
+        addLog(state, { time: state.time, text: `[${strong.tag}] verbreekt het verdrag en verklaart [${weak.tag}] de oorlog.` });
+      }
+    } else if (rel === 'war') {
+      // a war that drags on between equals ends in peace
+      if (since > 48 * HOUR && power < 1.4 && roll < 0.02) {
+        setRelation(state, a, b, null);
+        addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] sluiten vrede.` });
+      }
+    }
+  }
+}
+
+/** Tribe mates and allies get each other's help: incoming attacks on their villages, per tribe. Cached per moment. */
+const helpCache = new WeakMap<WorldState, { time: number; byTribe: Map<number, { village: number; arrives: number }[]> }>();
+export function threatsFor(state: WorldState, tribeId: number): { village: number; arrives: number }[] {
+  let c = helpCache.get(state);
+  if (!c || c.time !== state.time) {
+    const byTribe = new Map<number, { village: number; arrives: number }[]>();
+    for (const m of Object.values(state.movements)) {
+      if (m.kind !== 'attack') continue;
+      const to = state.villages[m.to];
+      if (!to || to.owner < 0 || to.owner === HUMAN_ID) continue;
+      const t = state.players[to.owner]?.tribe;
+      if (t === undefined) continue;
+      // only real attacks (with a lot of troops) count, not farm runs
+      let n = 0; for (const k in m.units) n += m.units[k as keyof typeof m.units] ?? 0;
+      if (n < 100) continue;
+      const list = byTribe.get(t) ?? [];
+      list.push({ village: to.id, arrives: m.arrives });
+      byTribe.set(t, list);
+    }
+    c = { time: state.time, byTribe };
+    helpCache.set(state, c);
+  }
+  return c.byTribe.get(tribeId) ?? [];
+}
+
+/** How much of its defense a bot sends to help: supporters a lot, turtles little. */
+export function helpShare(archetype: Archetype): number {
+  return { supporter: 0.5, diplomat: 0.3, farmer: 0.2, opportunist: 0.15, rusher: 0.1, turtle: 0.1 }[archetype];
+}
+void BOT_PROFILES;
+
+/** Tribes for the UI, strongest first. */
+export function tribeViews(state: WorldState): TribeView[] {
+  const out: TribeView[] = [];
+  for (const t of Object.values(state.tribes ?? {})) {
+    let points = 0, villages = 0;
+    for (const m of t.members) for (const v of villagesOf(state, m)) { points += villagePoints(state.config, v); villages++; }
+    out.push({
+      id: t.id, name: t.name, tag: t.tag, color: t.color, leader: t.leader, members: [...t.members], founded: t.founded, points, villages,
+      relations: Object.entries(t.relations).map(([id, rel]) => ({ id: Number(id), rel, since: t.since?.[Number(id)] ?? t.founded })),
+    });
+  }
+  return out.sort((a, b) => b.points - a.points);
+}
+
+/** Diplomacy news (newest first). */
+export function tribeNews(state: WorldState): { time: number; text: string }[] {
+  return [...(state.tribeNews ?? [])].reverse();
+}

@@ -192,7 +192,7 @@ button.link:hover { text-decoration: underline; }
 .map-side { align-self: start; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 80px; }
 .minimap-panel { padding: 12px; }
 .minimap canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 8px; cursor: crosshair; touch-action: none; border: 1px solid var(--border-2); }
-.minimap-legend { display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.minimap-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .minimap-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: 0; }
 .dot.win { background: var(--good); }
@@ -548,3 +548,22 @@ select option:disabled { color: var(--faint); }
   .mg-list { grid-area: list; } .mg-queue { grid-area: queue; } .mg-tear { grid-area: tear; }
 }
 .mg-queue td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* tribes */
+.tribe-swatch { background: conic-gradient(#4f8fd6 0 25%, #5fb56b 0 50%, #b06ad6 0 75%, #d68a3a 0) !important; }
+.tribe-tag, .link.tribe-tag, button.link.tribe-tag { color: var(--tc); font-weight: 700; font-variant-numeric: tabular-nums; }
+button.tribe-tag { padding: 0; }
+.tribes-layout { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1100px) { .tribes-layout { grid-template-columns: minmax(0, 1.2fr) minmax(360px, 1fr); } }
+.tribes-side { display: grid; gap: 14px; }
+.tribe-card { border-top: 3px solid var(--tc); }
+.tribe-card h3 { margin: 0; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover td { background: rgba(255,255,255,0.03); }
+tr.selected td { background: rgba(226,169,59,0.08); }
+.relations, .news { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.rel { display: inline-block; min-width: 150px; font-size: 12px; font-weight: 600; }
+.rel-war { color: var(--danger); }
+.rel-ally { color: var(--good); }
+.rel-nap { color: #6a8fb5; }
+button.link.tribe-tag:hover { color: var(--tc); text-decoration: underline; }

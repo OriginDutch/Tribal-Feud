@@ -1,3 +1,4 @@
+import { onDiplomacy } from './tribes';
 import { MINUTE, type Speed } from '../shared/time';
 import { peek, pop, push } from './eventQueue';
 import { nextInt } from './rng';
@@ -45,6 +46,9 @@ function handle(state: WorldState, event: GameEvent): LogEntry | null {
       return null;
     case 'manager':
       onManagerCheck(state);
+      return null;
+    case 'diplomacy':
+      onDiplomacy(state);
       return null;
     case 'test': {
       const entry: LogEntry = { time: state.time, text: `Test-event: ${event.label}` };

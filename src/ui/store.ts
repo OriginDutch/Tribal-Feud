@@ -4,12 +4,12 @@
  */
 import { signal } from '@preact/signals';
 import type { BuildingId, RecruitBuilding } from '../shared/gameData';
-import type { Command, MapData, RankingRow, Snapshot, WorkerMessage } from '../shared/protocol';
+import type { Command, MapData, RankingRow, Snapshot, TribeView, WorkerMessage } from '../shared/protocol';
 import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'debug' | 'building';
+export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'debug' | 'building';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);
@@ -46,6 +46,14 @@ export function openBuilding(id: BuildingId): void {
 export const mapData = signal<MapData | null>(null);
 export const reports = signal<Report[]>([]);
 export const ranking = signal<RankingRow[]>([]);
+export const tribes = signal<TribeView[]>([]);
+/** Tribe opened on the tribe screen. */
+export const tribeFocus = signal<number | null>(null);
+export function openTribe(id: number): void {
+  tribeFocus.value = id;
+  screen.value = 'tribes';
+}
+export const tribeNews = signal<{ time: number; text: string }[]>([]);
 /** Target picked on the map, prefilled in the rally point. */
 export const placeTarget = signal<{ x: number; y: number } | null>(null);
 /** Map style: drawn villages, or the classic flat squares. Remembered per browser. */
@@ -124,6 +132,8 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'ranking':
       ranking.value = msg.ranking;
+      tribes.value = msg.tribes;
+      tribeNews.value = msg.news;
       break;
     case 'notice':
       showNotice(msg.text, msg.level);

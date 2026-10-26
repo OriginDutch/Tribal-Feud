@@ -1,3 +1,4 @@
+import { initDiplomacy } from './tribes';
 import { PRESETS, defaultTables } from '../shared/config';
 import { UNIT_IDS, type UnitId } from '../shared/gameData';
 import { generateMap } from './map';
@@ -11,7 +12,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 export interface SaveData {
   version: number;
@@ -143,6 +144,11 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     }
     delete state.lastReportByTarget;
     return { ...data, version: 11 };
+  },
+  // v11 had no tribes: start the diplomacy layer, bots form tribes as the game runs.
+  11: (data) => {
+    initDiplomacy(data.state);
+    return { ...data, version: 12 };
   },
 };
 

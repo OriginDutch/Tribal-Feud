@@ -4,6 +4,7 @@ import { growBarbarian, villagePoints } from './barbarians';
 import { estimateLoot } from './intel';
 import { BARBARIAN, HUMAN_ID, currentVillage, type WorldState } from './state';
 import { CANCEL_WINDOW_MS, cancelBlocker } from './movement';
+import { tribeViews } from './tribes';
 
 export function mapData(state: WorldState): MapData {
   const own = currentVillage(state);
@@ -22,6 +23,8 @@ export function mapData(state: WorldState): MapData {
       points: villagePoints(state.config, v),
     };
     if (v.bonus) mv.bonus = v.bonus;
+    const tribe = v.owner >= 0 ? state.players[v.owner]?.tribe : undefined;
+    if (tribe !== undefined) mv.tribe = tribe;
     const intel = state.intel[v.id];
     if (intel) {
       if (intel.type && v.owner === BARBARIAN) mv.barbType = intel.type;
@@ -33,7 +36,7 @@ export function mapData(state: WorldState): MapData {
     if (last) mv.last = { ...last };
     villages.push(mv);
   }
-  return { ownVillageId: own?.id ?? -1, villages };
+  return { ownVillageId: own?.id ?? -1, villages, tribes: tribeViews(state) };
 }
 
 /** Attacks by others on the human's villages: origin, target and arrival only, like TW. */

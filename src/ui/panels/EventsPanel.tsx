@@ -49,6 +49,9 @@ export function EventsPanel() {
             <option value="off">Nooit</option>
           </select>
         </label>
+        <button disabled={!s} onClick={() => send({ type: 'debugSkip', hours: 24 })}>
+          Cheat: 1 dag doorspoelen
+        </button>
         <button disabled={!s} onClick={() => send({ type: 'debugConquer' })}>
           Cheat: dichtstbijzijnde barbarendorp overnemen
         </button>

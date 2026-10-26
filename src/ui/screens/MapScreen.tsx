@@ -1,10 +1,11 @@
+import { OWNER_COLORS, tribeIndex, villageColor } from '../map/colors';
 import { Minimap } from '../map/Minimap';
 import { BARB_TYPE_NAMES, BONUS_NAMES, type BarbType } from '../../shared/barbarianTypes';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { MapVillage } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
-import { attackVillage, mapData, mapFocus, mapStyle, selectedVillage, send, setMapStyle, snapshot } from '../store';
+import { attackVillage, mapData, mapFocus, mapStyle, openTribe, selectedVillage, send, setMapStyle, snapshot } from '../store';
 import { OVERHANG, forestAt, onSpriteLoad, tierOf, villageAt } from '../map/mapSprites';
 import { distance, travelMs } from '../units';
 
@@ -217,7 +218,8 @@ export function MapScreen() {
     }
 
     const px = zoom * dpr;
-    const ownerColor = (v: MapVillage) => (v.kind === 'own' ? COLORS.own : v.kind === 'bot' ? COLORS.bot : COLORS.barb);
+    const tribesById = tribeIndex(data?.tribes);
+    const ownerColor = (v: MapVillage) => villageColor(v, tribesById);
     const sel = selectedVillage.value;
     const overhang = (OVERHANG / 64) * zoom;
     const place = (img: CanvasImageSource, x: number, y: number) => {
@@ -361,10 +363,11 @@ export function MapScreen() {
     // villages
     const size = Math.max(2, zoom * 0.72);
     const sel = selectedVillage.value;
+    const tribesById = tribeIndex(data?.tribes);
     for (const v of data?.villages ?? []) {
       if (v.x < x0 || v.x > x1 || v.y < y0 || v.y > y1) continue;
       const [sx, sy] = toScreen(v.x, v.y);
-      ctx.fillStyle = v.kind === 'own' ? COLORS.own : v.kind === 'bot' ? COLORS.bot : COLORS.barb;
+      ctx.fillStyle = villageColor(v, tribesById);
       ctx.fillRect(sx - size / 2, sy - size / 2, size, size);
       if (v.bonus) {
         ctx.strokeStyle = COLORS.bonus;
@@ -483,6 +486,7 @@ export function MapScreen() {
   };
 
   const selected = selectedVillage.value !== null ? byId.get(selectedVillage.value) : undefined;
+  const selectedTribe = selected?.tribe !== undefined ? data?.tribes.find((t) => t.id === selected.tribe) : undefined;
   const hovered = hover ? byCoord.get(key(hover.x, hover.y)) : undefined;
 
   return (
@@ -494,7 +498,7 @@ export function MapScreen() {
           {hovered ? ` · ${hovered.name} (${num(hovered.points)} p)` : ''}
         </span>
         <span class="legend">
-          <i style={{ background: COLORS.own }} /> jij <i style={{ background: COLORS.bot }} /> bots{' '}
+          <i style={{ background: COLORS.own }} /> jij <i class="tribe-swatch" /> stammen <i style={{ background: OWNER_COLORS.bot }} /> zonder stam{' '}
           <i style={{ background: COLORS.barb }} /> barbaren <i style={{ background: COLORS.bonus }} /> bonus
         </span>
         {own && (
@@ -547,6 +551,7 @@ export function MapScreen() {
             <section class="panel minimap-panel">
               <Minimap
                 villages={data.villages}
+                tribes={data.tribes}
                 view={viewBox()}
                 onMove={(x, y) => { centerOn(x, y); redraw((n) => n + 1); }}
               />
@@ -570,6 +575,16 @@ export function MapScreen() {
                     <td>Eigenaar</td>
                     <td class="right">{selected.ownerName}</td>
                   </tr>
+                  {selectedTribe && (
+                    <tr>
+                      <td>Stam</td>
+                      <td class="right">
+                        <button class="link tribe-tag" style={{ '--tc': selectedTribe.color }} onClick={() => openTribe(selectedTribe.id)}>
+                          [{selectedTribe.tag}]
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                   <tr>
                     <td>Punten</td>
                     <td class="right mono">{num(selected.points)}</td>

@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'preact/hooks';
-import type { MapVillage } from '../../shared/protocol';
+import type { MapVillage, TribeView } from '../../shared/protocol';
+import { OWNER_COLORS, tribeIndex, villageColor } from './colors';
 
-const COL = { own: '#e2a93b', bot: '#d2604a', barb: '#8a8378' } as const;
+const COL = OWNER_COLORS;
 
 /**
  * The whole world at a glance: a dot per village (gold = you, red = bots, grey = barbarians),
- * the part the big map shows as a frame. Click or drag to move the big map there.
+ * tribe colours for bots, the part the big map shows as a frame. Click or drag to move the big map there.
  */
-export function Minimap({ villages, view, onMove }: {
+export function Minimap({ villages, tribes, view, onMove }: {
   villages: MapVillage[];
+  tribes: TribeView[];
   /** visible part of the big map, in map coordinates */
   view: { x0: number; y0: number; x1: number; y1: number };
   onMove: (x: number, y: number) => void;
@@ -33,9 +35,10 @@ export function Minimap({ villages, view, onMove }: {
     ctx.strokeStyle = 'rgba(226,169,59,0.18)'; ctx.lineWidth = size / W;
     for (let k = Math.ceil(ox / 100) * 100; k < ox + size; k += 100) { ctx.beginPath(); ctx.moveTo(k - 0.5, oy); ctx.lineTo(k - 0.5, oy + size); ctx.moveTo(ox, k - 0.5); ctx.lineTo(ox + size, k - 0.5); ctx.stroke(); }
     const dot = Math.max(1, size / W * 2.2);
+    const byTribe = tribeIndex(tribes);
     for (const kind of ['barb', 'bot'] as const) {
-      ctx.fillStyle = COL[kind]; ctx.globalAlpha = kind === 'barb' ? 0.45 : 0.9;
-      for (const v of villages) if (v.kind === kind) ctx.fillRect(v.x - dot / 2, v.y - dot / 2, dot, dot);
+      ctx.globalAlpha = kind === 'barb' ? 0.45 : 0.95;
+      for (const v of villages) if (v.kind === kind) { ctx.fillStyle = villageColor(v, byTribe); ctx.fillRect(v.x - dot / 2, v.y - dot / 2, dot, dot); }
     }
     ctx.globalAlpha = 1;
     // own villages stand out: bigger, with a dark rim and a soft halo
@@ -47,13 +50,14 @@ export function Minimap({ villages, view, onMove }: {
     }
     ctx.strokeStyle = '#ece3d4'; ctx.lineWidth = (size / W) * 1.5;
     ctx.strokeRect(view.x0, view.y0, view.x1 - view.x0, view.y1 - view.y0);
-  }, [villages, view.x0, view.y0, view.x1, view.y1, size, ox, oy]);
+  }, [villages, tribes, view.x0, view.y0, view.x1, view.y1, size, ox, oy]);
 
   const moveTo = (e: PointerEvent) => {
     const r = ref.current!.getBoundingClientRect();
     onMove(ox + ((e.clientX - r.left) / r.width) * size, oy + ((e.clientY - r.top) / r.height) * size);
   };
-  const own = villages.filter((v) => v.kind === 'own').length, bots = villages.filter((v) => v.kind === 'bot').length, barbs = villages.length - own - bots;
+  const own = villages.filter((v) => v.kind === 'own').length, inTribe = villages.filter((v) => v.kind === 'bot' && v.tribe !== undefined).length;
+  const bots = villages.filter((v) => v.kind === 'bot').length - inTribe, barbs = villages.length - own - bots - inTribe;
   return (
     <div class="minimap">
       <canvas
@@ -63,7 +67,8 @@ export function Minimap({ villages, view, onMove }: {
       />
       <div class="minimap-legend">
         <span><i style={{ background: COL.own }} />jij {own}</span>
-        <span><i style={{ background: COL.bot }} />bots {bots}</span>
+        <span><i class="tribe-swatch" />in stam {inTribe}</span>
+        <span><i style={{ background: COL.bot }} />zonder stam {bots}</span>
         <span><i style={{ background: COL.barb }} />barbaren {barbs}</span>
       </div>
     </div>
