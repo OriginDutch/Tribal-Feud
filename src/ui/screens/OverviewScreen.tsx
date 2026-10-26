@@ -1,5 +1,7 @@
 import { formatGameTime } from '../../shared/time';
 import { UnitIcon } from '../units/UnitIcon';
+import { UNIT_SHORT, unitsText } from '../units';
+import { UNIT_IDS, type UnitId } from '../../shared/gameData';
 import { IncomingPanel } from '../components/IncomingPanel';
 import { MapLink } from '../components/MapLink';
 import { duration, num } from '../format';
@@ -76,24 +78,59 @@ export function OverviewScreen() {
 
         <section class="panel">
           <h3>Troepen in het dorp</h3>
-          {units.length === 0 ? (
-            <p class="muted">Nog geen troepen.</p>
-          ) : (
-            <table class="table compact">
-              <tbody>
-                {units.map((u) => (
-                  <tr key={u.id}>
-                    <td>
-                      <span class="unit-name">
-                        <UnitIcon id={u.id} size={20} /> {u.name}
-                      </span>
-                    </td>
-                    <td class="right mono">{num(u.home)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          {(() => {
+            // own troops at home plus support standing here, per unit
+            const support: Partial<Record<UnitId, number>> = {};
+            for (const x of v.supportHere) for (const [u, n] of Object.entries(x.units) as [UnitId, number][]) support[u] = (support[u] ?? 0) + n;
+            const ids = UNIT_IDS.filter((u) => (v.units.find((x) => x.id === u)?.home ?? 0) > 0 || (support[u] ?? 0) > 0);
+            const hasSupport = v.supportHere.length > 0;
+            if (!ids.length) return <p class="muted">Nog geen troepen.</p>;
+            return (
+              <>
+                <table class="table compact">
+                  {hasSupport && (
+                    <thead>
+                      <tr>
+                        <th />
+                        <th class="right">Eigen</th>
+                        <th class="right">Steun</th>
+                        <th class="right">Totaal</th>
+                      </tr>
+                    </thead>
+                  )}
+                  <tbody>
+                    {ids.map((u) => {
+                      const own = v.units.find((x) => x.id === u)?.home ?? 0;
+                      const sup = support[u] ?? 0;
+                      return (
+                        <tr key={u}>
+                          <td>
+                            <span class="unit-name">
+                              <UnitIcon id={u} size={20} /> {v.units.find((x) => x.id === u)?.name ?? UNIT_SHORT[u]}
+                            </span>
+                          </td>
+                          <td class="right mono">{num(own)}</td>
+                          {hasSupport && <td class="right mono muted">{sup ? num(sup) : '—'}</td>}
+                          {hasSupport && <td class="right mono"><strong>{num(own + sup)}</strong></td>}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {hasSupport && (
+                  <ul class="support-from">
+                    {v.supportHere.map((x) => (
+                      <li key={x.origin.id}>
+                        <span class="muted">Steun van</span> {x.origin.name} <span class="muted">({x.origin.x}|{x.origin.y})</span>
+                        {!s.villages.some((o) => o.id === x.origin.id) && <span class="muted"> · {x.origin.ownerName}</span>}
+                        <div class="muted small-text">{unitsText(x.units)}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            );
+          })()}
         </section>
 
         <section class="panel">
