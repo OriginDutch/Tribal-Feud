@@ -132,6 +132,7 @@ export const M = {
   thatch: std({ map: thatchTex(), roughness: 1 }),
   grass: std({ map: grassTex(), roughness: 1 }),
   dirt: std({ map: dirtTex(), roughness: 1 }),
+  dirtDark: std({ map: dirtTex(), color: 0xa08a6c, roughness: 1 }),
   cobble: std({ map: cobbleTex(), roughness: 1 }),
   wheat: std({ map: fieldTex([196, 164, 74]), roughness: 1 }),
   greens: std({ map: fieldTex([96, 130, 54]), roughness: 1 }),
@@ -506,4 +507,69 @@ export function shuttle(p, a, b, speed = 0.7, pause = 1.4, ph = 0, onStop = null
     if (p.userData.legs) walkPose(p, dist, moving);
     onStop?.(!moving && (c % (cyc / 2)) >= walkT, dir);
   });
+}
+
+// ---------- soft ground: roads, paths and patches that fade into the grass ----------
+/** Wheel ruts + a grass strip down the middle of wide roads. Set to false to drop them everywhere. */
+export const ROAD_RUTS = true;
+const softMats = new Map();
+function softMat(base) {
+  if (!softMats.has(base)) softMats.set(base, new THREE.MeshStandardMaterial({ map: base.map, color: base.color, roughness: 1, vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
+  return softMats.get(base);
+}
+const smooth = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+/**
+ * A soft ribbon along `pts` ([x, z] points). w = full width. Sides: firm core, short soft edge, a slightly darker worn rim.
+ * fade: [start, end] lengths over which the ends fade out (0 = hard end, e.g. off-screen). taper: ends get narrower too.
+ */
+export function softRibbon(g, pts, w, o = {}) {
+  const mat = o.mat ?? M.dirt, y = o.y ?? 0.012, fade = o.fade ?? [w * 1.5, w * 1.5], taper = o.taper ?? 0, alpha = o.alpha ?? 1, rim = o.rim ?? 0.82;
+  const curve = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
+  const L = curve.getLength(), N = Math.max(8, Math.ceil(L / 0.25));
+  const across = [-1.25, -1, -0.82, -0.55, 0, 0.55, 0.82, 1, 1.25];
+  const pos = [], col = [], uv = [], idx = [];
+  for (let k = 0; k <= N; k++) {
+    const t = k / N, p = curve.getPointAt(t), d = curve.getTangentAt(t), s = t * L;
+    const endA = Math.min(fade[0] ? smooth(0, fade[0], s) : 1, fade[1] ? smooth(0, fade[1], L - s) : 1);
+    const half = (w / 2) * (1 - taper * (1 - endA));
+    for (const u of across) {
+      const x = p.x - d.z * u * half, z = p.z + d.x * u * half;
+      pos.push(x, y, z); uv.push(x / 3, z / 3);
+      const side = 1 - smooth(0.8, 1.25, Math.abs(u));
+      const shade = 1 - (1 - rim) * smooth(0.5, 1.0, Math.abs(u));
+      col.push(shade, shade, shade, side * endA * alpha);
+    }
+  }
+  const A = across.length;
+  for (let k = 0; k < N; k++) for (let a = 0; a < A - 1; a++) { const i = k * A + a; idx.push(i, i + 1, i + A, i + 1, i + A + 1, i + A); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 4)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx); geo.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(pos.length).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
+  const m = new THREE.Mesh(geo, softMat(mat)); m.receiveShadow = true; m.userData.path = true; m.renderOrder = o.order ?? 1; g.add(m);
+  if (ROAD_RUTS && o.ruts) {
+    for (const s of [-1, 1]) {
+      const off = pts.map(([x, z], i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)]; const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return [x - (dz / l) * s * w * 0.22, z + (dx / l) * s * w * 0.22]; });
+      softRibbon(g, off, w * 0.2, { mat: M.dirtDark ?? M.dirt, y: y + 0.002, fade: [fade[0] + w, fade[1] + w], alpha: 0.3, rim: 1, order: (o.order ?? 1) + 1 });
+    }
+    softRibbon(g, pts, w * 0.16, { mat: M.grass, y: y + 0.003, fade: [fade[0] + w * 2, fade[1] + w * 2], alpha: 0.35, rim: 1, order: (o.order ?? 1) + 2 });
+  }
+  return m;
+}
+/** A soft-edged elliptic patch (rx, rz radii) centred at (x, z). */
+export function softDisc(g, rx, rz, mat = M.dirt, x = 0, z = 0, o = {}) {
+  const y = o.y ?? 0.012, R = 10, S = 48, pos = [], col = [], uv = [], idx = [];
+  const rings = [0, 0.5, 0.75, 0.88, 1, 1.12];
+  for (let r = 0; r < rings.length; r++) for (let s = 0; s < S; s++) {
+    const a = (s / S) * Math.PI * 2, wob = 1 + (r >= 3 ? Math.sin(a * 5 + rx) * 0.04 + Math.sin(a * 3 + rz) * 0.03 : 0);
+    const px = x + Math.cos(a) * rx * rings[r] * wob, pz = z + Math.sin(a) * rz * rings[r] * wob;
+    pos.push(px, y, pz); uv.push(px / 3, pz / 3);
+    const alpha = 1 - smooth(0.82, 1.12, rings[r]), shade = 1 - 0.14 * smooth(0.7, 1.0, rings[r]);
+    col.push(shade, shade, shade, alpha * (o.alpha ?? 1));
+  }
+  for (let r = 0; r < rings.length - 1; r++) for (let s = 0; s < S; s++) { const i = r * S + s, j = r * S + ((s + 1) % S); idx.push(i, j, i + S, j, j + S, i + S); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 4)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx); geo.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(pos.length).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
+  const m = new THREE.Mesh(geo, softMat(mat)); m.receiveShadow = true; m.userData.path = true; m.renderOrder = o.order ?? 0; g.add(m);
+  void R; return m;
 }

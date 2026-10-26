@@ -27,7 +27,12 @@ export function VillageScene({ village }: { village: VillageView }) {
     const fw = baked?.m.w ?? 2400, fh = baked?.m.h ?? 1400;
     return { w, h, x: Math.max(0, Math.min(fw - w, v.x)), y: Math.max(0, Math.min(fh - h, v.y)) };
   };
-  const zoomAt = (fx: number, fy: number, k: number) => setView((v) => { const w = v.w / k; const n = clampView({ x: v.x + (v.w - w) * fx, y: v.y + (v.h - (w / HOME.w) * HOME.h) * fy, w, h: 0 }); return n; });
+  const zoomAt = (fx: number, fy: number, k: number) => setView((v) => {
+    const w = Math.min(HOME.w, Math.max(HOME.w / MAX_ZOOM, v.w / k));
+    if (Math.abs(w - v.w) < 0.5) return v;
+    const h = (w / HOME.w) * HOME.h;
+    return clampView({ x: v.x + (v.w - w) * fx, y: v.y + (v.h - h) * fy, w, h });
+  });
 
   useEffect(() => {
     let live = true;
@@ -157,7 +162,7 @@ export function VillageScene({ village }: { village: VillageView }) {
       else at = ps[0]!.s.foot ?? [ps[0]!.s.x + ps[0]!.s.w / 2, ps[0]!.s.y + ps[0]!.s.h];
       return { b, x: ((at[0] - VIEW.x) / VIEW.w) * 100, y: ((at[1] - VIEW.y) / VIEW.h) * 100 };
     }).filter((l) => l !== null && l.x > 2 && l.x < 98 && l.y > 2 && l.y < 98);
-  }, [baked, pieces, village.buildings]);
+  }, [baked, pieces, village.buildings, view]);
 
   return (
     <div class="village-scene" ref={wrap} onWheel={(e) => { e.preventDefault(); const r = canvas.current!.getBoundingClientRect(); zoomAt((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height, e.deltaY < 0 ? 1.15 : 1 / 1.15); }}>

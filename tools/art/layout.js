@@ -1,6 +1,6 @@
 // The village layout shared by the baker: where every building, home, tree and wall piece stands.
 import * as THREE from 'three';
-import { M, rnd, reseed, group, tree, pine, bush, rock, well, house, barrel, crate, box, cyl, fence, logs, gable, hay } from './lib.js';
+import { M, rnd, reseed, softRibbon, softDisc, group, tree, pine, bush, rock, well, house, barrel, crate, box, cyl, fence, logs, gable, hay } from './lib.js';
 import { B, wallRing, palisadeGate, stoneGate, gatehouse } from './buildings.js';
 
 export const RX = 18.5, RZ = 14, WALL_N = 28;
@@ -111,28 +111,19 @@ export const FARMS = (() => {
 })();
 export const OUTER_HOMES = FARMS.map((f) => [f.x, f.z]);
 
-function road(g, pts, w = 1.4, mat = M.dirt) {
-  for (let i = 0; i < pts.length - 1; i++) {
-    const [x1, z1] = pts[i], [x2, z2] = pts[i + 1];
-    const len = Math.hypot(x2 - x1, z2 - z1);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, len + w * 0.6), mat);
-    m.rotation.x = -Math.PI / 2; m.rotation.z = Math.atan2(x2 - x1, z2 - z1);
-    m.position.set((x1 + x2) / 2, 0.01 + i * 0.0005, (z1 + z2) / 2); m.receiveShadow = true; g.add(m);
-    const c = new THREE.Mesh(new THREE.CircleGeometry(w / 2, 16), mat); c.rotation.x = -Math.PI / 2; c.position.set(x2, 0.011, z2); c.receiveShadow = true; g.add(c);
-  }
-}
+/** Roads: soft ribbons. Ends that run off-screen stay full; ends that join something fade out. */
+function road(g, pts, w = 1.4, o = {}) { softRibbon(g, pts, w, { fade: o.fade ?? [w * 1.2, w * 1.6], ruts: w >= 1.5, taper: 0.25 }); }
 export function buildGround(root) {
   const gr = new THREE.Mesh(new THREE.PlaneGeometry(140, 140, 1, 1), M.grass.clone());
   gr.material.map = M.grass.map.clone(); gr.material.map.repeat.set(32, 32); gr.material.map.needsUpdate = true;
   gr.rotation.x = -Math.PI / 2; gr.receiveShadow = true; root.add(gr);
-  const inner = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshStandardMaterial({ color: 0x8a7a50, transparent: true, opacity: 0.18, roughness: 1, depthWrite: false }));
-  inner.rotation.x = -Math.PI / 2; inner.scale.set(RX - 1, RZ - 1, 1); inner.position.y = 0.005; root.add(inner);
-  road(root, [[0, 70], [0, 14], [0, 1.5], [0, -3.6]], 1.8);
+  softDisc(root, RX - 0.5, RZ - 0.5, M.dirt, 0, 0, { y: 0.005, alpha: 0.16, order: 0 });
+  road(root, [[0, 70], [0, 14], [0, 4.0]], 1.8, { fade: [0, 2.5] }); road(root, [[0, 0.0], [0, -3.6]], 1.6, { fade: [1.5, 2.5] });
   road(root, [[0, 1.5], [-6, 3.4], [-10.4, 2.6]]); road(root, [[0, 1.5], [6, 3.4], [10.6, 3.0]]);
   road(root, [[-6, 3.4], [-9.8, 8.4]]); road(root, [[6, 3.4], [9.8, 8.4]]);
   road(root, [[0, -1.2], [-8, -3.6]]); road(root, [[0, -1.2], [7.6, -3.8]]);
   for (const q of ROADS_OUT.slice(1)) road(root, q.pts, q.w);
-  const plaza = new THREE.Mesh(new THREE.CircleGeometry(4.2, 48), M.cobble); plaza.rotation.x = -Math.PI / 2; plaza.scale.y = 0.8; plaza.position.set(0, 0.02, 1.4); plaza.receiveShadow = true; root.add(plaza);
+  softDisc(root, 4.4, 3.5, M.cobble, 0, 1.4, { y: 0.02, order: 10 });
 }
 
 /** A building plot: stakes and a rope around the footprint. */
@@ -169,15 +160,7 @@ function field(root, x, z, w, d, rot, mat) {
   const m = new THREE.Mesh(geo, mat); m.rotation.x = -Math.PI / 2; m.rotation.z = rot; m.position.set(x, 0.018, z); m.receiveShadow = true; root.add(m);
 }
 /** A winding footpath from a to b. */
-function footpath(root, pts, w = 0.45) {
-  const curve = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)));
-  const N = 30, v = [];
-  let prevL, prevR;
-  for (let k = 0; k <= N; k++) { const p = curve.getPoint(k / N), d = curve.getTangent(k / N); const nx = -d.z, nz = d.x; const l = [p.x + nx * w / 2, p.z + nz * w / 2], r2 = [p.x - nx * w / 2, p.z - nz * w / 2]; if (prevL) v.push(prevL[0], 0.014, prevL[1], prevR[0], 0.014, prevR[1], l[0], 0.014, l[1], prevR[0], 0.014, prevR[1], r2[0], 0.014, r2[1], l[0], 0.014, l[1]); prevL = l; prevR = r2; }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-  const uv = []; for (let k = 0; k < v.length / 3; k++) uv.push(v[k * 3] / 3, v[k * 3 + 2] / 3); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
-  const m = new THREE.Mesh(g, M.dirt.clone()); m.material.side = THREE.DoubleSide; m.receiveShadow = true; m.userData.path = true; root.add(m);
-}
+function footpath(root, pts, w = 0.45) { softRibbon(root, pts, w * 1.15, { fade: [0.6, 1.4], taper: 0.5, alpha: 0.9, y: 0.014 }); }
 export function buildOuterHome(root, i) {
   const F = FARMS[i];
   reseed(F.seed);
@@ -225,14 +208,14 @@ export function forest() {
   reseed(4242);
   const out = [];
   const avoid = [[-27, -3.5, 6], [-20.5, 18.5, 5.5], [26.5, -5, 6], [23, 16, 6.5], [0, 21, 3], ...FARMS.flatMap((f) => [[f.x, f.z, 3.4], ...f.fields.map((R) => [R.x, R.z, Math.max(R.hw, R.hd) + 1.2]), ...f.path.filter((_, k) => k % 3 === 0).map(([x, z]) => [x, z, 1.1])])];
-  for (let i = 0; i < 520; i++) {
-    const x = (rnd() - 0.5) * 74, z = (rnd() - 0.5) * 60 - 2;
+  for (let i = 0; i < 1300; i++) {
+    const x = (rnd() - 0.5) * 100, z = (rnd() - 0.5) * 84 + 2;
     const k = rnd(), s = 0.9 + rnd() * 0.6;
     if (inEllipse(x, z, 1.22)) continue;
     if (Math.abs(x) < 2.4 && z > 10) continue;
     if (avoid.some(([ax, az, r]) => Math.hypot(x - ax, z - az) < r)) continue;
     if (ROADS_OUT.some((q) => polyDist(x, z, q.pts) < q.w / 2 + 1.3 * s) || ROADS_OUT.some((q) => polyDist(x, z - 1.6 * s, q.pts) < q.w / 2 + 0.6)) continue;
-    if (z > 20 && k < 0.7) continue;
+    if (z > 20 && Math.abs(x) < 24 && k < 0.6) continue;
     out.push({ x, z, s, kind: k < 0.45 ? 'pine' : 'tree', seed: i });
   }
   for (const [x, z] of [[-1.9, 11.4], [2.2, 12.0]]) out.push({ x, z, s: 0.75, kind: 'tree', seed: 900 + x });

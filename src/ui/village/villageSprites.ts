@@ -102,7 +102,7 @@ export function hits(b: Baked, s: Sprite, x: number, y: number): boolean {
   if (!a) return false;
   const lx = Math.floor(x - s.x), ly = Math.floor(y - s.y);
   if (lx < 0 || ly < 0 || lx >= s.w || ly >= s.h) return false;
-  return a.data[((s.sy + ly) * a.width + s.sx + lx) * 4 + 3]! > 60;
+  return a.data[((s.sy + ly) * a.width + s.sx + lx) * 4 + 3]! > 200;
 }
 
 export const project = (m: Manifest, x: number, y: number, z: number): [number, number, number] =>

@@ -3,10 +3,10 @@ import * as THREE from 'three';
 import {
   M, DUSK, rnd, blockers, gates, box, cyl, cone, group, gable, pyramid, windowZ, windowX, doorZ, chimney, torch, addLight, crenels, flag, bannerZ, house,
   barrel, crate, sack, hay, logs, fence, tree, pine, bush, rock, well, brazier, cart, person, horseFig, plaster, sh,
-  anim, hammering, chopping, waving, idle, talking, bending, drilling, burst, SPARK,
+  softDisc, softRibbon, anim, hammering, chopping, waving, idle, talking, bending, drilling, burst, SPARK,
 } from './lib.js';
 
-function patch(g, rx, rz, mat = M.dirt, x = 0, z = 0) { const m = new THREE.Mesh(new THREE.CircleGeometry(1, 40), mat); m.rotation.x = -Math.PI / 2; m.scale.set(rx, rz, 1); m.position.set(x, 0.012, z); m.receiveShadow = true; g.add(m); return m; }
+function patch(g, rx, rz, mat = M.dirt, x = 0, z = 0) { return softDisc(g, rx, rz, mat, x, z); }
 function slab(g, w, d, mat, x = 0, z = 0, ry = 0, y = 0.014) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat); m.rotation.x = -Math.PI / 2; m.rotation.z = ry; m.position.set(x, y, z); m.receiveShadow = true; g.add(m); return m; }
 
 export const B = {};
