@@ -130,7 +130,7 @@ B.barracks = (g, stage = 3) => {
   const t = group(g, 1.0, 3.9, 0); cyl(t, 0.32, 0.32, 0.06, M.cloth, 0, 0.4, 0, 16).rotation.x = Math.PI / 2; cyl(t, 0.2, 0.2, 0.07, M.red, 0, 0.4, 0, 16).rotation.x = Math.PI / 2;
   { const a = person(g, 1.0, 2.2, 0, { kind: 'archer' }); const L = a.userData.arms[0], Rr = a.userData.arms[1]; a.userData.busyArm = true;
     const arrow = box(g, 0.02, 0.02, 0.32, M.beam, 1.0, 0.62, 2.4); const ah = box(g, 0.04, 0.04, 0.06, M.steel, 0, 0, 0); arrow.add(ah); ah.position.set(0, 0, 0.17); g.remove(ah); arrow.add(ah);
-    anim((t) => { const c = (t / 2.6) % 1; const draw = c < 0.55 ? ease2(c / 0.55) : 0; L.rotation.x = -1.45; Rr.rotation.x = -1.45 + draw * 0.1; Rr.position.z = -draw * 0.18; a.userData.torso.rotation.y = -0.15;
+    arrow.userData.animated = true; anim((t) => { const c = (t / 3.2) % 1; const draw = c < 0.55 ? ease2(c / 0.55) : 0; L.rotation.x = -1.45; Rr.rotation.x = -1.45 + draw * 0.1; Rr.position.z = -draw * 0.18; a.userData.torso.rotation.y = -0.15;
       const fly = c >= 0.55 ? Math.min(1, (c - 0.55) / 0.12) : 0; arrow.position.set(1.0, 0.62 + Math.sin(fly * Math.PI) * 0.12, 2.5 + fly * 1.32); arrow.visible = c < 0.95; }); }
 };
 
@@ -378,7 +378,7 @@ B.wood = (g, stage = 3) => {
   if (stage >= 3) {
     shed(g, 4.4, -0.6, 2.6, 1.8, 1.7, M.roofBrown, 2); const bl = sh(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2.4, 10), M.wood)); bl.rotation.z = Math.PI / 2; bl.position.set(4.4, 0.5, -0.6); g.add(bl); box(g, 0.02, 0.6, 0.6, M.steel, 4.4, 0.4, -0.6);
   }
-  if (stage >= 3) { const sawer = person(g, 0.8, 1.45, 0, {}); sawer.userData.busyArm = true; const saw = box(g, 0.5, 0.06, 0.01, M.steel, 0.8, 0.72, 1.8); anim((t) => { const s = Math.sin(t * 6) * 0.15; saw.position.x = 0.8 + s; sawer.userData.arms[1].rotation.x = -1.0 + s; sawer.userData.arms[0].rotation.x = -1.0 + s; }); }
+  if (stage >= 3) { const sawer = person(g, 0.8, 1.45, 0, {}); sawer.userData.busyArm = true; const saw = box(g, 0.5, 0.06, 0.01, M.steel, 0.8, 0.72, 1.8); saw.userData.animated = true; anim((t) => { const s = Math.sin(t * ((2 * Math.PI) / 3.2) * 3) * 0.15; saw.position.x = 0.8 + s; sawer.userData.arms[1].rotation.x = -1.0 + s; sawer.userData.arms[0].rotation.x = -1.0 + s; }); }
 };
 
 // Leemgroeve: terraced clay pit, drying racks and a kiln
@@ -466,10 +466,10 @@ B.farm = (g, stage = 3) => {
   cyl(wm, 0.55, 0.8, 2.8, M.stone, 0, 0, 0, 10); cone(wm, 0.75, 0.9, M.thatch, 0, 2.8, 0, 10);
   const hub = group(wm, 0, 0, 0, 2.6); hub.position.z = 0.75;
   for (let i = 0; i < 4; i++) { const b = box(hub, 0.12, 1.6, 0.04, M.beam, 0, 0, 0); b.position.y = 0; b.geometry.translate(0, 0.8, 0); b.rotation.z = (i * Math.PI) / 2 + 0.4; const sail = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 1.3), M.cloth); sail.geometry.translate(0.26, 0.85, 0.03); sail.rotation.z = b.rotation.z; sail.material.side = THREE.DoubleSide; hub.add(sail); }
-  anim((t) => { hub.rotation.z = -t * 0.9; });
+  hub.userData.animated = true; anim((t) => { hub.rotation.z = -t * (Math.PI / 3.2); });
   }
   hay(g, 3.8, -0.4); hay(g, 4.3, 0, 0.35);
-  for (let i = 0; i < 5; i++) { const c = group(g, 0.2 + i * 0.28, 0.25 + (i % 2) * 0.3, rnd() * 6); const bd = sh(new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4), M.cloth)); bd.position.y = 0.1; c.add(bd); const hd = group(c, 0, 0, 0, 0.16); hd.position.z = 0.07; const hm = sh(new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 4), M.cloth)); hm.position.z = 0.03; hd.add(hm); const bk = new THREE.Mesh(new THREE.ConeGeometry(0.015, 0.04, 4), M.gold); bk.rotation.x = Math.PI / 2; bk.position.z = 0.08; hd.add(bk); const ph = rnd() * 5; anim((t) => { const k = Math.max(0, Math.sin(t * 5 + ph)) ** 6; hd.rotation.x = k * 1.1; hd.position.y = 0.16 - k * 0.06; c.rotation.y += Math.sin(t * 0.7 + ph) * 0.004; }); }
+  for (let i = 0; i < 5; i++) { const c = group(g, 0.2 + i * 0.28, 0.25 + (i % 2) * 0.3, rnd() * 6); c.userData.animated = true; const r0 = c.rotation.y; const bd = sh(new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4), M.cloth)); bd.position.y = 0.1; c.add(bd); const hd = group(c, 0, 0, 0, 0.16); hd.position.z = 0.07; const hm = sh(new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 4), M.cloth)); hm.position.z = 0.03; hd.add(hm); const bk = new THREE.Mesh(new THREE.ConeGeometry(0.015, 0.04, 4), M.gold); bk.rotation.x = Math.PI / 2; bk.position.z = 0.08; hd.add(bk); const ph = rnd() * 5; anim((t) => { const k = Math.max(0, Math.sin(t * ((2 * Math.PI) / 3.2) * 3 + ph)) ** 6; hd.rotation.x = k * 1.1; hd.position.y = 0.16 - k * 0.06; c.rotation.y = r0 + Math.sin(t * ((2 * Math.PI) / 3.2) + ph) * 0.3; }); }
   bending(person(g, -2.4, 2.0, 0.3, { carry: 'basket' })); bending(person(g, 1.3, 2.3, -0.5, {}), 0.5); talking(person(g, 0.4, 0.9, 2.6, { carry: 'sack' }));
 };
 

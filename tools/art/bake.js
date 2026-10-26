@@ -6,7 +6,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { DUSK, lights, anims, people, blockers, gates, reseed, opts } from './lib.js';
+import { DUSK, lights, anims, smokes, people, blockers, gates, reseed, opts, LOOP, person, walkPose, group, box, M } from './lib.js';
 import * as L from './layout.js';
 
 opts.noPeople = new URLSearchParams(location.search).get('people') !== '1';
@@ -37,19 +37,20 @@ function worldBox(obj, filter) {
   obj.traverse((o) => { if (o.isMesh && o.visible && filter(o)) { b.setFromObject(o); box.union(b); } });
   return box;
 }
+const isAnimated = (o) => { for (let q = o; q; q = q.parent) if (q.userData?.animated) return true; return false; };
 const isFlat = (o) => { const b = new THREE.Box3().setFromObject(o); return b.max.y < 0.09 && b.max.y - b.min.y < 0.07; };
 
 /**
  * Render `root` (already built in world coordinates). part: 'all' | 'decal' (flat ground pieces only) | 'body' (the rest, with shadows).
  * Returns null when nothing is visible.
  */
-function shoot(root, part, anchor, { shadows = true, ao = true } = {}) {
-  root.traverse((o) => { if (o.isMesh) o.visible = part === 'all' || (part === 'decal' ? isFlat(o) : !isFlat(o)); });
-  const box = worldBox(root, () => true);
+function shoot(root, part, anchor, { shadows = true, ao = true, fixedBox = null, keepScene = false, mustDraw = part === 'all' || part === 'body', shadowH = Infinity } = {}) {
+  if (part !== 'frames') root.traverse((o) => { if (o.isMesh) o.visible = !isAnimated(o) && (part === 'all' || (part === 'decal' ? isFlat(o) : !isFlat(o))); });
+  const box = fixedBox ?? worldBox(root, () => true);
   if (box.isEmpty()) return null;
   // the sprite must also hold the shadow: extend the box by the top corners projected along the sun
   const ext = box.clone();
-  if (part !== 'decal' && shadows) for (const x of [box.min.x, box.max.x]) for (const z of [box.min.z, box.max.z]) { const k = box.max.y / SUN.y; ext.expandByPoint(new THREE.Vector3(x - SUN.x * k, 0, z - SUN.z * k)); }
+  if (part !== 'decal' && shadows) for (const x of [box.min.x, box.max.x]) for (const z of [box.min.z, box.max.z]) { const k = Math.min(box.max.y, shadowH) / SUN.y; ext.expandByPoint(new THREE.Vector3(x - SUN.x * k, 0, z - SUN.z * k)); }
   let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity;
   for (const x of [ext.min.x, ext.max.x]) for (const y of [ext.min.y, ext.max.y]) for (const z of [ext.min.z, ext.max.z]) { const q = toCam(new THREE.Vector3(x, y, z)); a = Math.min(a, q.x); b = Math.max(b, q.x); c = Math.min(c, q.y); d = Math.max(d, q.y); }
   // snap to the global pixel grid, with a pixel of margin
@@ -57,6 +58,7 @@ function shoot(root, part, anchor, { shadows = true, ao = true } = {}) {
   const py0 = Math.floor((G.maxY - d) * PPU) - 2, py1 = Math.ceil((G.maxY - c) * PPU) + 2;
   const w = px1 - px0, h = py1 - py0;
   const scene = new THREE.Scene();
+  const parent = root.parent;
   scene.add(root);
   if (part !== 'decal' && shadows) {
     const sc = new THREE.Mesh(new THREE.PlaneGeometry(ext.max.x - ext.min.x + 2, ext.max.z - ext.min.z + 2), new THREE.ShadowMaterial({ opacity: DUSK ? 0.42 : 0.3 }));
@@ -78,6 +80,7 @@ function shoot(root, part, anchor, { shadows = true, ao = true } = {}) {
     const pl = new THREE.PointLight(l.col, l.i, l.d, 1.8); pl.position.copy(p); scene.add(pl);
     const q = toCam(p); glow.push({ x: Math.round((q.x - G.minX) * PPU), y: Math.round((G.maxY - q.y) * PPU), r: Math.round(l.d * PPU * 0.55), i: l.i, col: '#' + new THREE.Color(l.col).getHexString() });
   }
+  const smoke = part === 'decal' || part === 'frames' ? [] : smokes.map((m) => { m.obj.updateWorldMatrix(true, false); const q = toCam(m.p.clone().applyMatrix4(m.obj.matrixWorld)); return [Math.round((q.x - G.minX) * PPU), Math.round((G.maxY - q.y) * PPU)]; });
   const sub = cam.clone();
   Object.assign(sub, { left: G.minX + px0 / PPU, right: G.minX + px1 / PPU, top: G.maxY - py0 / PPU, bottom: G.maxY - py1 / PPU });
   sub.updateProjectionMatrix();
@@ -92,17 +95,62 @@ function shoot(root, part, anchor, { shadows = true, ao = true } = {}) {
     composer.dispose(); pass.dispose?.(); rt.dispose();
   } else renderer.render(scene, sub);
   const data = renderer.domElement.toDataURL('image/png');
+  if (mustDraw) {
+    // a lost/garbled GPU context renders nothing: fail loudly so the driver retries on a fresh page
+    const gl = renderer.getContext(), px = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    let any = false; for (let i = 3; i < px.length; i += 16) if (px[i] > 8) { any = true; break; }
+    if (!any) throw new Error('blank render');
+  }
   const depth = anchor ? toCam(anchor).z : 0;
-  scene.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
-  return { data, x: px0, y: py0, w, h, depth, glow };
+  sun.shadow.dispose(); renderer.renderLists.dispose();
+  if (keepScene) { scene.remove(root); if (parent) parent.add(root); } else scene.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
+  return { data, x: px0, y: py0, w, h, depth, glow, smoke };
 }
 
-function fresh() { for (const a of [lights, anims, people, blockers, gates]) a.length = 0; return new THREE.Group(); }
+function fresh() { for (const a of [lights, anims, smokes, people, blockers, gates]) a.length = 0; return new THREE.Group(); }
 function settle() { for (const f of anims) f(0.6); }
 const ground0 = new THREE.Vector3();
 
+const OCCLUDER = new THREE.MeshBasicMaterial({ colorWrite: new URLSearchParams(location.search).get("debug") === "1", color: 0xff0000 });
+const FRAMES = 32;
+/** Animated pieces of `root` over one loop, in small clusters; everything else only hides what is behind it. */
+function frames(root, keyBase, anchor) {
+  root.updateMatrixWorld(true);
+  root.traverse((o) => { if (o.isMesh && !isAnimated(o)) { o.material = OCCLUDER; o.castShadow = false; } });
+  // top-most animated objects
+  // only things on the ground cast shadows here (flags and flames up high would smear long shadows across the frame)
+  root.traverse((o) => { if (o.isMesh && isAnimated(o)) { const b = new THREE.Box3().setFromObject(o); if (b.min.y > 0.3) o.castShadow = false; } });
+  const tops = [];
+  root.traverse((o) => { if (o.userData?.animated && !(o.parent && isAnimated(o.parent))) tops.push(o); });
+  const at = (k) => { for (const f of anims) f(LOOP + (k * LOOP) / FRAMES); root.updateMatrixWorld(true); };
+  // the box each sweeps through over the loop
+  const sweeps = tops.map(() => new THREE.Box3());
+  for (let k = 0; k < FRAMES; k++) { at(k); tops.forEach((t, i) => sweeps[i].union(worldBox(t, () => true))); }
+  // cluster objects whose boxes (padded) touch
+  const live = tops.map((t, i) => i).filter((i) => !sweeps[i].isEmpty());
+  const groups = live.map((i) => ({ box: sweeps[i].clone().expandByScalar(0.25), items: [i] }));
+  for (let merged = true; merged;) {
+    merged = false;
+    for (let a = 0; a < groups.length && !merged; a++) for (let b = a + 1; b < groups.length; b++) if (groups[a].box.intersectsBox(groups[b].box)) { groups[a].box.union(groups[b].box); groups[a].items.push(...groups[b].items); groups.splice(b, 1); merged = true; break; }
+  }
+  const out = [];
+  groups.forEach((gr, ci) => {
+    const box = new THREE.Box3(); for (const i of gr.items) box.union(sweeps[i]);
+    const mine = new Set(gr.items.map((i) => tops[i]));
+    for (let k = 0; k < FRAMES; k++) {
+      at(k);
+      for (const t of tops) if (!mine.has(t)) t.visible = false; else t.visible = true;
+      const r = shoot(root, 'frames', anchor, { ao: false, fixedBox: box, keepScene: true, shadowH: 1.4 });
+      if (r) out.push({ key: `${keyBase}~${ci}~${k}`, ...r, glow: [], smoke: [] });
+    }
+  });
+  return out;
+}
+
 /** One bake job → sprite(s). */
 window.bake = (job) => {
+  opts.noPeople = !job.anim && job.type !== 'walker';
   reseed(9000 + [...JSON.stringify(job)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7));
   const root = fresh();
   if (job.type === 'ground') {
@@ -117,6 +165,13 @@ window.bake = (job) => {
   }
   const out = [];
   const take = (key, part, anchor, o) => { const r = shoot(root, part, anchor, o); if (r) out.push({ key, ...r }); };
+  if (job.anim) opts.noPeople = false;
+  if (job.type === 'building' && job.anim) {
+    const g = L.buildBuilding(root, job.id, job.stage);
+    return frames(root, `${job.id}@${job.stage}`, g.getWorldPosition(new THREE.Vector3()));
+  }
+  if (job.type === 'gate' && job.anim) { L.buildGate(root, job.kind); return frames(root, `gate-${job.kind}`, new THREE.Vector3(L.GATE[0], 0, L.GATE[1])); }
+  if (job.type === 'walker') return walker(job);
   if (job.type === 'building') {
     const g = L.buildBuilding(root, job.id, job.stage); settle();
     const anchor = g.getWorldPosition(new THREE.Vector3());
@@ -146,7 +201,40 @@ window.bake = (job) => {
   void ground0;
   return out;
 };
+/** A figure walking in 16 directions × 8 steps (+ standing), at the origin; the game moves it around. */
+const WALK_STEPS = 8, DIRS = 16;
+function walker(job) {
+  const out = [];
+  for (let d = 0; d < DIRS; d++) {
+    for (let k = 0; k <= WALK_STEPS; k++) {
+      for (const a of [lights, anims, people, blockers, gates]) a.length = 0;
+      reseed(job.seed ?? 5);
+      const root = new THREE.Group();
+      const ry = (d / DIRS) * Math.PI * 2;
+      let fig;
+      if (job.kind === 'barrow') {
+        const wb = group(root, 0, 0, ry);
+        fig = person(wb, 0, -0.45, 0, {}); fig.userData.busyArm = true; fig.userData.arms[0].rotation.x = -0.55; fig.userData.arms[1].rotation.x = -0.55;
+        box(wb, 0.42, 0.22, 0.55, M.woodLight, 0, 0.18, 0.15); for (const s of [-1, 1]) box(wb, 0.04, 0.04, 0.5, M.beam, s * 0.17, 0.32, -0.2);
+        const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.05, 12), M.wood); wh.rotation.z = Math.PI / 2; wh.position.set(0, 0.13, 0.5); wh.castShadow = true; wb.add(wh);
+        for (let i = 0; i < 3; i++) { const sk = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 4), M.cloth); sk.position.set(-0.1 + i * 0.1, 0.42, 0.12 + (i % 2) * 0.1); sk.castShadow = true; wb.add(sk); }
+        wh.rotation.x = k * 0.8;
+      } else fig = person(root, 0, 0, ry, { kind: job.kind, carry: job.carry, color: job.color });
+      const dist = (k / WALK_STEPS) * ((2 * Math.PI) / 9.5);
+      walkPose(fig, dist, k < WALK_STEPS);
+      const r = shoot(root, 'frames', new THREE.Vector3(0, 0, 0), { ao: false, mustDraw: true });
+      if (r) out.push({ key: `walk-${job.name}-${d}-${k}`, ...r });
+    }
+  }
+  return out;
+}
 window.FRAME = FRAME; window.PPU = PPU;
+/** World (x, y, z) → scene pixels and depth, as an affine map: [ax, ay, az, c] per output. */
+window.proj = (() => {
+  const f = (x, y, z) => { const q = toCam(new THREE.Vector3(x, y, z)); return [(q.x - G.minX) * PPU, (G.maxY - q.y) * PPU, q.z]; };
+  const o = f(0, 0, 0), X = f(1, 0, 0), Y = f(0, 1, 0), Z = f(0, 0, 1);
+  return [0, 1, 2].map((i) => [X[i] - o[i], Y[i] - o[i], Z[i] - o[i], o[i]]);
+})();
 window.forestCells = (cell = 3.5) => {
   const all = L.forest(), cells = new Map();
   all.forEach((t, i) => { const k = `${Math.floor(t.x / cell)},${Math.floor(t.z / cell)}`; if (!cells.has(k)) cells.set(k, []); cells.get(k).push(i); });

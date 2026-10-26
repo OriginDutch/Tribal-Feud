@@ -168,7 +168,10 @@ export const plaster = (w) => {
 export const lights = [];
 export const movers = [];
 export const people = [];
-export const anims = []; // (t) => void, called every frame
+/** Every animation loops in exactly LOOP seconds, so baked frames repeat seamlessly. */
+export const LOOP = 3.2, W = (2 * Math.PI) / LOOP;
+export const anims = [];
+export const smokes = []; // chimney tops: the game draws the smoke // (t) => void, called every frame
 export const anim = (fn) => anims.push(fn);
 export const flames = []; // { mesh, light? } for flicker
 export const blockers = []; // { obj, x0, x1, z0, z1 } solid boxes in obj's local space
@@ -261,10 +264,11 @@ export function doorZ(g, x, y, z, w = 0.6, h = 0.95, mat = M.wood) {
 }
 export function chimney(g, x, y, z, h, smoke = true) {
   box(g, 0.55, h, 0.55, M.stone, x, y, z); box(g, 0.7, 0.14, 0.7, M.stone, x, y + h, z);
+  if (smoke) smokes.push({ obj: g, p: new THREE.Vector3(x, y + h + 0.2, z) });
   if (smoke) for (let i = 0; i < 4; i++) {
     const s = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 1), new THREE.MeshStandardMaterial({ color: 0xcfc8bb, transparent: true, opacity: 0.4, roughness: 1, depthWrite: false }));
-    g.add(s); const off = i / 4 + rnd() * 0.05;
-    anim((t) => { const c = (t * 0.22 + off) % 1; s.position.set(x + c * 0.9, y + h + 0.25 + c * 2.2, z - c * 0.3); s.scale.setScalar(0.6 + c * 1.6); s.material.opacity = 0.45 * Math.sin(Math.PI * Math.min(1, c * 1.15)); });
+    g.add(s); s.userData.animated = true; s.userData.smoke = true; s.visible = false; const off = i / 4 + rnd() * 0.05;
+    anim((t) => { const c = (t / LOOP + off) % 1; s.position.set(x + c * 0.9, y + h + 0.25 + c * 2.2, z - c * 0.3); s.scale.setScalar(0.6 + c * 1.6); s.material.opacity = 0.45 * Math.sin(Math.PI * Math.min(1, c * 1.15)); s.visible = false; });
   }
 }
 export function torch(g, x, y, z, k = 1) {
@@ -274,7 +278,7 @@ export function torch(g, x, y, z, k = 1) {
   flicker(f);
   if (DUSK) addLight(g, x, y + 0.75, z + 0.3, 0xff9a3a, 3.2 * k, 5);
 }
-export function flicker(f) { const y0 = f.position.y, ph = rnd() * 9; anim((t) => { const k = 1 + Math.sin(t * 17 + ph) * 0.12 + Math.sin(t * 29 + ph * 2) * 0.08; f.scale.set(1 / Math.sqrt(k), k, 1 / Math.sqrt(k)); f.position.y = y0 + (k - 1) * 0.1; f.rotation.y = t * 2 + ph; }); }
+export function flicker(f) { f.userData.animated = true; const y0 = f.position.y, ph = rnd() * 9; anim((t) => { const k = 1 + Math.sin(t * W * 9 + ph) * 0.12 + Math.sin(t * W * 15 + ph * 2) * 0.08; f.scale.set(1 / Math.sqrt(k), k, 1 / Math.sqrt(k)); f.position.y = y0 + (k - 1) * 0.1; f.rotation.y = t * W + ph; }); }
 export function addLight(g, x, y, z, col, i, d) { const p = new THREE.Vector3(x, y, z); lights.push({ obj: g, p, col, i, d }); }
 export function crenels(g, x, y, z, w, d, sides = 'all') {
   box(g, w + 0.3, 0.25, d + 0.3, M.stone, x, y, z);
@@ -287,9 +291,9 @@ export function flag(g, x, y, z, mat = M.gold, h = 1.6) {
   const geo = new THREE.PlaneGeometry(0.9, 0.55, 6, 2);
   const p = geo.attributes.position;
   for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin((p.getX(i) + 0.45) * 5) * 0.06);
-  const m = new THREE.Mesh(geo, mat); m.position.set(x + 0.48, y + h - 0.3, z); m.castShadow = true; g.add(m);
+  const m = new THREE.Mesh(geo, mat); m.position.set(x + 0.48, y + h - 0.3, z); m.castShadow = true; m.userData.animated = true; g.add(m);
   const base = p.array.slice(), ph = rnd() * 6;
-  anim((t) => { for (let i = 0; i < p.count; i++) { const u = base[i * 3] + 0.45; p.setZ(i, Math.sin(u * 6 - t * 7 + ph) * 0.09 * u); } p.needsUpdate = true; geo.computeVertexNormals(); });
+  anim((t) => { for (let i = 0; i < p.count; i++) { const u = base[i * 3] + 0.45; p.setZ(i, Math.sin(u * 6 - t * W * 4 + ph) * 0.09 * u); } p.needsUpdate = true; geo.computeVertexNormals(); });
 }
 export function bannerZ(g, x, y, z, mat = M.gold, w = 0.5, h = 1.1) { const b = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); b.position.set(x, y, z); g.add(b); const t = new THREE.Mesh(new THREE.ConeGeometry(w * 0.36, h * 0.2, 3), mat); void t; }
 
@@ -375,7 +379,7 @@ export function person(g, x, z, ry = 0, o = {}) {
   people.push(p);
   const tunic = std({ color: o.color ?? (kind === 'soldier' || kind === 'knight' ? 0x8a2d22 : TUNICS[Math.floor(rnd() * TUNICS.length)]) });
   const legs = std({ color: kind === 'soldier' ? 0x3a3530 : 0x4a3a2a });
-  const U = (p.userData = { legs: [], arms: [] });
+  const U = (p.userData = { legs: [], arms: [], animated: true });
   for (const s of [-1, 1]) { const lg = new THREE.CylinderGeometry(0.05, 0.045, 0.34, 6); lg.translate(0, -0.17, 0); const l = sh(new THREE.Mesh(lg, legs)); l.position.set(s * 0.07, 0.34, 0); p.add(l); U.legs.push(l); }
   const torso = group(p, 0, 0, 0); U.torso = torso;
   const body = sh(new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.16, 0.36, 8), tunic)); body.position.y = 0.5; torso.add(body);
@@ -409,6 +413,7 @@ export function walkPose(p, dist, moving) {
 /** A low-poly horse, 1.2 long, facing +x. graze: lowers its head now and then. */
 export function horseFig(g, x, z, ry = 0, mat = M.horse, o = {}) {
   const h = group(g, x, z, ry);
+  h.userData.animated = true;
   box(h, 0.9, 0.38, 0.32, mat, 0, 0.55, 0);
   for (const [lx, lz] of [[-0.35, -0.11], [-0.35, 0.11], [0.35, -0.11], [0.35, 0.11]]) box(h, 0.08, 0.55, 0.08, mat, lx, 0, lz);
   const neck = group(h, 0.36, 0, 0, 0.82); // pivot at the shoulder
@@ -420,9 +425,9 @@ export function horseFig(g, x, z, ry = 0, mat = M.horse, o = {}) {
   tail.rotation.z = 0.35;
   const seed0 = rnd() * 10;
   anim((t) => {
-    tail.rotation.x = Math.sin(t * 3.1 + seed0) * 0.35 * Math.max(0, Math.sin(t * 0.9 + seed0));
-    if (o.graze) { const c = (t * 0.35 + seed0 / 10) % 1; const down = c < 0.5 ? Math.sin(c * 2 * Math.PI) : 0; neck.rotation.z = -down * 1.1; }
-    else neck.rotation.z = Math.sin(t * 0.8 + seed0) * 0.06;
+    tail.rotation.x = Math.sin(t * W * 2 + seed0) * 0.35 * Math.max(0, Math.sin(t * W + seed0));
+    if (o.graze) { const c = (t / LOOP + seed0 / 10) % 1; const down = c < 0.5 ? Math.sin(c * 2 * Math.PI) : 0; neck.rotation.z = -down * 1.1; }
+    else neck.rotation.z = Math.sin(t * W + seed0) * 0.06;
   });
   return h;
 }
@@ -431,6 +436,7 @@ export function horseFig(g, x, z, ry = 0, mat = M.horse, o = {}) {
 const ease = (x) => x * x * (3 - 2 * x);
 /** Raise the right arm and bring it down hard every `period` s; onHit fires at the strike. */
 export function hammering(p, period = 1.1, ph = rnd(), onHit = null, big = false) {
+  period = LOOP / Math.max(1, Math.round(LOOP / period));
   const A = p.userData.arms[1]; p.userData.busyArm = true;
   let last = -1;
   anim((t) => {
@@ -448,10 +454,10 @@ export function chopping(p, period = 1.4, ph = rnd(), onHit) {
   const L = p.userData.arms[0];
   anim((t) => { L.rotation.x = p.userData.arms[1].rotation.x * 0.9; L.rotation.z = -0.35; });
 }
-export function waving(p, ph = rnd()) { const A = p.userData.arms[1]; p.userData.busyArm = true; anim((t) => { const on = Math.sin(t * 0.9 + ph * 6) > -0.2; A.rotation.x = on ? -2.3 + Math.sin(t * 7) * 0.25 : -0.1; A.rotation.z = on ? 0.35 : 0.15; }); }
-export function idle(p, ph = rnd()) { anim((t) => { p.userData.torso.rotation.y = Math.sin(t * 0.7 + ph * 9) * 0.18; p.userData.head.rotation.y = Math.sin(t * 1.1 + ph * 5) * 0.4; p.userData.torso.rotation.z = Math.sin(t * 0.5 + ph * 7) * 0.025; });  return p; }
-export function talking(p, ph = rnd()) { idle(p, ph); const A = p.userData.arms[0]; anim((t) => { const k = Math.max(0, Math.sin(t * 1.6 + ph * 7)); A.rotation.x = -k * 1.0 + Math.sin(t * 5) * 0.12 * k; A.rotation.z = -0.15 - k * 0.3; }); }
-export function bending(p, ph = rnd()) { const T = p.userData.torso; anim((t) => { const c = (t * 0.4 + ph) % 1; T.rotation.x = c < 0.5 ? Math.sin(c * 2 * Math.PI) * 0.6 : 0; p.userData.arms[1].rotation.x = -T.rotation.x * 1.4; }); }
+export function waving(p, ph = rnd()) { const A = p.userData.arms[1]; p.userData.busyArm = true; anim((t) => { const on = Math.sin(t * W + ph * 6) > -0.2; A.rotation.x = on ? -2.3 + Math.sin(t * W * 4) * 0.25 : -0.1; A.rotation.z = on ? 0.35 : 0.15; }); }
+export function idle(p, ph = rnd()) { anim((t) => { p.userData.torso.rotation.y = Math.sin(t * W + ph * 9) * 0.18; p.userData.head.rotation.y = Math.sin(t * W + ph * 5) * 0.4; p.userData.torso.rotation.z = Math.sin(t * W + ph * 7) * 0.025; });  return p; }
+export function talking(p, ph = rnd()) { idle(p, ph); const A = p.userData.arms[0]; anim((t) => { const k = Math.max(0, Math.sin(t * W + ph * 7)); A.rotation.x = -k * 1.0 + Math.sin(t * W * 3) * 0.12 * k; A.rotation.z = -0.15 - k * 0.3; }); }
+export function bending(p, ph = rnd()) { const T = p.userData.torso; anim((t) => { const c = (t / LOOP + ph) % 1; T.rotation.x = c < 0.5 ? Math.sin(c * 2 * Math.PI) * 0.6 : 0; p.userData.arms[1].rotation.x = -T.rotation.x * 1.4; }); }
 /** Spear drill: lower spears together, thrust twice, raise again. */
 export function drilling(p, period = 3.2) {
   const A = p.userData.arms[1], S = p.userData.spear; p.userData.busyArm = true;
@@ -467,7 +473,7 @@ export function drilling(p, period = 3.2) {
 /** Sparks / chips: a few bits that fly out from a point after a hit. */
 export function burst(g, x, y, z, mat, n = 6, spread = 0.6) {
   const bits = [];
-  for (let i = 0; i < n; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.035), mat); b.visible = false; g.add(b); bits.push({ b, vx: (rnd() - 0.5) * spread * 2, vy: 0.6 + rnd() * 0.9, vz: (rnd() - 0.5) * spread * 2 }); }
+  for (let i = 0; i < n; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.035), mat); b.visible = false; b.userData.animated = true; g.add(b); bits.push({ b, vx: (rnd() - 0.5) * spread * 2, vy: 0.6 + rnd() * 0.9, vz: (rnd() - 0.5) * spread * 2 }); }
   let t0 = -9;
   anim((t) => { const dt = t - t0; for (const s of bits) { s.b.visible = dt < 0.45; if (!s.b.visible) continue; s.b.position.set(x + s.vx * dt, y + s.vy * dt - 4.5 * dt * dt, z + s.vz * dt); } });
   return (t) => { t0 = t; };
