@@ -1,3 +1,4 @@
+import { rescheduleBotRecruits } from './village';
 import { initDiplomacy } from './tribes';
 import { PRESETS, defaultTables } from '../shared/config';
 import { UNIT_IDS, type UnitId } from '../shared/gameData';
@@ -12,7 +13,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 export interface SaveData {
   version: number;
@@ -149,6 +150,11 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
   11: (data) => {
     initDiplomacy(data.state);
     return { ...data, version: 12 };
+  },
+  // v12 had an event per recruited unit for bots too: give every bot job its single end event.
+  12: (data) => {
+    rescheduleBotRecruits(data.state);
+    return { ...data, version: 13 };
   },
 };
 

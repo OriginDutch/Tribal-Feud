@@ -2,8 +2,8 @@ import { onDiplomacy } from './tribes';
 import { MINUTE, type Speed } from '../shared/time';
 import { peek, pop, push } from './eventQueue';
 import { nextInt } from './rng';
-import { addLog, type GameEvent, type LogEntry, type WorldState } from './state';
-import { onBuildDone, onRecruitTick, onResearchDone } from './village';
+import { addLog, villagesOf, type GameEvent, type LogEntry, type WorldState } from './state';
+import { onBuildDone, onRecruitTick, onResearchDone, settleRecruits } from './village';
 import { onArrive } from './movement';
 import { checkQuests } from './quests';
 import { onBotTurn } from './bots';
@@ -26,8 +26,34 @@ export function schedule(state: WorldState, delayMs: number, event: GameEvent): 
   push(state.queue, state.time + delayMs, event);
 }
 
+/**
+ * Brings the villages an event is about to look at up to date (lazily settled recruiting).
+ * Everything that reads troops runs inside an event or a command, so this is the one place.
+ */
+function touch(state: WorldState, event: GameEvent): void {
+  const at = (id: number | undefined) => {
+    const v = id !== undefined ? state.villages[id] : undefined;
+    if (v) settleRecruits(state, v, true);
+  };
+  switch (event.kind) {
+    case 'build':
+    case 'research':
+      at(event.villageId);
+      return;
+    case 'arrive': {
+      const m = state.movements[event.movementId];
+      if (m) { at(m.from); at(m.to); }
+      return;
+    }
+    case 'botTurn':
+      for (const v of villagesOf(state, event.playerId)) settleRecruits(state, v, true);
+      return;
+  }
+}
+
 /** Handles one event. Returns a log entry for debug events; game events log themselves. */
 function handle(state: WorldState, event: GameEvent): LogEntry | null {
+  touch(state, event);
   switch (event.kind) {
     case 'build':
       onBuildDone(state, event.villageId, event.jobId);

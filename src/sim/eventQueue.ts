@@ -1,12 +1,16 @@
 /**
  * Min-heap of scheduled events, ordered by game time.
- * Ties are broken by insertion order (seq), so processing is deterministic.
+ * Ties are broken by insertion order (seq), so processing is deterministic, with one rule on top:
+ * at the same moment, finished recruits come last ("late" items). Everything else that happens
+ * at time T sees the units finished before T; units finished at exactly T arrive just after.
  * Plain data: the whole queue serializes to JSON as-is.
  */
 
 export interface Scheduled<T> {
   time: number;
   seq: number;
+  /** Sorts after other items at the same time (finished recruits). */
+  late?: 1;
   event: T;
 }
 
@@ -20,7 +24,9 @@ export function createQueue<T>(): EventQueue<T> {
 }
 
 function before<T>(a: Scheduled<T>, b: Scheduled<T>): boolean {
-  return a.time < b.time || (a.time === b.time && a.seq < b.seq);
+  if (a.time !== b.time) return a.time < b.time;
+  if ((a.late ?? 0) !== (b.late ?? 0)) return !a.late;
+  return a.seq < b.seq;
 }
 
 function at<T>(q: EventQueue<T>, i: number): Scheduled<T> {
@@ -38,6 +44,7 @@ function swap<T>(q: EventQueue<T>, i: number, j: number): void {
 export function push<T>(q: EventQueue<T>, time: number, event: T): Scheduled<T> {
   if (!Number.isFinite(time)) throw new Error(`eventQueue: invalid time ${time}`);
   const item: Scheduled<T> = { time, seq: q.nextSeq++, event };
+  if ((event as { kind?: string }).kind === 'recruit') item.late = 1;
   q.heap.push(item);
   let i = q.heap.length - 1;
   while (i > 0) {

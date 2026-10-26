@@ -32,7 +32,7 @@ import {
   researchTimeMs,
   storageCapacity,
 } from './formulas';
-import { addLog, nextId, type WorldState } from './state';
+import { HUMAN_ID, addLog, nextId, type WorldState } from './state';
 import { buildingReward } from './quests';
 
 export interface BuildJob {
@@ -471,6 +471,50 @@ function jobEnd(job: RecruitJob): number {
   return job.nextAt + (job.total - job.done - 1) * job.perUnit;
 }
 
+/**
+ * Recruiting is settled lazily: units count as done the moment their time has come, but they
+ * are written into the village only when something looks at it (an event at the village, a bot
+ * turn, a command). Same outcome as one event per unit, without the events.
+ * The human player keeps an event per unit, so quests and the screen stay live; bots get one
+ * event per job, at its last unit.
+ *
+ * `before`: count only units finished before now. Other events at time T run before the
+ * recruits finishing at T (see eventQueue), so they must not see those units yet.
+ */
+export function settleRecruits(state: WorldState, v: Village, before = false): void {
+  const limit = before ? state.time - 1 : state.time;
+  for (const b of RECRUIT_BUILDINGS) {
+    const queue = v.recruitQueues[b];
+    for (let job = queue[0]; job && job.nextAt <= limit; job = queue[0]) {
+      const n = Math.min(job.total - job.done, Math.floor((limit - job.nextAt) / job.perUnit) + 1);
+      v.units[job.unit] += n;
+      job.done += n;
+      if (job.done < job.total) {
+        job.nextAt += n * job.perUnit;
+        break;
+      }
+      queue.shift();
+      if (v.owner === HUMAN_ID) {
+        const name = state.config.units[job.unit].name;
+        addLog(state, { time: state.time, text: `${v.name}: ${job.total}× ${name} klaar.` });
+      }
+    }
+  }
+}
+
+/** Old saves: bot jobs had an event per unit; give each one an event at its end. */
+export function rescheduleBotRecruits(state: WorldState): void {
+  for (const v of Object.values(state.villages)) {
+    if (v.owner === HUMAN_ID) continue;
+    for (const b of RECRUIT_BUILDINGS) for (const job of v.recruitQueues[b]) scheduleRecruit(state, v, job);
+  }
+}
+
+/** When a job needs its next event: every unit for the human, only the last one for bots. */
+function scheduleRecruit(state: WorldState, v: Village, job: RecruitJob): void {
+  push(state.queue, v.owner === HUMAN_ID ? job.nextAt : jobEnd(job), { kind: 'recruit', villageId: v.id, jobId: job.id });
+}
+
 function paladinsOwned(state: WorldState, owner: number): number {
   let n = 0;
   for (const v of Object.values(state.villages)) {
@@ -536,7 +580,7 @@ export function recruit(state: WorldState, villageId: number, u: UnitId, count: 
     costPer: def.cost,
   };
   queue.push(job);
-  push(state.queue, job.nextAt, { kind: 'recruit', villageId: v.id, jobId: job.id });
+  scheduleRecruit(state, v, job);
   return null;
 }
 
@@ -545,21 +589,18 @@ export function recruit(state: WorldState, villageId: number, u: UnitId, count: 
  * every unit after it uses the new speed.
  */
 function retimeRecruitQueue(state: WorldState, v: Village, b: RecruitBuilding): void {
+  settleRecruits(state, v, true);
   const queue = v.recruitQueues[b];
   let prevEnd = state.time;
   for (let i = 0; i < queue.length; i++) {
     const job = queue[i];
     if (!job) continue;
     const perUnit = recruitTimeMs(state.config, state.config.units[job.unit], v.buildings[b]);
+    const oldNext = job.nextAt, oldEnd = jobEnd(job);
     job.perUnit = perUnit;
-    if (i > 0) {
-      const nextAt = prevEnd + perUnit;
-      if (nextAt !== job.nextAt) {
-        // every job has an event at its first unit; the old one becomes stale
-        job.nextAt = nextAt;
-        push(state.queue, nextAt, { kind: 'recruit', villageId: v.id, jobId: job.id });
-      }
-    }
+    if (i > 0) job.nextAt = prevEnd + perUnit;
+    // the old event becomes stale (a stale event only settles, which is harmless)
+    if (v.owner === HUMAN_ID ? job.nextAt !== oldNext : jobEnd(job) !== oldEnd) scheduleRecruit(state, v, job);
     prevEnd = jobEnd(job);
   }
 }
@@ -572,6 +613,8 @@ export function cancelRecruit(state: WorldState, villageId: number, jobId: numbe
     const index = queue.findIndex((j) => j.id === jobId);
     const job = queue[index];
     if (!job) continue;
+    settleRecruits(state, v);
+    if (!queue.includes(job)) return 'Deze opdracht is al klaar.';
     settle(state.config, v, state.time);
     refund(v, job.costPer, job.total - job.done, state.config.village.cancelRefund);
     queue.splice(index, 1);
@@ -581,7 +624,7 @@ export function cancelRecruit(state: WorldState, villageId: number, jobId: numbe
       if (!next) continue;
       const prev = queue[i - 1];
       next.nextAt = (i === 0 || !prev ? state.time : jobEnd(prev)) + next.perUnit;
-      push(state.queue, next.nextAt, { kind: 'recruit', villageId: v.id, jobId: next.id });
+      scheduleRecruit(state, v, next);
     }
     return null;
   }
@@ -595,17 +638,11 @@ export function onRecruitTick(state: WorldState, villageId: number, jobId: numbe
     const queue = v.recruitQueues[b];
     const job = queue[0];
     if (!job || job.id !== jobId) continue;
-    if (job.nextAt !== state.time) return; // stale event
-    v.units[job.unit]++;
-    job.done++;
-    if (job.done >= job.total) {
-      queue.shift();
-      const name = state.config.units[job.unit].name;
-      addLog(state, { time: state.time, text: `${v.name}: ${job.total}× ${name} klaar.` });
-    } else {
-      job.nextAt += job.perUnit;
-      push(state.queue, job.nextAt, { kind: 'recruit', villageId: v.id, jobId: job.id });
-    }
+    // the human gets an event per unit: is this the live one? (bots: one per job, any event just settles)
+    const live = v.owner === HUMAN_ID && job.nextAt === state.time;
+    settleRecruits(state, v);
+    if (live && queue[0] === job) scheduleRecruit(state, v, job);
     return;
   }
+  settleRecruits(state, v);
 }
