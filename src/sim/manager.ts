@@ -25,9 +25,18 @@ export interface BuildTemplate {
   steps: [BuildingId, number][];
 }
 
+/** A named troop target the player can put on villages (only the player's own, no presets). */
+export interface TroopTemplate {
+  id: string;
+  name: string;
+  troops: UnitCounts;
+}
+
 export interface VillageManager {
   /** Build template id (a preset or one of the player's own). */
   template?: string;
+  /** Troop template id: when set, its troops are the target (and `troops` is ignored). */
+  troopTemplate?: string;
   /** Troops to keep (home + away + in training). */
   troops?: UnitCounts;
   /** Most of the spare resources (0..1) the manager spends on troops per check. */
@@ -73,7 +82,8 @@ export function manageVillage(state: WorldState, v: Village, m: VillageManager):
   const template = findTemplate(state, m.template);
   // the presets play like the bots (keeping resources in balance); own templates are followed exactly
   const reserve: Res = template ? autoBuild(state, v, template.steps, [0, 0, 0], !template.id.startsWith('preset:')) : [0, 0, 0];
-  if (m.troops) keepTroops(state, v, m.troops, m.troopShare, reserve);
+  const troops = m.troopTemplate ? state.troopTemplates?.find((t) => t.id === m.troopTemplate)?.troops : m.troops;
+  if (troops) keepTroops(state, v, troops, m.troopShare, reserve);
 }
 
 function keepTroops(state: WorldState, v: Village, target: UnitCounts, share: number, reserve: Res): void {
@@ -111,6 +121,7 @@ export function setManager(state: WorldState, villageId: number, m: VillageManag
     return null;
   }
   if (m.template && !findTemplate(state, m.template)) return 'Sjabloon bestaat niet.';
+  if (m.troopTemplate && !state.troopTemplates?.some((t) => t.id === m.troopTemplate)) return 'Troepensjabloon bestaat niet.';
   const troops: UnitCounts = {};
   for (const u of UNIT_IDS) {
     const n = Math.floor(m.troops?.[u] ?? 0);
@@ -118,6 +129,7 @@ export function setManager(state: WorldState, villageId: number, m: VillageManag
   }
   v.manager = { troopShare: Math.min(1, Math.max(0, m.troopShare)) };
   if (m.template) v.manager.template = m.template;
+  if (m.troopTemplate) v.manager.troopTemplate = m.troopTemplate;
   if (Object.keys(troops).length > 0) v.manager.troops = troops;
   scheduleManager(state);
   manageVillage(state, v, v.manager);
@@ -150,6 +162,47 @@ export function deleteTemplate(state: WorldState, id: string): string | null {
   state.templates = (state.templates ?? []).filter((t) => t.id !== id);
   for (const v of villagesOf(state, HUMAN_ID)) if (v.manager?.template === id) delete v.manager.template;
   return null;
+}
+
+/** Adds or replaces one of the player's troop templates. */
+export function saveTroopTemplate(state: WorldState, t: TroopTemplate): string | null {
+  const name = t.name.trim().slice(0, 40);
+  if (!name) return 'Geef het sjabloon een naam.';
+  const troops: UnitCounts = {};
+  for (const u of UNIT_IDS) {
+    const n = Math.floor(t.troops[u] ?? 0);
+    if (n < 0 || !Number.isFinite(n)) return 'Aantallen moeten 0 of meer zijn.';
+    if (n > 0) troops[u] = n;
+  }
+  if (Object.keys(troops).length === 0) return 'Een troepensjabloon heeft minstens één eenheid.';
+  state.troopTemplates ??= [];
+  const i = state.troopTemplates.findIndex((x) => x.id === t.id);
+  const clean = { id: t.id, name, troops };
+  if (i >= 0) state.troopTemplates[i] = clean;
+  else state.troopTemplates.push(clean);
+  return null;
+}
+
+/** Deletes a troop template; villages that used it keep its numbers as their own. */
+export function deleteTroopTemplate(state: WorldState, id: string): string | null {
+  const t = state.troopTemplates?.find((x) => x.id === id);
+  if (!t) return 'Dat sjabloon bestaat niet.';
+  state.troopTemplates = state.troopTemplates!.filter((x) => x.id !== id);
+  for (const v of villagesOf(state, HUMAN_ID)) {
+    if (v.manager?.troopTemplate !== id) continue;
+    delete v.manager.troopTemplate;
+    v.manager.troops = { ...t.troops };
+  }
+  return null;
+}
+
+/** How many of the player's villages use each template (build and troop). */
+export function templateUse(state: WorldState): Record<string, number> {
+  const use: Record<string, number> = {};
+  for (const v of villagesOf(state, HUMAN_ID)) {
+    for (const id of [v.manager?.template, v.manager?.troopTemplate]) if (id) use[id] = (use[id] ?? 0) + 1;
+  }
+  return use;
 }
 
 export type { UnitId };

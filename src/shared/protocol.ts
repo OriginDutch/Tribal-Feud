@@ -6,7 +6,7 @@ import type { BarbType, BonusKind } from './barbarianTypes';
 import type { ConfigOverrides, PresetId } from './config';
 import type { Speed } from './time';
 import type { AlertMode, LogEntry } from '../sim/state';
-import type { BuildTemplate, VillageManager } from '../sim/manager';
+import type { BuildTemplate, TroopTemplate, VillageManager } from '../sim/manager';
 import type { SaveMeta } from '../sim/save';
 import type { VillageView } from '../sim/view';
 import type { BuildingId, UnitCounts, UnitId } from './gameData';
@@ -60,6 +60,8 @@ export type Command =
   | { type: 'setManagerAll'; manager: VillageManager | null }
   | { type: 'saveTemplate'; template: BuildTemplate }
   | { type: 'deleteTemplate'; id: string }
+  | { type: 'saveTroopTemplate'; template: TroopTemplate }
+  | { type: 'deleteTroopTemplate'; id: string }
   | { type: 'mintCoins'; villageId: number; count: number }
   | { type: 'sendSupport'; from: number; to: number; units: UnitCounts }
   | { type: 'sendNobleTrain'; from: number; to: number; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId }
@@ -230,6 +232,9 @@ export interface Snapshot {
   tribePause: { war: boolean; requests: boolean };
   /** Build templates: the presets first, then the player's own. */
   templates: BuildTemplate[];
+  troopTemplates: TroopTemplate[];
+  /** Villages using each template (build and troop), by id. */
+  templateUse: Record<string, number>;
   unreadReports: number;
   farmTemplates: { A: UnitCounts; B: UnitCounts };
   /** worldSpeed * unitSpeed * marchSpeed, to preview travel times. */

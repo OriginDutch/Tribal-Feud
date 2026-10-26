@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { TribeRelation, TribeView } from '../../shared/protocol';
 import { MAX_MEMBERS } from '../../shared/tribes';
 import { formatGameTime } from '../../shared/time';
+import { Confirm } from '../components/Confirm';
 import { MapLink } from '../components/MapLink';
 import { num } from '../format';
 import { inviteCandidates, ranking, send, snapshot, tribeAsks, tribeFocus, tribeNews, tribes } from '../store';
@@ -13,21 +14,6 @@ function Tag({ t, onClick }: { t: TribeView; onClick?: () => void }) {
   return (
     <button class="link tribe-tag" style={{ '--tc': t.color }} onClick={onClick}>
       [{t.tag}]
-    </button>
-  );
-}
-
-/** A button that asks "zeker?" once before it acts (no browser dialogs). */
-function Confirm({ label, sure = 'Zeker?', onConfirm, cls = '' }: { label: string; sure?: string; onConfirm: () => void; cls?: string }) {
-  const [armed, setArmed] = useState(false);
-  useEffect(() => {
-    if (!armed) return;
-    const t = window.setTimeout(() => setArmed(false), 3000);
-    return () => window.clearTimeout(t);
-  }, [armed]);
-  return (
-    <button class={`small ${cls} ${armed ? 'danger' : ''}`} onClick={() => (armed ? (setArmed(false), onConfirm()) : setArmed(true))}>
-      {armed ? sure : label}
     </button>
   );
 }

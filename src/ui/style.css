@@ -595,3 +595,4 @@ tr.me td { background: rgba(226,169,59,0.06); }
 .inbox-actions button.link { color: var(--accent); }
 .template-io { display: grid; gap: 8px; margin: 8px 0 12px; }
 .template-io textarea { width: 100%; box-sizing: border-box; font-family: var(--mono, monospace); font-size: 13px; background: #191510; color: var(--text); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 8px 10px; resize: vertical; }
+.template-units input:disabled { opacity: 0.55; cursor: not-allowed; }

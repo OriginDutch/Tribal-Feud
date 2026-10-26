@@ -53,3 +53,20 @@ describe('account manager', () => {
     expect(s.templates).toEqual([]);
   });
 });
+
+describe('troop templates', () => {
+  it('a village follows its troop template; deleting it leaves the numbers as its own', async () => {
+    const { createConfig } = await import('../shared/config');
+    const { createWorld, playerVillage } = await import('./state');
+    const { saveTroopTemplate, deleteTroopTemplate, setManager, templateUse } = await import('./manager');
+    const s = createWorld(createConfig('classic', 'TT', 9, { bots: { count: 0 }, map: { barbarianCount: 10 } } as never));
+    const v = playerVillage(s)!;
+    expect(saveTroopTemplate(s, { id: 'troops:1', name: 'Off', troops: { axe: 500, light: 100 } })).toBeNull();
+    expect(saveTroopTemplate(s, { id: 'troops:2', name: 'Leeg', troops: {} })).toMatch(/minstens/);
+    expect(setManager(s, v.id, { troopTemplate: 'troops:1', troopShare: 0.5 })).toBeNull();
+    expect(templateUse(s)['troops:1']).toBe(1);
+    expect(deleteTroopTemplate(s, 'troops:1')).toBeNull();
+    expect(v.manager?.troopTemplate).toBeUndefined();
+    expect(v.manager?.troops).toEqual({ axe: 500, light: 100 });
+  });
+});

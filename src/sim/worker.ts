@@ -19,7 +19,7 @@ import { incomingViews, mapData, movementViews } from './mapView';
 import { CANCEL_WINDOW_MS, cancelBlocker, cancelMovement, conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendNobleTrain, sendSupport } from './movement';
 import { BARBARIAN } from './state';
 import { maxMintable, mintBlocker, mintCoins } from './nobles';
-import { allTemplates, deleteTemplate, findTemplate, saveTemplate, setManager } from './manager';
+import { allTemplates, deleteTemplate, deleteTroopTemplate, findTemplate, saveTemplate, saveTroopTemplate, setManager, templateUse } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
 import type { CandidateView, MarketView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow } from '../shared/protocol';
@@ -149,6 +149,8 @@ function snapshot(): Snapshot | null {
     inboxOpen: (state.inbox ?? []).filter((m) => m.status === 'open').length,
     tribePause: state.tribePause ?? { war: true, requests: true },
     templates: allTemplates(state),
+    troopTemplates: state.troopTemplates ?? [],
+    templateUse: templateUse(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
     marchFactor: state.config.worldSpeed * state.config.unitSpeed * state.config.marchSpeed,
@@ -540,6 +542,13 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       const error = saveTemplate(state, cmd.template);
       if (error) notice(error, 'error');
+      break;
+    }
+    case 'saveTroopTemplate':
+    case 'deleteTroopTemplate': {
+      if (!state) return;
+      const error = cmd.type === 'saveTroopTemplate' ? saveTroopTemplate(state, cmd.template) : deleteTroopTemplate(state, cmd.id);
+      if (error) post({ type: 'notice', level: 'error', text: error });
       break;
     }
     case 'deleteTemplate': {

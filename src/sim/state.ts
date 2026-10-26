@@ -1,4 +1,4 @@
-import type { BuildTemplate } from './manager';
+import type { BuildTemplate, TroopTemplate } from './manager';
 import type { TradeOffer } from './market';
 import type { Intel } from './intel';
 import type { WorldConfig } from '../shared/config';
@@ -175,6 +175,8 @@ export interface WorldState {
   offers?: TradeOffer[];
   /** The player's own build templates (account manager). */
   templates?: BuildTemplate[];
+  /** The player's troop templates. */
+  troopTemplates?: TroopTemplate[];
   /** Time of the scheduled account-manager check. */
   managerAt?: number;
   /** World statistics: villages taken from barbarians and from players. */

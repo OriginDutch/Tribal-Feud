@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUILD_PRESETS } from './botProfiles';
-import { templateToText, textToTemplate } from './templateText';
+import { templateToText, textToTemplate, textToTroops, troopsToText } from './templateText';
 
 describe('template text', () => {
   it('round-trips every preset', () => {
@@ -13,5 +13,11 @@ describe('template text', () => {
     expect(textToTemplate('wood 3\n  HOOFDGEBOUW: 5 ')).toEqual({ name: 'Geïmporteerd sjabloon', steps: [['wood', 3], ['main', 5]] });
     expect(textToTemplate('Houthakker 2\nKasteel 4')).toEqual({ error: 'Regel 2 snap ik niet: "Kasteel 4"' });
     expect('error' in textToTemplate('Muur 40')).toBe(true);
+  });
+  it('troops: names, short names and thousand dots; round-trips', () => {
+    expect(textToTroops('# Nuke\nBijl 8.000\nLC 2000\nram 250\nScouts 50')).toEqual({ name: 'Nuke', troops: { axe: 8000, light: 2000, ram: 250, spy: 50 } });
+    const t = { axe: 6500, light: 3000, ram: 300, catapult: 50 };
+    expect(textToTroops(troopsToText('Off', t))).toEqual({ name: 'Off', troops: t });
+    expect(textToTroops('Draak 3')).toEqual({ error: 'Regel 1 snap ik niet: "Draak 3"' });
   });
 });

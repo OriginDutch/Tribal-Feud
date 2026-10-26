@@ -1,11 +1,12 @@
-import { templateToText, textToTemplate } from '../../shared/templateText';
 import { useEffect, useState } from 'preact/hooks';
-import { UnitIcon } from '../units/UnitIcon';
 import { BUILDING_IDS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
-import type { BuildTemplate } from '../../sim/manager';
+import { templateToText, textToTemplate, textToTroops, troopsToText } from '../../shared/templateText';
+import type { BuildTemplate, TroopTemplate } from '../../sim/manager';
+import { Confirm } from '../components/Confirm';
 import { num } from '../format';
 import { send, snapshot } from '../store';
 import { UNIT_SHORT } from '../units';
+import { UnitIcon } from '../units/UnitIcon';
 
 const TROOP_UNITS: UnitId[] = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'ram', 'catapult'];
 
@@ -14,6 +15,7 @@ export function ManagerScreen() {
   const s = snapshot.value;
   const v = s?.village;
   const [template, setTemplate] = useState('');
+  const [troopTemplate, setTroopTemplate] = useState('');
   const [troops, setTroops] = useState<Partial<Record<UnitId, string>>>({});
   const [share, setShare] = useState('50');
 
@@ -22,6 +24,7 @@ export function ManagerScreen() {
   useEffect(() => {
     const m = v?.manager;
     setTemplate(m?.template ?? '');
+    setTroopTemplate(m?.troopTemplate ?? '');
     const t: Partial<Record<UnitId, string>> = {};
     for (const u of UNIT_IDS) if (m?.troops?.[u]) t[u] = String(m.troops[u]);
     setTroops(t);
@@ -30,6 +33,7 @@ export function ManagerScreen() {
 
   if (!s || !v) return null;
   const units = v.units.filter((u) => u.enabled && TROOP_UNITS.includes(u.id));
+  const chosen = s.troopTemplates.find((t) => t.id === troopTemplate);
 
   const manager = () => {
     const t: UnitCounts = {};
@@ -40,7 +44,7 @@ export function ManagerScreen() {
     return {
       troopShare: Math.min(100, Math.max(0, Number(share) || 0)) / 100,
       ...(template ? { template } : {}),
-      ...(Object.keys(t).length > 0 ? { troops: t } : {}),
+      ...(chosen ? { troopTemplate: chosen.id } : Object.keys(t).length > 0 ? { troops: t } : {}),
     };
   };
 
@@ -68,6 +72,17 @@ export function ManagerScreen() {
           opslag wordt altijd eerst opgelost.
         </p>
         <h4>Troepen aanhouden</h4>
+        <label>
+          Troepensjabloon
+          <select value={troopTemplate} onChange={(e) => setTroopTemplate(e.currentTarget.value)}>
+            <option value="">Eigen aantallen voor dit dorp</option>
+            {s.troopTemplates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <div class="template-units">
           {units.map((u) => (
             <label key={u.id} title={u.name}>
@@ -78,12 +93,14 @@ export function ManagerScreen() {
                 type="number"
                 min={0}
                 placeholder="0"
-                value={troops[u.id] ?? ''}
+                disabled={!!chosen}
+                value={chosen ? (chosen.troops[u.id] ?? '') : (troops[u.id] ?? '')}
                 onInput={(e) => setTroops({ ...troops, [u.id]: e.currentTarget.value })}
               />
             </label>
           ))}
         </div>
+        {chosen && <p class="hint">Aantallen komen uit "{chosen.name}". Pas je dat sjabloon aan, dan volgen alle dorpen die het gebruiken.</p>}
         <label>
           Max deel van de vrije grondstoffen voor troepen: {share}%
           <input type="range" min={0} max={100} step={5} value={share} onInput={(e) => setShare(e.currentTarget.value)} />
@@ -96,101 +113,141 @@ export function ManagerScreen() {
           <button class="primary" onClick={() => send({ type: 'setManager', villageId: v.id, manager: manager() })}>
             Opslaan voor dit dorp
           </button>
-          <button disabled={s.villages.length < 2} onClick={() => send({ type: 'setManagerAll', manager: manager() })}>
-            Op alle dorpen ({s.villages.length})
-          </button>
-          <button disabled={!v.manager} onClick={() => send({ type: 'setManager', villageId: v.id, manager: null })}>
-            Uitzetten
-          </button>
+          <Confirm
+            label={`Op alle dorpen (${s.villages.length})`}
+            sure={`Alle ${s.villages.length} dorpen overschrijven?`}
+            cls="wide-confirm"
+            disabled={s.villages.length < 2}
+            onConfirm={() => send({ type: 'setManagerAll', manager: manager() })}
+          />
+          <Confirm label="Uitzetten" sure="Manager uitzetten?" disabled={!v.manager} onConfirm={() => send({ type: 'setManager', villageId: v.id, manager: null })} />
         </div>
       </section>
-      <TemplateEditor templates={s.templates} />
+      <BuildTemplates templates={s.templates} use={s.templateUse} />
+      <TroopTemplates templates={s.troopTemplates} use={s.templateUse} />
     </div>
   );
 }
 
-function TemplateEditor({ templates }: { templates: BuildTemplate[] }) {
+/** Paste box: check first, then add (shows what it found before it adds anything). */
+function ImportBox<T extends { name: string }>({ parse, summary, onAdd, onClose, placeholder }: {
+  parse: (text: string) => T | { error: string };
+  summary: (t: T) => string;
+  onAdd: (t: T) => void;
+  onClose: () => void;
+  placeholder: string;
+}) {
+  const [text, setText] = useState('');
+  const [result, setResult] = useState<T | { error: string } | null>(null);
+  const ok = result && !('error' in result) ? result : null;
+  return (
+    <div class="template-io">
+      <textarea rows={8} value={text} placeholder={placeholder} onInput={(e) => { setText(e.currentTarget.value); setResult(null); }} />
+      {result && 'error' in result && <p class="error">{result.error}</p>}
+      {ok && <p class="hint">Gevonden: "{ok.name}" — {summary(ok)}.</p>}
+      <div class="row">
+        {ok ? (
+          <button class="primary small" onClick={() => { onAdd(ok); onClose(); }}>
+            Toevoegen
+          </button>
+        ) : (
+          <button class="small" disabled={!text.trim()} onClick={() => setResult(parse(text))}>
+            Controleren
+          </button>
+        )}
+        <button class="small" onClick={onClose}>
+          Annuleren
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Read-only text of a template, ready to copy. */
+function ExportBox({ text, onClose }: { text: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div class="template-io">
+      <textarea rows={8} value={text} readOnly onFocus={(e) => e.currentTarget.select()} />
+      <div class="row">
+        <button class="small" onClick={() => navigator.clipboard?.writeText(text).then(() => setCopied(true)).catch(() => undefined)}>
+          {copied ? 'Gekopieerd' : 'Kopiëren'}
+        </button>
+        <button class="small" onClick={onClose}>
+          Sluiten
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const usedBy = (use: Record<string, number>, id: string) => use[id] ?? 0;
+const deleteSure = (n: number) => (n > 0 ? `Zeker? (${n} ${n === 1 ? 'dorp' : 'dorpen'})` : 'Zeker?');
+
+function BuildTemplates({ templates, use }: { templates: BuildTemplate[]; use: Record<string, number> }) {
   const s = snapshot.value;
   const [editing, setEditing] = useState<BuildTemplate | null>(null);
-  /** Import/export box: text, and what it is for. */
-  const [io, setIo] = useState<{ mode: 'import' | 'export'; text: string; error?: string } | null>(null);
+  const [io, setIo] = useState<{ mode: 'import' } | { mode: 'export'; text: string } | null>(null);
   const names = Object.fromEntries((s?.village?.buildings ?? []).map((b) => [b.id, b.name])) as Record<BuildingId, string>;
-
   const copy = (t: BuildTemplate) =>
     setEditing({ id: `own:${Date.now()}`, name: `${t.name} (kopie)`.slice(0, 40), steps: t.steps.map(([b, l]) => [b, l]) });
 
   return (
     <section class="panel">
       <div class="row">
-        <h3 style={{ flex: 1 }}>Sjablonen</h3>
+        <h3 style={{ flex: 1 }}>Bouwsjablonen</h3>
         {!editing && (
-          <button class="small" onClick={() => setIo(io?.mode === 'import' ? null : { mode: 'import', text: '' })}>
-            Sjabloon importeren
-          </button>
+          <>
+            <button class="small" onClick={() => { setIo(null); setEditing({ id: `own:${Date.now()}`, name: 'Nieuw sjabloon', steps: [['wood', 1]] }); }}>
+              Nieuw
+            </button>
+            <button class="small" onClick={() => setIo(io?.mode === 'import' ? null : { mode: 'import' })}>
+              Importeren
+            </button>
+          </>
         )}
       </div>
-      {io && !editing && (
-        <div class="template-io">
-          <textarea
-            rows={10}
-            value={io.text}
-            readOnly={io.mode === 'export'}
-            placeholder={'# Naam van het sjabloon\nHouthakker 2\nLeemgroeve 2\nHoofdgebouw 3\n...'}
-            onInput={(e) => setIo({ ...io, text: e.currentTarget.value, error: undefined })}
-            onFocus={(e) => io.mode === 'export' && e.currentTarget.select()}
-          />
-          {io.error && <p class="error">{io.error}</p>}
-          <div class="row">
-            {io.mode === 'import' ? (
-              <button
-                class="primary small"
-                onClick={() => {
-                  const parsed = textToTemplate(io.text);
-                  if ('error' in parsed) return setIo({ ...io, error: parsed.error });
-                  send({ type: 'saveTemplate', template: { id: `own:${Date.now()}`, name: parsed.name, steps: parsed.steps } });
-                  setIo(null);
-                }}
-              >
-                Importeren
-              </button>
-            ) : (
-              <button class="small" onClick={() => navigator.clipboard?.writeText(io.text).catch(() => undefined)}>
-                Kopiëren
-              </button>
-            )}
-            <button class="small" onClick={() => setIo(null)}>
-              Sluiten
-            </button>
-          </div>
-        </div>
+      {io?.mode === 'import' && !editing && (
+        <ImportBox
+          parse={textToTemplate}
+          summary={(t) => `${t.steps.length} stappen`}
+          placeholder={'# Naam van het sjabloon\nHouthakker 2\nLeemgroeve 2\nHoofdgebouw 3\n...'}
+          onAdd={(t) => send({ type: 'saveTemplate', template: { id: `own:${Date.now()}`, name: t.name, steps: t.steps } })}
+          onClose={() => setIo(null)}
+        />
       )}
+      {io?.mode === 'export' && !editing && <ExportBox text={io.text} onClose={() => setIo(null)} />}
       {!editing ? (
         <table class="table">
           <tbody>
-            {templates.map((t) => (
-              <tr key={t.id}>
-                <td>{t.name}</td>
-                <td class="muted">{t.steps.length} stappen</td>
-                <td class="right nowrap">
-                  <button class="small" onClick={() => copy(t)}>
-                    Kopie maken
-                  </button>{' '}
-                  <button class="small" onClick={() => setIo({ mode: 'export', text: templateToText(t.name, t.steps) })}>
-                    Exporteren
-                  </button>{' '}
-                  {!t.id.startsWith('preset:') && (
-                    <>
+            {templates.map((t) => {
+              const own = !t.id.startsWith('preset:');
+              const n = usedBy(use, t.id);
+              return (
+                <tr key={t.id}>
+                  <td>
+                    {t.name} {!own && <span class="muted">(voorbeeld)</span>}
+                  </td>
+                  <td class="muted">
+                    {t.steps.length} stappen{n > 0 ? ` · ${n} ${n === 1 ? 'dorp' : 'dorpen'}` : ''}
+                  </td>
+                  <td class="right nowrap">
+                    {own && (
                       <button class="small" onClick={() => setEditing({ ...t, steps: t.steps.map(([b, l]) => [b, l]) })}>
                         Bewerken
-                      </button>{' '}
-                      <button class="small danger" onClick={() => send({ type: 'deleteTemplate', id: t.id })}>
-                        Verwijderen
                       </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
+                    )}{' '}
+                    <button class="small" onClick={() => copy(t)}>
+                      Kopie maken
+                    </button>{' '}
+                    <button class="small" onClick={() => setIo({ mode: 'export', text: templateToText(t.name, t.steps) })}>
+                      Exporteren
+                    </button>{' '}
+                    {own && <Confirm label="Verwijderen" sure={deleteSure(n)} onConfirm={() => send({ type: 'deleteTemplate', id: t.id })} />}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       ) : (
@@ -276,9 +333,119 @@ function TemplateEditor({ templates }: { templates: BuildTemplate[] }) {
             >
               Opslaan
             </button>
-            <button onClick={() => setEditing(null)}>Annuleren</button>
+            <Confirm label="Annuleren" sure="Wijzigingen weggooien?" onConfirm={() => setEditing(null)} />
           </div>
           <p class="hint">{num(editing.steps.length)} stappen. Een stap is klaar zodra het gebouw dat level heeft (of in de queue staat).</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TroopTemplates({ templates, use }: { templates: TroopTemplate[]; use: Record<string, number> }) {
+  const [editing, setEditing] = useState<{ id: string; name: string; troops: Partial<Record<UnitId, string>> } | null>(null);
+  const [io, setIo] = useState<{ mode: 'import' } | { mode: 'export'; text: string } | null>(null);
+  const summary = (t: UnitCounts) =>
+    TROOP_UNITS.filter((u) => (t[u] ?? 0) > 0)
+      .map((u) => `${num(t[u]!)} ${UNIT_SHORT[u]}`)
+      .join(' · ');
+  const edit = (t: TroopTemplate) => setEditing({ id: t.id, name: t.name, troops: Object.fromEntries(Object.entries(t.troops).map(([u, n]) => [u, String(n)])) });
+
+  return (
+    <section class="panel">
+      <div class="row">
+        <h3 style={{ flex: 1 }}>Troepensjablonen</h3>
+        {!editing && (
+          <>
+            <button class="small" onClick={() => { setIo(null); setEditing({ id: `troops:${Date.now()}`, name: 'Nieuw troepensjabloon', troops: {} }); }}>
+              Nieuw
+            </button>
+            <button class="small" onClick={() => setIo(io?.mode === 'import' ? null : { mode: 'import' })}>
+              Importeren
+            </button>
+          </>
+        )}
+      </div>
+      {io?.mode === 'import' && !editing && (
+        <ImportBox
+          parse={textToTroops}
+          summary={(t) => summary(t.troops)}
+          placeholder={'# Offensief\nBijl 8000\nLC 2000\nRam 250\nVerkenner 50'}
+          onAdd={(t) => send({ type: 'saveTroopTemplate', template: { id: `troops:${Date.now()}`, name: t.name, troops: t.troops } })}
+          onClose={() => setIo(null)}
+        />
+      )}
+      {io?.mode === 'export' && !editing && <ExportBox text={io.text} onClose={() => setIo(null)} />}
+      {!editing ? (
+        templates.length === 0 ? (
+          <p class="muted">Nog geen troepensjablonen. Maak er een voor bijvoorbeeld offensieve, defensieve of support-dorpen.</p>
+        ) : (
+          <table class="table">
+            <tbody>
+              {templates.map((t) => {
+                const n = usedBy(use, t.id);
+                return (
+                  <tr key={t.id}>
+                    <td>{t.name}</td>
+                    <td class="muted">
+                      {summary(t.troops)}
+                      {n > 0 ? ` · ${n} ${n === 1 ? 'dorp' : 'dorpen'}` : ''}
+                    </td>
+                    <td class="right nowrap">
+                      <button class="small" onClick={() => edit(t)}>
+                        Bewerken
+                      </button>{' '}
+                      <button class="small" onClick={() => setIo({ mode: 'export', text: troopsToText(t.name, t.troops) })}>
+                        Exporteren
+                      </button>{' '}
+                      <Confirm label="Verwijderen" sure={deleteSure(n)} onConfirm={() => send({ type: 'deleteTroopTemplate', id: t.id })} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )
+      ) : (
+        <div>
+          <label>
+            Naam
+            <input type="text" maxLength={40} value={editing.name} onInput={(e) => setEditing({ ...editing, name: e.currentTarget.value })} />
+          </label>
+          <div class="template-units">
+            {TROOP_UNITS.map((u) => (
+              <label key={u}>
+                <span class="unit-name">
+                  <UnitIcon id={u} size={18} /> {UNIT_SHORT[u]}
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={editing.troops[u] ?? ''}
+                  onInput={(e) => setEditing({ ...editing, troops: { ...editing.troops, [u]: e.currentTarget.value } })}
+                />
+              </label>
+            ))}
+          </div>
+          <div class="row">
+            <button
+              class="primary"
+              onClick={() => {
+                const troops: UnitCounts = {};
+                for (const u of TROOP_UNITS) {
+                  const n = Math.floor(Number(editing.troops[u] ?? 0));
+                  if (n > 0) troops[u] = n;
+                }
+                send({ type: 'saveTroopTemplate', template: { id: editing.id, name: editing.name, troops } });
+                setEditing(null);
+              }}
+            >
+              Opslaan
+            </button>
+            <Confirm label="Annuleren" sure="Wijzigingen weggooien?" onConfirm={() => setEditing(null)} />
+          </div>
+          <p class="hint">Telt troepen thuis, onderweg en in opleiding, zoals de eigen aantallen per dorp.</p>
         </div>
       )}
     </section>
