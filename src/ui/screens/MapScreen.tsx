@@ -52,7 +52,7 @@ export function MapScreen() {
   const data = mapData.value;
   const s = snapshot.value;
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const cam = useRef({ cx: 500, cy: 500, zoom: mapStyle.value === 'sprites' ? SPRITE_START_ZOOM : 14, centered: false });
+  const cam = useRef({ cx: 500, cy: 500, zoom: mapStyle.value === 'sprites' ? SPRITE_START_ZOOM : 14, centered: false, centeredOn: -1 });
   const drag = useRef<{ x: number; y: number; cx: number; cy: number; moved: boolean } | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const [, redraw] = useState(0);
@@ -74,10 +74,14 @@ export function MapScreen() {
   const byId = useMemo(() => new Map((data?.villages ?? []).map((v) => [v.id, v])), [data]);
   const own = data ? byId.get(data.ownVillageId) : undefined;
 
-  if (own && !cam.current.centered) {
-    cam.current.cx = own.x;
-    cam.current.cy = own.y;
+  // open on the village you have selected, and follow it when you switch villages (A/D) on the map;
+  // the snapshot is always fresh, the map data may still be from your last visit
+  const here = s?.village;
+  if (here && cam.current.centeredOn !== here.id) {
+    cam.current.cx = here.x;
+    cam.current.cy = here.y;
     cam.current.centered = true;
+    cam.current.centeredOn = here.id;
   }
 
   // villages of the focused player, biggest first
@@ -402,7 +406,7 @@ export function MapScreen() {
   // redraw only when what is drawn changes, not on every game update
   const sel = selectedVillage.value;
   const style = mapStyle.value;
-  useEffect(draw, [data, focusIds, sel, style]);
+  useEffect(draw, [data, focusIds, sel, style, here?.id]);
   // sprites load in the background: redraw when one is ready
   useEffect(() => {
     onSpriteLoad(() => draw());
