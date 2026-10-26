@@ -88,7 +88,8 @@ export function PlaceScreen() {
     setTrainTpl(id);
     const t = s.nobleTemplates.find((x) => x.id === id);
     if (!t) return;
-    setCounts(toStrings(t.first));
+    // the first wave carries a nobleman too (the train adds it): show it
+    setCounts({ ...toStrings(t.first), snob: '1' });
     setTrainSize(1 + t.escorts.length);
     setEscorts(t.escorts.map(toStrings));
     if (t.catapultTarget) setCatTarget(t.catapultTarget);

@@ -563,6 +563,9 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
                       <UnitIcon id={u} size={16} />
                     </th>
                   ))}
+                  <th class="right" title="Elke wave heeft één edelman">
+                    <UnitIcon id="snob" size={16} />
+                  </th>
                   <th />
                 </tr>
               </thead>
@@ -575,6 +578,7 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
                         <input type="number" min={0} placeholder="0" value={w[u] ?? ''} onInput={(e) => setWave(i, u, e.currentTarget.value)} />
                       </td>
                     ))}
+                    <td class="right mono" title="Elke wave heeft één edelman, ook de eerste">1</td>
                     <td class="right">
                       {i > 1 && (
                         <button class="small danger" title="Edel weghalen" onClick={() => setEditing({ ...editing, waves: editing.waves.filter((_, j) => j !== i) })}>
@@ -603,7 +607,7 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
             </button>
             <Confirm label="Annuleren" sure="Wijzigingen weggooien?" onConfirm={() => setEditing(null)} />
           </div>
-          <p class="hint">Edel 1 is de eerste aanval (de clear), elke volgende edel krijgt zijn eigen escort. Elke rij krijgt er zelf één edelman bij. 2 tot 5 edels.</p>
+          <p class="hint">Edel 1 is de eerste aanval (de clear) mét edelman, elke volgende edel krijgt zijn eigen escort. Elke wave heeft precies één edelman (de kolom met de kroon). 2 tot 5 edels.</p>
         </div>
       )}
     </section>
