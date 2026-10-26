@@ -84,6 +84,9 @@ export type Command =
   /** Sends many supports home at once (rows of the support list). */
   | { type: 'returnSupportMany'; pairs: { hostId: number; originId: number }[] }
   | { type: 'getSupportList' }
+  | { type: 'setSurplus'; keep: number; auto: boolean }
+  | { type: 'sendSurplus'; keep: number }
+  | { type: 'getSurplusPlan'; keep: number }
   | { type: 'dismissToast'; id: number | 'all' }
   | { type: 'sendResources'; from: number; to: number; res: [number, number, number] }
   | { type: 'createOffer'; villageId: number; give: TradeSide; want: TradeSide; count: number }
@@ -310,6 +313,8 @@ export interface Snapshot {
   troopTemplates: TroopTemplate[];
   nobleTemplates: NobleTemplate[];
   groups: VillageGroup[];
+  /** Surplus to building villages: keep share and automatic on/off. */
+  surplus: { keep: number; auto: boolean };
   /** Villages using each template (build and troop), by id. */
   templateUse: Record<string, number>;
   unreadReports: number;
@@ -373,6 +378,7 @@ export type WorkerMessage =
   | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number> }
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'supportList'; rows: SupportRow[] }
+  | { type: 'surplusPlan'; rows: SurplusRow[]; keep: number }
   | { type: 'player'; player: PlayerView | null }
   | { type: 'notice'; level: 'info' | 'error'; text: string };
 
@@ -400,5 +406,14 @@ export interface SupportRow {
   origin: { id: number; name: string; x: number; y: number; owner: number; ownerName: string };
   units: UnitCounts;
   /** Walking time home (slowest unit). */
+  travel: number;
+}
+
+/** One shipment of a surplus run (preview). */
+export interface SurplusRow {
+  from: { id: number; name: string; x: number; y: number };
+  to: { id: number; name: string; x: number; y: number };
+  res: [number, number, number];
+  merchants: number;
   travel: number;
 }

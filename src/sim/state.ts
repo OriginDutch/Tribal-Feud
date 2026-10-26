@@ -1,5 +1,6 @@
 import type { BuildTemplate, NobleTemplate, TroopTemplate } from './manager';
 import type { VillageGroup } from './groups';
+import type { SurplusSettings } from './surplus';
 import type { TradeOffer } from './market';
 import type { Intel } from './intel';
 import type { WorldConfig } from '../shared/config';
@@ -219,6 +220,8 @@ export interface WorldState {
   troopTemplates?: TroopTemplate[];
   /** Your village groups. */
   villageGroups?: VillageGroup[];
+  /** Surplus to building villages (button and automatic). */
+  surplus?: SurplusSettings;
   /** The player's noble train templates. */
   nobleTemplates?: NobleTemplate[];
   /** Time of the scheduled account-manager check. */

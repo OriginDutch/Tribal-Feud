@@ -9,6 +9,7 @@ import { MINUTE } from '../shared/time';
 import { autoBuild } from './bots';
 import { push } from './eventQueue';
 import { HUMAN_ID, villagesOf, type WorldState } from './state';
+import { sendSurplus } from './surplus';
 import {
   currentResources,
   maxRecruitable,
@@ -84,6 +85,7 @@ export function onManagerCheck(state: WorldState): void {
   if (state.managerAt !== state.time) return; // stale
   delete state.managerAt;
   for (const v of villagesOf(state, HUMAN_ID)) if (v.manager) manageVillage(state, v, v.manager);
+  if (state.surplus?.auto) sendSurplus(state);
   scheduleManager(state);
 }
 

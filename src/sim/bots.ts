@@ -412,6 +412,12 @@ export function autoBuild(
   }
 
   // keep what the next building needs (a short resource first), so troops don't eat it
+  return nextBuildCost(state, v, order, strict);
+}
+
+/** What the next building of this build order costs (a short resource first); zeros when done. */
+export function nextBuildCost(state: WorldState, v: Village, order: readonly (readonly [BuildingId, number])[], strict = false): Res {
+  const { config } = state;
   const step = nextStep(v, order);
   const b = strict ? (step ? step[0] : null) : (scarcePit(state, v) ?? (step ? step[0] : fallbackStep(state, v)));
   if (!b) return [0, 0, 0];

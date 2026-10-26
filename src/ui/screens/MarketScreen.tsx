@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { BuildingHeader } from '../buildings/BuildingHeader';
 import { MapLink } from '../components/MapLink';
 import { CancelButton } from '../components/CancelButton';
+import { SurplusPanel } from '../components/SurplusPanel';
 import type { OfferView, TradeSide } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
@@ -224,6 +225,8 @@ export function MarketScreen() {
           {sendBlocker && target && ` · ${sendBlocker}`}
         </p>
       </section>
+
+      {ownOthers.length > 0 && <SurplusPanel />}
 
       <section class="panel">
         <h3>Eigen aanbod</h3>

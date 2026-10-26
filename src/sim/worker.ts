@@ -21,10 +21,10 @@ import { incomingViews, mapData, movementViews } from './mapView';
 import { CANCEL_WINDOW_MS, cancelBlocker, cancelMovement, conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendNobleTrain, sendSupport, travelTimeMs } from './movement';
 import { BARBARIAN } from './state';
 import { maxMintable, mintBlocker, mintCoins } from './nobles';
-import { allTemplates, deleteNobleTemplate, deleteTemplate, deleteTroopTemplate, findTemplate, saveNobleTemplate, saveTemplate, saveTroopTemplate, setManager, templateUse } from './manager';
+import { allTemplates, deleteNobleTemplate, deleteTemplate, deleteTroopTemplate, findTemplate, saveNobleTemplate, saveTemplate, saveTroopTemplate, scheduleManager, setManager, templateUse } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
-import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow } from '../shared/protocol';
+import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow, SurplusRow } from '../shared/protocol';
 import {
   MERCHANT_CARRY,
   MERCHANT_MINUTES_PER_FIELD,
@@ -58,6 +58,7 @@ import {
   startResearch,
   type Village,
 } from './village';
+import { DEFAULT_SURPLUS, planSurplus, sendSurplus, setSurplus } from './surplus';
 
 /** Minimal typing for the worker global, so the project only needs the DOM lib. */
 const ctx = self as unknown as {
@@ -162,6 +163,7 @@ function snapshot(): Snapshot | null {
     troopTemplates: state.troopTemplates ?? [],
     nobleTemplates: state.nobleTemplates ?? [],
     groups: state.villageGroups ?? [],
+    surplus: state.surplus ?? DEFAULT_SURPLUS,
     templateUse: templateUse(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
@@ -195,6 +197,11 @@ function sendRanking(s: WorldState): void {
 }
 
 /** For a leader: the 20 players nearest to your villages that are not in your tribe. */
+function surplusRows(s: WorldState, keep: number): SurplusRow[] {
+  const ref = (id: number) => { const v = s.villages[id]!; return { id, name: v.name, x: v.x, y: v.y }; };
+  return planSurplus(s, { keep, auto: false }).map((sh) => ({ from: ref(sh.from), to: ref(sh.to), res: [...sh.res] as [number, number, number], merchants: sh.merchants, travel: sh.travel }));
+}
+
 /** Every support that involves you: in your villages, yours elsewhere, and between your own villages. */
 function supportRows(s: WorldState): SupportRow[] {
   const ref = (v: Village) => ({ id: v.id, name: v.name, x: v.x, y: v.y, owner: v.owner, ownerName: v.owner < 0 ? 'barbaren' : (s.players[v.owner]?.name ?? '?') });
@@ -742,6 +749,23 @@ async function handle(cmd: Command): Promise<void> {
     case 'getInbox':
       if (state) post({ type: 'inbox', inbox: inboxViews(state) });
       return;
+    case 'getSurplusPlan':
+      if (state) post({ type: 'surplusPlan', rows: surplusRows(state, cmd.keep), keep: cmd.keep });
+      return;
+    case 'setSurplus': {
+      if (!state) return;
+      const error = setSurplus(state, { keep: cmd.keep, auto: cmd.auto });
+      if (error) notice(error, 'error');
+      else if (cmd.auto) scheduleManager(state);
+      break;
+    }
+    case 'sendSurplus': {
+      if (!state) return;
+      const n = sendSurplus(state, { keep: cmd.keep, auto: state.surplus?.auto ?? false });
+      notice(n ? `${n} zending${n === 1 ? '' : 'en'} onderweg naar bouwende dorpen.` : 'Niets te versturen: geen overschot, geen vrije handelaren of geen dorp dat tekortkomt.', n ? 'info' : 'error');
+      post({ type: 'surplusPlan', rows: surplusRows(state, cmd.keep), keep: cmd.keep });
+      break;
+    }
     case 'getSupportList':
       if (state) post({ type: 'supportList', rows: supportRows(state) });
       return;
