@@ -15,10 +15,11 @@
 import type { Archetype } from '../shared/botProfiles';
 import { kindness } from '../shared/config';
 import { DAY } from '../shared/time';
-import { addMessage, alertHuman } from './humanTribe';
+import { addMessage, alertHuman, pauses } from './humanTribe';
 import { nextFloat } from './rng';
 import { HUMAN_ID, addLog, type Player, type WorldState } from './state';
 import { MAX_MEMBERS } from '../shared/tribes';
+import { checkLeaderOrder } from './tribeOrders';
 import { REACH, SOCIAL, declareWar, fits, found, join, leave, playerCentre, reachOf, tribeCentre, tribeOf, type Tribe } from './tribes';
 
 export const BASE_MOOD = 60;
@@ -135,6 +136,29 @@ function reshape(state: WorldState): void {
       if (big.members.includes(HUMAN_ID)) addMessage(state, { kind: 'info', from: big.leader, tribe: big.id, title: `Fusie: ${tag(small)} → ${tag(big)}`, text });
     }
   }
+  // your tribe: an allied bot tribe close by proposes a merger; you decide
+  const yours = Object.values(state.tribes ?? {}).find((t) => t.leader === HUMAN_ID);
+  if (yours) {
+    const yc = tribeCentre(state, yours);
+    for (const b of list) {
+      if (!state.tribes?.[b.id] || b.relations[yours.id] !== 'ally' || b.members.length + yours.members.length > MAX_MEMBERS || !yc) continue;
+      if ((state.inbox ?? []).some((m) => m.kind === 'merge' && m.tribe === b.id && (m.status === 'open' || state.time - m.time < 3 * DAY))) continue;
+      const bc = tribeCentre(state, b);
+      if (!bc || Math.hypot(bc.x - yc.x, bc.y - yc.y) > Math.max(reachOf(state, yours, yc), reachOf(state, b, bc))) continue;
+      if (nextFloat(state.rng) > 0.02 * SOCIAL[archOf(state, b)]) continue;
+      const theirsIntoYours = bc.points <= yc.points;
+      const leader = state.players[b.leader];
+      addMessage(state, {
+        kind: 'merge', from: b.leader, tribe: b.id, status: 'open', expires: state.time + DAY,
+        merge: theirsIntoYours ? 'theirsIntoYours' : 'yoursIntoTheirs',
+        title: theirsIntoYours ? `${tag(b)} wil opgaan in ${tag(yours)}` : `${tag(b)} stelt een fusie voor`,
+        text: theirsIntoYours
+          ? `${leader?.name ?? '?'}: samen zijn we sterker. Wij (${b.members.length} leden) gaan graag op in ${tag(yours)}, onder jouw leiding.`
+          : `${leader?.name ?? '?'}: samen zijn we sterker. Gaan jullie (${yours.members.length} leden) op in ${tag(b)}? Dan word jij lid en blijf ik leider.`,
+      });
+      if (pauses(state, 'requests')) alertHuman(state, `${tag(b)} stelt een fusie voor.`);
+    }
+  }
   // fall apart: an unhappy or spread-out tribe splits; the unhappiest member leads the new one
   for (const t of Object.values(state.tribes ?? {})) {
     if (t.leader === HUMAN_ID || t.members.length < 4) continue;
@@ -179,6 +203,7 @@ function coup(state: WorldState, t: Tribe): void {
 }
 
 function judgeYou(state: WorldState, t: Tribe): void {
+  checkLeaderOrder(state);
   const s = (state.standing = clamp((state.standing ?? BASE_MOOD) + Math.sign(BASE_MOOD - (state.standing ?? BASE_MOOD))));
   const leader = state.players[t.leader];
   if (!leader) return;

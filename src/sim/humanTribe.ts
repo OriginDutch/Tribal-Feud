@@ -261,6 +261,18 @@ export function answerMessage(state: WorldState, id: number, accept: boolean): s
     addLog(state, { time: state.time, text: `${p.name} is lid van ${tag(t)}.` });
     return null;
   }
+  if (m.kind === 'merge' && m.merge) {
+    const mine = myLedTribe(state);
+    if (typeof mine === 'string') { m.status = 'expired'; return mine; }
+    if (mine.members.length + t.members.length > MAX_MEMBERS) { m.status = 'expired'; return 'Samen zijn jullie te groot voor één stam.'; }
+    const [into, from] = m.merge === 'theirsIntoYours' ? [mine, t] : [t, mine];
+    for (const id of [...from.members]) join(state, into, state.players[id]!);
+    m.status = 'accepted';
+    const text = `${tag(from)} gaat op in ${tag(into)} ${into.name}.`;
+    addLog(state, { time: state.time, text });
+    (state.tribeNews ??= []).push({ time: state.time, text });
+    return null;
+  }
   if (m.kind === 'proposal' && m.relation) {
     const mine = myLedTribe(state);
     if (typeof mine === 'string') { m.status = 'expired'; return mine; }

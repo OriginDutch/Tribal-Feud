@@ -178,7 +178,7 @@ export interface OrderView {
 export interface InboxView {
   id: number;
   time: number;
-  kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request';
+  kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge';
   from: number;
   fromName: string;
   request?: BotRequest;

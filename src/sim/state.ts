@@ -41,7 +41,7 @@ export interface LogEntry {
 
 export type BotTier = 'pro' | 'mid' | 'casual';
 
-export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request';
+export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge';
 export interface InboxMessage {
   id: number;
   time: number;
@@ -56,6 +56,8 @@ export interface InboxMessage {
   relation?: 'nap' | 'ally' | 'peace';
   /** A tribe mate asking you something (kind 'request'). */
   request?: BotRequest;
+  /** kind 'merge': which tribe goes up in which (yours into theirs, or theirs into yours). */
+  merge?: 'yoursIntoTheirs' | 'theirsIntoYours';
   /** Messages with a choice: open until answered or expired. */
   status?: 'open' | 'accepted' | 'declined' | 'expired';
   expires?: number;
@@ -65,7 +67,9 @@ export interface InboxMessage {
 export type BotRequest =
   | { type: 'support'; village: number; movement: number; arrives: number }
   | { type: 'resources'; village: number; res: [number, number, number] }
-  | { type: 'permission'; target: number };
+  | { type: 'permission'; target: number }
+  /** Your bot leader orders you: attack a village, or support a mate's village. */
+  | { type: 'order'; order: 'attack' | 'support'; village: number; x: number; y: number; arrives?: number };
 
 /** You asked your tribe to help defend a village against an attack. */
 export interface HelpAsk {
@@ -273,6 +277,10 @@ export interface WorldState {
   standing?: number;
   standingNotes?: MoodNote[];
   standingWarned?: number;
+  /** As a member: the order of your leader you said yes to, until when it must be done. */
+  leaderOrder?: { order: 'attack' | 'support'; village: number; until: number; from: number };
+  /** When your bot leader last gave you an order. */
+  leaderOrderAt?: number;
   /** How often you betrayed someone (tribes trust you less). */
   betrayals?: number;
   /** Your asks to your tribe for resources (mates answer in their turn). */

@@ -17,7 +17,7 @@ import { addMessage, alertHuman, pauses } from './humanTribe';
 import { distance, protectionBlocker, sendAttack, sendSupport, travelTimeMs } from './movement';
 import { MERCHANT_CARRY, merchantsFree, sendResources } from './market';
 import { nextFloat } from './rng';
-import { BARBARIAN, HUMAN_ID, addLog, movementIndex, nextId, villagesOf, type BotState, type InboxMessage, type Player, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, addLog, movementIndex, nextId, villagesOf, type BotRequest, type BotState, type InboxMessage, type Player, type WorldState } from './state';
 import { AGGRESSION, mayAttack, tribeOf } from './tribes';
 import { changeStanding, mateEvent, moodAll } from './loyalty';
 import { storageCapacity } from './formulas';
@@ -145,6 +145,7 @@ export function answerRequest(state: WorldState, m: InboxMessage, accept: boolea
   const r = m.request;
   const p = state.players[m.from];
   if (!r || !p?.bot) return 'Dit verzoek bestaat niet meer.';
+  if (r.type === 'order') return answerLeaderOrder(state, m, r, p, accept);
   if (!accept) {
     m.status = 'declined';
     mateEvent(state, p, r.type === 'support' ? -10 : -6, -3, r.type === 'support' ? 'je stuurde geen support' : r.type === 'resources' ? 'je hield je grondstoffen voor jezelf' : 'je gaf geen toestemming');
@@ -189,6 +190,81 @@ export function answerRequest(state: WorldState, m: InboxMessage, accept: boolea
 
 // --- the bots' side, during their own online turn -----------------------------------------------
 
+// --- your bot leader gives you orders ------------------------------------------------------------
+
+/** You answer your leader's order: yes means you have until the deadline to do it. */
+function answerLeaderOrder(state: WorldState, m: InboxMessage, r: Extract<BotRequest, { type: 'order' }>, leader: Player, accept: boolean): string | null {
+  if (!accept) {
+    m.status = 'declined';
+    changeStanding(state, -4, r.order === 'attack' ? 'je weigerde mijn aanvalsorder' : 'je weigerde support te sturen');
+    return null;
+  }
+  m.status = 'accepted';
+  state.leaderOrder = { order: r.order, village: r.village, until: r.arrives ?? state.time + DAY / 2, from: leader.id };
+  return null;
+}
+
+/** You attacked a village: was it the one your leader ordered? */
+export function leaderOrderAttack(state: WorldState, villageId: number): void {
+  const o = state.leaderOrder;
+  if (!o || o.order !== 'attack' || o.village !== villageId) return;
+  delete state.leaderOrder;
+  changeStanding(state, 6, 'je voerde mijn order uit');
+}
+/** Your support arrived: was it where your leader wanted it? */
+export function leaderOrderSupport(state: WorldState, villageId: number): void {
+  const o = state.leaderOrder;
+  if (!o || o.order !== 'support' || o.village !== villageId) return;
+  delete state.leaderOrder;
+  changeStanding(state, 6, 'je stuurde de support die ik vroeg');
+}
+/** A yes that was never done costs more than a no. */
+export function checkLeaderOrder(state: WorldState): void {
+  const o = state.leaderOrder;
+  if (!o || o.until > state.time) return;
+  delete state.leaderOrder;
+  changeStanding(state, -8, 'je zei ja maar deed het niet');
+}
+
+/** A bot leader of your tribe gives you an order now and then: support a mate, or attack an enemy. */
+function leaderOrders(state: WorldState, leader: Player): void {
+  const open = (state.inbox ?? []).some((m) => m.request?.type === 'order' && m.status === 'open');
+  if (open || state.leaderOrder || (state.leaderOrderAt !== undefined && state.time - state.leaderOrderAt < 12 * HOUR)) return;
+  if (nextFloat(state.rng) > 0.05) return;
+  const t = tribeOf(state, HUMAN_ID);
+  const mine = villagesOf(state, HUMAN_ID);
+  if (!t || !mine.length) return;
+  const give = (request: Extract<BotRequest, { type: 'order' }>, title: string, text: string) => {
+    state.leaderOrderAt = state.time;
+    addMessage(state, { kind: 'request', from: leader.id, title, text, request, status: 'open', expires: request.arrives ?? state.time + DAY / 2 });
+    if (pauses(state, 'requests')) alertHuman(state, title);
+  };
+  // 1. support: a mate's village under attack that you can reach in time
+  const ix = movementIndex(state);
+  for (const id of t.members) {
+    if (id === HUMAN_ID) continue;
+    for (const v of villagesOf(state, id)) {
+      const hits = [...(ix.attacks.get(v.id)?.values() ?? [])].filter((a) => a > state.time + 15 * MINUTE);
+      if (!hits.length || !mine.some((o) => distance(o, v) <= HELP_RANGE)) continue;
+      const arrives = Math.min(...hits);
+      give({ type: 'order', order: 'support', village: v.id, x: v.x, y: v.y, arrives }, `${leader.name}: support naar ${v.name}`, `${leader.name}: ${v.name} (${v.x}|${v.y}) van ${state.players[id]?.name ?? '?'} wordt aangevallen. Stuur verdediging, het moet er zijn voor ${Math.max(1, Math.round((arrives - state.time) / MINUTE))} min.`);
+      return;
+    }
+  }
+  // 2. attack: the nearest village of a tribe we are at war with
+  const enemies = new Set(Object.entries(t.relations).filter(([, r]) => r === 'war').flatMap(([tid]) => state.tribes?.[Number(tid)]?.members ?? []));
+  if (!enemies.size) return;
+  let best: Village | null = null, bestD = Infinity;
+  for (const o of mine) {
+    for (const v of villagesNear(state, o, ORDER_RANGE)) {
+      if (!enemies.has(v.owner)) continue;
+      const d = distance(o, v);
+      if (d < bestD) { bestD = d; best = v; }
+    }
+  }
+  if (best) give({ type: 'order', order: 'attack', village: best.id, x: best.x, y: best.y }, `${leader.name}: val ${best.name} aan`, `${leader.name}: we zijn in oorlog met ${state.players[best.owner]?.name ?? '?'}. Val ${best.name} (${best.x}|${best.y}) aan, liefst binnen een halve speldag.`);
+}
+
 /** What a bot that shares a tribe with you does for (and asks of) you this turn. */
 export function tribeDuties(state: WorldState, player: Player): void {
   const bot = player.bot;
@@ -196,7 +272,7 @@ export function tribeDuties(state: WorldState, player: Player): void {
   if (!bot || !t || player.tribe !== t.id) return;
   answerHelpAsks(state, player);
   answerResourceAsks(state, player);
-  if (t.leader === player.id) answerPermissions(state, player);
+  if (t.leader === player.id) { answerPermissions(state, player); leaderOrders(state, player); }
   answerOrders(state, player);
   askHuman(state, player);
 }

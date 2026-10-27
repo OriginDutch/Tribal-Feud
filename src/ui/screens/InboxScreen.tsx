@@ -2,7 +2,7 @@ import { PlayerLink } from '../components/PlayerLink';
 import { useEffect } from 'preact/hooks';
 import type { InboxView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
-import { inbox, openSupport, openTribe, send, snapshot } from '../store';
+import { attackVillage, inbox, openSupport, openTribe, send, snapshot } from '../store';
 
 const KIND: Record<InboxView['kind'], string> = {
   invite: 'Uitnodiging',
@@ -12,8 +12,9 @@ const KIND: Record<InboxView['kind'], string> = {
   war: 'Oorlog',
   info: 'Bericht',
   request: 'Verzoek',
+  merge: 'Fusie',
 };
-const ACCEPT: Record<string, string> = { none: 'Accepteren', support: 'Support plannen', resources: 'Versturen', permission: 'Toestaan' };
+const ACCEPT: Record<string, string> = { none: 'Accepteren', support: 'Support plannen', resources: 'Versturen', permission: 'Toestaan', order: 'Akkoord' };
 const STATUS = { accepted: 'Geaccepteerd', declined: 'Afgewezen', expired: 'Verlopen' } as const;
 
 /** Messages from other players, Football Manager style: some ask for an answer. */
@@ -49,6 +50,8 @@ export function InboxScreen() {
                 send({ type: 'inboxAnswer', id: m.id, accept: true });
                 // agreeing to support: plan it right away
                 if (m.request?.type === 'support') openSupport(m.request.village, m.request.arrives);
+                if (m.request?.type === 'order' && m.request.order === 'support') openSupport(m.request.village, m.request.arrives ?? null);
+                if (m.request?.type === 'order' && m.request.order === 'attack') attackVillage(m.request.x, m.request.y);
               }}
             >
               {ACCEPT[m.request?.type ?? 'none']}

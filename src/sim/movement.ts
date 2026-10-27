@@ -17,6 +17,7 @@ import { DAY, formatGameTime } from '../shared/time';
 import { arriveTrade, arriveTradeReturn } from './market';
 import { currentResources, isOperational, settle, type Village } from './village';
 import { mateEvent, onVillageLost } from './loyalty';
+import { leaderOrderSupport } from './tribeOrders';
 import { statAttack, statConquest } from './worldStats';
 import { battleBonus } from './battleBonus';
 import { equipped, itemKills } from './paladin';
@@ -745,6 +746,7 @@ function arriveSupport(state: WorldState, m: Movement): void {
   if (m.owner === HUMAN_ID) {
     addLog(state, { time: state.time, text: `Ondersteuning aangekomen in ${host.name} (${host.x}|${host.y}).` });
     mateEvent(state, state.players[host.owner], 5, 2, `je stuurde support naar ${host.name}`);
+    leaderOrderSupport(state, host.id);
   }
 }
 

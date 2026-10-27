@@ -3,7 +3,7 @@
  * The UI never touches the state directly.
  */
 import { deleteGroup, saveGroup, setGroup } from './groups';
-import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder } from './tribeOrders';
+import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderAttack } from './tribeOrders';
 import { grudge, grudgeHalfLife } from './botReact';
 import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, proposeRelation, setOwnRelation } from './humanTribe';
 import { fitCheck, tribeNews, tribeViews } from './tribes';
@@ -642,7 +642,7 @@ async function handle(cmd: Command): Promise<void> {
       {
         const error = sendAttack(state, cmd.from, cmd.to, cmd.units, cmd.catapultTarget);
         if (error) notice(error, 'error');
-        else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); }
+        else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); leaderOrderAttack(state, cmd.to); }
       }
       break;
     case 'sendFarm': {
@@ -734,7 +734,7 @@ async function handle(cmd: Command): Promise<void> {
       if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
       const error = sendNobleTrain(state, cmd.from, cmd.to, cmd.first, cmd.escorts, cmd.catapultTarget, cmd.clearFirst ?? false);
       if (error) notice(error, 'error');
-      else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); }
+      else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); leaderOrderAttack(state, cmd.to); }
       break;
     }
     case 'sendSupport': {
