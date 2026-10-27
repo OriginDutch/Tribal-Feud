@@ -99,6 +99,8 @@ export type Command =
   | { type: 'saveScavTemplate'; template: ScavTemplate }
   | { type: 'deleteScavTemplate'; id: string }
   | { type: 'setScavenging'; on: boolean }
+  /** Building and recruiting speed of the running world (on top of world speed). */
+  | { type: 'setSpeeds'; build: number; recruit: number }
   | { type: 'continueWorld' }
   | { type: 'askTribeResources'; village: number; res: [number, number, number] }
   | { type: 'askPermission'; target: number }

@@ -22,9 +22,26 @@ export function WorldPanel() {
         </select>
       </label>
       <p class="hint">{HINT[s.difficulty]} Geldt meteen, ook in een lopende wereld. Bots onderling veranderen niet.</p>
+      <SpeedPicker label="Bouwsnelheid" value={s.multipliers.build} onPick={(build) => send({ type: 'setSpeeds', build, recruit: s.multipliers.recruit })} />
+      <SpeedPicker label="Rekruteersnelheid" value={s.multipliers.recruit} onPick={(recruit) => send({ type: 'setSpeeds', build: s.multipliers.build, recruit })} />
+      <p class="hint">Bovenop de wereldsnelheid (×{s.multipliers.world}). Geldt voor iedereen, ook de bots. Wat al in een wachtrij staat houdt zijn oude tijd.</p>
       <label class="row" title="Lopende rooftochten komen gewoon nog terug.">
         <input type="checkbox" checked={s.scavenging} onChange={(e) => send({ type: 'setScavenging', on: e.currentTarget.checked })} /> Rooftochten (ook voor bots)
       </label>
     </section>
+  );
+}
+
+const SPEEDS = [0.5, 1, 1.5, 2, 3, 4, 5];
+
+function SpeedPicker({ label, value, onPick }: { label: string; value: number; onPick: (v: number) => void }) {
+  const options = SPEEDS.includes(value) ? SPEEDS : [...SPEEDS, value].sort((a, b) => a - b);
+  return (
+    <label>
+      {label}
+      <select value={String(value)} onChange={(e) => onPick(Number(e.currentTarget.value))}>
+        {options.map((v) => <option key={v} value={String(v)}>×{v}</option>)}
+      </select>
+    </label>
   );
 }

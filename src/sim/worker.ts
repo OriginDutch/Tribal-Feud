@@ -39,7 +39,7 @@ import {
   type TradeOffer,
 } from './market';
 import { villagesOf } from './state';
-import { villagePoints } from './barbarians';
+import { growBarbarian, villagePoints } from './barbarians';
 import { ARCHETYPE_NAMES } from '../shared/botProfiles';
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../shared/gameData';
 import {
@@ -1054,6 +1054,17 @@ async function handle(cmd: Command): Promise<void> {
       if (cmd.type === 'saveScavTemplate') { const e = saveScavTemplate(state, cmd.template); if (e) notice(e, 'error'); }
       else state.scavTemplates = (state.scavTemplates ?? []).filter((t) => t.id !== cmd.id);
       post({ type: 'scav', view: scavView(state) });
+      break;
+    }
+    case 'setSpeeds': {
+      if (!state) return;
+      const clamp = (x: number) => Math.min(10, Math.max(0.25, Number.isFinite(x) ? x : 1));
+      const build = clamp(cmd.build), recruit = clamp(cmd.recruit);
+      // barbarians grow with the build speed: bring them up to now first, so the change only counts from here
+      if (build !== state.config.buildSpeed) for (const v of Object.values(state.villages)) if (v.owner === BARBARIAN) growBarbarian(state, v, state.time);
+      state.config.buildSpeed = build;
+      state.config.recruitSpeed = recruit;
+      addLog(state, { time: state.time, text: `Bouwsnelheid ×${build}, rekruteersnelheid ×${recruit}. Wat al in een wachtrij staat houdt zijn tijd.` });
       break;
     }
     case 'setScavenging':
