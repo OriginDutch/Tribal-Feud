@@ -411,8 +411,12 @@ export function autoBuild(
     const cap = config.buildings.storage;
     const storageFull = res.some((r) => r >= 0.9 * storageOf(v));
     const farmFull = popMax(config, v) - popUsed(config, v) < Math.max(10, popMax(config, v) * 0.08);
+    // ...but only if that can actually be built now: an unaffordable farm or storage must not
+    // hold up a step that can (a full farm of troops, or a storage full of wood but short on iron)
+    const planned = target;
     if (farmFull && plannedLevel(v, 'farm') < config.buildings.farm.maxLevel) target = 'farm';
     else if (storageFull && plannedLevel(v, 'storage') < cap.maxLevel) target = 'storage';
+    if (target !== planned && buildBlocker(state, v, target) !== null && buildBlocker(state, v, planned) === null) target = planned;
 
     const blocker = buildBlocker(state, v, target);
     if (blocker === null) {

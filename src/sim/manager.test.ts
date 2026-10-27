@@ -87,3 +87,19 @@ describe('account manager: churches, research levels, flags', () => {
     expect(v.flag).toEqual({ type: 'res', level: 3 });
   });
 });
+
+describe('account manager: a full storage it cannot raise', () => {
+  it('builds the next affordable step instead of waiting for a storage it cannot pay', async () => {
+    const { manageVillage } = await import('./manager');
+    const s = createWorld(createConfig('classic', 'M', 9, { bots: { count: 0 } } as never));
+    const v = playerVillage(s)!;
+    Object.assign(v.buildings, { main: 16, wood: 29, stone: 30, iron: 20, storage: 29, farm: 20, barracks: 10, smith: 5 });
+    const cap = 325337;
+    v.res = [cap, cap, 5450];
+    v.resAt = s.time;
+    expect(saveTemplate(s, { id: 'own:t', name: 'T', steps: [['main', 20]] })).toBeNull();
+    v.manager = { template: 'own:t' } as never;
+    manageVillage(s, v, v.manager!);
+    expect(v.buildQueue.map((j) => j.building)).toContain('main');
+  });
+});
