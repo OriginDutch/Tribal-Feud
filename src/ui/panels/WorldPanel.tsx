@@ -22,6 +22,9 @@ export function WorldPanel() {
         </select>
       </label>
       <p class="hint">{HINT[s.difficulty]} Geldt meteen, ook in een lopende wereld. Bots onderling veranderen niet.</p>
+      <label class="row" title="Lopende rooftochten komen gewoon nog terug.">
+        <input type="checkbox" checked={s.scavenging} onChange={(e) => send({ type: 'setScavenging', on: e.currentTarget.checked })} /> Rooftochten (ook voor bots)
+      </label>
     </section>
   );
 }

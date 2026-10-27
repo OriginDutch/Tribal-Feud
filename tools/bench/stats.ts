@@ -22,4 +22,11 @@ for (let d = 1; d <= days; d++) {
   const sizes = s.players.filter((p) => p.bot).map((p) => villagesOf(s, p.id).length).sort((a, b) => b - a);
   console.log(`dag ${d}: aanvallen spelers ${day?.attacksPvp ?? 0} / barb ${day?.attacksBarb ?? 0} · overnames spelers ${day?.conquestsPvp ?? 0} / barb ${day?.conquestsBarb ?? 0} · stammen ${Object.keys(s.tribes ?? {}).length} · oorlogen ${ws} · solo ${solo}/${alive} · grootste ${sizes.slice(0, 3).join(',')} mediaan ${sizes[Math.floor(sizes.length / 2)]}`);
 }
+{
+  const vs = Object.values(s.villages).filter((v) => v.owner >= 0);
+  const out = vs.filter((v) => v.scav?.runs.length).length;
+  const lv = [0, 0, 0, 0];
+  for (const v of vs) if (v.scav) lv[v.scav.unlocked]!++;
+  console.log(`rooftocht: ${out}/${vs.length} dorpen nu onderweg · hoogste open level ${lv.join('/')}`);
+}
 console.log(`klaar in ${((performance.now() - t0) / 1000).toFixed(0)} s`);

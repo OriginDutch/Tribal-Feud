@@ -9,6 +9,7 @@ import { Nav } from './components/Nav';
 import { EndgameModal } from './components/EndgameModal';
 import { RelationsScreen } from './screens/RelationsScreen';
 import { StatsScreen } from './screens/StatsScreen';
+import { ScavengeScreen } from './screens/ScavengeScreen';
 import { SimulatorScreen } from './screens/SimulatorScreen';
 import { autoPause, notice, screen, snapshot, togglePause } from './store';
 import { DebugScreen } from './screens/DebugScreen';
@@ -87,6 +88,8 @@ function CurrentScreen() {
       return <StatsScreen />;
     case 'simulator':
       return <SimulatorScreen />;
+    case 'scavenge':
+      return <ScavengeScreen />;
     case 'inbox':
       return <InboxScreen />;
     case 'support':

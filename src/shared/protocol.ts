@@ -15,6 +15,7 @@ import type { BuildingId, UnitCounts, UnitId } from './gameData';
 import type { Report } from '../sim/movement';
 import type { DemandStatus, PendingReward } from '../sim/quests';
 import type { Res } from './gameData';
+import type { ScavParams, ScavTemplate } from './scavenge';
 
 export type Command =
   | { type: 'newWorld'; preset: Exclude<PresetId, 'custom'>; name: string; seed?: number; overrides?: ConfigOverrides }
@@ -88,6 +89,13 @@ export type Command =
   | { type: 'sendSurplus'; keep: number }
   | { type: 'getSurplusPlan'; keep: number }
   | { type: 'getMintPlan'; keep: number }
+  | { type: 'getScav' }
+  /** Rooftochten: units per level (index = level) per village. */
+  | { type: 'sendScav'; plans: { villageId: number; plan: UnitCounts[] }[] }
+  | { type: 'setScavRepeat'; villages: number[]; repeat: boolean }
+  | { type: 'saveScavTemplate'; template: ScavTemplate }
+  | { type: 'deleteScavTemplate'; id: string }
+  | { type: 'setScavenging'; on: boolean }
   | { type: 'continueWorld' }
   | { type: 'askTribeResources'; village: number; res: [number, number, number] }
   | { type: 'askPermission'; target: number }
@@ -341,6 +349,8 @@ export interface Snapshot {
   groups: VillageGroup[];
   /** Surplus to building villages: keep share and automatic on/off. */
   surplus: { keep: number; auto: boolean };
+  /** Rooftochten on in this world. */
+  scavenging: boolean;
   /** Domination endgame. */
   endgame: EndgameView;
   /** Flags worlds: your free flags per kind and level (index 0 = level 1), and progress to the next. */
@@ -420,6 +430,7 @@ export type WorkerMessage =
   | { type: 'simResult'; result: SimResult }
   | { type: 'worldStats'; stats: WorldStatsView }
   | { type: 'surplusPlan'; rows: SurplusRow[]; keep: number }
+  | { type: 'scav'; view: ScavView }
   | { type: 'mintPlan'; rows: { id: number; name: string; x: number; y: number; coins: number }[]; keep: number }
   | { type: 'player'; player: PlayerView | null }
   | { type: 'notice'; level: 'info' | 'error'; text: string };
@@ -449,6 +460,29 @@ export interface SupportRow {
   units: UnitCounts;
   /** Walking time home (slowest unit). */
   travel: number;
+}
+
+/** Rooftochten of your villages. */
+export interface ScavView {
+  enabled: boolean;
+  params: ScavParams;
+  templates: ScavTemplate[];
+  villages: ScavVillageRow[];
+}
+
+export interface ScavVillageRow {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  groups: string[];
+  hasPlace: boolean;
+  home: UnitCounts;
+  /** Highest open level (0..3). */
+  unlocked: number;
+  repeat: boolean;
+  runs: { level: number; units: UnitCounts; returns: number }[];
+  last: { level: number; loot: [number, number, number]; lost: UnitCounts; at: number }[];
 }
 
 /** One shipment of a surplus run (preview). */

@@ -545,6 +545,7 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   const old = v.owner;
   statConquest(state, v.id, v.name, old, newOwner);
   delete v.flag;
+  delete v.scav;
   if (newOwner >= 0) flagForConquest(state, newOwner);
   if (old >= 0 && old !== HUMAN_ID) {
     const helped = Object.keys(v.support ?? {}).some((o) => state.villages[Number(o)]?.owner === HUMAN_ID);

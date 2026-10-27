@@ -86,6 +86,8 @@ export interface WorldConfig {
 
   churches: boolean;
   flags: boolean;
+  /** Rooftochten (TW scavenging). Old saves: on. */
+  scavenging?: boolean;
   research: ResearchMode;
   archers: boolean;
   paladin: PaladinMode;
@@ -223,6 +225,7 @@ const BASE: PresetValues = {
   recruitSpeed: 1,
   churches: false,
   flags: false,
+  scavenging: true,
   research: 'simple',
   archers: true,
   paladin: 'on',

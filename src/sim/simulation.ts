@@ -8,6 +8,7 @@ import { onArrive } from './movement';
 import { checkQuests } from './quests';
 import { onBotTurn } from './bots';
 import { onManagerCheck } from './manager';
+import { settleScavenge } from './scavenge';
 
 /**
  * Pure simulation core. No timers, no DOM, no worker APIs:
@@ -33,11 +34,12 @@ export function schedule(state: WorldState, delayMs: number, event: GameEvent): 
 function touch(state: WorldState, event: GameEvent): void {
   const at = (id: number | undefined) => {
     const v = id !== undefined ? state.villages[id] : undefined;
-    if (v) settleRecruits(state, v, true);
+    if (v) { settleRecruits(state, v, true); settleScavenge(state, v); }
   };
   switch (event.kind) {
     case 'build':
     case 'research':
+    case 'scavenge':
       at(event.villageId);
       return;
     case 'arrive': {
@@ -48,7 +50,7 @@ function touch(state: WorldState, event: GameEvent): void {
     case 'botTurn':
       // stale turn events (rescheduled since) look at nothing
       if (state.players[event.playerId]?.bot?.nextTurn !== state.time) return;
-      for (const v of villagesOf(state, event.playerId)) settleRecruits(state, v, true);
+      for (const v of villagesOf(state, event.playerId)) { settleRecruits(state, v, true); settleScavenge(state, v); }
       return;
   }
 }
@@ -77,6 +79,9 @@ function handle(state: WorldState, event: GameEvent): LogEntry | null {
       return null;
     case 'diplomacy':
       onDiplomacy(state);
+      return null;
+    case 'scavenge':
+      // settled in touch()
       return null;
     case 'test': {
       const entry: LogEntry = { time: state.time, text: `Test-event: ${event.label}` };

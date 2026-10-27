@@ -68,6 +68,9 @@ import { hasFaith } from './church';
 import { FLAG_TYPES, freeFlags, setFlag, upgradeFlag, type FlagType } from './flags';
 import { ITEMS, ITEM_IDS, equipItem, type ItemId } from './paladin';
 import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
+import { SCAV_UNITS, scavEnabled, scavOf, scavParams, sendPlan } from './scavenge';
+import { DEFAULT_SCAV_TEMPLATE, type ScavTemplate } from '../shared/scavenge';
+import type { ScavView } from '../shared/protocol';
 import { DEFAULT_SURPLUS, mintAll, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
 
 /** Minimal typing for the worker global, so the project only needs the DOM lib. */
@@ -177,6 +180,7 @@ function snapshot(): Snapshot | null {
     groups: state.villageGroups ?? [],
     surplus: state.surplus ?? DEFAULT_SURPLUS,
     difficulty: state.config.bots.difficulty,
+    scavenging: state.config.scavenging !== false,
     endgame: endgameView(state),
     ...(state.config.paladin === 'items' ? { items: itemsView(state) } : {}),
     ...(state.config.flags ? { flags: flagsView(state) } : {}),
@@ -323,6 +327,49 @@ function endgameView(s: WorldState): EndgameView {
 
 function mintRows(s: WorldState, keep: number) {
   return planMintAll(s, keep).map((p) => { const v = s.villages[p.village]!; return { id: v.id, name: v.name, x: v.x, y: v.y, coins: p.coins }; });
+}
+
+function scavView(s: WorldState): ScavView {
+  const villages = villagesOf(s, HUMAN_ID).map((v) => {
+    const sc = v.scav;
+    const home: UnitCounts = {};
+    for (const u of SCAV_UNITS) if (v.units[u] > 0) home[u] = v.units[u];
+    return {
+      id: v.id, name: v.name, x: v.x, y: v.y,
+      groups: [...(v.groups ?? [])],
+      hasPlace: isOperational(s.config, v, 'place'),
+      home,
+      unlocked: sc?.unlocked ?? 0,
+      repeat: !!sc?.repeat,
+      runs: (sc?.runs ?? []).map((r) => ({ level: r.level, units: { ...r.units }, returns: r.returns })),
+      last: (sc?.last ?? []).map((l) => ({ ...l, loot: [...l.loot] as [number, number, number], lost: { ...l.lost } })),
+    };
+  });
+  const params = scavParams(s);
+  const units = Object.fromEntries(SCAV_UNITS.map((u) => [u, { attack: params.units[u].attack, carry: params.units[u].carry }]));
+  return {
+    enabled: scavEnabled(s),
+    params: { worldSpeed: params.worldSpeed, productionMultiplier: params.productionMultiplier, units: units as ScavView['params']['units'] },
+    templates: [DEFAULT_SCAV_TEMPLATE, ...(s.scavTemplates ?? [])],
+    villages,
+  };
+}
+
+function saveScavTemplate(s: WorldState, t: ScavTemplate): string | null {
+  const name = t.name.trim();
+  if (!name) return 'Geef het sjabloon een naam.';
+  if (t.id === DEFAULT_SCAV_TEMPLATE.id) return 'Het standaardsjabloon kun je niet aanpassen; sla het op onder een andere naam.';
+  const list = (s.scavTemplates ??= []);
+  const clean: ScavTemplate = { id: t.id || `t${Date.now().toString(36)}`, name: name.slice(0, 30), units: {}, levels: [0, 1, 2, 3].map((l) => !!t.levels[l]), safeOnly: !!t.safeOnly };
+  for (const u of SCAV_UNITS) {
+    const r = t.units[u];
+    if (r) clean.units[u] = { use: !!r.use, keep: Math.max(0, Math.floor(r.keep || 0)) };
+  }
+  const at = list.findIndex((x) => x.id === clean.id);
+  if (at >= 0) list[at] = clean;
+  else if (list.length >= 20) return 'Maximaal 20 sjablonen.';
+  else list.push(clean);
+  return null;
 }
 
 function surplusRows(s: WorldState, keep: number): SurplusRow[] {
@@ -939,6 +986,47 @@ async function handle(cmd: Command): Promise<void> {
       addLog(state, { time: state.time, text: `Moeilijkheid van de bots: ${({ easy: 'Makkelijk', normal: 'Normaal', hard: 'Moeilijk' } as const)[cmd.difficulty]}.` });
       break;
     }
+    case 'getScav':
+      if (state) post({ type: 'scav', view: scavView(state) });
+      break;
+    case 'sendScav': {
+      if (!state) return;
+      let runs = 0;
+      let error: string | null = null;
+      for (const p of cmd.plans) {
+        const v = state.villages[p.villageId];
+        if (!v || v.owner !== HUMAN_ID) continue;
+        const r = sendPlan(state, v.id, p.plan);
+        runs += r.sent;
+        error ??= r.error ? `${v.name}: ${r.error}` : null;
+      }
+      if (error) notice(error, 'error');
+      if (runs) notice(`${runs} rooftocht${runs === 1 ? '' : 'en'} vertrokken.`, 'info');
+      post({ type: 'scav', view: scavView(state) });
+      break;
+    }
+    case 'setScavRepeat': {
+      if (!state) return;
+      for (const id of cmd.villages) {
+        const v = state.villages[id];
+        if (v?.owner === HUMAN_ID) scavOf(v).repeat = cmd.repeat;
+      }
+      post({ type: 'scav', view: scavView(state) });
+      break;
+    }
+    case 'saveScavTemplate':
+    case 'deleteScavTemplate': {
+      if (!state) return;
+      if (cmd.type === 'saveScavTemplate') { const e = saveScavTemplate(state, cmd.template); if (e) notice(e, 'error'); }
+      else state.scavTemplates = (state.scavTemplates ?? []).filter((t) => t.id !== cmd.id);
+      post({ type: 'scav', view: scavView(state) });
+      break;
+    }
+    case 'setScavenging':
+      if (!state) return;
+      state.config.scavenging = cmd.on;
+      addLog(state, { time: state.time, text: `Rooftochten ${cmd.on ? 'aan' : 'uit'}.` });
+      break;
     case 'getMintPlan':
       if (state) post({ type: 'mintPlan', rows: mintRows(state, cmd.keep), keep: cmd.keep });
       return;

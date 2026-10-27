@@ -21,6 +21,7 @@ const ITEMS: Item[] = [
   'sep',
   { id: 'map', label: 'Kaart' },
   { id: 'farm', label: 'Farm-assistent' },
+  { id: 'scavenge', label: 'Rooftocht' },
   { id: 'support', label: 'Support' },
   { id: 'simulator', label: 'Simulator' },
   { id: 'reports', label: 'Rapporten' },

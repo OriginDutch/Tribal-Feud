@@ -43,6 +43,7 @@ export function NewWorldPanel() {
   const [paladin, setPaladin] = useState<'off' | 'on' | 'items'>('on');
   const [churches, setChurches] = useState(false);
   const [flags, setFlags] = useState(false);
+  const [scavenging, setScavenging] = useState(true);
   const [morale, setMorale] = useState<'off' | 'points' | 'pointsTime'>(PRESETS.classic.morale);
   const [night, setNight] = useState(false);
 
@@ -67,6 +68,7 @@ export function NewWorldPanel() {
     if (paladin !== 'on') overrides.paladin = paladin;
     if (churches) overrides.churches = true;
     if (flags) overrides.flags = true;
+    if (!scavenging) overrides.scavenging = false;
     if (morale !== PRESETS[preset].morale) overrides.morale = morale;
     if (night) overrides.nightBonus = true;
     if (winShare !== 0.75 || !winBarbs) overrides.winCondition = { villageShare: winShare, countBarbarians: winBarbs };
@@ -136,6 +138,9 @@ export function NewWorldPanel() {
       </label>
       <label class="row" title="Eén vlag per dorp: productie, rekruteren, aanval, verdediging, geluk, bevolking, munten of buit. Je verdient ze met veroveringen en verslagen vijanden.">
         <input type="checkbox" checked={flags} onChange={(e) => setFlags(e.currentTarget.checked)} /> Vlaggen
+      </label>
+      <label class="row" title="Troepen gaan op rooftocht voor grondstoffen. Bots doen ook mee.">
+        <input type="checkbox" checked={scavenging} onChange={(e) => setScavenging(e.currentTarget.checked)} /> Rooftochten
       </label>
       <label title="Moraal beschermt kleine spelers: een veel grotere aanvaller vecht zwakker. Met tijd stijgt de ondergrens van 30% naar 50% in de eerste 30 dagen van de verdediger.">
         Moraal

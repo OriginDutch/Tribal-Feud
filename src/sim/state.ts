@@ -31,7 +31,8 @@ export type GameEvent =
   | { kind: 'arrive'; movementId: number }
   | { kind: 'botTurn'; playerId: number }
   | { kind: 'manager' }
-  | { kind: 'diplomacy' };
+  | { kind: 'diplomacy' }
+  | { kind: 'scavenge'; villageId: number };
 
 export interface LogEntry {
   time: number;
@@ -241,6 +242,8 @@ export interface WorldState {
   troopTemplates?: TroopTemplate[];
   /** Your village groups. */
   villageGroups?: VillageGroup[];
+  /** Your rooftocht templates (the default one is built in). */
+  scavTemplates?: import('../shared/scavenge').ScavTemplate[];
   /** World statistics (attacks and conquests per day, per player). */
   worldStats?: WorldStats;
   /** Domination endgame: warnings, the tribe holding the target, the winner. */

@@ -4,6 +4,7 @@
  * functions (queueBuild, recruit, startResearch, sendAttack) and they only know what their
  * own reports told them. They don't attack players yet.
  */
+import { botScavenge } from './scavenge';
 import { ARCHETYPES, BOT_PROFILES, type BotProfile } from '../shared/botProfiles';
 import { RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { MINUTE } from '../shared/time';
@@ -206,7 +207,16 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   if (!saving) recruitTroops(state, v, profile, reserve);
   if (attentive) helpTribe(state, player, v, profile);
   if (attentive && !forgets(0.8)) farm(state, player, v, profile, skill);
+  // what stays home after farming goes scavenging (not when the bot is about to fight)
+  if (attentive && !forgets(0.5) && !atWar(state, player)) botScavenge(state, v, profile.farmUnits);
   if (attentive) trade(state, player, v);
+}
+
+/** A tribe at war (or a bot hunting a village) keeps its army home. */
+function atWar(state: WorldState, player: Player): boolean {
+  if (player.bot?.nobleTarget !== undefined) return true;
+  const t = player.tribe !== undefined ? state.tribes?.[player.tribe] : undefined;
+  return !!t && Object.values(t.relations).includes('war');
 }
 
 // --- tribe ---------------------------------------------------------------------
@@ -315,6 +325,7 @@ export function abandonAndRestart(state: WorldState, player: Player): Village {
     settle(config, v, state.time);
     v.owner = BARBARIAN;
     v.name = 'Barbarendorp';
+    delete v.scav;
     for (const u of UNIT_IDS) {
       v.units[u] = 0;
       v.outside[u] = 0;

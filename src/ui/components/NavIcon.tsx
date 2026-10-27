@@ -18,6 +18,7 @@ const PATHS: Record<string, string> = {
   reports: '<path d="M5 3h11l3 3v15H5z"/><path d="M9 9h6M9 13h6M9 17h4"/>',
   tribes: '<path d="M5 21V4"/><path d="M5 4h11l-2.5 3.5L16 11H5"/><circle cx="17" cy="17" r="2.2"/><path d="M13.5 21a3.5 3.5 0 0 1 7 0"/>',
   simulator: '<path d="M5 19 19 5"/><path d="M15 5h4v4"/><path d="M5 5l6 6"/><path d="M13 13l6 6"/>',
+  scavenge: '<path d="M3 20h18"/><path d="M6 20l3-9h6l3 9"/><path d="M9 11V7a3 3 0 0 1 6 0v4"/>',
   stats: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   relations: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
   support: '<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',

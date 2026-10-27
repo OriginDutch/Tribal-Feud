@@ -123,6 +123,8 @@ export interface Village {
   support?: Record<number, UnitCounts>;
   /** Account manager settings (player villages). */
   manager?: VillageManager;
+  /** Rooftochten (scavenging) of this village. */
+  scav?: import('./scavenge').ScavState;
   /** Your village groups this village is in. */
   groups?: string[];
   /** Noble packages stored here (packages worlds). */

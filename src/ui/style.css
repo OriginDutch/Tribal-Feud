@@ -716,3 +716,17 @@ button.nuke { background: #b3261e; color: #fff; border-color: #b3261e; font-weig
 .sim-result.good strong { color: #7fbf5a; }
 .sim-result.bad strong { color: #e5533f; }
 label.row { flex-direction: row; align-items: center; }
+
+/* rooftocht */
+.scav-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.scav-card { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.scav-card.locked { opacity: 0.55; }
+.scav-inputs { display: flex; flex-wrap: wrap; gap: 6px; }
+.scav-inputs label { flex-direction: row; align-items: center; gap: 4px; }
+.scav-inputs input { width: 84px; }
+.scav-rules { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.scav-rules label { flex-direction: row; align-items: center; gap: 5px; }
+.scav-rules .unit-toggle input[type='number'] { display: inline-block; width: 60px; }
+.scav-table .chip { font-size: 12px; white-space: nowrap; }
+.scav-table .chip.edited { box-shadow: inset 0 0 0 1px var(--accent-line); }
+.scav-table .chip.on { background: var(--accent-soft); color: var(--text); border-color: var(--accent-line); }
