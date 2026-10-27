@@ -5,6 +5,7 @@
  * own reports told them. They don't attack players yet.
  */
 import { botScavenge } from './scavenge';
+import { outclassed } from './warCause';
 import { BOT_SPIES, beatable, farmablePlayerVillage, scoutForConquest, scoutForFarming, strike } from './botStrategy';
 import { ARCHETYPES, BOT_PROFILES, type BotProfile } from '../shared/botProfiles';
 import { RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
@@ -805,6 +806,7 @@ function nobleTarget(state: WorldState, player: Player, v: Village, profile: Bot
     if (t.owner === player.id || distance(t, v) > maxDist) return false;
     if (t.owner === BARBARIAN) return true;
     if (!profile.attacksPlayers || protectionBlocker(state, player.id, t.owner) !== null || !mayAttack(state, player.id, t.owner) || spares(state, bot, t.owner)) return false;
+    if (outclassed(state, player.id, t.owner)) return false;
     // only players it beat before, or scouted and can clearly break
     return bot.farmLog[t.id]?.won === true || beatable(state, player, t, v);
   };

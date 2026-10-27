@@ -10,6 +10,7 @@ import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../shared/gameData';
 import { MINUTE } from '../shared/time';
 import { recruitDefense, villagesNear } from './bots';
+import { outclassed } from './warCause';
 import { distance, protectionBlocker, sendAttack, sendSupport, travelTimeMs } from './movement';
 import { mayAttack } from './tribes';
 import { spares } from './tribeOrders';
@@ -193,6 +194,8 @@ const SCOUT_BACK: Record<BotTier, number> = { pro: 1, mid: 0.3, casual: 0 };
 function counter(state: WorldState, player: Player, target: Village, from: Village, sent: number, arrives: number, danger: number): void {
   const tier = player.bot!.tier ?? 'pro';
   if (from.owner < 0 || !mayAttack(state, player.id, from.owner) || protectionBlocker(state, player.id, from.owner) !== null || spares(state, player.bot, from.owner)) return;
+  // hitting back at someone far stronger only makes it worse: defend and leave it
+  if (outclassed(state, player.id, from.owner)) return;
   const mine = villagesOf(state, player.id).filter((o) => isOperational(state.config, o, 'place'));
   // scout back from the nearest village with scouts
   if (nextFloat(state.rng) < SCOUT_BACK[tier]) {

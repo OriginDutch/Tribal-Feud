@@ -33,9 +33,8 @@ describe('bot strategy', () => {
     const { s, bot, v, human } = setup(41);
     bot.bot!.archetype = 'rusher';
     v.units.light = 60;
-    human.units.spear = 2000;
-    human.units.sword = 2000;
-    human.buildings.wall = 10;
+    human.units.spear = 300;
+    human.buildings.wall = 3;
     run(s, 1 * DAY);
     expect(onYou(s).length).toBeGreaterThan(0); // the scouts came
     expect(real(s)).toHaveLength(0);
@@ -54,6 +53,17 @@ describe('bot strategy', () => {
     expect(hits.length).toBeGreaterThan(0);
     // a real army, not a farm group
     expect((hits[0]!.attackerUnits.sent.axe ?? 0) + (hits[0]!.attackerUnits.sent.light ?? 0)).toBeGreaterThan(1000);
+  });
+
+  it('a bot leaves a player alone who clearly outclasses it: not even scouts', () => {
+    const { s, bot, v, human } = setup(44);
+    bot.bot!.archetype = 'rusher';
+    v.units.light = 60;
+    human.units.axe = 5000;
+    human.units.spear = 4000;
+    bot.bot!.grudges = { [HUMAN_ID]: { score: 3, at: 0, why: 'test' } };
+    run(s, 1 * DAY);
+    expect(onYou(s)).toHaveLength(0);
   });
 
   it('without a reason a non-farmer never attacks you', () => {

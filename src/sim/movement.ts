@@ -21,6 +21,7 @@ import { leaderOrderSupport } from './tribeOrders';
 import { statAttack, statConquest } from './worldStats';
 import { battleBonus } from './battleBonus';
 import { judgeScout, rememberScout } from './botStrategy';
+import { FRICTION_ATTACK, FRICTION_CONQUEST, addFriction } from './warCause';
 import { equipped, itemKills } from './paladin';
 import { flagForConquest, flagKills, flagValue } from './flags';
 
@@ -317,6 +318,8 @@ function arriveAttack(state: WorldState, m: Movement): void {
   growBarbarian(state, target, state.time);
   settle(config, target, state.time);
   statAttack(state, m.owner, target.owner);
+  // a real attack between tribes rubs; scouts don't count
+  if (target.owner >= 0 && UNIT_IDS.some((u) => u !== 'spy' && (m.units[u] ?? 0) > 0)) addFriction(state, m.owner, target.owner, FRICTION_ATTACK);
 
   const rolledLuck = config.luck ? (nextFloat(state.rng) * 2 - 1) * config.combat.luckRange : 0;
   // a luck flag in the attacking village pulls luck towards 0
@@ -561,6 +564,7 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   const { config } = state;
   const old = v.owner;
   statConquest(state, v.id, v.name, old, newOwner);
+  if (old >= 0) addFriction(state, newOwner, old, FRICTION_CONQUEST);
   delete v.flag;
   delete v.scav;
   if (newOwner >= 0) flagForConquest(state, newOwner);

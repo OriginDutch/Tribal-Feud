@@ -17,6 +17,7 @@ import { distance, protectionBlocker, sendAttack } from './movement';
 import { nextFloat } from './rng';
 import { BARBARIAN, villagesOf, type Player, type WorldState } from './state';
 import { mayAttack, relationBetween } from './tribes';
+import { outclassed } from './warCause';
 import type { Village } from './village';
 import { isOperational } from './village';
 
@@ -88,10 +89,26 @@ export function isWary(state: WorldState, player: Player, of: number): boolean {
   return (player.bot?.wary?.[of] ?? 0) > state.time;
 }
 
-/** May this bot go after this player at all (tribe rules, protection, your orders)? */
+/** canTarget per (bot, player) pair, for the current game moment: many villages share an owner. */
+const targetMemo = new WeakMap<WorldState, { at: number; map: Map<number, boolean> }>();
+
+/** May this bot go after this player at all (tribe rules, protection, your orders, strength)? */
 function canTarget(state: WorldState, player: Player, other: number): boolean {
   if (other < 0 || other === player.id) return false;
+  let memo = targetMemo.get(state);
+  if (!memo || memo.at !== state.time) { memo = { at: state.time, map: new Map() }; targetMemo.set(state, memo); }
+  const key = player.id * 100_000 + other;
+  const hit = memo.map.get(key);
+  if (hit !== undefined) return hit;
+  const ok = canTargetNow(state, player, other);
+  memo.map.set(key, ok);
+  return ok;
+}
+
+function canTargetNow(state: WorldState, player: Player, other: number): boolean {
   if (!mayAttack(state, player.id, other) || protectionBlocker(state, player.id, other) !== null) return false;
+  // don't pick a fight with someone who clearly outclasses you
+  if (outclassed(state, player.id, other)) return false;
   return !((player.bot?.spare?.[other] ?? 0) > state.time);
 }
 

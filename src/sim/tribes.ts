@@ -21,6 +21,7 @@ import { applyToHuman, humanTribeTick, proposeToHuman, warOnHuman } from './huma
 import { push } from './eventQueue';
 import { villagePoints } from './barbarians';
 import { nextFloat } from './rng';
+import { WAR_FRICTION, clearFriction, frictionBetween, frictionTick, tribeStrength } from './warCause';
 import type { TribeView } from '../shared/protocol';
 import { BARBARIAN, HUMAN_ID, addLog as addWorldLog, movementIndex, villagesOf, type Player, type WorldState } from './state';
 
@@ -39,6 +40,8 @@ export interface Tribe {
   relations: Record<number, Relation>;
   /** When each relation started (for peace after a long war, alliances after a long NAP). */
   since?: Record<number, number>;
+  /** Friction with other tribes (attacks, conquests, living close); kept symmetric. See warCause. */
+  friction?: Record<number, number>;
 }
 
 export { MAX_MEMBERS };
@@ -184,6 +187,8 @@ export function fits(state: WorldState, t: Tribe, candidate: number): boolean {
 }
 
 export function setRelation(state: WorldState, a: Tribe, b: Tribe, rel: Relation | null): void {
+  // peace after a war: the slate is clean
+  if (a.relations[b.id] === 'war' && rel !== 'war') clearFriction(a, b);
   for (const [x, y] of [[a, b], [b, a]] as const) {
     x.since ??= {};
     if (rel) { x.relations[y.id] = rel; x.since[y.id] = state.time; }
@@ -343,24 +348,35 @@ function diplomacy(state: WorldState): void {
   };
   const allies = (t: Tribe) => Object.values(t.relations).filter((r) => r === 'ally').length;
   const warFactor = (t: Tribe) => (t.members.includes(HUMAN_ID) ? kindness(state.config).war : 1);
+  // neighbours: friction fades, living close adds a little
+  const near: { a: Tribe; b: Tribe; closeness: number; d: number }[] = [];
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const a = list[i]!, b = list[j]!;
     const ca = centres.get(a.id), cb = centres.get(b.id);
     if (!ca || !cb) continue;
     const d = dist(ca, cb);
+    near.push({ a, b, d, closeness: Math.max(0, 1 - d / (REACH * 2)) });
+  }
+  frictionTick(state, near);
+  for (const { a, b, d } of near) {
     if (d > REACH * 2.4) { if (a.relations[b.id] && a.relations[b.id] !== 'war') setRelation(state, a, b, null); continue; }
     const rel = a.relations[b.id];
     const since = state.time - (a.since?.[b.id] ?? state.time);
-    const ratio = ca.points / Math.max(1, cb.points);
-    const strong = ratio >= 1 ? a : b, weak = strong === a ? b : a;
-    const power = Math.max(ratio, 1 / ratio);
+    // troops decide, not points: strength with allies on both sides
+    const sa = tribeStrength(state, a), sb = tribeStrength(state, b);
+    const strong = sa >= sb ? a : b, weak = strong === a ? b : a;
+    const power = Math.max(sa, sb) / Math.max(1, Math.min(sa, sb));
+    const friction = frictionBetween(a, b);
+    // friction a war needs: aggressive leaders need less, a tribe you're in more (easy difficulty)
+    const need = WAR_FRICTION * (1.6 - AGGRESSION[lead(strong)]) / warFactor(weak);
     const roll = nextFloat(state.rng);
     if (!rel) {
-      // the stronger side may smell blood; the more diplomatic side wants quiet
-      const hunger = AGGRESSION[lead(strong)] * Math.min(1, (power - 1) / 1.5);
-      if (state.time > 36 * HOUR && roll < hunger * 0.05 * warFactor(weak) && !human(strong)) {
+      // a war needs a reason (friction) and a side that expects to win; a bitter rivalry between
+      // equals can boil over too. The weaker side never starts one.
+      const cause = state.time > 36 * HOUR && !human(strong) && ((friction >= need && power >= 1.2) || friction >= need * 2);
+      if (cause && roll < 0.5) {
         declareWar(state, strong, weak);
-      } else if (roll > 1 - (1 - AGGRESSION[lead(a)]) * (1 - AGGRESSION[lead(b)]) * 0.012) {
+      } else if (friction < need / 2 && roll > 1 - (1 - AGGRESSION[lead(a)]) * (1 - AGGRESSION[lead(b)]) * 0.012) {
         if (offer(a, b, 'nap')) continue;
         setRelation(state, a, b, 'nap');
         addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] sluiten een niet-aanvalsverdrag.` });
@@ -372,15 +388,19 @@ function diplomacy(state: WorldState): void {
         if (offer(a, b, 'ally')) continue;
         setRelation(state, a, b, 'ally');
         addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] worden bondgenoten.` });
-      } else if (roll < AGGRESSION[lead(strong)] * 0.01 * (power - 1) * warFactor(weak) && !human(strong)) {
+      } else if (!human(strong) && friction >= need * 2 && power >= 1.5 && roll < 0.3) {
+        // only a lot of bad blood breaks a treaty
         declareWar(state, strong, weak, true);
       }
     } else if (rel === 'war') {
-      // a war that drags on between equals ends in peace
-      if (since > 48 * HOUR && power < 1.4 && roll < 0.02) {
+      // a war that drags on between equals ends in peace; a side that is badly outmatched
+      // sues for peace, and a not too bloodthirsty winner takes it
+      const stalemate = since > 48 * HOUR && power < 1.4 && roll < 0.02;
+      const sues = since > 24 * HOUR && power >= 2.5 && roll < 0.05 * (1 - AGGRESSION[lead(strong)]);
+      if (stalemate || sues) {
         if (offer(a, b, 'peace')) continue;
         setRelation(state, a, b, null);
-        addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] sluiten vrede.` });
+        addLog(state, { time: state.time, text: sues ? `[${weak.tag}] vraagt om vrede en [${strong.tag}] stemt in.` : `[${a.tag}] en [${b.tag}] sluiten vrede.` });
       }
     }
   }
