@@ -1,6 +1,6 @@
 import { PlayerLink } from '../components/PlayerLink';
+import { Coords } from '../components/Coords';
 import { BARB_TYPE_NAMES } from '../../shared/barbarianTypes';
-import { MapLink } from '../components/MapLink';
 import { useEffect, useState } from 'preact/hooks';
 import { BUILDING_IDS, UNIT_IDS, type UnitCounts } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
@@ -148,8 +148,7 @@ function ReportDetail({ r }: { r: Report }) {
 
       <div class="report-side">
         <h4>
-          Aanvaller · {r.attacker.owner !== undefined ? <PlayerLink id={r.attacker.owner} name={r.attacker.ownerName} /> : r.attacker.ownerName} <span class="muted">· {r.attacker.name} ({r.attacker.x}|{r.attacker.y})</span>
-          <MapLink x={r.attacker.x} y={r.attacker.y} />
+          Aanvaller · {r.attacker.owner !== undefined ? <PlayerLink id={r.attacker.owner} name={r.attacker.ownerName} /> : r.attacker.ownerName} <span class="muted">· {r.attacker.name} <Coords x={r.attacker.x} y={r.attacker.y} /></span>
         </h4>
         <UnitTable
           rows={[
@@ -161,8 +160,7 @@ function ReportDetail({ r }: { r: Report }) {
 
       <div class="report-side">
         <h4>
-          Verdediger · {r.defender.owner !== undefined ? <PlayerLink id={r.defender.owner} name={r.defender.ownerName} /> : r.defender.ownerName} <span class="muted">· {r.defender.name} ({r.defender.x}|{r.defender.y})</span>
-          <MapLink x={r.defender.x} y={r.defender.y} />
+          Verdediger · {r.defender.owner !== undefined ? <PlayerLink id={r.defender.owner} name={r.defender.ownerName} /> : r.defender.ownerName} <span class="muted">· {r.defender.name} <Coords x={r.defender.x} y={r.defender.y} /></span>
         </h4>
         {r.defenderUnits ? (
           <UnitTable

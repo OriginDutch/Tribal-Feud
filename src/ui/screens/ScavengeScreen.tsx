@@ -1,4 +1,5 @@
 import { Fragment } from 'preact';
+import { Coords } from '../components/Coords';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { UnitCounts, UnitId } from '../../shared/gameData';
 import type { ScavVillageRow, ScavView } from '../../shared/protocol';
@@ -112,7 +113,7 @@ function OneVillage({ view, villageId, now }: { view: ScavView; villageId: numbe
     <section class="panel">
       <div class="row wrap">
         <strong>{v.name}</strong>
-        <span class="muted mono">({v.x}|{v.y})</span>
+        <Coords x={v.x} y={v.y} />
         <span style={{ flex: 1 }} />
         <label class="row" title="Komen ze terug, dan gaan de overlevenden meteen opnieuw. Ook als je ze net nodig hebt.">
           <input type="checkbox" checked={v.repeat} onChange={(e) => send({ type: 'setScavRepeat', villages: [v.id], repeat: e.currentTarget.checked })} /> Automatisch herhalen
@@ -304,7 +305,7 @@ function Mass({ view, now }: { view: ScavView; now: number }) {
                 <Fragment key={v.id}>
                   <tr class={isPicked(v.id) ? '' : 'muted'}>
                     <td><input type="checkbox" checked={isPicked(v.id)} onChange={() => toggle(v.id)} /></td>
-                    <td class="ellipsis">{v.name} <span class="muted mono">({v.x}|{v.y})</span></td>
+                    <td class="ellipsis">{v.name} <Coords x={v.x} y={v.y} /></td>
                     <td>{v.repeat ? '↻' : ''}</td>
                     {LEVELS.map((l) => {
                       const key = `${v.id}:${l}`;

@@ -503,6 +503,11 @@ function playerView(s: WorldState, id: number): PlayerView | null {
     centre: w ? { x: Math.round(cx / w), y: Math.round(cy / w) } : null,
     ...(t ? { tribe: { id: t.id, tag: t.tag, name: t.name, color: t.color } } : {}),
     history, incoming,
+    stats: { pvp: 0, barb: 0, took: 0, tookBarb: 0, lost: 0, ...s.worldStats?.players[id] },
+    mates: (t?.members ?? []).filter((m) => m !== id).map((m) => ({
+      id: m, name: s.players[m]?.name ?? '?', villages: villagesOf(s, m).map((v) => ({ x: v.x, y: v.y })),
+    })),
+    mine: id === HUMAN_ID ? [] : mine.map((v) => ({ x: v.x, y: v.y })),
     ...playerBond(s, p),
   };
 }

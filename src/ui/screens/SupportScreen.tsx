@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
+import { Coords } from '../components/Coords';
 import type { UnitCounts, UnitId } from '../../shared/gameData';
 import { DAY, HOUR, MINUTE, SECOND, formatGameTime } from '../../shared/time';
 import { Confirm } from '../components/Confirm';
@@ -246,7 +247,7 @@ export function SupportScreen() {
                 {plans.map(({ v, dist, at, late: isLate }) => (
                   <tr key={v.id} class={at === null ? '' : isLate ? 'late' : 'ok'}>
                     <td class="ellipsis">
-                      {v.name} <span class="muted">({v.x}|{v.y})</span>
+                      {v.name} <Coords x={v.x} y={v.y} />
                     </td>
                     <td class="right mono">{dist.toFixed(1)}</td>
                     {units.map((u) => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { Coords } from './Coords';
 import { num } from '../format';
 import { mintPlan, send, snapshot } from '../store';
 import { Confirm } from './Confirm';
@@ -41,7 +42,7 @@ export function MintAllPanel() {
           <tbody>
             {plan.map((r) => (
               <tr key={r.id}>
-                <td>{r.name} <span class="muted mono">({r.x}|{r.y})</span></td>
+                <td>{r.name} <Coords x={r.x} y={r.y} /></td>
                 <td class="right mono">{num(r.coins)} munt{r.coins === 1 ? '' : 'en'}</td>
               </tr>
             ))}

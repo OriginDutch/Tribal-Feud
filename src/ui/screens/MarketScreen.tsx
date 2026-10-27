@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
+import { Coords } from '../components/Coords';
 import { BuildingHeader } from '../buildings/BuildingHeader';
-import { MapLink } from '../components/MapLink';
 import { CancelButton } from '../components/CancelButton';
 import { SurplusPanel } from '../components/SurplusPanel';
 import type { OfferView, TradeSide } from '../../shared/protocol';
@@ -326,8 +326,7 @@ export function MarketScreen() {
                 return (
                   <tr key={o.id}>
                     <td>
-                      {o.village.name} ({o.village.x}|{o.village.y}) <span class="muted">· {o.village.ownerName}</span>
-                      <MapLink x={o.village.x} y={o.village.y} />
+                      {o.village.name} <Coords x={o.village.x} y={o.village.y} /> <span class="muted">· {o.village.ownerName}</span>
                     </td>
                     <td>
                       <Amount side={o.give} />
@@ -376,15 +375,15 @@ export function MarketScreen() {
                   <td>
                     {t.kind === 'tradeReturn' ? (
                       <>
-                        <span class="tag-return">Terug</span> van {t.from.name} ({t.from.x}|{t.from.y})
+                        <span class="tag-return">Terug</span> van {t.from.name} <Coords x={t.from.x} y={t.from.y} />
                       </>
                     ) : t.to.id === v.id ? (
                       <>
-                        <span class="tag-support">Binnenkomend</span> van {t.from.name} ({t.from.x}|{t.from.y})
+                        <span class="tag-support">Binnenkomend</span> van {t.from.name} <Coords x={t.from.x} y={t.from.y} />
                       </>
                     ) : (
                       <>
-                        <span class="tag-support">Levering</span> naar {t.to.name} ({t.to.x}|{t.to.y})
+                        <span class="tag-support">Levering</span> naar {t.to.name} <Coords x={t.to.x} y={t.to.y} />
                       </>
                     )}
                   </td>

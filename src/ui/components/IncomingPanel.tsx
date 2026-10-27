@@ -1,10 +1,10 @@
 import { useState } from 'preact/hooks';
+import { Coords } from './Coords';
 import type { IncomingView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration } from '../format';
 import { openSupport, send, snapshot } from '../store';
 import { UnitIcon } from '../units/UnitIcon';
-import { MapLink } from './MapLink';
 import { PlayerLink } from './PlayerLink';
 
 /** What the walking time says, in the words TW players use. */
@@ -40,12 +40,11 @@ export function IncomingPanel() {
   const row = (m: IncomingView, withFrom: boolean) => (
     <tr key={m.id}>
       <td>
-        {m.to.name} <span class="muted">({m.to.x}|{m.to.y})</span>
+        {m.to.name} <Coords x={m.to.x} y={m.to.y} />
       </td>
       {withFrom && (
         <td>
-          {m.from.name} <span class="muted">({m.from.x}|{m.from.y})</span>
-          <MapLink x={m.from.x} y={m.from.y} />
+          {m.from.name} <Coords x={m.from.x} y={m.from.y} />
         </td>
       )}
       {withFrom && (
@@ -104,8 +103,7 @@ export function IncomingPanel() {
               <tbody key={f.id} class="incoming-group">
                 <tr class="group-head">
                   <td colSpan={6}>
-                    <strong>{f.name}</strong> <span class="muted">({f.x}|{f.y})</span>
-                    <MapLink x={f.x} y={f.y} /> · <PlayerLink id={f.owner} name={f.ownerName} /> ·{' '}
+                    <strong>{f.name}</strong> <Coords x={f.x} y={f.y} />{' · '}<PlayerLink id={f.owner} name={f.ownerName} /> ·{' '}
                     <span class="muted">
                       {list.length} {list.length === 1 ? 'aanval' : 'aanvallen'}
                     </span>

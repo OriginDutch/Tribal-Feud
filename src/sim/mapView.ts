@@ -76,8 +76,8 @@ export function movementViews(state: WorldState): MovementView[] {
     const view: MovementView = {
       id: m.id,
       kind: m.kind,
-      from: { id: from.id, name: from.name, x: from.x, y: from.y },
-      to: { id: to.id, name: to.name, x: to.x, y: to.y },
+      from: { id: from.id, name: from.name, x: from.x, y: from.y, owner: from.owner, ownerName: state.players[from.owner]?.name ?? 'Barbaren' },
+      to: { id: to.id, name: to.name, x: to.x, y: to.y, owner: to.owner, ownerName: state.players[to.owner]?.name ?? 'Barbaren' },
       sent: m.sent,
       arrives: m.arrives,
       units: m.units,

@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
+import { Coords } from '../components/Coords';
+import { PlayerLink } from '../components/PlayerLink';
+
 import { UnitIcon } from '../units/UnitIcon';
 import { BuildingHeader } from '../buildings/BuildingHeader';
 import { CATAPULT_TARGETS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
@@ -425,15 +428,15 @@ export function PlaceScreen() {
                   <td>
                     {m.kind === 'attack' ? (
                       <>
-                        <span class="tag-attack">Aanval</span> op {m.to.name} ({m.to.x}|{m.to.y})
+                        <span class="tag-attack">Aanval</span> op {m.to.name} <Coords x={m.to.x} y={m.to.y} /><Owner o={m.to} />
                       </>
                     ) : m.kind === 'support' ? (
                       <>
-                        <span class="tag-support">Steun</span> naar {m.to.name} ({m.to.x}|{m.to.y})
+                        <span class="tag-support">Steun</span> naar {m.to.name} <Coords x={m.to.x} y={m.to.y} /><Owner o={m.to} />
                       </>
                     ) : (
                       <>
-                        <span class="tag-return">Terug</span> van {m.from.name} ({m.from.x}|{m.from.y})
+                        <span class="tag-return">Terug</span> van {m.from.name} <Coords x={m.from.x} y={m.from.y} /><Owner o={m.from} />
                         {m.loot && <span class="muted"> · buit {num(m.loot[0] + m.loot[1] + m.loot[2])}</span>}
                       </>
                     )}
@@ -466,7 +469,7 @@ export function PlaceScreen() {
               {v.supportHere.map((x) => (
                 <tr key={x.origin.id}>
                   <td>
-                    {x.origin.name} ({x.origin.x}|{x.origin.y}) <span class="muted">· {x.origin.ownerName}</span>
+                    {x.origin.name} <Coords x={x.origin.x} y={x.origin.y} /> <span class="muted">· {x.origin.ownerName}</span>
                   </td>
                   <td class="muted">{unitsText(x.units)}</td>
                   <td class="right">
@@ -493,7 +496,7 @@ export function PlaceScreen() {
               {v.supportAway.map((x) => (
                 <tr key={x.host.id}>
                   <td>
-                    In {x.host.name} ({x.host.x}|{x.host.y}) <span class="muted">· {x.host.ownerName}</span>
+                    In {x.host.name} <Coords x={x.host.x} y={x.host.y} /> <span class="muted">· {x.host.ownerName}</span>
                   </td>
                   <td class="muted">{unitsText(x.units)}</td>
                   <td class="right">
@@ -509,4 +512,10 @@ export function PlaceScreen() {
       </section>
     </div>
   );
+}
+
+/** " · Name" after a village of another player (nothing for yours, id 0, or barbarians). */
+function Owner({ o }: { o: { owner?: number; ownerName?: string } }) {
+  if (o.owner === undefined || o.owner < 0 || o.owner === 0) return null;
+  return <span class="muted"> · <PlayerLink id={o.owner} name={o.ownerName ?? '?'} /></span>;
 }

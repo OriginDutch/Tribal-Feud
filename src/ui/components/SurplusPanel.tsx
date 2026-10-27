@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { Coords } from './Coords';
 import { duration, num } from '../format';
 import { send, snapshot, surplusPlan } from '../store';
 import { Confirm } from './Confirm';
@@ -70,8 +71,8 @@ export function SurplusPanel() {
           <tbody>
             {plan.map((r, i) => (
               <tr key={i}>
-                <td class="ellipsis">{r.from.name} <span class="muted mono">({r.from.x}|{r.from.y})</span></td>
-                <td class="ellipsis">{r.to.name} <span class="muted mono">({r.to.x}|{r.to.y})</span></td>
+                <td class="ellipsis">{r.from.name} <Coords x={r.from.x} y={r.from.y} /></td>
+                <td class="ellipsis">{r.to.name} <Coords x={r.to.x} y={r.to.y} /></td>
                 <td class="right mono">{num(r.res[0])}</td>
                 <td class="right mono">{num(r.res[1])}</td>
                 <td class="right mono">{num(r.res[2])}</td>

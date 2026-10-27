@@ -242,6 +242,11 @@ export interface PlayerView {
   };
   /** Their attacks on you right now. */
   incoming: number;
+  /** World statistics: attacks on players / barbarians, villages taken (of players / barbarians) and lost. */
+  stats: { pvp: number; barb: number; took: number; tookBarb: number; lost: number };
+  /** For the mini map: tribe mates' villages (without theirs) and yours. */
+  mates: { id: number; name: string; villages: { x: number; y: number }[] }[];
+  mine: { x: number; y: number }[];
   /** What ties you: same tribe, or a treaty between your tribes (you can betray it). */
   bond?: 'mate' | 'ally' | 'nap';
   /** Their grudge against you (0 = none, 1 = a lot). */
@@ -267,8 +272,9 @@ export interface IncomingView {
 export interface MovementView {
   id: number;
   kind: 'attack' | 'return' | 'support' | 'trade' | 'tradeReturn';
-  from: { id: number; name: string; x: number; y: number };
-  to: { id: number; name: string; x: number; y: number };
+  /** owner = the village's owner (-1 barbarian), with name. */
+  from: { id: number; name: string; x: number; y: number; owner?: number; ownerName?: string };
+  to: { id: number; name: string; x: number; y: number; owner?: number; ownerName?: string };
   sent: number;
   arrives: number;
   units: UnitCounts;

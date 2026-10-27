@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { Coords } from '../components/Coords';
 import { BUILDING_IDS, CATAPULT_TARGETS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
 import { templateToText, textToTemplate, textToTrain, textToTroops, trainToText, troopsToText } from '../../shared/templateText';
 import type { BuildTemplate, NobleTemplate, TroopTemplate } from '../../sim/manager';
@@ -66,7 +67,7 @@ export function ManagerScreen() {
       <h2>Accountmanager</h2>
       <section class="panel">
         <h3>
-          {v.name} <span class="muted">({v.x}|{v.y})</span> {v.manager ? <span class="tag-on">aan</span> : <span class="muted">uit</span>}
+          {v.name} <Coords x={v.x} y={v.y} /> {v.manager ? <span class="tag-on">aan</span> : <span class="muted">uit</span>}
         </h3>
         <label>
           Bouwsjabloon

@@ -1,4 +1,5 @@
 import { BARB_TYPE_NAMES, BONUS_NAMES } from '../../shared/barbarianTypes';
+import { Coords } from '../components/Coords';
 import { UnitIcon } from '../units/UnitIcon';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../../shared/gameData';
@@ -153,7 +154,7 @@ export function FarmScreen() {
                 return (
                 <tr key={m.id}>
                   <td class="mono">
-                    {m.x}|{m.y}
+                    <Coords x={m.x} y={m.y} bare />
                   </td>
                   <td class="right mono">{m.dist.toFixed(1)}</td>
                   <td class="right mono">{num(m.points)}</td>
@@ -175,7 +176,7 @@ export function FarmScreen() {
                   <td class="right mono muted">{okA ? duration(travelMs(A, v.units, m.dist, s.marchFactor)) : '—'}</td>
                   {multi && (
                     <td class="mono muted">
-                      {m.from?.x}|{m.from?.y}
+                      {m.from && <Coords x={m.from.x} y={m.from.y} bare />}
                     </td>
                   )}
                   <td class="right nowrap">

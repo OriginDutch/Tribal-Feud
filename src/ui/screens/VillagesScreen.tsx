@@ -1,4 +1,5 @@
 import { UNIT_IDS } from '../../shared/gameData';
+import { Coords } from '../components/Coords';
 import { UnitIcon } from '../units/UnitIcon';
 import { formatGameTime } from '../../shared/time';
 import { num } from '../format';
@@ -32,8 +33,9 @@ export function VillagesScreen() {
     <>
       <input type="checkbox" class="pick" checked={picked.has(v.id)} onChange={() => toggle(v.id)} />
       <button class="link" onClick={() => open(v.id)}>
-        {v.name} <span class="muted mono">({v.x}|{v.y})</span>
+        {v.name}
       </button>{' '}
+      <Coords x={v.x} y={v.y} />{' '}
       {v.faith === false && <span class="group-chip" style={{ '--gc': '#e5533f' }} title="Geen kerk in de buurt: troepen uit dit dorp vechten op halve kracht">geen geloof</span>}{' '}
       {chips(v)}
     </>
@@ -318,7 +320,7 @@ function GroupSuggestions({ villages, groups, onDone }: { villages: OwnVillageRo
             <tr key={v.id}>
               <td>
                 <input type="checkbox" checked={on.has(v.id)} onChange={() => { const n = new Set(on); if (n.has(v.id)) n.delete(v.id); else n.add(v.id); setOn(n); }} />{' '}
-                {v.name} <span class="muted mono">({v.x}|{v.y})</span>
+                {v.name} <Coords x={v.x} y={v.y} />
               </td>
               <td>
                 → <span class="group-chip" style={{ '--gc': groupFor(role)?.color ?? ROLE_COLOR[role] }}>{groupFor(role)?.name ?? role}</span>

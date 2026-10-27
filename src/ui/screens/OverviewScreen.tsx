@@ -1,4 +1,5 @@
 import { formatGameTime } from '../../shared/time';
+import { Coords } from '../components/Coords';
 import { UnitIcon } from '../units/UnitIcon';
 import { UNIT_SHORT, unitsText } from '../units';
 import { UNIT_IDS, type UnitId } from '../../shared/gameData';
@@ -20,7 +21,7 @@ export function OverviewScreen() {
   return (
     <div class="screen wide">
       <h2>
-        {v.name} <span class="muted">({v.x}|{v.y}) · {num(v.points)} punten</span>
+        {v.name} <span class="muted"><Coords x={v.x} y={v.y} /> · {num(v.points)} punten</span>
       </h2>
       <IncomingPanel />
       {v.loyalty < 100 && <p class="warn">Toestemming van dit dorp: {v.loyalty}</p>}
@@ -121,7 +122,7 @@ export function OverviewScreen() {
                   <ul class="support-from">
                     {v.supportHere.map((x) => (
                       <li key={x.origin.id}>
-                        <span class="muted">Steun van</span> {x.origin.name} <span class="muted">({x.origin.x}|{x.origin.y})</span>
+                        <span class="muted">Steun van</span> {x.origin.name} <Coords x={x.origin.x} y={x.origin.y} />
                         {!s.villages.some((o) => o.id === x.origin.id) && <span class="muted"> · {x.origin.ownerName}</span>}
                         <div class="muted small-text">{unitsText(x.units)}</div>
                       </li>
