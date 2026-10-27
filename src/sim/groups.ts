@@ -52,6 +52,9 @@ export function setGroup(state: WorldState, groupId: string, villageIds: number[
       if (g.template || g.troopTemplate) {
         const m = v.manager ?? { troopShare: 0.5 };
         setManager(state, v.id, {
+          ...(m.church ? { church: true } : {}),
+          ...(m.research ? { research: true } : {}),
+          ...(m.flag ? { flag: m.flag } : {}),
           troopShare: m.troopShare,
           ...(g.template ?? m.template ? { template: g.template ?? m.template } : {}),
           ...(g.troopTemplate ? { troopTemplate: g.troopTemplate } : m.troopTemplate ? { troopTemplate: m.troopTemplate } : m.troops ? { troops: m.troops } : {}),

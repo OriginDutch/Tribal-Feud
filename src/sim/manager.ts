@@ -16,9 +16,15 @@ import {
   recruit,
   recruitBlocker,
   researchBlocker,
+  researchCost,
   startResearch,
+  techLevel,
+  buildBlocker,
+  queueBuild,
   type Village,
 } from './village';
+import { hasFaith, hasFirstChurch } from './church';
+import { FLAG_TYPES, freeFlags, setFlag, type FlagType } from './flags';
 
 export interface BuildTemplate {
   id: string;
@@ -53,6 +59,12 @@ export interface VillageManager {
   troops?: UnitCounts;
   /** Most of the spare resources (0..1) the manager spends on troops per check. */
   troopShare: number;
+  /** Churches worlds: build a church when the village has no faith. */
+  church?: boolean;
+  /** Research levels worlds: raise the levels of the troop target's units when money allows. */
+  research?: boolean;
+  /** Flags worlds: keep the best free flag of this kind in the village. */
+  flag?: FlagType;
 }
 
 /** Game minutes between two manager checks at world speed 1 (scaled like bot turns). */
@@ -97,6 +109,31 @@ export function manageVillage(state: WorldState, v: Village, m: VillageManager):
   const reserve: Res = template ? autoBuild(state, v, template.steps, [0, 0, 0], !template.id.startsWith('preset:')) : [0, 0, 0];
   const troops = m.troopTemplate ? state.troopTemplates?.find((t) => t.id === m.troopTemplate)?.troops : m.troops;
   if (troops) keepTroops(state, v, troops, m.troopShare, reserve);
+  // churches: a village without faith gets one (the first church again if it was lost)
+  if (m.church && state.config.churches && v.buildQueue.length < state.config.village.buildQueueSlots && !hasFaith(state, v)) {
+    const b = hasFirstChurch(state, v.owner) ? 'church' : 'church_f';
+    if (buildBlocker(state, v, b) === null) queueBuild(state, v.id, b);
+  }
+  // research levels: the units of the troop target, one level at a time, with money to spare
+  if (m.research && troops && state.config.research !== 'simple' && !v.research) {
+    const have = currentResources(state.config, v, state.time);
+    for (const u of Object.keys(troops) as UnitId[]) {
+      const next = techLevel(state.config, v, u) + 1;
+      if (next < 2 || researchBlocker(state, v, u) !== null) continue;
+      const cost = researchCost(state.config, u, next);
+      if ([0, 1, 2].some((i) => have[i as 0 | 1 | 2] - reserve[i as 0 | 1 | 2] < cost[i as 0 | 1 | 2] * 1.5)) continue;
+      startResearch(state, v.id, u);
+      break;
+    }
+  }
+  // flags: the best free flag of the chosen kind
+  if (m.flag && state.config.flags) {
+    const p = state.players[v.owner]!;
+    const current = v.flag?.type === m.flag ? v.flag.level : 0;
+    for (let l = 9; l > current; l--) {
+      if (freeFlags(state, p, m.flag, l) > 0) { setFlag(state, v.owner, v.id, { type: m.flag, level: l }); break; }
+    }
+  }
 }
 
 function keepTroops(state: WorldState, v: Village, target: UnitCounts, share: number, reserve: Res): void {
@@ -144,6 +181,9 @@ export function setManager(state: WorldState, villageId: number, m: VillageManag
   if (m.template) v.manager.template = m.template;
   if (m.troopTemplate) v.manager.troopTemplate = m.troopTemplate;
   if (Object.keys(troops).length > 0) v.manager.troops = troops;
+  if (m.church) v.manager.church = true;
+  if (m.research) v.manager.research = true;
+  if (m.flag && FLAG_TYPES.includes(m.flag)) v.manager.flag = m.flag;
   scheduleManager(state);
   manageVillage(state, v, v.manager);
   return null;

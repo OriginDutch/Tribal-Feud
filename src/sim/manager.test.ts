@@ -70,3 +70,20 @@ describe('troop templates', () => {
     expect(v.manager?.troops).toEqual({ axe: 500, light: 100 });
   });
 });
+
+describe('account manager: churches, research levels, flags', () => {
+  it('builds a church without faith, raises research levels and hangs the chosen flag', () => {
+    const s = createWorld(createConfig('classic', 'MX', 52, { churches: true, flags: true, research: 'levels3', bots: { count: 0 } } as never));
+    setPaused(s, false);
+    const v = playerVillage(s)!;
+    v.buildings.church_f = 0; // no faith
+    Object.assign(v.buildings, { main: 20, farm: 30, storage: 30, smith: 15, barracks: 10, wood: 30, stone: 30, iron: 30 });
+    v.res = [300000, 300000, 300000];
+    v.resAt = s.time;
+    s.players[0]!.flags = { have: { res: [0, 0, 1, 0, 0, 0, 0, 0, 0], recruit: Array(9).fill(0), attack: Array(9).fill(0), defense: Array(9).fill(0), luck: Array(9).fill(0), pop: Array(9).fill(0), coin: Array(9).fill(0), haul: Array(9).fill(0) }, kills: 0 };
+    expect(setManager(s, v.id, { troopShare: 0, troops: { spear: 10 }, church: true, research: true, flag: 'res' })).toBeNull();
+    expect(v.buildQueue.some((j) => j.building === 'church_f')).toBe(true);
+    expect(v.research?.unit).toBe('spear');
+    expect(v.flag).toEqual({ type: 'res', level: 3 });
+  });
+});

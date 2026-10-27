@@ -7,6 +7,7 @@ import { num } from '../format';
 import { send, snapshot } from '../store';
 import { UNIT_SHORT } from '../units';
 import { UnitIcon } from '../units/UnitIcon';
+import { FLAG_NAMES, FLAG_TYPES, type FlagType } from '../../shared/flags';
 
 const TROOP_UNITS: UnitId[] = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'ram', 'catapult'];
 
@@ -18,6 +19,9 @@ export function ManagerScreen() {
   const [troopTemplate, setTroopTemplate] = useState('');
   const [troops, setTroops] = useState<Partial<Record<UnitId, string>>>({});
   const [share, setShare] = useState('50');
+  const [church, setChurch] = useState(false);
+  const [research, setResearch] = useState(false);
+  const [flag, setFlag] = useState('');
 
   // load the village's settings whenever another village is selected (or they change)
   const key = JSON.stringify(v?.manager ?? null) + (v?.id ?? '');
@@ -29,10 +33,16 @@ export function ManagerScreen() {
     for (const u of UNIT_IDS) if (m?.troops?.[u]) t[u] = String(m.troops[u]);
     setTroops(t);
     setShare(String(Math.round((m?.troopShare ?? 0.5) * 100)));
+    setChurch(!!m?.church);
+    setResearch(!!m?.research);
+    setFlag(m?.flag ?? '');
   }, [key]);
 
   if (!s || !v) return null;
   const units = v.units.filter((u) => u.enabled && TROOP_UNITS.includes(u.id));
+  const churchesOn = v.buildings.some((b) => b.id === 'church');
+  const levelsOn = v.units.some((u) => u.tech);
+  const flagsOn = !!s.flags;
   const chosen = s.troopTemplates.find((t) => t.id === troopTemplate);
 
   const manager = () => {
@@ -45,6 +55,9 @@ export function ManagerScreen() {
       troopShare: Math.min(100, Math.max(0, Number(share) || 0)) / 100,
       ...(template ? { template } : {}),
       ...(chosen ? { troopTemplate: chosen.id } : Object.keys(t).length > 0 ? { troops: t } : {}),
+      ...(church ? { church: true } : {}),
+      ...(research ? { research: true } : {}),
+      ...(flag ? { flag: flag as FlagType } : {}),
     };
   };
 
@@ -109,6 +122,26 @@ export function ManagerScreen() {
           Telt troepen thuis, onderweg en in opleiding. Wat nog onderzocht moet worden, onderzoekt het dorp eerst. Bouwen gaat voor:
           het geld voor het volgende gebouw blijft liggen.
         </p>
+        {(churchesOn || levelsOn || flagsOn) && <h4>Extra</h4>}
+        {churchesOn && (
+          <label class="row" title="Heeft het dorp geen geloof, dan bouwt de manager een kerk (of de eerste kerk opnieuw).">
+            <input type="checkbox" checked={church} onChange={(e) => setChurch(e.currentTarget.checked)} /> Kerk bouwen als het dorp geen geloof heeft
+          </label>
+        )}
+        {levelsOn && (
+          <label class="row" title="De eenheden uit het troependoel gaan een level omhoog als er geld genoeg over is (na het bouwen).">
+            <input type="checkbox" checked={research} onChange={(e) => setResearch(e.currentTarget.checked)} /> Researchlevels van de troepen verhogen
+          </label>
+        )}
+        {flagsOn && (
+          <label>
+            Vlag
+            <select value={flag} onChange={(e) => setFlag(e.currentTarget.value)}>
+              <option value="">Zelf kiezen</option>
+              {FLAG_TYPES.map((f) => <option key={f} value={f}>{FLAG_NAMES[f]} (beste losse)</option>)}
+            </select>
+          </label>
+        )}
         <div class="row">
           <button class="primary" onClick={() => send({ type: 'setManager', villageId: v.id, manager: manager() })}>
             Opslaan voor dit dorp
