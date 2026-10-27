@@ -22,6 +22,7 @@ const ITEMS: Item[] = [
   { id: 'map', label: 'Kaart' },
   { id: 'farm', label: 'Farm-assistent' },
   { id: 'support', label: 'Support' },
+  { id: 'simulator', label: 'Simulator' },
   { id: 'reports', label: 'Rapporten' },
   { id: 'inbox', label: 'Inbox' },
   { id: 'ranking', label: 'Ranglijst' },

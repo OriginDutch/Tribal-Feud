@@ -43,9 +43,12 @@ export function NewWorldPanel() {
   const [paladin, setPaladin] = useState<'off' | 'on' | 'items'>('on');
   const [churches, setChurches] = useState(false);
   const [flags, setFlags] = useState(false);
+  const [morale, setMorale] = useState<'off' | 'points' | 'pointsTime'>(PRESETS.classic.morale);
+  const [night, setNight] = useState(false);
 
   const changePreset = (p: Preset) => {
     setPreset(p);
+    setMorale(PRESETS[p].morale);
     setKnobs(presetKnobs(p));
     setDifficulty(PRESETS[p].bots.difficulty);
   };
@@ -64,6 +67,8 @@ export function NewWorldPanel() {
     if (paladin !== 'on') overrides.paladin = paladin;
     if (churches) overrides.churches = true;
     if (flags) overrides.flags = true;
+    if (morale !== PRESETS[preset].morale) overrides.morale = morale;
+    if (night) overrides.nightBonus = true;
     if (winShare !== 0.75 || !winBarbs) overrides.winCondition = { villageShare: winShare, countBarbarians: winBarbs };
     const cmd: Command = { type: 'newWorld', preset, name, overrides };
     if (seed.trim() !== '') cmd.seed = Number(seed) >>> 0;
@@ -131,6 +136,17 @@ export function NewWorldPanel() {
       </label>
       <label class="row" title="Eén vlag per dorp: productie, rekruteren, aanval, verdediging, geluk, bevolking, munten of buit. Je verdient ze met veroveringen en verslagen vijanden.">
         <input type="checkbox" checked={flags} onChange={(e) => setFlags(e.currentTarget.checked)} /> Vlaggen
+      </label>
+      <label title="Moraal beschermt kleine spelers: een veel grotere aanvaller vecht zwakker. Met tijd stijgt de ondergrens van 30% naar 50% in de eerste 30 dagen van de verdediger.">
+        Moraal
+        <select value={morale} onChange={(e) => setMorale(e.currentTarget.value as 'off' | 'points' | 'pointsTime')}>
+          <option value="off">Uit</option>
+          <option value="points">Op punten</option>
+          <option value="pointsTime">Op punten en tijd</option>
+        </select>
+      </label>
+      <label class="row" title="Tussen 0:00 en 8:00 (spelklok) verdedigen spelersdorpen dubbel zo sterk.">
+        <input type="checkbox" checked={night} onChange={(e) => setNight(e.currentTarget.checked)} /> Nachtbonus (0:00–8:00)
       </label>
       <h3>Eindspel</h3>
       <label title="Een stam die dit deel van de wereld 3 speldagen vasthoudt, wint.">

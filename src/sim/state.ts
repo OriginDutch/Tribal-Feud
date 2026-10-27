@@ -171,6 +171,8 @@ export interface Player {
   items?: PaladinItems;
   /** Flags worlds: flags in stock. */
   flags?: FlagStock;
+  /** Game time this player (re)started in the world (time-based morale); missing = 0. */
+  joinedAt?: number;
 }
 
 /** The human player always has id 0. */

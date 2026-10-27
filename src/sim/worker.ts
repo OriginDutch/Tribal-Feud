@@ -25,7 +25,7 @@ import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteNobleTemplate, deleteTemplate, deleteTroopTemplate, findTemplate, saveNobleTemplate, saveTemplate, saveTroopTemplate, scheduleManager, setManager, templateUse } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
-import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow, SurplusRow, EndgameView, OpinionsView, WorldStatsView } from '../shared/protocol';
+import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow, SurplusRow, EndgameView, OpinionsView, WorldStatsView, SimInput, SimResult } from '../shared/protocol';
 import {
   MERCHANT_CARRY,
   MERCHANT_MINUTES_PER_FIELD,
@@ -57,8 +57,11 @@ import {
   recruit,
   settle,
   startResearch,
+  techLevel,
+  techMultiplier,
   type Village,
 } from './village';
+import { fight } from './combat';
 import { endgameRules } from './endgame';
 import { liveTribes } from './worldStats';
 import { hasFaith } from './church';
@@ -235,6 +238,32 @@ function worldStatsView(s: WorldState): WorldStatsView {
     recent: ws.conquests.slice(-30).reverse().map((c) => ({ time: c.time, name: c.name, from: c.from, fromName: name(c.from), to: c.to, toName: name(c.to) })),
     you: { ...you },
     totals: { conquestsPvp: s.conquests?.player ?? 0, conquestsBarb: s.conquests?.barbarian ?? 0, tribes: Object.keys(s.tribes ?? {}).length, wars, solo: botsAlive.filter((p) => p.tribe === undefined).length, bots: botsAlive.length },
+  };
+}
+
+function simulate(s: WorldState, i: SimInput): SimResult {
+  const attackerUnitBonus: Partial<Record<UnitId, number>> = {};
+  const defenderUnitBonus: Partial<Record<UnitId, number>> = {};
+  const tv = i.techVillage !== undefined ? s.villages[i.techVillage] : undefined;
+  if (tv && s.config.research !== 'simple') for (const u of UNIT_IDS) { const m = techMultiplier(s.config, Math.max(1, techLevel(s.config, tv, u))); if (m !== 1) attackerUnitBonus[u] = m; }
+  const ai = i.attackerItem ? ITEMS[i.attackerItem as ItemId] : undefined;
+  const di = i.defenderItem ? ITEMS[i.defenderItem as ItemId] : undefined;
+  if (ai?.unit && ai.attack) attackerUnitBonus[ai.unit] = (attackerUnitBonus[ai.unit] ?? 1) * (1 + ai.attack);
+  if (di?.unit && di.defense) defenderUnitBonus[di.unit] = 1 + di.defense;
+  if (i.defenderItem === 'bonfire') defenderUnitBonus.catapult = 11;
+  const r = fight(s.config, {
+    attacker: i.attacker, defender: i.defender, wall: Math.max(0, Math.min(20, Math.floor(i.wall))),
+    morale: Math.max(0.3, Math.min(1, i.morale)), luck: Math.max(-0.25, Math.min(0.25, i.luck)),
+    ...(i.catapultTarget ? { catapultTarget: i.catapultTarget, targetLevel: i.targetLevel ?? 0 } : {}),
+    attackerUnitBonus, defenderUnitBonus,
+    attackerFactor: i.attackerPercent / 100, defenderFactor: i.defenderPercent / 100,
+    ...(i.attackerItem === 'morningstar' ? { ramFactor: 2 } : {}),
+    ...(i.attackerItem === 'bonfire' ? { catapultFactor: 2 } : {}),
+  });
+  return {
+    attackerWon: r.attackerWon, attackerLost: r.attackerLost, defenderLost: r.defenderLost, wallAfter: r.wallAfter,
+    ...(r.buildingAfter !== undefined ? { buildingAfter: r.buildingAfter } : {}),
+    attackStrength: r.attackStrength, defenseStrength: r.defenseStrength,
   };
 }
 
@@ -892,6 +921,9 @@ async function handle(cmd: Command): Promise<void> {
     }
     case 'getWorldStats':
       if (state) post({ type: 'worldStats', stats: worldStatsView(state) });
+      return;
+    case 'simulate':
+      if (state) post({ type: 'simResult', result: simulate(state, cmd.input) });
       return;
     case 'getOpinions':
       if (state) post({ type: 'opinions', opinions: opinionsView(state) });

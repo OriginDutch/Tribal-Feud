@@ -41,6 +41,7 @@ export function onHumanVillageLost(state: WorldState, text: string): void {
   const [x, y] = edgeSpot(state);
   const v = createVillage(state.config, nextId(state), HUMAN_ID, 'Jouw dorp', x, y, state.time);
   state.villages[v.id] = v;
+  state.players[HUMAN_ID]!.joinedAt = state.time;
   state.current = v.id;
   invalidateOwners(state);
   forgetNeighbourhoods(state);

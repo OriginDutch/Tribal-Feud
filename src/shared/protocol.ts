@@ -93,6 +93,7 @@ export type Command =
   | { type: 'askPermission'; target: number }
   | { type: 'betray'; target: number }
   | { type: 'getOpinions' }
+  | { type: 'simulate'; input: SimInput }
   | { type: 'getWorldStats' }
   | { type: 'equipItem'; item: string | null }
   | { type: 'upgradeFlag'; flag: string; level: number }
@@ -414,6 +415,7 @@ export type WorkerMessage =
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'supportList'; rows: SupportRow[] }
   | { type: 'opinions'; opinions: OpinionsView }
+  | { type: 'simResult'; result: SimResult }
   | { type: 'worldStats'; stats: WorldStatsView }
   | { type: 'surplusPlan'; rows: SurplusRow[]; keep: number }
   | { type: 'mintPlan'; rows: { id: number; name: string; x: number; y: number; coins: number }[]; keep: number }
@@ -493,4 +495,34 @@ export interface WorldStatsView {
   recent: { time: number; name: string; from: number; fromName: string; to: number; toName: string }[];
   you: { pvp: number; barb: number; took: number; tookBarb: number; lost: number };
   totals: { conquestsPvp: number; conquestsBarb: number; tribes: number; wars: number; solo: number; bots: number };
+}
+
+/** Battle simulator input (the same battle code as the game). */
+export interface SimInput {
+  attacker: UnitCounts;
+  defender: UnitCounts;
+  wall: number;
+  /** 0.3..1 */
+  morale: number;
+  /** -0.25..0.25 */
+  luck: number;
+  catapultTarget?: BuildingId;
+  targetLevel?: number;
+  /** Whole-side multipliers in percent: faith, flags, night (e.g. 50 = half strength, 104 = +4%). */
+  attackerPercent: number;
+  defenderPercent: number;
+  /** Paladin items (ids) on either side, if any. */
+  attackerItem?: string;
+  defenderItem?: string;
+  /** Use the research levels of this (own) village for the attacker. */
+  techVillage?: number;
+}
+export interface SimResult {
+  attackerWon: boolean;
+  attackerLost: UnitCounts;
+  defenderLost: UnitCounts;
+  wallAfter: number;
+  buildingAfter?: number;
+  attackStrength: number;
+  defenseStrength: number;
 }

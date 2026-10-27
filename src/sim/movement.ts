@@ -13,7 +13,7 @@ import { hidingCapacity, storageCapacity } from './formulas';
 import { nextFloat, nextInt } from './rng';
 import { BARBARIAN, HUMAN_ID, addLog, addMovement, invalidateOwners, moveOwner, nextId, removeMovement, villagesOf, type WorldState } from './state';
 import { onHumanVillageLost, onIncomingAttack } from './alerts';
-import { formatGameTime } from '../shared/time';
+import { DAY, formatGameTime } from '../shared/time';
 import { arriveTrade, arriveTradeReturn } from './market';
 import { currentResources, isOperational, settle, type Village } from './village';
 import { mateEvent, onVillageLost } from './loyalty';
@@ -125,6 +125,8 @@ export interface Report {
   defense?: boolean;
   /** Your troops supporting the defender, and what they lost. */
   supportUnits?: { present: UnitCounts; lost: UnitCounts };
+  /** What made either side stronger or weaker (faith, flags, items, research, night). */
+  modifiers?: { attacker: string[]; defender: string[] };
 }
 
 export const MAX_REPORTS = 300;
@@ -288,6 +290,19 @@ export function plunder(available: Res, carry: number): Res {
   return loot;
 }
 
+/**
+ * Morale (attacker strength vs a smaller player). 'pointsTime': the floor rises from 30% to 50%
+ * over the defender's first 30 days in the world (scaled by world speed), like TW.
+ */
+export function moraleFor(state: WorldState, attacker: number, defender: number): number {
+  const { config } = state;
+  const base = morale(config, playerPoints(state, attacker), playerPoints(state, defender), false);
+  if (config.morale !== 'pointsTime') return base;
+  const age = (state.time - (state.players[defender]?.joinedAt ?? 0)) * config.worldSpeed;
+  const floor = 0.3 + 0.2 * Math.min(1, age / (30 * DAY));
+  return Math.max(base, floor);
+}
+
 function arriveAttack(state: WorldState, m: Movement): void {
   const { config } = state;
   const from = state.villages[m.from];
@@ -307,8 +322,9 @@ function arriveAttack(state: WorldState, m: Movement): void {
   const luck = luckFlag ? Math.sign(rolledLuck) * Math.max(0, Math.abs(rolledLuck) - luckFlag) : rolledLuck;
   // points only matter against players: skip the (expensive) count for barbarians
   const mor =
-    target.owner === BARBARIAN ? 1 : morale(config, playerPoints(state, m.owner), playerPoints(state, target.owner), false);
+    target.owner === BARBARIAN ? 1 : moraleFor(state, m.owner, target.owner);
   const defenderPresent = defendersOf(target);
+  const { notes, ...bonus } = battleBonus(state, from, target, m.units);
   const battle = fight(config, {
     attacker: m.units,
     defender: defenderPresent,
@@ -316,7 +332,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
     morale: mor,
     luck,
     ...(m.catapultTarget ? { catapultTarget: m.catapultTarget, targetLevel: target.buildings[m.catapultTarget] } : {}),
-    ...battleBonus(state, from, target, m.units),
+    ...bonus,
   });
 
   // defender losses, shared between the village's own troops and its support
@@ -423,6 +439,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
       morale: mor,
       attackerUnits: { sent: m.units, lost: cleanCounts(battle.attackerLost) },
       defenderUnits: seesDefender ? { present: defenderPresent, lost: cleanCounts(battle.defenderLost) } : null,
+      ...(notes.attacker.length || (seesDefender && notes.defender.length) ? { modifiers: { attacker: notes.attacker, defender: seesDefender ? notes.defender : [] } } : {}),
     };
     // the wall is always reported when the attacker saw the village
     if (seesDefender) report.wall = { before: battle.wallBefore, after: battle.wallAfter };
@@ -481,6 +498,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
       morale: mor,
       attackerUnits: { sent: m.units, lost: cleanCounts(battle.attackerLost) },
       defenderUnits: { present: defenderPresent, lost: cleanCounts(battle.defenderLost) },
+      ...(notes.attacker.length || notes.defender.length ? { modifiers: { attacker: notes.attacker, defender: notes.defender } } : {}),
       wall: { before: battle.wallBefore, after: battle.wallAfter },
     };
     if (humanSupport) report.supportUnits = humanSupport;

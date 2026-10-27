@@ -6,7 +6,7 @@ import { BUILDING_IDS, UNIT_IDS, type UnitCounts } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
 import type { Report } from '../../sim/movement';
 import { num } from '../format';
-import { attackVillage, reports, send, snapshot } from '../store';
+import { attackVillage, reports, screen, send, simPrefill, snapshot } from '../store';
 import { UnitIcon } from '../units/UnitIcon';
 
 const RES = [
@@ -229,9 +229,31 @@ function ReportDetail({ r }: { r: Report }) {
         </span>
         <span class="pill">Moraal {Math.round(r.morale * 100)}%</span>
       </div>
+      {r.modifiers && (r.modifiers.attacker.length > 0 || r.modifiers.defender.length > 0) && (
+        <div class="report-mods">
+          {r.modifiers.attacker.length > 0 && (
+            <div><span class="muted">Aanvaller:</span> {r.modifiers.attacker.map((t, i) => <span key={i} class="pill">{t}</span>)}</div>
+          )}
+          {r.modifiers.defender.length > 0 && (
+            <div><span class="muted">Verdediger:</span> {r.modifiers.defender.map((t, i) => <span key={i} class="pill">{t}</span>)}</div>
+          )}
+        </div>
+      )}
 
       <div class="report-foot">
         <span class="row">
+          {r.defenderUnits && (
+            <button
+              class="small"
+              title="Open dit gevecht in de simulator"
+              onClick={() => {
+                simPrefill.value = { attacker: r.attackerUnits.sent, defender: r.defenderUnits!.present, wall: r.wall?.before ?? 0, morale: r.morale, luck: r.luck };
+                screen.value = 'simulator';
+              }}
+            >
+              Simuleren
+            </button>
+          )}
           {ownAttacker && barbTarget && (
             <>
               <button class="small" onClick={() => send({ type: 'sendFarm', from: r.attacker.id, to: r.defender.id, template: 'A' })}>
