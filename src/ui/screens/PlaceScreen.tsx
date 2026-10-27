@@ -209,6 +209,27 @@ export function PlaceScreen() {
               y
               <input type="number" value={y} onInput={(e) => setY(e.currentTarget.value)} />
             </label>
+            {s.villages.length > 1 && (
+              <label>
+                Eigen dorp
+                <select
+                  value={s.villages.find((o) => String(o.x) === x && String(o.y) === y)?.id ?? ''}
+                  onChange={(e) => {
+                    const o = s.villages.find((w) => w.id === Number(e.currentTarget.value));
+                    if (o) { setX(String(o.x)); setY(String(o.y)); }
+                  }}
+                >
+                  <option value="">kies…</option>
+                  {s.villages
+                    .filter((o) => o.id !== v.id)
+                    .map((o) => ({ o, d: distance(v, o) }))
+                    .sort((p, q) => p.d - q.d)
+                    .map(({ o, d }) => (
+                      <option key={o.id} value={o.id}>{o.name} ({o.x}|{o.y}) · {d.toFixed(1)} velden</option>
+                    ))}
+                </select>
+              </label>
+            )}
             {(chosen.catapult ?? 0) > 0 && (
               <label>
                 Katapulten op
