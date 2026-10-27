@@ -13,7 +13,23 @@ export type QuestDemand =
   | { kind: 'building'; building: BuildingId; level: number }
   | { kind: 'plunders'; count: number }
   | { kind: 'loot'; amount: number }
-  | { kind: 'rewardsClaimed'; count: number };
+  | { kind: 'rewardsClaimed'; count: number }
+  | { kind: 'tribeMember' }
+  | { kind: 'tribeMembers'; count: number }
+  | { kind: 'conquests'; count: number }
+  | { kind: 'villages'; count: number }
+  | { kind: 'worldShare'; share: number }
+  /** share 0 = the world's win target */
+  | { kind: 'winShare' }
+  | { kind: 'churchLevel'; level: number }
+  | { kind: 'faithAll'; villages: number }
+  | { kind: 'itemsFound'; count: number }
+  | { kind: 'itemEquipped' }
+  | { kind: 'flagsPlaced'; count: number }
+  | { kind: 'flagLevel'; level: number };
+
+/** A chain that only exists when a world setting is on. */
+export type QuestRequirement = 'churches' | 'flags' | 'items';
 
 export interface Quest {
   id: string;
@@ -26,6 +42,7 @@ export interface Quest {
 export interface QuestChain {
   id: string;
   name: string;
+  requires?: QuestRequirement;
   quests: Quest[];
 }
 
@@ -75,6 +92,71 @@ export const FARMING_CHAIN: QuestChain = {
   ],
 };
 
+const r = (n: number): Res => [n, n, n];
+
+export const TRIBE_CHAIN: QuestChain = {
+  id: 'tribe',
+  name: 'Stam',
+  quests: [
+    { id: 't1', title: 'Samen sterk', text: 'Word lid van een stam, of richt er zelf een op.', demands: [{ kind: 'tribeMember' }], reward: { res: r(2000) } },
+    { id: 't2', title: 'Een echte stam', text: 'Zorg dat je stam 5 leden heeft.', demands: [{ kind: 'tribeMembers', count: 5 }], reward: { res: r(5000) } },
+    { id: 't3', title: 'Eerste verovering', text: 'Neem een dorp van een andere speler over.', demands: [{ kind: 'conquests', count: 1 }], reward: { res: r(10000) } },
+    { id: 't4', title: 'Volle bezetting', text: 'Zorg dat je stam 10 leden heeft.', demands: [{ kind: 'tribeMembers', count: 10 }], reward: { res: r(15000) } },
+    { id: 't5', title: 'Krijgsheer', text: 'Neem 10 dorpen van andere spelers over.', demands: [{ kind: 'conquests', count: 10 }], reward: { res: r(30000) } },
+    { id: 't6', title: 'Schrik van de wereld', text: 'Neem 50 dorpen van andere spelers over.', demands: [{ kind: 'conquests', count: 50 }], reward: { res: r(60000) } },
+  ],
+};
+
+export const EMPIRE_CHAIN: QuestChain = {
+  id: 'empire',
+  name: 'Rijk',
+  quests: [
+    { id: 'e1', title: 'Een tweede thuis', text: 'Heb 2 dorpen.', demands: [{ kind: 'villages', count: 2 }], reward: { res: r(5000) } },
+    { id: 'e2', title: 'Provincie', text: 'Heb 10 dorpen.', demands: [{ kind: 'villages', count: 10 }], reward: { res: r(15000) } },
+    { id: 'e3', title: 'Gewest', text: 'Heb 50 dorpen.', demands: [{ kind: 'villages', count: 50 }], reward: { res: r(40000) } },
+    { id: 'e4', title: 'Op de kaart', text: 'Je stam bezit 10% van de wereld.', demands: [{ kind: 'worldShare', share: 0.1 }], reward: { res: r(50000) } },
+    { id: 'e5', title: 'Grootmacht', text: 'Je stam bezit 25% van de wereld.', demands: [{ kind: 'worldShare', share: 0.25 }], reward: { res: r(80000) } },
+    { id: 'e6', title: 'Heerschappij', text: 'Je stam haalt het eindspel-doel van deze wereld.', demands: [{ kind: 'winShare' }], reward: {} },
+  ],
+};
+
+export const FAITH_CHAIN: QuestChain = {
+  id: 'faith',
+  name: 'Geloof',
+  requires: 'churches',
+  quests: [
+    { id: 'k1', title: 'Een plek om te bidden', text: 'Bouw een kerk in een van je dorpen.', demands: [{ kind: 'churchLevel', level: 1 }], reward: { res: r(8000) } },
+    { id: 'k2', title: 'Kathedraal', text: 'Bouw een kerk naar level 3.', demands: [{ kind: 'churchLevel', level: 3 }], reward: { res: r(20000) } },
+    { id: 'k3', title: 'Gelovig volk', text: 'Heb minstens 5 dorpen, allemaal binnen een geloofsgebied.', demands: [{ kind: 'faithAll', villages: 5 }], reward: { res: r(30000) } },
+  ],
+};
+
+export const ITEMS_CHAIN: QuestChain = {
+  id: 'items',
+  name: 'Paladijn',
+  requires: 'items',
+  quests: [
+    { id: 'p1', title: 'Een vondst', text: 'Je paladijn vindt zijn eerste wapen.', demands: [{ kind: 'itemsFound', count: 1 }], reward: { res: r(5000) } },
+    { id: 'p2', title: 'Ten strijde', text: 'Rust je paladijn uit met een wapen.', demands: [{ kind: 'itemEquipped' }], reward: { res: r(5000) } },
+    { id: 'p3', title: 'Wapenkamer', text: 'Vind 5 wapens.', demands: [{ kind: 'itemsFound', count: 5 }], reward: { res: r(25000) } },
+  ],
+};
+
+export const FLAGS_CHAIN: QuestChain = {
+  id: 'flags',
+  name: 'Vlaggen',
+  requires: 'flags',
+  quests: [
+    { id: 'v1', title: 'Vlag in top', text: 'Hang een vlag in een dorp.', demands: [{ kind: 'flagsPlaced', count: 1 }], reward: { res: r(3000) } },
+    { id: 'v2', title: 'Drie worden één', text: 'Maak een vlag van level 2.', demands: [{ kind: 'flagLevel', level: 2 }], reward: { res: r(8000) } },
+    { id: 'v3', title: 'Wapperend rijk', text: 'Heb in 10 dorpen een vlag hangen.', demands: [{ kind: 'flagsPlaced', count: 10 }], reward: { res: r(20000) } },
+    { id: 'v4', title: 'Vaandeldrager', text: 'Maak een vlag van level 5.', demands: [{ kind: 'flagLevel', level: 5 }], reward: { res: r(40000) } },
+  ],
+};
+
+/** All chains a world can have (the ones that need a setting are skipped when it is off). */
+export const ALL_CHAINS: QuestChain[] = [CONSTRUCTION_CHAIN, FARMING_CHAIN, TRIBE_CHAIN, EMPIRE_CHAIN, FAITH_CHAIN, ITEMS_CHAIN, FLAGS_CHAIN];
+
 export interface QuestConfig {
   chains: QuestChain[];
   buildingReward: {
@@ -87,7 +169,7 @@ export interface QuestConfig {
 
 export function defaultQuests(): QuestConfig {
   return {
-    chains: structuredClone([CONSTRUCTION_CHAIN, FARMING_CHAIN]),
+    chains: structuredClone(ALL_CHAINS),
     buildingReward: { maxLevel: 10, share: 0.5 },
   };
 }

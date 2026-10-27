@@ -4,7 +4,7 @@ import { initDiplomacy } from './tribes';
 import { PRESETS, defaultTables } from '../shared/config';
 import { CHURCH_BUILDINGS, DEFAULT_BUILDINGS, UNIT_IDS, type UnitId } from '../shared/gameData';
 import { generateMap } from './map';
-import { defaultQuests } from '../shared/quests';
+import { ALL_CHAINS, defaultQuests } from '../shared/quests';
 import { checkQuests } from './quests';
 import { initBots } from './bots';
 import { HUMAN_ID, type WorldState } from './state';
@@ -14,7 +14,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 
 export interface SaveData {
   version: number;
@@ -168,6 +168,13 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     for (const b of CHURCH_BUILDINGS) c.buildings[b] ??= structuredClone(DEFAULT_BUILDINGS[b]);
     for (const v of Object.values(data.state.villages)) for (const b of CHURCH_BUILDINGS) v.buildings[b] ??= 0;
     return { ...data, version: 15 };
+  },
+  // v15 had only the build and plunder quests: add the tribe, empire, faith, paladin and flag chains.
+  15: (data) => {
+    const chains = data.state.config.quests.chains;
+    for (const c of ALL_CHAINS) if (!chains.some((x) => x.id === c.id)) chains.push(structuredClone(c));
+    checkQuests(data.state);
+    return { ...data, version: 16 };
   },
 };
 

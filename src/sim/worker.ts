@@ -24,7 +24,7 @@ import { BARBARIAN } from './state';
 import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteNobleTemplate, deleteTemplate, deleteTroopTemplate, findTemplate, saveNobleTemplate, saveTemplate, saveTroopTemplate, scheduleManager, setManager, templateUse } from './manager';
 import { HUMAN_ID, addLog } from './state';
-import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
+import { chainActive, claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
 import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow, SurplusRow, EndgameView, OpinionsView, WorldStatsView, SimInput, SimResult } from '../shared/protocol';
 import {
   MERCHANT_CARRY,
@@ -514,7 +514,7 @@ function marketView(s: WorldState): MarketView | null {
 
 function questsView(s: WorldState): QuestsView {
   return {
-    chains: s.config.quests.chains.map((chain) => {
+    chains: s.config.quests.chains.filter((chain) => chainActive(s, chain)).map((chain) => {
       const done = s.questProgress[chain.id] ?? 0;
       const quest = chain.quests[done];
       return {
