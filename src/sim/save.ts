@@ -2,7 +2,7 @@ import { assignTiers } from './bots';
 import { rescheduleBotRecruits } from './village';
 import { initDiplomacy } from './tribes';
 import { PRESETS, defaultTables } from '../shared/config';
-import { UNIT_IDS, type UnitId } from '../shared/gameData';
+import { CHURCH_BUILDINGS, DEFAULT_BUILDINGS, UNIT_IDS, type UnitId } from '../shared/gameData';
 import { generateMap } from './map';
 import { defaultQuests } from '../shared/quests';
 import { checkQuests } from './quests';
@@ -14,7 +14,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 export interface SaveData {
   version: number;
@@ -161,6 +161,13 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
   13: (data) => {
     assignTiers(data.state);
     return { ...data, version: 14 };
+  },
+  // v14 had no churches: add the buildings (level 0) and their definitions.
+  14: (data) => {
+    const c = data.state.config;
+    for (const b of CHURCH_BUILDINGS) c.buildings[b] ??= structuredClone(DEFAULT_BUILDINGS[b]);
+    for (const v of Object.values(data.state.villages)) for (const b of CHURCH_BUILDINGS) v.buildings[b] ??= 0;
+    return { ...data, version: 15 };
   },
 };
 

@@ -41,6 +41,7 @@ export function NewWorldPanel() {
   const [winBarbs, setWinBarbs] = useState(true);
   const [research, setResearch] = useState<'simple' | 'levels3' | 'levels10'>('simple');
   const [paladin, setPaladin] = useState<'off' | 'on' | 'items'>('on');
+  const [churches, setChurches] = useState(false);
 
   const changePreset = (p: Preset) => {
     setPreset(p);
@@ -60,6 +61,7 @@ export function NewWorldPanel() {
     if (curve !== 'tiered') overrides.nobleCurve = curve;
     if (research !== 'simple') overrides.research = research;
     if (paladin !== 'on') overrides.paladin = paladin;
+    if (churches) overrides.churches = true;
     if (winShare !== 0.75 || !winBarbs) overrides.winCondition = { villageShare: winShare, countBarbarians: winBarbs };
     const cmd: Command = { type: 'newWorld', preset, name, overrides };
     if (seed.trim() !== '') cmd.seed = Number(seed) >>> 0;
@@ -121,6 +123,9 @@ export function NewWorldPanel() {
           <option value="on">Aan</option>
           <option value="items">Aan, met items</option>
         </select>
+      </label>
+      <label class="row" title="Troepen uit een dorp zonder kerk in de buurt vechten op halve kracht. Je begint met een eerste kerk.">
+        <input type="checkbox" checked={churches} onChange={(e) => setChurches(e.currentTarget.checked)} /> Kerken
       </label>
       <h3>Eindspel</h3>
       <label title="Een stam die dit deel van de wereld 3 speldagen vasthoudt, wint.">

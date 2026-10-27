@@ -1,11 +1,13 @@
 /**
  * Everything that makes troops stronger or weaker than their base stats, per battle:
  * research levels (per unit, from the village the troops come from) and paladin items (the
- * attacking paladin's item; every defending paladin's item for the units of its type there).
+ * attacking paladin's item; every defending paladin's item for the units of its type there),
+ * and faith (churches: troops from a village without faith fight at half strength).
  * Defenders from several villages (own troops + support) get a weighted average per unit.
  */
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../shared/gameData';
 import type { BattleInput } from './combat';
+import { faithFactor } from './church';
 import { defendingItems, equipped } from './paladin';
 import type { WorldState } from './state';
 import { techLevel, techMultiplier, type Village } from './village';
@@ -39,6 +41,19 @@ export function battleBonus(state: WorldState, from: Village, target: Village, a
     const def: Partial<Record<UnitId, number>> = {};
     for (const u of UNIT_IDS) if (n[u]) { const m = sum[u]! / n[u]!; if (m !== 1) def[u] = m; }
     out.defenderUnitBonus = def;
+  }
+  // churches: troops from a village without faith fight at half strength
+  if (state.config.churches) {
+    out.attackerFactor = faithFactor(state, from);
+    let sum = 0, n = 0;
+    const add = (v: Village | undefined, units: UnitCounts) => {
+      const c = UNIT_IDS.reduce((t, u) => t + (units[u] ?? 0) * state.config.units[u].pop, 0);
+      sum += c * faithFactor(state, v);
+      n += c;
+    };
+    add(target, target.units);
+    for (const [origin, units] of Object.entries(target.support ?? {})) add(state.villages[Number(origin)], units);
+    if (n > 0) out.defenderFactor = sum / n;
   }
   // paladin items
   if (state.config.paladin === 'items') {

@@ -17,5 +17,7 @@ export const BUILDING_TEXT: Record<BuildingId, string> = {
   farm: 'De boerderij voedt je arbeiders en troepen. Elk gebouwlevel en elke eenheid kost inwoners; is de boerderij vol, dan kun je niets meer bouwen of trainen.',
   storage: 'In de opslagplaats bewaar je je grondstoffen. Wat er niet meer in past, wordt niet meer geproduceerd.',
   hide: 'In de schuilplaats verstoppen je dorpelingen een deel van de grondstoffen. Plunderaars kunnen daar niet bij.',
+  church: 'De kerk geeft je dorpen binnen 4, 6 of 8 velden (level 1, 2, 3) geloof. Troepen uit een dorp zonder geloof vechten op halve kracht.',
+  church_f: 'Je eerste kerk geeft je dorpen binnen 6 velden geloof. Je hebt er maar één; kwijt? Dan bouw je hem goedkoop opnieuw in een ander dorp.',
   wall: 'De muur beschermt je dorp. Hij geeft je verdedigers een bonus en een basisverdediging, ook als er niemand thuis is. Rammen breken hem af.',
 };

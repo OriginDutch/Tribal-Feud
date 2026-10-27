@@ -61,6 +61,7 @@ import {
 } from './village';
 import { endgameRules } from './endgame';
 import { liveTribes } from './worldStats';
+import { hasFaith } from './church';
 import { ITEMS, ITEM_IDS, equipItem, type ItemId } from './paladin';
 import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
 import { DEFAULT_SURPLUS, mintAll, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
@@ -125,6 +126,7 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
           ? [findTemplate(s, v.manager.template)?.name, v.manager.troops ? 'troepen' : undefined].filter(Boolean).join(' · ') || 'aan'
           : null,
         maxMint: mintBlocker(s, v) === null ? maxMintable(s, v) : 0,
+        ...(s.config.churches ? { faith: hasFaith(s, v) } : {}),
       };
     });
 }

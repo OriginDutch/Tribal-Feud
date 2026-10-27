@@ -32,6 +32,7 @@ export function VillagesScreen() {
       <button class="link" onClick={() => open(v.id)}>
         {v.name} <span class="muted mono">({v.x}|{v.y})</span>
       </button>{' '}
+      {v.faith === false && <span class="group-chip" style={{ '--gc': '#e5533f' }} title="Geen kerk in de buurt: troepen uit dit dorp vechten op halve kracht">geen geloof</span>}{' '}
       {chips(v)}
     </>
   );

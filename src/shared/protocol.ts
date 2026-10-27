@@ -380,6 +380,8 @@ export interface OwnVillageRow {
   manager: string | null;
   /** Coins this village can mint right now (0 if it can't). */
   maxMint: number;
+  /** Churches worlds: does this village have faith? */
+  faith?: boolean;
 }
 
 export interface QuestsView {

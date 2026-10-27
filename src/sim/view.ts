@@ -181,7 +181,7 @@ function buildingEffect(state: WorldState, v: Village, b: BuildingId): BuildingE
 export function villageView(state: WorldState, v: Village): VillageView {
   const { config } = state;
 
-  const buildings: BuildingView[] = BUILDING_IDS.map((b) => {
+  const buildings: BuildingView[] = BUILDING_IDS.filter((b) => config.churches || (b !== 'church' && b !== 'church_f')).map((b) => {
     const def = config.buildings[b];
     const planned = plannedLevel(v, b);
     const nextLevel = planned + 1;

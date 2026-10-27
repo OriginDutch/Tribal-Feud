@@ -24,6 +24,8 @@ export const BUILDING_IDS = [
   'storage',
   'hide',
   'wall',
+  'church',
+  'church_f',
 ] as const;
 export type BuildingId = (typeof BUILDING_IDS)[number];
 
@@ -64,7 +66,12 @@ export const DEFAULT_BUILDINGS: Record<BuildingId, BuildingDef> = {
   storage: { name: 'Opslagplaats', maxLevel: 30, minLevel: 1, cost: [60, 50, 40], costFactor: [1.265, 1.27, 1.245], pop: 0, popFactor: 1.15, buildTime: 1020, buildTimeFactor: 1.2, points: 6, requires: {} },
   hide: { name: 'Schuilplaats', maxLevel: 10, minLevel: 0, cost: [50, 60, 50], costFactor: [1.25, 1.25, 1.25], pop: 2, popFactor: 1.17, buildTime: 1800, buildTimeFactor: 1.2, points: 5, requires: {} },
   wall: { name: 'Muur', maxLevel: 20, minLevel: 0, cost: [50, 100, 20], costFactor: F_STD, pop: 5, popFactor: 1.17, buildTime: 3600, buildTimeFactor: 1.2, points: 8, requires: { barracks: 1 } },
+  // churches (world setting): TW costs and workers; radius 4 / 6 / 8 fields
+  church: { name: 'Kerk', maxLevel: 3, minLevel: 0, cost: [16000, 20000, 5000], costFactor: F_MIL, pop: 5000, popFactor: 1.55, buildTime: 21600, buildTimeFactor: 1.6, points: 10, requires: { main: 5, farm: 5 } },
+  church_f: { name: 'Eerste kerk', maxLevel: 1, minLevel: 0, cost: [160, 200, 50], costFactor: F_STD, pop: 5, popFactor: 1, buildTime: 30, buildTimeFactor: 1, points: 10, requires: {} },
 };
+/** Buildings that only exist on worlds with churches. */
+export const CHURCH_BUILDINGS: readonly BuildingId[] = ['church', 'church_f'];
 
 export const UNIT_IDS = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'ram', 'catapult', 'knight', 'snob'] as const;
 export type UnitId = (typeof UNIT_IDS)[number];
@@ -131,6 +138,6 @@ export const UNIT_CLASS: Record<UnitId, UnitClass> = {
 export type UnitCounts = Partial<Record<UnitId, number>>;
 
 /** Buildings catapults can target (the hiding place can't be hit). */
-export const CATAPULT_TARGETS: readonly BuildingId[] = BUILDING_IDS.filter((b) => b !== 'hide');
+export const CATAPULT_TARGETS: readonly BuildingId[] = BUILDING_IDS.filter((b) => b !== 'hide' && b !== 'church_f');
 /** Buildings catapults can't destroy below level 1. */
 export const MIN_LEVEL_ONE: readonly BuildingId[] = ['main', 'farm', 'storage'];

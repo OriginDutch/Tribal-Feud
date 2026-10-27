@@ -41,6 +41,7 @@ import {
   techLevel,
   type Village,
 } from './village';
+import { hasFaith, hasFirstChurch } from './church';
 
 /** Gives every bot player a personality and schedules its first turn. */
 export function initBots(state: WorldState): void {
@@ -190,6 +191,11 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   const attentive = checksIn(state, player.bot);
   // coins and noblemen come first once there is an academy; while saving, buildings wait too
   const saving = attentive ? nobleTurn(state, player, v, profile, [0, 0, 0]) : false;
+  // churches: a village without faith gets one (the first church again if it was lost)
+  if (attentive && state.config.churches && v.buildQueue.length < 2 && !hasFaith(state, v)) {
+    if (!hasFirstChurch(state, player.id)) { if (buildBlocker(state, v, 'church_f') === null) queueBuild(state, v.id, 'church_f'); }
+    else if (buildBlocker(state, v, 'church') === null) queueBuild(state, v.id, 'church');
+  }
   // sloppiness: less serious players forget things now and then
   const skill = SKILL[player.bot.tier ?? 'pro'];
   const forgets = (weight: number) => skill < 1 && nextFloat(state.rng) < (1 - skill) * weight;

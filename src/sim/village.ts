@@ -12,6 +12,7 @@ import { BONUS_FACTORS, type BarbType, type BonusKind } from '../shared/barbaria
 import type { WorldConfig } from '../shared/config';
 import {
   BUILDING_IDS,
+  CHURCH_BUILDINGS,
   RECRUIT_BUILDINGS,
   UNIT_IDS,
   type BuildingId,
@@ -34,6 +35,7 @@ import {
 } from './formulas';
 import { HUMAN_ID, addLog, nextId, type WorldState } from './state';
 import { buildingReward } from './quests';
+import { hasFirstChurch } from './church';
 
 export interface BuildJob {
   id: number;
@@ -140,8 +142,10 @@ export function createVillage(
 ): Village {
   const buildings = {} as Record<BuildingId, number>;
   for (const b of BUILDING_IDS) {
-    buildings[b] = config.village.startLevels[b] ?? config.buildings[b].minLevel;
+    buildings[b] = config.village.startLevels[b] ?? config.buildings[b]?.minLevel ?? 0;
   }
+  // churches: a player's (first) village starts with the first church
+  if (config.churches && owner >= 0) buildings.church_f = 1;
   const units = {} as Record<UnitId, number>;
   for (const u of UNIT_IDS) units[u] = 0;
   const recruitQueues = {} as Record<RecruitBuilding, RecruitJob[]>;
@@ -259,8 +263,12 @@ export function isOperational(config: WorldConfig, v: Village, b: BuildingId): b
 export function buildBlocker(state: WorldState, v: Village, b: BuildingId): string | null {
   const { config } = state;
   const def = config.buildings[b];
+  if (!def || (CHURCH_BUILDINGS.includes(b) && !config.churches)) return 'Niet actief op deze wereld';
   const target = plannedLevel(v, b) + 1;
   if (target > def.maxLevel) return 'Maximaal level bereikt';
+  if (b === 'church_f' && hasFirstChurch(state, v.owner)) return 'Je hebt al een eerste kerk';
+  if (b === 'church' && (v.buildings.church_f > 0 || v.buildQueue.some((j) => j.building === 'church_f'))) return 'Hier staat al de eerste kerk';
+  if (b === 'church_f' && (v.buildings.church > 0 || v.buildQueue.some((j) => j.building === 'church'))) return 'Hier staat al een kerk';
   if (v.buildQueue.length >= config.village.buildQueueSlots) return 'Bouwqueue is vol';
   const missing = missingRequirements(config, v, def.requires);
   if (missing.length > 0) return `Vereist: ${missing.join(', ')}`;
