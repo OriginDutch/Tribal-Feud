@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { formatGameTime } from '../../shared/time';
 import { MapLink } from '../components/MapLink';
+import { TripleConfirm } from '../components/TripleConfirm';
 import { num } from '../format';
 import { attackVillage, openTribe, playerFocus, playerView, send, showOnMap } from '../store';
 
@@ -44,6 +45,35 @@ export function PlayerScreen() {
         <div><span class="muted">Zwaartepunt</span><strong>{p.centre ? `${p.centre.x}|${p.centre.y}` : '—'}</strong></div>
         {!you && <div><span class="muted">Dichtstbij</span><strong>{p.villages.length ? `${Math.min(...p.villages.map((v) => v.distance))} velden` : '—'}</strong></div>}
       </section>
+
+      {!you && (p.bond || p.grudge > 0 || p.canAskPermission) && (
+        <section class="panel">
+          <h2>Band</h2>
+          <p>
+            {p.bond === 'mate' ? 'Stamgenoot.' : p.bond === 'ally' ? 'Zijn stam is jullie bondgenoot.' : p.bond === 'nap' ? 'Jullie stammen hebben een niet-aanvalsverdrag.' : 'Geen band.'}
+            {p.mood !== undefined && <> Tevredenheid over jou: <strong>{p.mood}</strong>/100.</>}
+            {p.grudge > 0 && <> Wrok tegen jou: <strong class="bad">{p.grudge.toFixed(2)}</strong>.</>}
+            {p.permission && <> Toestemming van je leider: {!p.permission.answer ? 'gevraagd' : p.permission.answer === 'yes' ? <span class="good">ja</span> : <span class="bad">nee</span>}.</>}
+          </p>
+          <div class="row wrap">
+            {p.canAskPermission && !p.permission?.answer && !p.permission && (
+              <button class="small" onClick={() => send({ type: 'askPermission', target: p.id })}>Leider om toestemming vragen</button>
+            )}
+            {p.bond && (
+              <TripleConfirm
+                label={p.bond === 'mate' ? 'Verraden…' : 'Verdrag breken en verraden…'}
+                onConfirm={() => send({ type: 'betray', target: p.id })}
+              />
+            )}
+          </div>
+          {p.bond && (
+            <p class="hint">
+              Verraad: {p.bond === 'mate' ? 'als leider zet je hem uit de stam, als lid word je er zelf uitgezet' : 'als leider verklaar je zijn stam de oorlog, als lid word je uit je stam gezet'}.
+              Daarna mag je hem aanvallen. Iedereen die erbij hoort krijgt wrok, en elke stam vertrouwt je minder.
+            </p>
+          )}
+        </section>
+      )}
 
       {!you && (
         <section class="panel">

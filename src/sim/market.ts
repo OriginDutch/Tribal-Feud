@@ -10,6 +10,7 @@ import { storageCapacity } from './formulas';
 import { distance, type Movement } from './movement';
 import { HUMAN_ID, addLog, addMovement, nextId, removeMovement, villagesOf, type WorldState } from './state';
 import { currentResources, isOperational, settle, type Village } from './village';
+import { mateEvent } from './loyalty';
 
 export const MERCHANT_CARRY = 1000;
 export const MERCHANT_MINUTES_PER_FIELD = 6;
@@ -114,6 +115,7 @@ export function arriveTrade(state: WorldState, m: Movement): void {
     if (to.owner === HUMAN_ID && m.owner !== HUMAN_ID) {
       addLog(state, { time: state.time, text: `${to.name} ontving grondstoffen van ${state.players[m.owner]?.name ?? '?'}.` });
     }
+    if (m.owner === HUMAN_ID && to.owner !== HUMAN_ID) mateEvent(state, state.players[to.owner], 3, 1, 'je stuurde grondstoffen');
   }
   const back: Movement = {
     id: nextId(state),

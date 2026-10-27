@@ -18,7 +18,9 @@ import { distance, protectionBlocker, sendAttack, sendSupport, travelTimeMs } fr
 import { MERCHANT_CARRY, merchantsFree, sendResources } from './market';
 import { nextFloat } from './rng';
 import { BARBARIAN, HUMAN_ID, addLog, movementIndex, nextId, villagesOf, type BotState, type InboxMessage, type Player, type WorldState } from './state';
-import { mayAttack, tribeOf } from './tribes';
+import { AGGRESSION, mayAttack, tribeOf } from './tribes';
+import { changeStanding, mateEvent, moodAll } from './loyalty';
+import { storageCapacity } from './formulas';
 import { currentResources, isOperational, type Village } from './village';
 
 const DEFENSE: UnitId[] = ['spear', 'sword', 'archer', 'heavy'];
@@ -72,6 +74,40 @@ export function askTribeHelp(state: WorldState, movementId: number): string | nu
   return null;
 }
 
+/** Ask your tribe for resources for one of your villages; mates send what they can spare. */
+export function askTribeResources(state: WorldState, villageId: number, res: Res): string | null {
+  if (!tribeOf(state, HUMAN_ID)) return 'Je zit niet in een stam.';
+  const v = state.villages[villageId];
+  if (!v || v.owner !== HUMAN_ID) return 'Dat is niet jouw dorp.';
+  const want = res.map((n) => Math.max(0, Math.floor(n))) as Res;
+  if (want[0] + want[1] + want[2] < MERCHANT_CARRY) return 'Vraag minstens 1.000 grondstoffen.';
+  if ((state.resourceAsks ?? []).some((a) => a.at > state.time - DAY)) return 'Je hebt vandaag al om grondstoffen gevraagd. Morgen weer.';
+  (state.resourceAsks ??= []).push({ id: nextId(state), village: v.id, res: want, sent: [0, 0, 0], at: state.time, answered: [] });
+  addLog(state, { time: state.time, text: `Je vraagt je stam om grondstoffen voor ${v.name}.` });
+  return null;
+}
+
+/** As a member of a bot tribe: ask your leader whether you may attack a player. */
+export function askPermission(state: WorldState, target: number): string | null {
+  const t = tribeOf(state, HUMAN_ID);
+  if (!t) return 'Je zit niet in een stam.';
+  if (t.leader === HUMAN_ID) return 'Jij bent de leider: je hoeft het niemand te vragen.';
+  const p = state.players[target];
+  if (!p || target === HUMAN_ID || p.tribe === t.id) return 'Die speler kun je niet aanvallen.';
+  const asked = state.permissions?.[target];
+  if (asked && !asked.answer) return 'Je hebt het al gevraagd; de leider antwoordt als hij online is.';
+  (state.permissions ??= {})[target] = { at: state.time };
+  return null;
+}
+
+/** You attack a player: if your leader said no, that costs standing (once per answer). */
+export function attackedWithoutPermission(state: WorldState, target: number): void {
+  const p = state.permissions?.[target];
+  if (!p || p.answer !== 'no' || (p.until ?? 0) <= state.time || p.broken) return;
+  p.broken = true;
+  changeStanding(state, -15, `je viel ${state.players[target]?.name ?? '?'} aan terwijl ik nee zei`);
+}
+
 /** Give an order (leader) or a suggestion (member). */
 export function giveOrder(state: WorldState, kind: 'attack' | 'spare' | 'focus', target: number): string | null {
   const t = tribeOf(state, HUMAN_ID);
@@ -87,6 +123,8 @@ export function giveOrder(state: WorldState, kind: 'attack' | 'spare' | 'focus',
   }
   if ((state.tribeOrders ?? []).some((o) => o.kind === kind && o.target === target && o.expires > state.time)) return 'Die order loopt al.';
   (state.tribeOrders ??= []).push({ id: nextId(state), kind, target, binding: t.leader === HUMAN_ID, at: state.time, expires: state.time + LIFETIME, answers: {} });
+  // too many orders at once wear people out
+  if (t.leader === HUMAN_ID && (state.tribeOrders ?? []).filter((o) => o.expires > state.time).length > 3) moodAll(state, t, -3, 'te veel orders tegelijk');
   return null;
 }
 
@@ -109,6 +147,7 @@ export function answerRequest(state: WorldState, m: InboxMessage, accept: boolea
   if (!r || !p?.bot) return 'Dit verzoek bestaat niet meer.';
   if (!accept) {
     m.status = 'declined';
+    mateEvent(state, p, r.type === 'support' ? -10 : -6, -3, r.type === 'support' ? 'je stuurde geen support' : r.type === 'resources' ? 'je hield je grondstoffen voor jezelf' : 'je gaf geen toestemming');
     changeFavor(p.bot, r.type === 'permission' ? -0.1 : -0.3);
     if (r.type === 'permission') (p.bot.spare ??= {})[r.target] = state.time + 3 * DAY;
     // some take it badly
@@ -121,6 +160,7 @@ export function answerRequest(state: WorldState, m: InboxMessage, accept: boolea
     // the support itself you send with the planner; agreeing already counts
     m.status = 'accepted';
     changeFavor(p.bot, 0.3);
+    mateEvent(state, p, 4, 2, 'je beloofde support');
     return null;
   }
   if (r.type === 'resources') {
@@ -136,12 +176,14 @@ export function answerRequest(state: WorldState, m: InboxMessage, accept: boolea
     if (error) return error;
     m.status = 'accepted';
     changeFavor(p.bot, 0.4);
+    mateEvent(state, p, 8, 3, 'je stuurde grondstoffen');
     return null;
   }
   // permission to attack
   m.status = 'accepted';
   if (p.bot.spare) delete p.bot.spare[r.target];
   changeFavor(p.bot, 0.1);
+  mateEvent(state, p, 4, 1, 'je gaf toestemming');
   return null;
 }
 
@@ -153,6 +195,8 @@ export function tribeDuties(state: WorldState, player: Player): void {
   const t = tribeOf(state, HUMAN_ID);
   if (!bot || !t || player.tribe !== t.id) return;
   answerHelpAsks(state, player);
+  answerResourceAsks(state, player);
+  if (t.leader === player.id) answerPermissions(state, player);
   answerOrders(state, player);
   askHuman(state, player);
 }
@@ -191,6 +235,57 @@ function answerHelpAsks(state: WorldState, player: Player): void {
   }
   // forget asks whose attack has landed
   state.helpAsks = (state.helpAsks ?? []).filter((a) => a.arrives > state.time - HOUR);
+}
+
+function answerResourceAsks(state: WorldState, player: Player): void {
+  const bot = player.bot!;
+  for (const ask of state.resourceAsks ?? []) {
+    if (ask.answered.includes(player.id) || ask.at < state.time - DAY) continue;
+    ask.answered.push(player.id);
+    const to = state.villages[ask.village];
+    const left = ask.res.map((n, i) => Math.max(0, n - ask.sent[i]!)) as Res;
+    if (!to || to.owner !== HUMAN_ID || left[0] + left[1] + left[2] < MERCHANT_CARRY) continue;
+    const reply = (title: string, text: string) => addMessage(state, { kind: 'answer', from: player.id, title, text });
+    if (nextFloat(state.rng) >= HELPFUL[bot.archetype] + favorOf(bot) * 0.15) { reply(`${player.name} stuurt niets`, `${player.name}: ik heb het zelf nodig, sorry.`); continue; }
+    let gave: Res | null = null;
+    for (const v of villagesOf(state, player.id).sort((a, b) => distance(a, to) - distance(b, to))) {
+      if (!isOperational(state.config, v, 'market')) continue;
+      const have = currentResources(state.config, v, state.time);
+      const floor = storageCapacity(v.buildings.storage) * 0.4;
+      const res = left.map((n, i) => Math.min(n, Math.max(0, Math.floor(have[i]! - floor)))) as Res;
+      let total = res[0] + res[1] + res[2];
+      const max = merchantsFree(state, v) * MERCHANT_CARRY;
+      if (total > max) { const f = max / total; for (const i of [0, 1, 2] as const) res[i] = Math.floor(res[i] * f); total = res[0] + res[1] + res[2]; }
+      if (total < MERCHANT_CARRY) continue;
+      if (sendResources(state, v.id, to.id, res) === null) { gave = res; break; }
+    }
+    if (!gave) { reply(`${player.name} kan niets missen`, `${player.name}: ik heb niets over (of geen vrije handelaren).`); continue; }
+    for (const i of [0, 1, 2] as const) ask.sent[i] += gave[i];
+    changeFavor(bot, -0.1);
+    reply(`${player.name} stuurt grondstoffen`, `${player.name} stuurt ${gave.map((n) => n.toLocaleString('nl-NL')).join(' / ')} (hout / leem / ijzer) naar ${to.name}.`);
+  }
+  state.resourceAsks = (state.resourceAsks ?? []).filter((a) => a.at > state.time - DAY);
+}
+
+/** Your leader answers whether you may attack a player. */
+function answerPermissions(state: WorldState, leader: Player): void {
+  const bot = leader.bot!;
+  for (const [id, ask] of Object.entries(state.permissions ?? {})) {
+    const target = Number(id);
+    if (ask.answer) { if ((ask.until ?? 0) < state.time) delete state.permissions![target]; continue; }
+    const name = state.players[target]?.name ?? '?';
+    const allowed = mayAttack(state, leader.id, target) && !spares(state, bot, target);
+    const chance = 0.35 + AGGRESSION[bot.archetype] * 0.5 + ((state.standing ?? 60) - 60) / 100;
+    const yes = allowed && nextFloat(state.rng) < chance;
+    ask.answer = yes ? 'yes' : 'no';
+    ask.until = state.time + 3 * DAY;
+    changeStanding(state, 1, 'je vroeg eerst toestemming');
+    addMessage(state, {
+      kind: 'answer', from: leader.id,
+      title: yes ? `${leader.name}: ga je gang` : `${leader.name}: liever niet`,
+      text: yes ? `${leader.name}: ${name} aanvallen? Ga je gang.` : `${leader.name}: laat ${name} met rust${allowed ? '' : ', we hebben een verdrag'}. Doe je het toch, dan onthoud ik dat.`,
+    });
+  }
 }
 
 function answerOrders(state: WorldState, player: Player): void {

@@ -11,6 +11,7 @@
 import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
 import { kindness } from '../shared/config';
 import { endgameTick, leaderBonus, tribeShares } from './endgame';
+import { loyaltyTick } from './loyalty';
 import { HOUR, MINUTE } from '../shared/time';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { sawAttack } from './botReact';
@@ -209,6 +210,9 @@ export function join(state: WorldState, t: Tribe, player: Player): void {
   if (player.tribe !== undefined) leave(state, player);
   player.tribe = t.id;
   t.members.push(player.id);
+  // a fresh start with the new leader
+  if (player.bot) { delete player.bot.mood; delete player.bot.moodNotes; delete player.bot.complained; }
+  if (player.id === HUMAN_ID) { delete state.standing; delete state.standingNotes; delete state.standingWarned; }
 }
 
 export function found(state: WorldState, player: Player, own?: { name: string; tag: string }): Tribe {
@@ -305,6 +309,7 @@ export function onDiplomacy(state: WorldState): void {
   }
 
   diplomacy(state);
+  loyaltyTick(state);
   endgameTick(state);
   humanTribeTick(state);
   push(state.queue, state.time + DIPLOMACY_EVERY, { kind: 'diplomacy' });

@@ -16,6 +16,7 @@ import { onHumanVillageLost, onIncomingAttack } from './alerts';
 import { formatGameTime } from '../shared/time';
 import { arriveTrade, arriveTradeReturn } from './market';
 import { currentResources, isOperational, settle, type Village } from './village';
+import { mateEvent, onVillageLost } from './loyalty';
 
 export interface Movement {
   id: number;
@@ -490,6 +491,10 @@ export function loyaltyNow(config: WorldState['config'], v: Village, time: numbe
 export function conquer(state: WorldState, v: Village, newOwner: number): void {
   const { config } = state;
   const old = v.owner;
+  if (old >= 0 && old !== HUMAN_ID) {
+    const helped = Object.keys(v.support ?? {}).some((o) => state.villages[Number(o)]?.owner === HUMAN_ID);
+    onVillageLost(state, old, helped, v.name);
+  }
   settle(config, v, state.time);
   for (const u of UNIT_IDS) {
     v.units[u] = 0;
@@ -684,6 +689,7 @@ function arriveSupport(state: WorldState, m: Movement): void {
   if (m.owner === HUMAN_ID && host.owner === HUMAN_ID) return;
   if (m.owner === HUMAN_ID) {
     addLog(state, { time: state.time, text: `Ondersteuning aangekomen in ${host.name} (${host.x}|${host.y}).` });
+    mateEvent(state, state.players[host.owner], 5, 2, `je stuurde support naar ${host.name}`);
   }
 }
 

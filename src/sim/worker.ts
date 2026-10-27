@@ -3,7 +3,8 @@
  * The UI never touches the state directly.
  */
 import { deleteGroup, saveGroup, setGroup } from './groups';
-import { askTribeHelp, cancelOrder, giveOrder } from './tribeOrders';
+import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder } from './tribeOrders';
+import { grudge, grudgeHalfLife } from './botReact';
 import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, proposeRelation, setOwnRelation } from './humanTribe';
 import { fitCheck, tribeNews, tribeViews } from './tribes';
 import { farmCUnits } from './intel';
@@ -14,7 +15,7 @@ import { deleteSave, getSave, listSaves, putSave } from '../storage/saveStore';
 import { randomSeed } from './rng';
 import { fromSaveData, toSaveData } from './save';
 import { advance, schedule, scheduleRandom, setPaused, setSpeed } from './simulation';
-import { createWorld, currentVillage, playerVillage, type WorldState } from './state';
+import { createWorld, currentVillage, playerVillage, type Player, type WorldState } from './state';
 import { storageCapacity } from './formulas';
 import { villageView } from './view';
 import { incomingViews, mapData, movementViews } from './mapView';
@@ -24,7 +25,7 @@ import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteNobleTemplate, deleteTemplate, deleteTroopTemplate, findTemplate, saveNobleTemplate, saveTemplate, saveTroopTemplate, scheduleManager, setManager, templateUse } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
-import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow, SurplusRow, EndgameView } from '../shared/protocol';
+import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow, SurplusRow, EndgameView, OpinionsView } from '../shared/protocol';
 import {
   MERCHANT_CARRY,
   MERCHANT_MINUTES_PER_FIELD,
@@ -59,6 +60,7 @@ import {
   type Village,
 } from './village';
 import { endgameRules } from './endgame';
+import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
 import { DEFAULT_SURPLUS, mintAll, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
 
 /** Minimal typing for the worker global, so the project only needs the DOM lib. */
@@ -200,6 +202,30 @@ function sendRanking(s: WorldState): void {
 }
 
 /** For a leader: the 20 players nearest to your villages that are not in your tribe. */
+function opinionsView(s: WorldState): OpinionsView {
+  const t = s.players[HUMAN_ID]?.tribe !== undefined ? s.tribes?.[s.players[HUMAN_ID]!.tribe!] : undefined;
+  const mates = t && t.leader === HUMAN_ID
+    ? t.members.filter((m) => m !== HUMAN_ID).map((m) => s.players[m]!).filter((p) => p?.bot).map((p) => ({
+        id: p.id, name: p.name, archetype: p.bot!.archetype, mood: Math.round(moodOf(p)), favor: p.bot!.favor ?? 0, notes: [...(p.bot!.moodNotes ?? [])].reverse(),
+      })).sort((a, b) => a.mood - b.mood)
+    : [];
+  const leader = t && t.leader !== HUMAN_ID ? s.players[t.leader] : undefined;
+  const grudges = s.players.filter((p) => p.bot?.grudges?.[HUMAN_ID]).map((p) => {
+    const g = p.bot!.grudges![HUMAN_ID]!;
+    const pt = p.tribe !== undefined ? s.tribes?.[p.tribe] : undefined;
+    return { id: p.id, name: p.name, ...(pt ? { tribeTag: pt.tag } : {}), score: grudge(s, p, HUMAN_ID), ...(g.why ? { why: g.why } : {}), at: g.at, halfLife: grudgeHalfLife(s) };
+  }).filter((g) => g.score >= 0.05).sort((a, b) => b.score - a.score);
+  const ask = (s.resourceAsks ?? []).find((a) => a.at > s.time - DAY);
+  return {
+    mates,
+    ...(leader ? { standing: { leader: leader.id, leaderName: leader.name, value: Math.round(s.standing ?? BASE_MOOD), notes: [...(s.standingNotes ?? [])].reverse() } } : {}),
+    grudges,
+    betrayals: s.betrayals ?? 0,
+    permissions: Object.entries(s.permissions ?? {}).map(([id, p]) => ({ target: Number(id), name: s.players[Number(id)]?.name ?? '?', ...(p.answer ? { answer: p.answer } : {}), ...(p.until ? { until: p.until } : {}) })),
+    ...(ask ? { resourceAsk: { village: ask.village, res: [...ask.res] as [number, number, number], sent: [...ask.sent] as [number, number, number], at: ask.at } } : {}),
+  };
+}
+
 function endgameView(s: WorldState): EndgameView {
   const r = endgameRules(s);
   const eg = s.endgame;
@@ -329,6 +355,23 @@ function playerView(s: WorldState, id: number): PlayerView | null {
     centre: w ? { x: Math.round(cx / w), y: Math.round(cy / w) } : null,
     ...(t ? { tribe: { id: t.id, tag: t.tag, name: t.name, color: t.color } } : {}),
     history, incoming,
+    ...playerBond(s, p),
+  };
+}
+
+function playerBond(s: WorldState, p: Player): Pick<PlayerView, 'bond' | 'grudge' | 'mood' | 'canAskPermission' | 'permission'> {
+  const me = s.players[HUMAN_ID];
+  const mine = me?.tribe !== undefined ? s.tribes?.[me.tribe] : undefined;
+  const theirs = p.tribe !== undefined ? s.tribes?.[p.tribe] : undefined;
+  const rel = mine && theirs && mine.id !== theirs.id ? mine.relations[theirs.id] : undefined;
+  const bond = mine && theirs?.id === mine.id ? 'mate' : rel === 'ally' || rel === 'nap' ? rel : undefined;
+  const perm = s.permissions?.[p.id];
+  return {
+    ...(bond && p.id !== HUMAN_ID ? { bond } : {}),
+    grudge: p.bot ? Math.round(grudge(s, p, HUMAN_ID) * 100) / 100 : 0,
+    ...(mine?.leader === HUMAN_ID && bond === 'mate' && p.bot ? { mood: Math.round(moodOf(p)) } : {}),
+    canAskPermission: !!mine && mine.leader !== HUMAN_ID && p.id !== HUMAN_ID && bond !== 'mate',
+    ...(perm ? { permission: { ...(perm.answer ? { answer: perm.answer } : {}), ...(perm.until ? { until: perm.until } : {}) } } : {}),
   };
 }
 
@@ -516,6 +559,7 @@ async function handle(cmd: Command): Promise<void> {
       {
         const error = sendAttack(state, cmd.from, cmd.to, cmd.units, cmd.catapultTarget);
         if (error) notice(error, 'error');
+        else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); }
       }
       break;
     case 'sendFarm': {
@@ -607,6 +651,7 @@ async function handle(cmd: Command): Promise<void> {
       if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
       const error = sendNobleTrain(state, cmd.from, cmd.to, cmd.first, cmd.escorts, cmd.catapultTarget);
       if (error) notice(error, 'error');
+      else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); }
       break;
     }
     case 'sendSupport': {
@@ -767,6 +812,19 @@ async function handle(cmd: Command): Promise<void> {
       return;
     case 'getInbox':
       if (state) post({ type: 'inbox', inbox: inboxViews(state) });
+      return;
+    case 'askTribeResources':
+    case 'askPermission':
+    case 'betray': {
+      if (!state) return;
+      const error = cmd.type === 'askTribeResources' ? askTribeResources(state, cmd.village, cmd.res) : cmd.type === 'askPermission' ? askPermission(state, cmd.target) : humanBetray(state, cmd.target);
+      if (error) notice(error, 'error');
+      else notice(cmd.type === 'askTribeResources' ? 'Je stam is om grondstoffen gevraagd. Stamgenoten antwoorden als ze online zijn.' : cmd.type === 'askPermission' ? 'Gevraagd. Je leider antwoordt als hij online is.' : 'Het is gebeurd. Er is geen weg terug.', 'info');
+      post({ type: 'opinions', opinions: opinionsView(state) });
+      break;
+    }
+    case 'getOpinions':
+      if (state) post({ type: 'opinions', opinions: opinionsView(state) });
       return;
     case 'continueWorld':
       if (!state?.endgame?.winner) return;

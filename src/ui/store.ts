@@ -4,12 +4,12 @@
  */
 import { signal } from '@preact/signals';
 import type { BuildingId, RecruitBuilding } from '../shared/gameData';
-import type { CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, SupportRow, SurplusRow, TribeAskView, TribeView, WorkerMessage } from '../shared/protocol';
+import type { CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, SupportRow, SurplusRow, OpinionsView, TribeAskView, TribeView, WorkerMessage } from '../shared/protocol';
 import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'support' | 'player' | 'debug' | 'building';
+export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'support' | 'player' | 'debug' | 'building' | 'relations';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);
@@ -86,6 +86,7 @@ export const refusedApplications = signal<Record<number, number>>({});
 export const refusedInvites = signal<Record<number, number>>({});
 export const inbox = signal<InboxView[]>([]);
 export const supportRows = signal<SupportRow[] | null>(null);
+export const opinions = signal<OpinionsView | null>(null);
 export const mintPlan = signal<{ rows: { id: number; name: string; x: number; y: number; coins: number }[]; keep: number } | null>(null);
 export const surplusPlan = signal<{ rows: SurplusRow[]; keep: number } | null>(null);
 /** Target picked on the map, prefilled in the rally point. */
@@ -175,6 +176,9 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'inbox':
       inbox.value = msg.inbox;
+      break;
+    case 'opinions':
+      opinions.value = msg.opinions;
       break;
     case 'supportList':
       supportRows.value = msg.rows;

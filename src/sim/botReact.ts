@@ -162,6 +162,10 @@ function restack(state: WorldState, player: Player, v: Village, arrives: number)
 
 /** Grudge fades to half in a (speed-adjusted) day. */
 const GRUDGE_HALF_LIFE_MS = 24 * 60 * MINUTE;
+/** Game time in which a grudge against you halves (world speed and difficulty). */
+export function grudgeHalfLife(state: WorldState): number {
+  return GRUDGE_HALF_LIFE_MS / state.config.worldSpeed / kindness(state.config).grudgeDecay;
+}
 export function grudge(state: WorldState, player: Player, against: number): number {
   const g = player.bot?.grudges?.[against];
   if (!g) return 0;
@@ -171,7 +175,7 @@ export function grudge(state: WorldState, player: Player, against: number): numb
 function addGrudge(state: WorldState, player: Player, against: number, danger: number): void {
   if (against < 0 || against === player.id) return;
   const now = grudge(state, player, against);
-  (player.bot!.grudges ??= {})[against] = { score: now + danger, at: state.time };
+  (player.bot!.grudges ??= {})[against] = { score: now + danger, at: state.time, why: 'viel mij aan' };
   // forget the ones that faded out
   for (const id of Object.keys(player.bot!.grudges!)) if (grudge(state, player, Number(id)) < 0.05) delete player.bot!.grudges![Number(id)];
 }

@@ -6,6 +6,7 @@
  * the leader's view of your strength, their personality and any grudge against you.
  */
 import { kindness } from '../shared/config';
+import { mateEvent, moodAll, trustFactor } from './loyalty';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { DAY } from '../shared/time';
 import { isOnline } from './bots';
@@ -184,7 +185,8 @@ export function kickMember(state: WorldState, playerId: number): string | null {
   if (!p || p.tribe !== t.id || playerId === HUMAN_ID) return 'Die speler zit niet in je stam.';
   leave(state, p);
   // being kicked out stings
-  if (p.bot) (p.bot.grudges ??= {})[HUMAN_ID] = { score: grudge(state, p, HUMAN_ID) + 0.6, at: state.time };
+  if (p.bot) (p.bot.grudges ??= {})[HUMAN_ID] = { score: grudge(state, p, HUMAN_ID) + 0.6, at: state.time, why: 'uit de stam gezet' };
+  moodAll(state, t, -5, `je zette ${p.name} eruit`);
   addMessage(state, { kind: 'info', from: -1, title: `${p.name} uit de stam gezet`, text: `Je hebt ${p.name} uit ${tag(t)} gezet. Dat vergeet hij niet zomaar.` });
   return null;
 }
@@ -283,7 +285,12 @@ const TAKES_YOU: Record<string, number> = { diplomat: 0.9, supporter: 0.85, farm
 export function humanTribeTick(state: WorldState): void {
   const me = human(state);
   // open messages that ran out
-  for (const m of state.inbox ?? []) if (m.status === 'open' && m.expires !== undefined && m.expires <= state.time) m.status = 'expired';
+  for (const m of state.inbox ?? []) {
+    if (m.status !== 'open' || m.expires === undefined || m.expires > state.time) continue;
+    m.status = 'expired';
+    // a mate's request you let run out: like a no, a bit milder
+    if (m.kind === 'request') mateEvent(state, state.players[m.from], -6, -3, 'je reageerde niet op mijn verzoek');
+  }
 
   const keep: TribeAsk[] = [];
   for (const ask of state.tribeAsks ?? []) {
@@ -309,7 +316,7 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
       fits(state, t, HUMAN_ID) &&
       leaderAccepts(state, t, me) &&
       grudge(state, leader, HUMAN_ID) < 0.5 &&
-      nextFloat(state.rng) < Math.min(0.97, (arch === 'opportunist' ? (strongEnough(state, t, HUMAN_ID) ? 0.9 : 0.3) : TAKES_YOU[arch] ?? 0.6) * kindness(state.config).accept);
+      nextFloat(state.rng) < Math.min(0.97, (arch === 'opportunist' ? (strongEnough(state, t, HUMAN_ID) ? 0.9 : 0.3) : TAKES_YOU[arch] ?? 0.6) * kindness(state.config).accept * trustFactor(state));
     if (ok) {
       join(state, t, me);
       addMessage(state, { kind: 'answer', from: leader.id, tribe: t.id, title: `Welkom bij ${tag(t)}`, text: `${leader.name} heeft je aanmelding geaccepteerd. Je bent nu lid van ${tag(t)} ${t.name}.` });
@@ -332,7 +339,7 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
       const mine = tribeCentre(state, t)?.points ?? 0, theirs = tribeCentre(state, current)?.points ?? 0;
       ok = arch === 'opportunist' && mine > theirs * 1.5 && nextFloat(state.rng) < 0.5;
     } else if (ok) {
-      ok = nextFloat(state.rng) < Math.min(0.97, SOCIAL[arch] * 0.9 * kindness(state.config).accept);
+      ok = nextFloat(state.rng) < Math.min(0.97, SOCIAL[arch] * 0.9 * kindness(state.config).accept * trustFactor(state));
     }
     if (ok) {
       join(state, t, p);

@@ -7,6 +7,7 @@ import { formatGameTime } from '../shared/time';
 import { TopBar } from './components/TopBar';
 import { Nav } from './components/Nav';
 import { EndgameModal } from './components/EndgameModal';
+import { RelationsScreen } from './screens/RelationsScreen';
 import { autoPause, notice, screen, snapshot, togglePause } from './store';
 import { DebugScreen } from './screens/DebugScreen';
 import { MainScreen } from './screens/MainScreen';
@@ -78,6 +79,8 @@ function CurrentScreen() {
       return <RankingScreen />;
     case 'tribes':
       return <TribesScreen />;
+    case 'relations':
+      return <RelationsScreen />;
     case 'inbox':
       return <InboxScreen />;
     case 'support':

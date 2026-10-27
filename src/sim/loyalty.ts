@@ -1,0 +1,230 @@
+/**
+ * Phase 8b: satisfaction and betrayal.
+ *
+ * - Every bot in a tribe has a mood (0..100) about its tribe's leader: you, when you lead.
+ *   Helping, keeping your word and protecting them raise it; ignoring them, too many orders
+ *   and villages lost without your help lower it. It drifts back to 60 slowly.
+ * - Low mood: first complaints, then leaving (< 25), then betrayal (< 12): the bot leaves,
+ *   bears a grudge and goes after the leader (and may defect to a tribe at war with you).
+ *   Opportunists betray quickly, supporters almost never.
+ * - When YOU are a member of a bot tribe, its leader has a standing of you (0..100). Too low
+ *   and you are kicked out.
+ * - You can betray too (the nuke): break with a mate, an ally or a NAP partner. It costs you.
+ * - Bot tribes play by the same rules: a leader nobody likes is replaced.
+ */
+import type { Archetype } from '../shared/botProfiles';
+import { kindness } from '../shared/config';
+import { DAY } from '../shared/time';
+import { addMessage, alertHuman } from './humanTribe';
+import { nextFloat } from './rng';
+import { HUMAN_ID, addLog, type Player, type WorldState } from './state';
+import { declareWar, fits, join, leave, tribeOf, type Tribe } from './tribes';
+
+export const BASE_MOOD = 60;
+export interface MoodNote { time: number; delta: number; why: string }
+
+/** How easily each kind turns on its leader (betrayal), and how loyal it is (leaving). */
+const BETRAY: Record<Archetype, number> = { opportunist: 0.5, rusher: 0.35, farmer: 0.15, turtle: 0.1, diplomat: 0.05, supporter: 0.02 };
+const LOYAL: Record<Archetype, number> = { supporter: 0.8, diplomat: 0.7, turtle: 0.6, farmer: 0.5, rusher: 0.35, opportunist: 0.25 };
+
+const clamp = (x: number) => Math.max(0, Math.min(100, x));
+const tag = (t: Tribe) => `[${t.tag}]`;
+const note = (list: MoodNote[] | undefined, n: MoodNote): MoodNote[] => [...(list ?? []), n].slice(-6);
+
+export function moodOf(p: Player): number {
+  return p.bot?.mood ?? BASE_MOOD;
+}
+
+/** A bot's mood about its tribe's leadership changes, with a reason you can read. */
+export function changeMood(state: WorldState, p: Player | undefined, delta: number, why: string): void {
+  if (!p?.bot || delta === 0) return;
+  p.bot.mood = clamp(moodOf(p) + delta);
+  p.bot.moodNotes = note(p.bot.moodNotes, { time: state.time, delta, why });
+}
+
+/** Every bot member of a tribe (not its leader). */
+export function moodAll(state: WorldState, t: Tribe, delta: number, why: string, except?: number): void {
+  for (const m of t.members) if (m !== t.leader && m !== except) changeMood(state, state.players[m], delta, why);
+}
+
+/** What your bot leader thinks of you (when you are a member of a bot tribe). */
+export function changeStanding(state: WorldState, delta: number, why: string): void {
+  const t = tribeOf(state, HUMAN_ID);
+  if (!t || t.leader === HUMAN_ID || delta === 0) return;
+  state.standing = clamp((state.standing ?? BASE_MOOD) + delta);
+  state.standingNotes = note(state.standingNotes, { time: state.time, delta, why });
+}
+
+/** Something happened between you and a mate: mood if you lead, standing if you are a member. */
+export function mateEvent(state: WorldState, mate: Player | undefined, leaderDelta: number, memberDelta: number, why: string): void {
+  const t = tribeOf(state, HUMAN_ID);
+  if (!t || !mate || mate.tribe !== t.id) return;
+  if (t.leader === HUMAN_ID) changeMood(state, mate, leaderDelta, why);
+  else changeStanding(state, memberDelta, why);
+}
+
+/** A tribe member lost a village: whoever leads gets the blame, less if you helped. */
+export function onVillageLost(state: WorldState, owner: number, helped: boolean, name: string): void {
+  const p = state.players[owner];
+  if (!p?.bot || p.tribe === undefined) return;
+  const t = state.tribes?.[p.tribe];
+  if (!t || t.leader === owner) return;
+  if (t.leader === HUMAN_ID) changeMood(state, p, helped ? -3 : -12, helped ? `${name} verloren, ondanks je hulp` : `${name} verloren, jij hielp niet`);
+  else changeMood(state, p, -6, `${name} verloren`);
+}
+
+/** Runs with the diplomacy tick: drift, complaints, leaving, betrayal, coups, kicking you. */
+export function loyaltyTick(state: WorldState): void {
+  for (const t of Object.values(state.tribes ?? {})) {
+    const humanLeads = t.leader === HUMAN_ID;
+    for (const id of [...t.members]) {
+      if (id === t.leader) continue;
+      const p = state.players[id];
+      if (!p?.bot) continue;
+      const b = p.bot;
+      // drift back to the middle (and a bit of noise in bot tribes)
+      const m = moodOf(p);
+      b.mood = clamp(m + Math.sign(BASE_MOOD - m) * Math.min(1, Math.abs(BASE_MOOD - m)) + (humanLeads ? 0 : (nextFloat(state.rng) - 0.5) * 3));
+      const mood = b.mood;
+      const worst = [...(b.moodNotes ?? [])].reverse().find((n) => n.delta < 0)?.why;
+      if (humanLeads && mood < 35 && (b.complained === undefined || state.time - b.complained > DAY)) {
+        b.complained = state.time;
+        addMessage(state, { kind: 'info', from: id, title: `${p.name} is ontevreden`, text: `${p.name}: zo heb ik het niet bedoeld met ${tag(t)}${worst ? ` (${worst})` : ''}. Doe er iets aan, of ik ben weg.` });
+      }
+      if (mood < 12 && nextFloat(state.rng) < 0.25 * BETRAY[b.archetype] * (humanLeads ? kindness(state.config).betray : 1)) {
+        betray(state, p, t, worst);
+        continue;
+      }
+      if (mood < 25 && nextFloat(state.rng) < 0.12 * (1 - LOYAL[b.archetype])) {
+        leave(state, p);
+        b.mood = BASE_MOOD;
+        delete b.moodNotes;
+        addLog(state, { time: state.time, text: `${p.name} verlaat ${tag(t)}: ontevreden.` });
+        (state.tribeNews ??= []).push({ time: state.time, text: `${p.name} verlaat ${tag(t)} ${t.name}.` });
+        if (humanLeads) addMessage(state, { kind: 'info', from: id, title: `${p.name} vertrekt`, text: `${p.name} heeft ${tag(t)} verlaten${worst ? `: ${worst}` : ''}.` });
+      }
+    }
+    if (!state.tribes?.[t.id]) continue;
+    // a bot leader nobody likes is replaced by the most content member
+    if (!humanLeads) coup(state, t);
+    // you as a member of a bot tribe
+    if (t.members.includes(HUMAN_ID) && !humanLeads) judgeYou(state, t);
+  }
+}
+
+function coup(state: WorldState, t: Tribe): void {
+  const others = t.members.filter((m) => m !== t.leader && state.players[m]?.bot);
+  if (others.length < 2) return;
+  const avg = others.reduce((s, m) => s + moodOf(state.players[m]!), 0) / others.length;
+  if (avg >= 30 || nextFloat(state.rng) > 0.2) return;
+  const old = state.players[t.leader];
+  const next = others.sort((a, b) => moodOf(state.players[b]!) - moodOf(state.players[a]!))[0]!;
+  t.leader = next;
+  for (const m of t.members) if (state.players[m]?.bot) { state.players[m]!.bot!.mood = BASE_MOOD; delete state.players[m]!.bot!.moodNotes; }
+  const text = `${state.players[next]?.name ?? '?'} neemt de leiding van ${tag(t)} over van ${old?.name ?? '?'}.`;
+  addLog(state, { time: state.time, text });
+  (state.tribeNews ??= []).push({ time: state.time, text });
+  if (t.members.includes(HUMAN_ID)) addMessage(state, { kind: 'info', from: next, tribe: t.id, title: `Nieuwe leider in ${tag(t)}`, text });
+}
+
+function judgeYou(state: WorldState, t: Tribe): void {
+  const s = (state.standing = clamp((state.standing ?? BASE_MOOD) + Math.sign(BASE_MOOD - (state.standing ?? BASE_MOOD))));
+  const leader = state.players[t.leader];
+  if (!leader) return;
+  const worst = [...(state.standingNotes ?? [])].reverse().find((n) => n.delta < 0)?.why;
+  if (s < 35 && (state.standingWarned === undefined || state.time - state.standingWarned > DAY)) {
+    state.standingWarned = state.time;
+    addMessage(state, { kind: 'info', from: leader.id, tribe: t.id, title: `${leader.name} is niet blij met je`, text: `${leader.name}: zo gaat het niet${worst ? ` (${worst})` : ''}. Laat zien dat je bij ${tag(t)} hoort.` });
+  }
+  if (s < 20 && nextFloat(state.rng) < 0.3) {
+    leave(state, state.players[HUMAN_ID]!);
+    delete state.standing;
+    delete state.standingNotes;
+    const text = `${leader.name} heeft je uit ${tag(t)} gezet${worst ? `: ${worst}` : ''}.`;
+    addMessage(state, { kind: 'info', from: leader.id, tribe: t.id, title: `Uit ${tag(t)} gezet`, text });
+    addLog(state, { time: state.time, text });
+    alertHuman(state, text);
+  }
+}
+
+/** A bot turns on its tribe: leaves, holds a grudge and goes after the leader; may defect. */
+export function betray(state: WorldState, p: Player, t: Tribe, why?: string): void {
+  const b = p.bot!;
+  const leaderId = t.leader;
+  const enemy = Object.entries(t.relations)
+    .filter(([, r]) => r === 'war')
+    .map(([id]) => state.tribes?.[Number(id)])
+    .find((e): e is Tribe => !!e && e.leader !== HUMAN_ID && fits(state, e, p.id));
+  leave(state, p);
+  b.mood = BASE_MOOD;
+  delete b.moodNotes;
+  (b.grudges ??= {})[leaderId] = { score: 1.5, at: state.time, why: 'verraad' };
+  (b.focus ??= {})[leaderId] = state.time + 3 * DAY;
+  // and one more member of the old tribe, if any
+  const mate = t.members.find((m) => m !== leaderId);
+  if (mate !== undefined) b.focus[mate] = state.time + 3 * DAY;
+  if (enemy) join(state, enemy, p);
+  const text = enemy
+    ? `${p.name} verraadt ${tag(t)} en loopt over naar ${tag(enemy)}.`
+    : `${p.name} verraadt ${tag(t)} en keert zich tegen ${state.players[leaderId]?.name ?? 'de leider'}.`;
+  addLog(state, { time: state.time, text });
+  (state.tribeNews ??= []).push({ time: state.time, text });
+  if (t.members.includes(HUMAN_ID) || leaderId === HUMAN_ID) {
+    addMessage(state, { kind: 'war', from: p.id, tribe: t.id, title: `Verraad: ${p.name}`, text: `${text}${why ? ` (${why})` : ''} Verwacht aanvallen.` });
+    alertHuman(state, text);
+  }
+}
+
+// --- you betray (the nuke) ------------------------------------------------------------------
+
+/**
+ * You break with a player: a mate, or a player whose tribe has a NAP or alliance with yours.
+ * Afterwards you can attack them. As leader you throw a mate out / declare war; as member you
+ * are thrown out yourself. Everyone involved remembers, and every tribe trusts you less.
+ */
+export function humanBetray(state: WorldState, target: number): string | null {
+  const p = state.players[target];
+  if (!p || target === HUMAN_ID) return 'Die speler bestaat niet.';
+  const mine = tribeOf(state, HUMAN_ID);
+  if (!mine) return 'Je zit niet in een stam: je kunt iedereen al aanvallen.';
+  const theirs = tribeOf(state, target);
+  const rel = theirs && theirs.id !== mine.id ? mine.relations[theirs.id] : undefined;
+  if (theirs?.id !== mine.id && rel !== 'nap' && rel !== 'ally') return 'Met die speler heb je geen band om te verbreken.';
+  const leads = mine.leader === HUMAN_ID;
+  const sting = (q: Player | undefined, by: number) => { if (q?.bot) (q.bot.grudges ??= {})[HUMAN_ID] = { score: by, at: state.time, why: 'verraad' }; };
+  state.betrayals = (state.betrayals ?? 0) + 1;
+  let text: string;
+  if (theirs?.id === mine.id) {
+    if (leads) {
+      leave(state, p);
+      sting(p, 2);
+      moodAll(state, mine, -25, `je verraadde ${p.name}`);
+      text = `Je verraadt ${p.name} en zet hem uit ${tag(mine)}. Je stamgenoten kijken je met andere ogen aan.`;
+    } else {
+      for (const m of mine.members) if (m !== HUMAN_ID) sting(state.players[m], m === target ? 2 : 1);
+      leave(state, state.players[HUMAN_ID]!);
+      delete state.standing;
+      text = `Je verraadt ${p.name}. ${tag(mine)} zet je eruit en vergeet het niet.`;
+    }
+  } else {
+    for (const m of theirs!.members) sting(state.players[m], m === target ? 2 : 1);
+    if (leads) {
+      declareWar(state, mine, theirs!, true);
+      moodAll(state, mine, -8, `je verbrak het verdrag met ${tag(theirs!)}`);
+      text = `Je verbreekt het ${rel === 'ally' ? 'bondgenootschap' : 'niet-aanvalsverdrag'} met ${tag(theirs!)}: oorlog.`;
+    } else {
+      leave(state, state.players[HUMAN_ID]!);
+      delete state.standing;
+      text = `Je keert je tegen ${tag(theirs!)}, een partner van ${tag(mine)}. ${tag(mine)} zet je eruit.`;
+    }
+  }
+  addLog(state, { time: state.time, text });
+  (state.tribeNews ??= []).push({ time: state.time, text: `Verraad: ${state.players[HUMAN_ID]?.name ?? 'Jij'} keert zich tegen ${p.name}.` });
+  addMessage(state, { kind: 'war', from: -1, title: 'Verraad', text });
+  return null;
+}
+
+/** Every betrayal of yours makes tribes warier of taking you in (x0.75 per betrayal). */
+export function trustFactor(state: WorldState): number {
+  return 0.75 ** (state.betrayals ?? 0);
+}

@@ -89,6 +89,10 @@ export type Command =
   | { type: 'getSurplusPlan'; keep: number }
   | { type: 'getMintPlan'; keep: number }
   | { type: 'continueWorld' }
+  | { type: 'askTribeResources'; village: number; res: [number, number, number] }
+  | { type: 'askPermission'; target: number }
+  | { type: 'betray'; target: number }
+  | { type: 'getOpinions' }
   | { type: 'setDifficulty'; difficulty: 'easy' | 'normal' | 'hard' }
   | { type: 'mintAll'; keep: number }
   | { type: 'dismissToast'; id: number | 'all' }
@@ -220,6 +224,15 @@ export interface PlayerView {
   };
   /** Their attacks on you right now. */
   incoming: number;
+  /** What ties you: same tribe, or a treaty between your tribes (you can betray it). */
+  bond?: 'mate' | 'ally' | 'nap';
+  /** Their grudge against you (0 = none, 1 = a lot). */
+  grudge: number;
+  /** You lead and they are your mate: their mood about you. */
+  mood?: number;
+  /** You are a member of a bot tribe: you can ask its leader whether you may attack them. */
+  canAskPermission: boolean;
+  permission?: { answer?: 'yes' | 'no'; until?: number };
 }
 
 export interface IncomingView {
@@ -388,6 +401,7 @@ export type WorkerMessage =
   | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number> }
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'supportList'; rows: SupportRow[] }
+  | { type: 'opinions'; opinions: OpinionsView }
   | { type: 'surplusPlan'; rows: SurplusRow[]; keep: number }
   | { type: 'mintPlan'; rows: { id: number; name: string; x: number; y: number; coins: number }[]; keep: number }
   | { type: 'player'; player: PlayerView | null }
@@ -438,4 +452,20 @@ export interface EndgameView {
   leader?: { tribe: number; tag: string; since: number; winsAt: number; you: boolean };
   winner?: { tribe: number; tag: string; name: string; time: number; you: boolean };
   continued: boolean;
+}
+
+export interface MoodNoteView { time: number; delta: number; why: string }
+/** What others think of you: your mates (you lead), your leader (you are a member), grudges. */
+export interface OpinionsView {
+  /** You lead: every mate's mood about you. */
+  mates: { id: number; name: string; archetype: string; mood: number; favor: number; notes: MoodNoteView[] }[];
+  /** You are a member of a bot tribe: what its leader thinks of you. */
+  standing?: { leader: number; leaderName: string; value: number; notes: MoodNoteView[] };
+  /** Players with a grudge against you, worst first. */
+  grudges: { id: number; name: string; tribeTag?: string; score: number; why?: string; at: number; halfLife: number }[];
+  betrayals: number;
+  /** Your asks to attack players (member of a bot tribe). */
+  permissions: { target: number; name: string; answer?: 'yes' | 'no'; until?: number }[];
+  /** Your open resource ask. */
+  resourceAsk?: { village: number; res: [number, number, number]; sent: [number, number, number]; at: number };
 }

@@ -688,3 +688,12 @@ p.bad { color: #e5533f; }
 .endgame-modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,0.6); z-index: 50; }
 .endgame-modal .panel { max-width: 520px; text-align: center; padding: 28px; }
 .endgame-modal h2 { font-size: 30px; margin: 0 0 8px; }
+/* relations */
+.mood { display: inline-flex; align-items: center; gap: 8px; }
+.mood-face { font-size: 16px; }
+.mood-bar { display: inline-block; width: 120px; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; vertical-align: middle; }
+.mood-bar i { display: block; height: 100%; border-radius: 4px; }
+.mood-notes { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; }
+.mood-notes .good, span.good { color: #7fbf5a; }
+.mood-notes .bad, span.bad { color: #e5533f; }
+button.nuke { background: #b3261e; color: #fff; border-color: #b3261e; font-weight: 800; }

@@ -2,13 +2,14 @@ import type { BuildTemplate, NobleTemplate, TroopTemplate } from './manager';
 import type { VillageGroup } from './groups';
 import type { SurplusSettings } from './surplus';
 import type { EndgameState } from './endgame';
+import type { MoodNote } from './loyalty';
 import type { TradeOffer } from './market';
 import type { Intel } from './intel';
 import type { WorldConfig } from '../shared/config';
 import type { Speed } from '../shared/time';
 import { createQueue, type EventQueue } from './eventQueue';
 import { seedRng, type RngState } from './rng';
-import type { UnitCounts } from '../shared/gameData';
+import type { Res, UnitCounts } from '../shared/gameData';
 import type { Archetype } from '../shared/botProfiles';
 import { generateMap } from './map';
 import type { Movement, Report } from './movement';
@@ -120,7 +121,13 @@ export interface BotState {
   /** When it last asked you something (one open request at a time, not too often). */
   lastAsk?: number;
   /** Who attacked it and how much it minds: player id -> score (fades over time). */
-  grudges?: Record<number, { score: number; at: number }>;
+  grudges?: Record<number, { score: number; at: number; why?: string }>;
+  /** Satisfaction with its tribe's leader (you, when you lead), 0..100; 60 when missing. */
+  mood?: number;
+  /** Why the mood changed lately (newest last). */
+  moodNotes?: MoodNote[];
+  /** When it last complained to you. */
+  complained?: number;
   /** 0..1, higher = more turns. */
   activity: number;
   /** Game time of the next scheduled turn. */
@@ -251,6 +258,16 @@ export interface WorldState {
   tribeOrders?: TribeOrder[];
   /** Which tribe events pause the game. */
   tribePause?: { war: boolean; requests: boolean };
+  /** As a member of a bot tribe: what its leader thinks of you (0..100), and why. */
+  standing?: number;
+  standingNotes?: MoodNote[];
+  standingWarned?: number;
+  /** How often you betrayed someone (tribes trust you less). */
+  betrayals?: number;
+  /** Your asks to your tribe for resources (mates answer in their turn). */
+  resourceAsks?: { id: number; village: number; res: Res; sent: Res; at: number; answered: number[] }[];
+  /** As a member of a bot tribe: your asks for permission to attack a player, and the answers. */
+  permissions?: Record<number, { at: number; answer?: 'yes' | 'no'; until?: number; broken?: boolean }>;
 }
 
 /**

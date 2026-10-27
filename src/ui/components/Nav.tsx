@@ -26,6 +26,7 @@ const ITEMS: Item[] = [
   { id: 'inbox', label: 'Inbox' },
   { id: 'ranking', label: 'Ranglijst' },
   { id: 'tribes', label: 'Stammen' },
+  { id: 'relations', label: 'Relaties' },
   { id: 'debug', label: 'Log & debug' },
 ];
 
