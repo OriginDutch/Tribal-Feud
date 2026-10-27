@@ -467,7 +467,7 @@ const waveStrings = (u: UnitCounts): Wave => Object.fromEntries(Object.entries(u
 /** Noble trains you use often: the first attack, an escort per extra nobleman, and the catapult target. */
 function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
   const s = snapshot.value;
-  const [editing, setEditing] = useState<{ id: string; name: string; waves: Wave[]; catapultTarget: BuildingId | '' } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; name: string; waves: Wave[]; catapultTarget: BuildingId | ''; clearFirst: boolean } | null>(null);
   const [io, setIo] = useState<{ mode: 'import' } | { mode: 'export'; text: string } | null>(null);
   const names = Object.fromEntries((s?.village?.buildings ?? []).map((b) => [b.id, b.name])) as Record<BuildingId, string>;
   const summary = (t: NobleTemplate) => {
@@ -488,7 +488,7 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
         <h3 style={{ flex: 1 }}>Edeltrein-sjablonen</h3>
         {!editing && (
           <>
-            <button class="small" onClick={() => { setIo(null); setEditing({ id: `train:${Date.now()}`, name: 'Nieuwe edeltrein', waves: [{}, {}, {}, {}], catapultTarget: '' }); }}>
+            <button class="small" onClick={() => { setIo(null); setEditing({ id: `train:${Date.now()}`, name: 'Nieuwe edeltrein', waves: [{}, {}, {}, {}], catapultTarget: '', clearFirst: false }); }}>
               Nieuw
             </button>
             <button class="small" onClick={() => setIo(io?.mode === 'import' ? null : { mode: 'import' })}>
@@ -500,9 +500,9 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
       {io?.mode === 'import' && !editing && (
         <ImportBox
           parse={textToTrain}
-          summary={(t) => `${1 + t.escorts.length} edels${t.catapultTarget ? `, katapulten op ${names[t.catapultTarget] ?? t.catapultTarget}` : ''}`}
+          summary={(t) => `${t.escorts.length + (t.clearFirst ? 0 : 1)} edels${t.clearFirst ? ' + clear' : ''}${t.catapultTarget ? `, katapulten op ${names[t.catapultTarget] ?? t.catapultTarget}` : ''}`}
           placeholder={'# Clear + 3 edels\nKatapultdoel: Smederij\nEdel 1: Bijl 6000, LC 2000, Ram 250, Katapult 50\nEdel 2: Bijl 200, LC 50\nEdel 3: Bijl 200, LC 50\nEdel 4: LC 100'}
-          onAdd={(t) => send({ type: 'saveNobleTemplate', template: { id: `train:${Date.now()}`, name: t.name, first: t.first, escorts: t.escorts, ...(t.catapultTarget ? { catapultTarget: t.catapultTarget } : {}) } })}
+          onAdd={(t) => send({ type: 'saveNobleTemplate', template: { id: `train:${Date.now()}`, name: t.name, first: t.first, escorts: t.escorts, ...(t.catapultTarget ? { catapultTarget: t.catapultTarget } : {}), ...(t.clearFirst ? { clearFirst: true } : {}) } })}
           onClose={() => setIo(null)}
         />
       )}
@@ -521,10 +521,10 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
                     {t.catapultTarget ? ` · kata op ${names[t.catapultTarget] ?? t.catapultTarget}` : ''}
                   </td>
                   <td class="right nowrap">
-                    <button class="small" onClick={() => setEditing({ id: t.id, name: t.name, waves: [waveStrings(t.first), ...t.escorts.map(waveStrings)], catapultTarget: t.catapultTarget ?? '' })}>
+                    <button class="small" onClick={() => setEditing({ id: t.id, name: t.name, waves: [waveStrings(t.first), ...t.escorts.map(waveStrings)], catapultTarget: t.catapultTarget ?? '', clearFirst: !!t.clearFirst })}>
                       Bewerken
                     </button>{' '}
-                    <button class="small" onClick={() => setIo({ mode: 'export', text: trainToText(t.name, t.first, t.escorts, t.catapultTarget) })}>
+                    <button class="small" onClick={() => setIo({ mode: 'export', text: trainToText(t.name, t.first, t.escorts, t.catapultTarget, t.clearFirst) })}>
                       Exporteren
                     </button>{' '}
                     <Confirm label="Verwijderen" onConfirm={() => send({ type: 'deleteNobleTemplate', id: t.id })} />
@@ -578,7 +578,7 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
                         <input type="number" min={0} placeholder="0" value={w[u] ?? ''} onInput={(e) => setWave(i, u, e.currentTarget.value)} />
                       </td>
                     ))}
-                    <td class="right mono" title="Elke wave heeft één edelman, ook de eerste">1</td>
+                    <td class="right mono" title={i === 0 && editing.clearFirst ? 'Pure clear: geen edelman' : 'Elke wave heeft één edelman'}>{i === 0 && editing.clearFirst ? 0 : 1}</td>
                     <td class="right">
                       {i > 1 && (
                         <button class="small danger" title="Edel weghalen" onClick={() => setEditing({ ...editing, waves: editing.waves.filter((_, j) => j !== i) })}>
@@ -595,11 +595,14 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
             <button disabled={editing.waves.length >= 5} onClick={() => setEditing({ ...editing, waves: [...editing.waves, {}] })}>
               Edel toevoegen
             </button>
+            <label class="row" title="De eerste aanval is een pure clear zonder edelman; de edels volgen in de waves daarna.">
+              <input type="checkbox" checked={editing.clearFirst} onChange={(e) => setEditing({ ...editing, clearFirst: e.currentTarget.checked })} /> Eerste wave zonder edel (pure clear)
+            </label>
             <button
               class="primary"
               onClick={() => {
                 const [first, ...escorts] = editing.waves.map(waveCounts);
-                send({ type: 'saveNobleTemplate', template: { id: editing.id, name: editing.name, first: first ?? {}, escorts, ...(editing.catapultTarget ? { catapultTarget: editing.catapultTarget } : {}) } });
+                send({ type: 'saveNobleTemplate', template: { id: editing.id, name: editing.name, first: first ?? {}, escorts, ...(editing.catapultTarget ? { catapultTarget: editing.catapultTarget } : {}), ...(editing.clearFirst ? { clearFirst: true } : {}) } });
                 setEditing(null);
               }}
             >
@@ -607,7 +610,7 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
             </button>
             <Confirm label="Annuleren" sure="Wijzigingen weggooien?" onConfirm={() => setEditing(null)} />
           </div>
-          <p class="hint">Edel 1 is de eerste aanval (de clear) mét edelman, elke volgende edel krijgt zijn eigen escort. Elke wave heeft precies één edelman (de kolom met de kroon). 2 tot 5 edels.</p>
+          <p class="hint">Edel 1 is de eerste aanval (de clear), standaard mét edelman; vink "zonder edel" aan voor een pure clear. Elke volgende wave heeft één edelman en zijn eigen escort. 2 tot 5 aanvallen.</p>
         </div>
       )}
     </section>

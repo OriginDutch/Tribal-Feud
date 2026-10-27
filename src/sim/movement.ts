@@ -169,6 +169,8 @@ export function sendAttack(
   requested: UnitCounts,
   catapultTarget?: BuildingId,
   train?: number,
+  /** Walk at least this long (a pure clear walks with its noble train). */
+  minDuration = 0,
 ): string | null {
   const { config } = state;
   const from = state.villages[fromId];
@@ -196,7 +198,7 @@ export function sendAttack(
     from.units[u] -= n;
     from.outside[u] += n;
   }
-  const duration = travelTimeMs(state, units, distance(from, to));
+  const duration = Math.max(minDuration, travelTimeMs(state, units, distance(from, to)));
   const movement: Movement = {
     id: nextId(state),
     kind: 'attack',
@@ -230,13 +232,18 @@ export function sendNobleTrain(
   first: UnitCounts,
   escorts: UnitCounts[],
   catapultTarget?: BuildingId,
+  /** The first wave is a pure clear, without a nobleman. */
+  clearFirst = false,
 ): string | null {
   const from = state.villages[fromId];
   const to = state.villages[toId];
   if (!from || !to) return 'Dorp bestaat niet.';
-  const nobles = 1 + escorts.length;
-  if (nobles < 2 || nobles > 5) return 'Een edeltrein heeft 2 tot 5 edels.';
-  const attacks: UnitCounts[] = [{ ...cleanCounts(first), snob: 1 }, ...escorts.map((e) => ({ ...cleanCounts(e), snob: 1 }))];
+  const waves = 1 + escorts.length;
+  if (waves < 2 || waves > 5) return 'Een edeltrein heeft 2 tot 5 aanvallen.';
+  const firstWave = cleanCounts(first);
+  delete firstWave.snob;
+  if (clearFirst && Object.keys(firstWave).length === 0) return 'De eerste aanval (de clear) heeft troepen nodig.';
+  const attacks: UnitCounts[] = [clearFirst ? firstWave : { ...firstWave, snob: 1 }, ...escorts.map((e) => ({ ...cleanCounts(e), snob: 1 }))];
   const total: UnitCounts = {};
   for (const a of attacks) for (const u of UNIT_IDS) if ((a[u] ?? 0) > 0) total[u] = (total[u] ?? 0) + (a[u] ?? 0);
   for (const u of UNIT_IDS) {
@@ -246,7 +253,9 @@ export function sendNobleTrain(
   }
   // the first attack is checked like any attack (distance, protection, place); the rest follow
   const train = nextId(state);
-  const error = sendAttack(state, fromId, toId, attacks[0] ?? {}, catapultTarget, train);
+  // a pure clear walks with the nobles, so it lands first, right before them
+  const pace = clearFirst ? Math.max(...attacks.slice(1).map((a) => travelTimeMs(state, a, distance(from, to)))) : 0;
+  const error = sendAttack(state, fromId, toId, attacks[0] ?? {}, catapultTarget, train, pace);
   if (error) return error;
   for (const a of attacks.slice(1)) sendAttack(state, fromId, toId, a, undefined, train);
   return null;
@@ -518,7 +527,11 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   else state.conquests.player++;
   v.owner = newOwner;
   const bot = state.players[newOwner]?.bot;
-  if (bot) bot.lastConquest = state.time;
+  if (bot) {
+    bot.lastConquest = state.time;
+    // the target is taken: the next train picks a new one
+    if (bot.nobleTarget === v.id) delete bot.nobleTarget;
+  }
   delete v.growth;
   delete v.barbType;
   v.loyalty = config.conquest.loyaltyAfterConquest;

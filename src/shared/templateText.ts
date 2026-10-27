@@ -77,18 +77,20 @@ export function textToTroops(text: string): { name: string; troops: UnitCounts }
 
 // --- noble trains: "# Naam", "Katapultdoel: Smederij", "Edel 1: Bijl 6000, LC 2000", "Edel 2: Bijl 200" ---------
 
-export function trainToText(name: string, first: UnitCounts, escorts: UnitCounts[], catapultTarget?: BuildingId): string {
+export function trainToText(name: string, first: UnitCounts, escorts: UnitCounts[], catapultTarget?: BuildingId, clearFirst = false): string {
   const line = (u: UnitCounts) => UNIT_IDS.filter((x) => (u[x] ?? 0) > 0).map((x) => `${DEFAULT_UNITS[x].name} ${u[x]}`).join(', ') || '-';
   return [
     `# ${name}`,
     ...(catapultTarget ? [`Katapultdoel: ${DEFAULT_BUILDINGS[catapultTarget].name}`] : []),
+    ...(clearFirst ? ['Eerste wave zonder edel'] : []),
     `Edel 1: ${line(first)}`,
     ...escorts.map((e, i) => `Edel ${i + 2}: ${line(e)}`),
   ].join('\n');
 }
 
-export function textToTrain(text: string): { name: string; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId } | { error: string } {
+export function textToTrain(text: string): { name: string; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId; clearFirst?: boolean } | { error: string } {
   let name = 'Geïmporteerde edeltrein';
+  let clearFirst = false;
   let catapultTarget: BuildingId | undefined;
   const waves: UnitCounts[] = [];
   const lines = text.split(/\r?\n/);
@@ -96,6 +98,7 @@ export function textToTrain(text: string): { name: string; first: UnitCounts; es
     const line = lines[i]!.trim();
     if (!line) continue;
     if (line.startsWith('#')) { name = line.slice(1).trim().slice(0, 40) || name; continue; }
+    if (/^eerste wave zonder edel/i.test(line)) { clearFirst = true; continue; }
     const cat = /^katapult(?:doel)?\s*:?\s*(.+)$/i.exec(line);
     if (cat) {
       const id = lookup.get(cat[1]!.trim().toLowerCase());
@@ -120,5 +123,5 @@ export function textToTrain(text: string): { name: string; first: UnitCounts; es
     waves.push(units);
   }
   if (waves.length < 2) return { error: 'Een edeltrein heeft minstens Edel 1 en Edel 2.' };
-  return { name, first: waves[0]!, escorts: waves.slice(1), ...(catapultTarget ? { catapultTarget } : {}) };
+  return { name, first: waves[0]!, escorts: waves.slice(1), ...(catapultTarget ? { catapultTarget } : {}), ...(clearFirst ? { clearFirst } : {}) };
 }

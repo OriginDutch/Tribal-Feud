@@ -26,6 +26,7 @@ export function PlaceScreen() {
   const [catTarget, setCatTarget] = useState<BuildingId>('main');
   // noble train: escorts for noblemen 2..N (the first one goes with the army above)
   const [trainSize, setTrainSize] = useState(0);
+  const [clearFirst, setClearFirst] = useState(false);
   const [escorts, setEscorts] = useState<Partial<Record<UnitId, string>>[]>([]);
   const [saveName, setSaveName] = useState<string | null>(null);
   /** The noble train template in use (to update or delete it). */
@@ -90,8 +91,9 @@ export function PlaceScreen() {
     setTrainTpl(id);
     const t = s.nobleTemplates.find((x) => x.id === id);
     if (!t) return;
-    // the first wave carries a nobleman too (the train adds it): show it
-    setCounts({ ...toStrings(t.first), snob: '1' });
+    // the first wave carries a nobleman too (the train adds it), unless it is a pure clear: show it
+    setClearFirst(!!t.clearFirst);
+    setCounts(t.clearFirst ? toStrings(t.first) : { ...toStrings(t.first), snob: '1' });
     setTrainSize(1 + t.escorts.length);
     setEscorts(t.escorts.map(toStrings));
     if (t.catapultTarget) setCatTarget(t.catapultTarget);
@@ -114,7 +116,9 @@ export function PlaceScreen() {
   const trainBlocker = (() => {
     if (trainSize < 2) return null;
     if (!target || target.kind === 'own') return 'Kies een doel';
-    if (homeOf('snob') < trainSize) return `${trainSize} edels nodig, ${homeOf('snob')} thuis`;
+    const nobles = trainSize - (clearFirst ? 1 : 0);
+    if (homeOf('snob') < nobles) return `${nobles} edels nodig, ${homeOf('snob')} thuis`;
+    if (clearFirst && Object.keys(first).length === 0) return 'De clear heeft troepen nodig';
     if (dist > v.nobles.maxDistance) return `Verder dan ${v.nobles.maxDistance} velden`;
     const total: UnitCounts = { ...first };
     for (const e of escortCounts) for (const u of UNIT_IDS) if (e[u]) total[u] = (total[u] ?? 0) + (e[u] ?? 0);
@@ -130,12 +134,13 @@ export function PlaceScreen() {
       first,
       escorts: escortCounts,
       ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}),
+      ...(clearFirst ? { clearFirst: true } : {}),
     });
     setCounts({});
     setTrainSize(0);
     setEscorts([]);
   };
-  const trainEta = target ? travelMs({ ...first, snob: 1 }, v.units, dist, s.marchFactor) : 0;
+  const trainEta = target ? travelMs(clearFirst ? first : { ...first, snob: 1 }, v.units, dist, s.marchFactor) : 0;
 
   const attack = () => {
     if (!target) return;
@@ -247,7 +252,7 @@ export function PlaceScreen() {
                   <option value="">kies…</option>
                   {s.nobleTemplates.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} ({1 + t.escorts.length} edels)
+                      {t.name} ({t.escorts.length + (t.clearFirst ? 0 : 1)} edels{t.clearFirst ? ' + clear' : ''})
                     </option>
                   ))}
                 </select>
@@ -258,6 +263,18 @@ export function PlaceScreen() {
                 <button class="small" onClick={() => setEscorts(suggest(trainSize))}>
                   Escort opnieuw voorstellen
                 </button>
+                <label class="inline" title="De eerste aanval is een pure clear zonder edelman; de edels zitten in de waves daarna.">
+                  <input
+                    type="checkbox"
+                    checked={clearFirst}
+                    onChange={(e) => {
+                      const on = e.currentTarget.checked;
+                      setClearFirst(on);
+                      setCounts({ ...counts, snob: on ? '' : '1' });
+                    }}
+                  />{' '}
+                  Eerste wave zonder edel
+                </label>
                 {saveName === null ? (
                   <>
                     {s.nobleTemplates.some((t) => t.id === trainTpl) && (
@@ -267,7 +284,7 @@ export function PlaceScreen() {
                           sure={`"${s.nobleTemplates.find((t) => t.id === trainTpl)!.name}" overschrijven?`}
                           onConfirm={() => {
                             const t = s.nobleTemplates.find((x) => x.id === trainTpl)!;
-                            send({ type: 'saveNobleTemplate', template: { id: t.id, name: t.name, first, escorts: escortCounts, ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}) } });
+                            send({ type: 'saveNobleTemplate', template: { id: t.id, name: t.name, first, escorts: escortCounts, ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}), ...(clearFirst ? { clearFirst: true } : {}) } });
                           }}
                         />
                         <Confirm label="Verwijderen" sure="Sjabloon verwijderen?" cls="warn" onConfirm={() => { send({ type: 'deleteNobleTemplate', id: trainTpl }); setTrainTpl(''); }} />
@@ -285,7 +302,7 @@ export function PlaceScreen() {
                       const newId = `train:${Date.now()}`;
                       send({
                         type: 'saveNobleTemplate',
-                        template: { id: newId, name: saveName, first, escorts: escortCounts, ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}) },
+                        template: { id: newId, name: saveName, first, escorts: escortCounts, ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}), ...(clearFirst ? { clearFirst: true } : {}) },
                       });
                       setTrainTpl(newId);
                       setSaveName(null);

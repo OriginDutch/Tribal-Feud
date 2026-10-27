@@ -133,6 +133,25 @@ describe('conquest', () => {
     expect(v.units.snob + v.outside.snob).toBe(4);
   });
 
+  it('a noble train can start with a pure clear: no nobleman in the first wave', () => {
+    const { s, v } = world({ worldSpeed: 20 });
+    rich(v);
+    const target = nearestBarb(s, v);
+    v.units.axe = 2000;
+    v.units.snob = 2;
+    expect(sendNobleTrain(s, v.id, target.id, {}, [{ axe: 60 }, { axe: 60 }], undefined, true)).toContain('clear');
+    expect(sendNobleTrain(s, v.id, target.id, { axe: 500 }, [{ axe: 60 }, { axe: 60 }], undefined, true)).toBeNull();
+    const waves = Object.values(s.movements).filter((m) => m.to === target.id).sort((a, b) => a.id - b.id);
+    expect(waves.map((m) => m.units.snob ?? 0)).toEqual([0, 1, 1]);
+    // the clear walks with the nobles: everything lands together, clear first
+    expect(new Set(waves.map((m) => m.arrives)).size).toBe(1);
+    run(s, 3 * HOUR);
+    // clear first (no nobleman), then two noblemen: loyalty 100 -> ~50
+    const last = s.reports.slice(-3);
+    expect(last.map((r) => r.attackerUnits.sent.snob ?? 0)).toEqual([0, 1, 1]);
+    expect(last[2]!.loyalty!.after).toBeLessThanOrEqual(60);
+  });
+
   it('a noble train is all or nothing', () => {
     const { s, v } = world();
     rich(v);

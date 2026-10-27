@@ -79,7 +79,7 @@ export type Command =
   | { type: 'dismissUnits'; villageId: number; units: UnitCounts }
   /** Support from several of your villages at once (the support planner). */
   | { type: 'sendSupportMany'; to: number; orders: { from: number; units: UnitCounts }[] }
-  | { type: 'sendNobleTrain'; from: number; to: number; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId }
+  | { type: 'sendNobleTrain'; from: number; to: number; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId; clearFirst?: boolean }
   | { type: 'returnSupport'; hostId: number; originId: number }
   /** Sends many supports home at once (rows of the support list). */
   | { type: 'returnSupportMany'; pairs: { hostId: number; originId: number }[] }

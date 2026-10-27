@@ -649,7 +649,7 @@ async function handle(cmd: Command): Promise<void> {
     case 'sendNobleTrain': {
       if (!state) return;
       if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
-      const error = sendNobleTrain(state, cmd.from, cmd.to, cmd.first, cmd.escorts, cmd.catapultTarget);
+      const error = sendNobleTrain(state, cmd.from, cmd.to, cmd.first, cmd.escorts, cmd.catapultTarget, cmd.clearFirst ?? false);
       if (error) notice(error, 'error');
       else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); }
       break;

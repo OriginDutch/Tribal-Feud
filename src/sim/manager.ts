@@ -40,6 +40,8 @@ export interface NobleTemplate {
   first: UnitCounts;
   escorts: UnitCounts[];
   catapultTarget?: BuildingId;
+  /** The first wave is a pure clear, without a nobleman. */
+  clearFirst?: boolean;
 }
 
 export interface VillageManager {
@@ -225,6 +227,7 @@ export function saveNobleTemplate(state: WorldState, t: NobleTemplate): string |
   if (t.catapultTarget && !BUILDING_IDS.includes(t.catapultTarget)) return 'Ongeldig katapultdoel.';
   const clean: NobleTemplate = { id: t.id, name, first: cleanUnits(t.first), escorts: t.escorts.map(cleanUnits) };
   if (t.catapultTarget) clean.catapultTarget = t.catapultTarget;
+  if (t.clearFirst) clean.clearFirst = true;
   state.nobleTemplates ??= [];
   const i = state.nobleTemplates.findIndex((x) => x.id === t.id);
   if (i >= 0) state.nobleTemplates[i] = clean;

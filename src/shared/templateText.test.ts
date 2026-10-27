@@ -26,4 +26,9 @@ describe('template text', () => {
     expect(textToTrain('Edel 1: Bijl 10')).toEqual({ error: 'Een edeltrein heeft minstens Edel 1 en Edel 2.' });
     expect(textToTrain('Edel 1: Bijl 10\nEdel 3: LC 5')).toEqual({ error: 'Regel 2: verwacht Edel 2.' });
   });
+  it('noble trains with a pure clear (first wave without noble) round-trip', () => {
+    const text = trainToText('Pure', { axe: 6000 }, [{ axe: 100 }, { axe: 100 }], undefined, true);
+    expect(text).toContain('Eerste wave zonder edel');
+    expect(textToTrain(text)).toEqual({ name: 'Pure', first: { axe: 6000 }, escorts: [{ axe: 100 }, { axe: 100 }], clearFirst: true });
+  });
 });
