@@ -73,3 +73,31 @@ describe('satisfaction and betrayal', () => {
     expect(lead!.bot!.grudges?.[HUMAN_ID]?.score).toBeGreaterThan(0);
   });
 });
+
+describe('tribes merge and fall apart', () => {
+  it('two allied bot tribes close together merge into the bigger one', () => {
+    const s = world();
+    const [a, b, c] = bots(s);
+    const ta = found(s, a!);
+    join(s, ta, c!);
+    const tb = found(s, b!);
+    setRelation(s, ta, tb, 'ally');
+    for (let i = 0; i < 2000 && s.tribes?.[tb.id] && s.tribes?.[ta.id]; i++) loyaltyTick(s);
+    const left = [ta, tb].filter((t) => s.tribes?.[t.id]);
+    expect(left.length).toBe(1);
+    expect(left[0]!.members.length).toBe(3);
+  });
+
+  it('an unhappy tribe falls apart: the unhappiest starts a new one', () => {
+    const s = world();
+    const list = bots(s).slice(0, 6);
+    const t = found(s, list[0]!);
+    for (const p of list.slice(1)) join(s, t, p);
+    const before = Object.keys(s.tribes!).length;
+    for (let i = 0; i < 400 && Object.keys(s.tribes!).length === before; i++) {
+      for (const p of list.slice(1)) if (p.tribe === t.id) p.bot!.mood = 30;
+      loyaltyTick(s);
+    }
+    expect(Object.keys(s.tribes!).length).toBeGreaterThan(before);
+  });
+});

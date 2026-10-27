@@ -18,7 +18,8 @@ import { DAY } from '../shared/time';
 import { addMessage, alertHuman } from './humanTribe';
 import { nextFloat } from './rng';
 import { HUMAN_ID, addLog, type Player, type WorldState } from './state';
-import { declareWar, fits, join, leave, tribeOf, type Tribe } from './tribes';
+import { MAX_MEMBERS } from '../shared/tribes';
+import { REACH, SOCIAL, declareWar, fits, found, join, leave, playerCentre, reachOf, tribeCentre, tribeOf, type Tribe } from './tribes';
 
 export const BASE_MOOD = 60;
 export interface MoodNote { time: number; delta: number; why: string }
@@ -110,6 +111,56 @@ export function loyaltyTick(state: WorldState): void {
     // you as a member of a bot tribe
     if (t.members.includes(HUMAN_ID) && !humanLeads) judgeYou(state, t);
   }
+  reshape(state);
+}
+
+// --- 8c: tribes merge and fall apart -----------------------------------------------------------
+
+/** Bot tribes merge (old allies, small enough together) and fall apart (unhappy or spread out). */
+function reshape(state: WorldState): void {
+  const list = Object.values(state.tribes ?? {}).filter((t) => t.leader !== HUMAN_ID);
+  // merge: allies close together that fit in one tribe; the smaller one joins the bigger one
+  for (const a of list) {
+    for (const b of list) {
+      if (a.id >= b.id || !state.tribes?.[a.id] || !state.tribes?.[b.id]) continue;
+      if (a.relations[b.id] !== 'ally' || a.members.length + b.members.length > MAX_MEMBERS) continue;
+      const ca = tribeCentre(state, a), cb = tribeCentre(state, b);
+      if (!ca || !cb || Math.hypot(ca.x - cb.x, ca.y - cb.y) > Math.max(reachOf(state, a, ca), reachOf(state, b, cb))) continue;
+      const social = (SOCIAL[archOf(state, a)] + SOCIAL[archOf(state, b)]) / 2;
+      if (nextFloat(state.rng) > 0.03 * social) continue;
+      const [big, small] = ca.points >= cb.points ? [a, b] : [b, a];
+      const text = `${tag(small)} ${small.name} gaat op in ${tag(big)} ${big.name}.`;
+      for (const m of [...small.members]) join(state, big, state.players[m]!);
+      news(state, text);
+      if (big.members.includes(HUMAN_ID)) addMessage(state, { kind: 'info', from: big.leader, tribe: big.id, title: `Fusie: ${tag(small)} → ${tag(big)}`, text });
+    }
+  }
+  // fall apart: an unhappy or spread-out tribe splits; the unhappiest member leads the new one
+  for (const t of Object.values(state.tribes ?? {})) {
+    if (t.leader === HUMAN_ID || t.members.length < 4) continue;
+    const bots = t.members.filter((m) => m !== t.leader && state.players[m]?.bot);
+    if (bots.length < 3) continue;
+    const avg = bots.reduce((x, m) => x + moodOf(state.players[m]!), 0) / bots.length;
+    const tc = tribeCentre(state, t);
+    const spread = tc ? reachOf(state, t, tc) >= REACH * 1.8 : false;
+    if (!(avg < 40 || spread) || nextFloat(state.rng) > 0.04) continue;
+    const rebel = state.players[[...bots].sort((x, y) => moodOf(state.players[x]!) - moodOf(state.players[y]!))[0]!]!;
+    const rc = playerCentre(state, rebel.id);
+    if (!rc) continue;
+    // who goes along: the unhappy ones near the rebel
+    const along = bots.filter((m) => m !== rebel.id && moodOf(state.players[m]!) < 50 && (() => { const c = playerCentre(state, m); return c && Math.hypot(c.x - rc.x, c.y - rc.y) <= REACH; })());
+    const nt = found(state, rebel);
+    for (const m of along) join(state, nt, state.players[m]!);
+    const text = `${tag(t)} valt uiteen: ${rebel.name} begint ${tag(nt)} ${nt.name}${along.length ? ` met ${along.length} ${along.length === 1 ? 'ander' : 'anderen'}` : ''}.`;
+    news(state, text);
+    if (t.members.includes(HUMAN_ID)) addMessage(state, { kind: 'info', from: rebel.id, tribe: t.id, title: `${tag(t)} valt uiteen`, text });
+  }
+}
+
+const archOf = (state: WorldState, t: Tribe): Archetype => state.players[t.leader]?.bot?.archetype ?? 'diplomat';
+function news(state: WorldState, text: string): void {
+  addLog(state, { time: state.time, text });
+  (state.tribeNews ??= []).push({ time: state.time, text });
 }
 
 function coup(state: WorldState, t: Tribe): void {
