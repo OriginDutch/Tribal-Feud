@@ -1,4 +1,5 @@
 import { PlayerLink } from '../components/PlayerLink';
+import { useSaved } from '../useSaved';
 import { useEffect, useState } from 'preact/hooks';
 import { MapLink } from '../components/MapLink';
 import { num } from '../format';
@@ -6,7 +7,7 @@ import { openTribe, ranking, send, tribes } from '../store';
 
 export function RankingScreen() {
   const [debug, setDebug] = useState(false);
-  const [limit, setLimit] = useState(50);
+  const [limit, setLimit] = useSaved('ranking-limit', 50);
 
   useEffect(() => {
     send({ type: 'getRanking' });

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { useSaved } from '../useSaved';
 import { CATAPULT_TARGETS, DEFAULT_BUILDINGS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
 import { num } from '../format';
 import { send, simPrefill, simResult, snapshot } from '../store';
@@ -21,18 +22,18 @@ const toStrings = (c: UnitCounts): Counts => Object.fromEntries(Object.entries(c
 /** Battle simulator: the same battle code as the game, with every modifier as a knob. */
 export function SimulatorScreen() {
   const s = snapshot.value;
-  const [att, setAtt] = useState<Counts>({});
-  const [def, setDef] = useState<Counts>({});
-  const [wall, setWall] = useState('0');
-  const [morale, setMorale] = useState('100');
-  const [luck, setLuck] = useState('0');
-  const [attPct, setAttPct] = useState('100');
-  const [defPct, setDefPct] = useState('100');
-  const [attItem, setAttItem] = useState('');
-  const [defItem, setDefItem] = useState('');
-  const [cat, setCat] = useState<BuildingId>('main');
-  const [catLevel, setCatLevel] = useState('20');
-  const [tech, setTech] = useState(false);
+  const [att, setAtt] = useSaved<Counts>('sim-att', {});
+  const [def, setDef] = useSaved<Counts>('sim-def', {});
+  const [wall, setWall] = useSaved('sim-wall', '0');
+  const [morale, setMorale] = useSaved('sim-morale', '100');
+  const [luck, setLuck] = useSaved('sim-luck', '0');
+  const [attPct, setAttPct] = useSaved('sim-att-pct', '100');
+  const [defPct, setDefPct] = useSaved('sim-def-pct', '100');
+  const [attItem, setAttItem] = useSaved('sim-att-item', '');
+  const [defItem, setDefItem] = useSaved('sim-def-item', '');
+  const [cat, setCat] = useSaved<BuildingId>('sim-cat', 'main');
+  const [catLevel, setCatLevel] = useSaved('sim-cat-level', '20');
+  const [tech, setTech] = useSaved('sim-tech', false);
 
   // a report asked for a re-run
   useEffect(() => {

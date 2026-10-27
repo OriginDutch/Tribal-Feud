@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { useSaved } from '../useSaved';
 import { PRESETS, type BotDifficulty, type ConfigOverrides, type PresetId } from '../../shared/config';
 import type { Command } from '../../shared/protocol';
 import { autoPause, screen, send } from '../store';
@@ -31,21 +32,21 @@ function presetKnobs(preset: Preset): Record<Knob, string> {
 
 export function NewWorldPanel() {
   const [name, setName] = useState('Wereld 1');
-  const [preset, setPreset] = useState<Preset>('classic');
+  const [preset, setPreset] = useSaved<Preset>('nw-preset', 'classic');
   const [seed, setSeed] = useState('');
-  const [knobs, setKnobs] = useState(presetKnobs('classic'));
-  const [difficulty, setDifficulty] = useState<BotDifficulty>(PRESETS.classic.bots.difficulty);
-  const [farm, setFarm] = useState(1);
-  const [curve, setCurve] = useState<'tiered' | 'classic'>('tiered');
-  const [winShare, setWinShare] = useState(0.75);
-  const [winBarbs, setWinBarbs] = useState(true);
-  const [research, setResearch] = useState<'simple' | 'levels3' | 'levels10'>('simple');
-  const [paladin, setPaladin] = useState<'off' | 'on' | 'items'>('on');
-  const [churches, setChurches] = useState(false);
-  const [flags, setFlags] = useState(false);
-  const [scavenging, setScavenging] = useState(true);
-  const [morale, setMorale] = useState<'off' | 'points' | 'pointsTime'>(PRESETS.classic.morale);
-  const [night, setNight] = useState(false);
+  const [knobs, setKnobs] = useSaved('nw-knobs', presetKnobs('classic'));
+  const [difficulty, setDifficulty] = useSaved<BotDifficulty>('nw-difficulty', PRESETS.classic.bots.difficulty);
+  const [farm, setFarm] = useSaved('nw-farm', 1);
+  const [curve, setCurve] = useSaved<'tiered' | 'classic'>('nw-curve', 'tiered');
+  const [winShare, setWinShare] = useSaved('nw-win-share', 0.75);
+  const [winBarbs, setWinBarbs] = useSaved('nw-win-barbs', true);
+  const [research, setResearch] = useSaved<'simple' | 'levels3' | 'levels10'>('nw-research', 'simple');
+  const [paladin, setPaladin] = useSaved<'off' | 'on' | 'items'>('nw-paladin', 'on');
+  const [churches, setChurches] = useSaved('nw-churches', false);
+  const [flags, setFlags] = useSaved('nw-flags', false);
+  const [scavenging, setScavenging] = useSaved('nw-scavenging', true);
+  const [morale, setMorale] = useSaved<'off' | 'points' | 'pointsTime'>('nw-morale', PRESETS.classic.morale);
+  const [night, setNight] = useSaved('nw-night', false);
 
   const changePreset = (p: Preset) => {
     setPreset(p);

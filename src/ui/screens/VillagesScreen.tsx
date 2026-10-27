@@ -1,4 +1,5 @@
 import { UNIT_IDS } from '../../shared/gameData';
+import { useSaved } from '../useSaved';
 import { Coords } from '../components/Coords';
 import { UnitIcon } from '../units/UnitIcon';
 import { formatGameTime } from '../../shared/time';
@@ -17,10 +18,10 @@ import { UNIT_SHORT } from '../units';
 export function VillagesScreen() {
   const s = snapshot.value;
   const [picked, setPicked] = useState<Set<number>>(new Set());
-  const [manage, setManage] = useState(false);
-  const [suggest, setSuggest] = useState(false);
-  const [supports, setSupports] = useState(false);
-  const [flagsOpen, setFlagsOpen] = useState(false);
+  const [manage, setManage] = useSaved('villages-manage', false);
+  const [suggest, setSuggest] = useSaved('villages-suggest', false);
+  const [supports, setSupports] = useSaved('villages-supports', false);
+  const [flagsOpen, setFlagsOpen] = useSaved('villages-flags', false);
   if (!s) return null;
   const list = groupVillages(s.villages, s.groups);
   const used = UNIT_IDS.filter((u) => list.some((v) => (v.units[u] ?? 0) > 0));

@@ -1,4 +1,5 @@
 import { Fragment } from 'preact';
+import { useSaved } from '../useSaved';
 import { Coords } from '../components/Coords';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { UnitCounts, UnitId } from '../../shared/gameData';
@@ -20,7 +21,7 @@ const unitList = (u: UnitCounts) =>
  * card per level; "Massa" for many villages with a template and per-village, per-level overrides.
  */
 export function ScavengeScreen() {
-  const [tab, setTab] = useState<'one' | 'mass'>('one');
+  const [tab, setTab] = useSaved<'one' | 'mass'>('scav-tab', 'one');
   useEffect(() => {
     send({ type: 'getScav' });
     const t = window.setInterval(() => send({ type: 'getScav' }), 2000);
@@ -93,7 +94,7 @@ function RunStatus({ v, level, now, params }: { v: ScavVillageRow; level: number
 function OneVillage({ view, villageId, now }: { view: ScavView; villageId: number; now: number }) {
   const v = view.villages.find((x) => x.id === villageId);
   const [inputs, setInputs] = useState<UnitCounts[]>([{}, {}, {}, {}]);
-  const [tplId, setTplId] = useState(DEFAULT_SCAV_TEMPLATE.id);
+  const [tplId, setTplId] = useSaved('scav-one-template', DEFAULT_SCAV_TEMPLATE.id);
   useEffect(() => setInputs([{}, {}, {}, {}]), [villageId]);
   if (!v) return <p class="muted">Kies een eigen dorp.</p>;
   if (!v.hasPlace) return <p class="muted">Dit dorp heeft een verzamelplaats nodig.</p>;
@@ -180,9 +181,11 @@ function OneVillage({ view, villageId, now }: { view: ScavView; villageId: numbe
 
 function Mass({ view, now }: { view: ScavView; now: number }) {
   const s = snapshot.value!;
-  const [tplId, setTplId] = useState(DEFAULT_SCAV_TEMPLATE.id);
+  const [tplId, setTplId] = useSaved('scav-mass-template', DEFAULT_SCAV_TEMPLATE.id);
   const [draft, setDraft] = useState<ScavTemplate | null>(null);
-  const [group, setGroup] = useState('');
+  const [savedGroup, setGroup] = useSaved('scav-group', '');
+  // a remembered group that was deleted since: all villages
+  const group = snapshot.value?.groups.some((g) => g.id === savedGroup) ? savedGroup : '';
   const [picked, setPicked] = useState<Set<number> | null>(null);
   const [overrides, setOverrides] = useState<Record<string, UnitCounts>>({});
   const [editing, setEditing] = useState<string | null>(null);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { useSaved } from '../useSaved';
 import { Coords } from '../components/Coords';
 import { PlayerLink } from '../components/PlayerLink';
 
@@ -26,10 +27,10 @@ export function PlaceScreen() {
   const [bulk, setBulk] = useState(false);
   const [y, setY] = useState('');
   const [counts, setCounts] = useState<Partial<Record<UnitId, string>>>({});
-  const [catTarget, setCatTarget] = useState<BuildingId>('main');
+  const [catTarget, setCatTarget] = useSaved<BuildingId>('place-cat-target', 'main');
   // noble train: escorts for noblemen 2..N (the first one goes with the army above)
   const [trainSize, setTrainSize] = useState(0);
-  const [clearFirst, setClearFirst] = useState(false);
+  const [clearFirst, setClearFirst] = useSaved('place-clear-first', false);
   const [escorts, setEscorts] = useState<Partial<Record<UnitId, string>>[]>([]);
   const [saveName, setSaveName] = useState<string | null>(null);
   /** The noble train template in use (to update or delete it). */

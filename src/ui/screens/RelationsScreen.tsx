@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { useSaved } from '../useSaved';
 import type { MoodNoteView } from '../../shared/protocol';
 import { duration } from '../format';
 import { PlayerLink } from '../components/PlayerLink';
@@ -129,7 +130,7 @@ function AskResources() {
   const s = snapshot.value!;
   const o = opinions.value!;
   const [village, setVillage] = useState<number>(s.village?.id ?? s.villages[0]?.id ?? 0);
-  const [res, setRes] = useState(['5000', '5000', '5000']);
+  const [res, setRes] = useSaved('relations-ask-res', ['5000', '5000', '5000']);
   const ask = o.resourceAsk;
   const amounts = res.map((x) => Math.max(0, Math.floor(Number(x) || 0))) as [number, number, number];
   return (

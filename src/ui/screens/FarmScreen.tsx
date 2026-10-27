@@ -1,4 +1,5 @@
 import { BARB_TYPE_NAMES, BONUS_NAMES } from '../../shared/barbarianTypes';
+import { useSaved } from '../useSaved';
 import { Coords } from '../components/Coords';
 import { UnitIcon } from '../units/UnitIcon';
 import { useEffect, useMemo, useState } from 'preact/hooks';
@@ -53,8 +54,8 @@ export function FarmScreen() {
   const s = snapshot.value;
   const v = s?.village;
   const data = mapData.value;
-  const [limit, setLimit] = useState(50);
-  const [all, setAll] = useState(false);
+  const [limit, setLimit] = useSaved('farm-limit', 50);
+  const [all, setAll] = useSaved('farm-all-villages', false);
 
   useEffect(() => {
     send({ type: 'getMap' });
@@ -216,12 +217,12 @@ export function FarmScreen() {
  * nearest of your villages that can still pay it. Closest pairs first, until troops run out.
  */
 function FarmAllPanel() {
-  const [template, setTemplate] = useState<'A' | 'B' | 'C'>('A');
-  const [skipLost, setSkipLost] = useState(true);
-  const [wallOn, setWallOn] = useState(false);
-  const [maxWall, setMaxWall] = useState(0);
-  const [distOn, setDistOn] = useState(false);
-  const [maxDistance, setMaxDistance] = useState(15);
+  const [template, setTemplate] = useSaved<'A' | 'B' | 'C'>('farmall-template', 'A');
+  const [skipLost, setSkipLost] = useSaved('farmall-skip-lost', true);
+  const [wallOn, setWallOn] = useSaved('farmall-wall-on', false);
+  const [maxWall, setMaxWall] = useSaved('farmall-wall', 0);
+  const [distOn, setDistOn] = useSaved('farmall-dist-on', false);
+  const [maxDistance, setMaxDistance] = useSaved('farmall-dist', 15);
   const options: FarmAllOptions = { template, skipLost, maxWall: wallOn ? maxWall : null, maxDistance: distOn ? maxDistance : null };
   const key = JSON.stringify(options);
   useEffect(() => {

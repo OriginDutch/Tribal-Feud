@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { useSaved } from '../useSaved';
 import { Coords } from './Coords';
 import type { IncomingView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
@@ -30,7 +31,7 @@ function Pace({ m }: { m: IncomingView }) {
 /** Attacks coming at your villages: who, from where, how far, what pace; per attacker if you like. */
 export function IncomingPanel() {
   const s = snapshot.value;
-  const [grouped, setGrouped] = useState(true);
+  const [grouped, setGrouped] = useSaved('incoming-grouped', true);
   if (!s || s.incoming.length === 0) return null;
 
   const groups = new Map<number, IncomingView[]>();

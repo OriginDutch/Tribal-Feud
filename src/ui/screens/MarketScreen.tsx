@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { useSaved } from '../useSaved';
 import { Coords } from '../components/Coords';
 import { BuildingHeader } from '../buildings/BuildingHeader';
 import { CancelButton } from '../components/CancelButton';
@@ -46,13 +47,13 @@ export function MarketScreen() {
   const [x, setX] = useState('');
   const [y, setY] = useState('');
   // own offer
-  const [giveRes, setGiveRes] = useState<0 | 1 | 2>(0);
-  const [giveAmount, setGiveAmount] = useState('1000');
-  const [wantRes, setWantRes] = useState<0 | 1 | 2>(1);
-  const [wantAmount, setWantAmount] = useState('1000');
-  const [count, setCount] = useState('1');
+  const [giveRes, setGiveRes] = useSaved<0 | 1 | 2>('market-give-res', 0);
+  const [giveAmount, setGiveAmount] = useSaved('market-give', '1000');
+  const [wantRes, setWantRes] = useSaved<0 | 1 | 2>('market-want-res', 1);
+  const [wantAmount, setWantAmount] = useSaved('market-want', '1000');
+  const [count, setCount] = useSaved('market-count', '1');
   // browsing
-  const [filter, setFilter] = useState<'all' | 0 | 1 | 2>('all');
+  const [filter, setFilter] = useSaved<'all' | 0 | 1 | 2>('market-filter', 'all');
 
   useEffect(() => {
     if (!mapData.value) send({ type: 'getMap' });

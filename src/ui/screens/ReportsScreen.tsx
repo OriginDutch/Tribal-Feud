@@ -1,4 +1,5 @@
 import { PlayerLink } from '../components/PlayerLink';
+import { useSaved } from '../useSaved';
 import { Coords } from '../components/Coords';
 import { BARB_TYPE_NAMES } from '../../shared/barbarianTypes';
 import { useEffect, useState } from 'preact/hooks';
@@ -282,7 +283,7 @@ function ReportDetail({ r }: { r: Report }) {
 export function ReportsScreen() {
   const list = reports.value;
   const [open, setOpen] = useState<number | null>(null);
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useSaved<Filter>('reports-filter', 'all');
   const [picked, setPicked] = useState<Set<number>>(new Set());
 
   useEffect(() => {

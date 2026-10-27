@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { useSaved } from '../useSaved';
 import { Coords } from '../components/Coords';
 import { BUILDING_IDS, CATAPULT_TARGETS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
 import { templateToText, textToTemplate, textToTrain, textToTroops, trainToText, troopsToText } from '../../shared/templateText';
@@ -16,13 +17,13 @@ const TROOP_UNITS: UnitId[] = ['spear', 'sword', 'axe', 'archer', 'spy', 'light'
 export function ManagerScreen() {
   const s = snapshot.value;
   const v = s?.village;
-  const [template, setTemplate] = useState('');
-  const [troopTemplate, setTroopTemplate] = useState('');
+  const [template, setTemplate] = useSaved('manager-template', '');
+  const [troopTemplate, setTroopTemplate] = useSaved('manager-troop-template', '');
   const [troops, setTroops] = useState<Partial<Record<UnitId, string>>>({});
-  const [share, setShare] = useState('50');
-  const [church, setChurch] = useState(false);
-  const [research, setResearch] = useState(false);
-  const [flag, setFlag] = useState('');
+  const [share, setShare] = useSaved('manager-share', '50');
+  const [church, setChurch] = useSaved('manager-church', false);
+  const [research, setResearch] = useSaved('manager-research', false);
+  const [flag, setFlag] = useSaved('manager-flag', '');
 
   // load the village's settings whenever another village is selected (or they change)
   const key = JSON.stringify(v?.manager ?? null) + (v?.id ?? '');
