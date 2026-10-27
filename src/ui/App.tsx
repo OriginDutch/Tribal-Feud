@@ -6,6 +6,7 @@ import { useEffect } from 'preact/hooks';
 import { formatGameTime } from '../shared/time';
 import { TopBar } from './components/TopBar';
 import { Nav } from './components/Nav';
+import { EndgameModal } from './components/EndgameModal';
 import { autoPause, notice, screen, snapshot, togglePause } from './store';
 import { DebugScreen } from './screens/DebugScreen';
 import { MainScreen } from './screens/MainScreen';
@@ -120,6 +121,7 @@ export function App() {
             <QuestToasts />
           </aside>
           <CommandPalette />
+          <EndgameModal />
         </div>
       ) : (
         <StartScreen />

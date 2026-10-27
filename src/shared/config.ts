@@ -166,8 +166,12 @@ export interface WorldConfig {
   };
 
   winCondition: {
-    /** Share of all villages your guild must own, 0..1. */
+    /** Share of the villages a tribe must own to win, 0..1. */
     villageShare: number;
+    /** Barbarian villages count in the total (default true). */
+    countBarbarians?: boolean;
+    /** Game days the share must be held (default 3). */
+    holdDays?: number;
   };
 
   conquest: {
@@ -265,6 +269,8 @@ const BASE: PresetValues = {
   },
   winCondition: {
     villageShare: 0.75,
+    countBarbarians: true,
+    holdDays: 3,
   },
   conquest: {
     coinCost: [28000, 30000, 25000],

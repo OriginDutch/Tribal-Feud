@@ -37,6 +37,8 @@ export function NewWorldPanel() {
   const [difficulty, setDifficulty] = useState<BotDifficulty>(PRESETS.classic.bots.difficulty);
   const [farm, setFarm] = useState(1);
   const [curve, setCurve] = useState<'tiered' | 'classic'>('tiered');
+  const [winShare, setWinShare] = useState(0.75);
+  const [winBarbs, setWinBarbs] = useState(true);
 
   const changePreset = (p: Preset) => {
     setPreset(p);
@@ -54,6 +56,7 @@ export function NewWorldPanel() {
     if (difficulty !== PRESETS[preset].bots.difficulty) overrides.bots = { difficulty };
     if (farm !== 1) overrides.farmMultiplier = farm;
     if (curve !== 'tiered') overrides.nobleCurve = curve;
+    if (winShare !== 0.75 || !winBarbs) overrides.winCondition = { villageShare: winShare, countBarbarians: winBarbs };
     const cmd: Command = { type: 'newWorld', preset, name, overrides };
     if (seed.trim() !== '') cmd.seed = Number(seed) >>> 0;
     autoPause.value = null;
@@ -98,6 +101,14 @@ export function NewWorldPanel() {
           </label>
         ))}
       </div>
+      <h3>Eindspel</h3>
+      <label title="Een stam die dit deel van de wereld 3 speldagen vasthoudt, wint.">
+        Winnen bij {Math.round(winShare * 100)}%
+        <input type="range" min={0.5} max={1} step={0.05} value={winShare} onInput={(e) => setWinShare(Number(e.currentTarget.value))} />
+      </label>
+      <label class="row" title="Tellen barbarendorpen mee in het totaal? Meetellen is strenger.">
+        <input type="checkbox" checked={winBarbs} onChange={(e) => setWinBarbs(e.currentTarget.checked)} /> Barbarendorpen tellen mee
+      </label>
       <h3>Fun</h3>
       <label title="Bevolkingslimiet van de boerderij. Gebouwen gebruiken evenveel als altijd, dus de ruimte voor troepen groeit nog iets harder. Je merkt het vooral laat in het spel, als je economie de legers kan betalen.">
         Bevolking ×{farm.toLocaleString('nl-NL', { minimumFractionDigits: 2 })}

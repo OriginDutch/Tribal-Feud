@@ -676,3 +676,15 @@ td.bad { color: var(--danger, #e5533f); }
 .support-return { margin-top: 12px; }
 .support-return-section { margin-top: 14px; }
 .support-return-section h4 { margin: 0; }
+/* endgame */
+.endgame-bars { display: grid; gap: 6px; margin: 10px 0 4px; }
+.endgame-row { display: grid; grid-template-columns: 220px 1fr 60px; gap: 10px; align-items: center; }
+.endgame-row.me { font-weight: 700; }
+.endgame-bar { position: relative; height: 10px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: visible; }
+.endgame-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 5px; background: var(--tc); }
+.endgame-bar b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: rgba(255,255,255,0.35); }
+p.good { color: #7fbf5a; }
+p.bad { color: #e5533f; }
+.endgame-modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,0.6); z-index: 50; }
+.endgame-modal .panel { max-width: 520px; text-align: center; padding: 28px; }
+.endgame-modal h2 { font-size: 30px; margin: 0 0 8px; }

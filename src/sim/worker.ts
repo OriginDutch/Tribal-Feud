@@ -9,7 +9,7 @@ import { fitCheck, tribeNews, tribeViews } from './tribes';
 import { farmCUnits } from './intel';
 import { createConfig, validateConfig } from '../shared/config';
 import { AUTOSAVE_SLOT, type Command, type Snapshot, type WorkerMessage } from '../shared/protocol';
-import { SECOND } from '../shared/time';
+import { DAY, SECOND } from '../shared/time';
 import { deleteSave, getSave, listSaves, putSave } from '../storage/saveStore';
 import { randomSeed } from './rng';
 import { fromSaveData, toSaveData } from './save';
@@ -24,7 +24,7 @@ import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteNobleTemplate, deleteTemplate, deleteTroopTemplate, findTemplate, saveNobleTemplate, saveTemplate, saveTroopTemplate, scheduleManager, setManager, templateUse } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
-import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow, SurplusRow } from '../shared/protocol';
+import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow, SurplusRow, EndgameView } from '../shared/protocol';
 import {
   MERCHANT_CARRY,
   MERCHANT_MINUTES_PER_FIELD,
@@ -58,6 +58,7 @@ import {
   startResearch,
   type Village,
 } from './village';
+import { endgameRules } from './endgame';
 import { DEFAULT_SURPLUS, mintAll, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
 
 /** Minimal typing for the worker global, so the project only needs the DOM lib. */
@@ -165,6 +166,7 @@ function snapshot(): Snapshot | null {
     groups: state.villageGroups ?? [],
     surplus: state.surplus ?? DEFAULT_SURPLUS,
     difficulty: state.config.bots.difficulty,
+    endgame: endgameView(state),
     templateUse: templateUse(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
@@ -198,6 +200,18 @@ function sendRanking(s: WorldState): void {
 }
 
 /** For a leader: the 20 players nearest to your villages that are not in your tribe. */
+function endgameView(s: WorldState): EndgameView {
+  const r = endgameRules(s);
+  const eg = s.endgame;
+  const lt = eg?.leader !== undefined ? s.tribes?.[eg.leader] : undefined;
+  return {
+    target: r.target, warnAt: r.warnAt, countBarbarians: r.countBarbarians, holdDays: r.holdMs / DAY,
+    ...(lt && eg?.since !== undefined ? { leader: { tribe: lt.id, tag: lt.tag, since: eg.since, winsAt: eg.since + r.holdMs, you: lt.members.includes(HUMAN_ID) } } : {}),
+    ...(eg?.winner ? { winner: { ...eg.winner } } : {}),
+    continued: !!eg?.continued,
+  };
+}
+
 function mintRows(s: WorldState, keep: number) {
   return planMintAll(s, keep).map((p) => { const v = s.villages[p.village]!; return { id: v.id, name: v.name, x: v.x, y: v.y, coins: p.coins }; });
 }
@@ -754,6 +768,10 @@ async function handle(cmd: Command): Promise<void> {
     case 'getInbox':
       if (state) post({ type: 'inbox', inbox: inboxViews(state) });
       return;
+    case 'continueWorld':
+      if (!state?.endgame?.winner) return;
+      state.endgame.continued = true;
+      break;
     case 'setDifficulty': {
       if (!state) return;
       if (!['easy', 'normal', 'hard'].includes(cmd.difficulty)) return;

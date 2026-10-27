@@ -5,7 +5,7 @@ import { MAX_MEMBERS } from '../../shared/tribes';
 import { formatGameTime } from '../../shared/time';
 import { Confirm } from '../components/Confirm';
 import { MapLink } from '../components/MapLink';
-import { num } from '../format';
+import { duration, num } from '../format';
 import { inviteCandidates, mapData, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes } from '../store';
 
 const REL: Record<TribeRelation, string> = { ally: 'Bondgenoot', nap: 'Niet-aanvalsverdrag', war: 'Oorlog' };
@@ -231,6 +231,7 @@ export function TribesScreen() {
           {list.length} stammen · {solo} spelers zonder stam
         </span>
       </div>
+      {s && <EndgamePanel list={list} mine={mine?.id} />}
       {s && (mine ? <MyTribe t={mine} /> : <FoundTribe />)}
       {!list.length ? (
         <section class="panel">
@@ -404,3 +405,47 @@ const BLOCKED_HINT = {
   full: 'Je stam zit vol.',
   blocked: 'Er zit een stam waarmee je in oorlog bent tussen jullie in.',
 } as const;
+
+/** Domination race: the biggest tribes on their way to the target share. */
+function EndgamePanel({ list, mine }: { list: TribeView[]; mine?: number }) {
+  const s = snapshot.value!;
+  const eg = s.endgame;
+  const top = [...list].sort((a, b) => b.share - a.share).slice(0, 5);
+  const mineRow = mine !== undefined && !top.some((t) => t.id === mine) ? list.find((t) => t.id === mine) : undefined;
+  const rows = mineRow ? [...top, mineRow] : top;
+  const pct = (x: number) => `${(x * 100).toLocaleString('nl-NL', { maximumFractionDigits: 1 })}%`;
+  return (
+    <section class="panel endgame">
+      <div class="row">
+        <h3 style={{ margin: 0, flex: 1 }}>Eindspel</h3>
+        <span class="muted">
+          {pct(eg.target)} van {eg.countBarbarians ? 'alle dorpen' : 'de spelersdorpen'}, {eg.holdDays} speldagen vasthouden
+        </span>
+      </div>
+      {eg.winner ? (
+        <p class={eg.winner.you ? 'good' : 'bad'}>
+          <strong>{eg.winner.you ? 'Gewonnen' : 'Verloren'}</strong>: [{eg.winner.tag}] {eg.winner.name} veroverde de wereld op {formatGameTime(eg.winner.time)}.
+        </p>
+      ) : eg.leader ? (
+        <p class={eg.leader.you ? 'good' : 'bad'}>
+          [{eg.leader.tag}] zit boven {pct(eg.target)}: {eg.leader.you ? 'jullie winnen' : 'die stam wint'} over {duration(Math.max(0, eg.leader.winsAt - s.time))} ({formatGameTime(eg.leader.winsAt)}), als het zo blijft.
+        </p>
+      ) : null}
+      <div class="endgame-bars">
+        {rows.map((t) => (
+          <div key={t.id} class={`endgame-row ${t.id === mine ? 'me' : ''}`}>
+            <span class="ellipsis"><Tag t={t} /> {t.name}</span>
+            <div class="endgame-bar" style={{ '--tc': t.color }}>
+              <i style={{ width: `${Math.min(100, (t.share / eg.target) * 100)}%` }} />
+              <b style={{ left: `${(eg.warnAt / eg.target) * 100}%` }} title={`Waarschuwing bij ${pct(eg.warnAt)}`} />
+            </div>
+            <span class="mono right">{pct(t.share)}</span>
+          </div>
+        ))}
+      </div>
+      <p class="hint">
+        De balk loopt tot {pct(eg.target)}. Boven {pct(eg.warnAt)} (streepje) krijgt iedereen een waarschuwing en keren de andere stammen zich tegen de koploper.
+      </p>
+    </section>
+  );
+}

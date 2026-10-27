@@ -88,6 +88,7 @@ export type Command =
   | { type: 'sendSurplus'; keep: number }
   | { type: 'getSurplusPlan'; keep: number }
   | { type: 'getMintPlan'; keep: number }
+  | { type: 'continueWorld' }
   | { type: 'setDifficulty'; difficulty: 'easy' | 'normal' | 'hard' }
   | { type: 'mintAll'; keep: number }
   | { type: 'dismissToast'; id: number | 'all' }
@@ -189,6 +190,8 @@ export interface TribeView {
   founded: number;
   points: number;
   villages: number;
+  /** Share of the world (endgame), 0..1. */
+  share: number;
   relations: { id: number; rel: TribeRelation; since: number }[];
 }
 
@@ -318,6 +321,8 @@ export interface Snapshot {
   groups: VillageGroup[];
   /** Surplus to building villages: keep share and automatic on/off. */
   surplus: { keep: number; auto: boolean };
+  /** Domination endgame. */
+  endgame: EndgameView;
   /** Bot difficulty of this world (can be changed while playing). */
   difficulty: 'easy' | 'normal' | 'hard';
   /** Villages using each template (build and troop), by id. */
@@ -422,4 +427,15 @@ export interface SurplusRow {
   res: [number, number, number];
   merchants: number;
   travel: number;
+}
+
+export interface EndgameView {
+  target: number;
+  warnAt: number;
+  countBarbarians: boolean;
+  holdDays: number;
+  /** The tribe above the target and when it wins if it holds on. */
+  leader?: { tribe: number; tag: string; since: number; winsAt: number; you: boolean };
+  winner?: { tribe: number; tag: string; name: string; time: number; you: boolean };
+  continued: boolean;
 }

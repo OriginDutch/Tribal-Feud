@@ -10,6 +10,7 @@
  */
 import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
 import { kindness } from '../shared/config';
+import { endgameTick, leaderBonus, tribeShares } from './endgame';
 import { HOUR, MINUTE } from '../shared/time';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { sawAttack } from './botReact';
@@ -105,7 +106,7 @@ export function mayAttack(state: WorldState, attacker: number, defender: number)
 
 /** Weight for choosing targets: enemies at war are preferred. */
 export function targetWeight(state: WorldState, attacker: number, defender: number): number {
-  return relationBetween(state, attacker, defender) === 'war' ? 2.5 : 1;
+  return (relationBetween(state, attacker, defender) === 'war' ? 2.5 : 1) * leaderBonus(state, attacker, defender);
 }
 
 /** Centre of a player's villages, weighted by points. */
@@ -304,6 +305,7 @@ export function onDiplomacy(state: WorldState): void {
   }
 
   diplomacy(state);
+  endgameTick(state);
   humanTribeTick(state);
   push(state.queue, state.time + DIPLOMACY_EVERY, { kind: 'diplomacy' });
 }
@@ -413,11 +415,12 @@ void BOT_PROFILES;
 /** Tribes for the UI, strongest first. */
 export function tribeViews(state: WorldState): TribeView[] {
   const out: TribeView[] = [];
+  const shares = new Map(tribeShares(state).map((x) => [x.tribe.id, x.share]));
   for (const t of Object.values(state.tribes ?? {})) {
     let points = 0, villages = 0;
     for (const m of t.members) for (const v of villagesOf(state, m)) { points += villagePoints(state.config, v); villages++; }
     out.push({
-      id: t.id, name: t.name, tag: t.tag, color: t.color, leader: t.leader, members: [...t.members], founded: t.founded, points, villages,
+      id: t.id, name: t.name, tag: t.tag, color: t.color, leader: t.leader, members: [...t.members], founded: t.founded, points, villages, share: shares.get(t.id) ?? 0,
       relations: Object.entries(t.relations).map(([id, rel]) => ({ id: Number(id), rel, since: t.since?.[Number(id)] ?? t.founded })),
     });
   }
