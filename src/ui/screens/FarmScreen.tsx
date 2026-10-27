@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
-import { mapData, send, snapshot } from '../store';
+import { farmAllPlan, mapData, send, snapshot } from '../store';
+import { Confirm } from '../components/Confirm';
+import type { FarmAllOptions } from '../../sim/farmAll';
 import { UNIT_SHORT, distance, travelMs, unitsText } from '../units';
 
 const FARM_UNITS: UnitId[] = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'knight'];
@@ -104,6 +106,7 @@ export function FarmScreen() {
           C stuurt genoeg lichte cavalerie voor de geschatte buit (na verkenning).
         </p>
       </section>
+      <FarmAllPanel />
       <section class="panel">
         <div class="row">
           <h3 style={{ margin: 0, flex: 1 }}>Barbarendorpen in de buurt</h3>
@@ -204,5 +207,83 @@ export function FarmScreen() {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * "Farm alles": every barbarian village gets one attack with the chosen template, from the
+ * nearest of your villages that can still pay it. Closest pairs first, until troops run out.
+ */
+function FarmAllPanel() {
+  const [template, setTemplate] = useState<'A' | 'B' | 'C'>('A');
+  const [skipLost, setSkipLost] = useState(true);
+  const [wallOn, setWallOn] = useState(false);
+  const [maxWall, setMaxWall] = useState(0);
+  const [distOn, setDistOn] = useState(false);
+  const [maxDistance, setMaxDistance] = useState(15);
+  const options: FarmAllOptions = { template, skipLost, maxWall: wallOn ? maxWall : null, maxDistance: distOn ? maxDistance : null };
+  const key = JSON.stringify(options);
+  useEffect(() => {
+    send({ type: 'getFarmAllPlan', options });
+    const t = window.setInterval(() => send({ type: 'getFarmAllPlan', options }), 3000);
+    return () => window.clearInterval(t);
+  }, [key]);
+  const plan = farmAllPlan.value && JSON.stringify(farmAllPlan.value.options) === key ? farmAllPlan.value : null;
+  const skippedText = plan
+    ? [
+        plan.skipped.busy && `${plan.skipped.busy} al onderweg`,
+        plan.skipped.lost && `${plan.skipped.lost} verloren`,
+        plan.skipped.wall && `${plan.skipped.wall} te hoge muur`,
+        plan.skipped.noScout && `${plan.skipped.noScout} niet verkend`,
+      ].filter(Boolean).join(' · ')
+    : '';
+  return (
+    <section class="panel farm-all">
+      <div class="row wrap">
+        <h3 style={{ margin: 0 }}>Farm alles</h3>
+        {(['A', 'B', 'C'] as const).map((t) => (
+          <button key={t} class={`chip ${template === t ? 'on' : ''}`} onClick={() => setTemplate(t)}>Template {t}</button>
+        ))}
+        <span style={{ flex: 1 }} />
+        <Confirm
+          label={`Farm alles${plan ? ` (${plan.attacks})` : ''}`}
+          sure={`Zeker? ${plan?.attacks ?? 0} aanvallen`}
+          disabled={!plan?.attacks}
+          onConfirm={() => send({ type: 'farmAll', options })}
+        />
+      </div>
+      <div class="row wrap" style={{ marginTop: 8 }}>
+        <label class="row"><input type="checkbox" checked={skipLost} onChange={(e) => setSkipLost(e.currentTarget.checked)} /> Overslaan na verloren aanval</label>
+        <label class="row">
+          <input type="checkbox" checked={wallOn} onChange={(e) => setWallOn(e.currentTarget.checked)} /> Muur hoger dan
+          <input type="number" min={0} max={20} value={maxWall} disabled={!wallOn} onInput={(e) => setMaxWall(Math.max(0, Number(e.currentTarget.value) || 0))} /> overslaan
+        </label>
+        <label class="row">
+          <input type="checkbox" checked={distOn} onChange={(e) => setDistOn(e.currentTarget.checked)} /> Maximaal
+          <input type="number" min={1} value={maxDistance} disabled={!distOn} onInput={(e) => setMaxDistance(Math.max(1, Number(e.currentTarget.value) || 1))} /> velden
+        </label>
+      </div>
+      {!plan ? (
+        <p class="muted">Berekenen…</p>
+      ) : (
+        <>
+          {plan.able < plan.villages && (
+            <p class="warn">
+              {plan.able} van je {plan.villages} dorpen {plan.able === 1 ? 'kan' : 'kunnen'} template {template} sturen
+              {template === 'C' ? ' (geen lichte cavalerie thuis)' : ' (niet alle troepen thuis)'}.
+            </p>
+          )}
+          <p class="muted">
+            {plan.attacks} aanvallen vanuit {plan.from.length} dorpen{plan.attacks > 0 && `, verste doel op ${plan.furthest.toFixed(1)} velden`}.
+            {skippedText && ` Overgeslagen: ${skippedText}.`}
+            {plan.left > 0 && ` ${plan.left} doelen blijven over: geen troepen meer.`}
+            {' '}Muren die je nog niet kent tellen als geen muur.
+          </p>
+          {plan.from.length > 0 && (
+            <p class="muted small-text">{plan.from.map((f) => `${f.name}: ${f.attacks}`).join(' · ')}</p>
+          )}
+        </>
+      )}
+    </section>
   );
 }

@@ -68,6 +68,8 @@ import { hasFaith } from './church';
 import { FLAG_TYPES, freeFlags, setFlag, upgradeFlag, type FlagType } from './flags';
 import { ITEMS, ITEM_IDS, equipItem, type ItemId } from './paladin';
 import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
+import { farmAll, planFarmAll, type FarmAllOptions } from './farmAll';
+import type { FarmAllView } from '../shared/protocol';
 import { SCAV_UNITS, scavEnabled, scavOf, scavParams, sendPlan } from './scavenge';
 import { DEFAULT_SCAV_TEMPLATE, type ScavTemplate } from '../shared/scavenge';
 import type { ScavView } from '../shared/protocol';
@@ -327,6 +329,22 @@ function endgameView(s: WorldState): EndgameView {
 
 function mintRows(s: WorldState, keep: number) {
   return planMintAll(s, keep).map((p) => { const v = s.villages[p.village]!; return { id: v.id, name: v.name, x: v.x, y: v.y, coins: p.coins }; });
+}
+
+function farmAllView(s: WorldState, options: FarmAllOptions): FarmAllView {
+  const plan = planFarmAll(s, options);
+  const per = new Map<number, number>();
+  for (const x of plan.sends) per.set(x.from, (per.get(x.from) ?? 0) + 1);
+  return {
+    options,
+    attacks: plan.sends.length,
+    from: [...per].map(([id, attacks]) => ({ id, name: s.villages[id]?.name ?? '?', attacks })).sort((a, b) => b.attacks - a.attacks),
+    villages: plan.villages,
+    able: plan.able,
+    skipped: plan.skipped,
+    left: plan.left,
+    furthest: plan.sends.reduce((m, x) => Math.max(m, x.distance), 0),
+  };
 }
 
 function scavView(s: WorldState): ScavView {
@@ -984,6 +1002,17 @@ async function handle(cmd: Command): Promise<void> {
       if (!['easy', 'normal', 'hard'].includes(cmd.difficulty)) return;
       state.config.bots.difficulty = cmd.difficulty;
       addLog(state, { time: state.time, text: `Moeilijkheid van de bots: ${({ easy: 'Makkelijk', normal: 'Normaal', hard: 'Moeilijk' } as const)[cmd.difficulty]}.` });
+      break;
+    }
+    case 'getFarmAllPlan':
+      if (state) post({ type: 'farmAllPlan', plan: farmAllView(state, cmd.options) });
+      break;
+    case 'farmAll': {
+      if (!state) return;
+      const r = farmAll(state, cmd.options);
+      if (r.error && !r.sent) notice(r.error, 'error');
+      else notice(`${r.sent} farmaanval${r.sent === 1 ? '' : 'len'} verstuurd.${r.error ? ` Niet alles lukte: ${r.error}` : ''}`, 'info');
+      post({ type: 'farmAllPlan', plan: farmAllView(state, cmd.options) });
       break;
     }
     case 'getScav':

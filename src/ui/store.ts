@@ -4,7 +4,7 @@
  */
 import { signal } from '@preact/signals';
 import type { BuildingId, RecruitBuilding, UnitCounts } from '../shared/gameData';
-import type { CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, SupportRow, SurplusRow, ScavView, OpinionsView, WorldStatsView, SimResult, TribeAskView, TribeView, WorkerMessage } from '../shared/protocol';
+import type { CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, SupportRow, SurplusRow, ScavView, FarmAllView, OpinionsView, WorldStatsView, SimResult, TribeAskView, TribeView, WorkerMessage } from '../shared/protocol';
 import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
@@ -93,6 +93,7 @@ export const simResult = signal<SimResult | null>(null);
 export const simPrefill = signal<{ attacker: UnitCounts; defender: UnitCounts; wall: number; morale: number; luck: number } | null>(null);
 export const mintPlan = signal<{ rows: { id: number; name: string; x: number; y: number; coins: number }[]; keep: number } | null>(null);
 export const scavView = signal<ScavView | null>(null);
+export const farmAllPlan = signal<FarmAllView | null>(null);
 export const surplusPlan = signal<{ rows: SurplusRow[]; keep: number } | null>(null);
 /** Target picked on the map, prefilled in the rally point. */
 export const placeTarget = signal<{ x: number; y: number } | null>(null);
@@ -196,6 +197,9 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'mintPlan':
       mintPlan.value = { rows: msg.rows, keep: msg.keep };
+      break;
+    case 'farmAllPlan':
+      farmAllPlan.value = msg.plan;
       break;
     case 'scav':
       scavView.value = msg.view;

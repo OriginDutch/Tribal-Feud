@@ -16,6 +16,7 @@ import type { Report } from '../sim/movement';
 import type { DemandStatus, PendingReward } from '../sim/quests';
 import type { Res } from './gameData';
 import type { ScavParams, ScavTemplate } from './scavenge';
+import type { FarmAllOptions } from '../sim/farmAll';
 
 export type Command =
   | { type: 'newWorld'; preset: Exclude<PresetId, 'custom'>; name: string; seed?: number; overrides?: ConfigOverrides }
@@ -90,6 +91,8 @@ export type Command =
   | { type: 'getSurplusPlan'; keep: number }
   | { type: 'getMintPlan'; keep: number }
   | { type: 'getScav' }
+  | { type: 'getFarmAllPlan'; options: FarmAllOptions }
+  | { type: 'farmAll'; options: FarmAllOptions }
   /** Rooftochten: units per level (index = level) per village. */
   | { type: 'sendScav'; plans: { villageId: number; plan: UnitCounts[] }[] }
   | { type: 'setScavRepeat'; villages: number[]; repeat: boolean }
@@ -431,6 +434,7 @@ export type WorkerMessage =
   | { type: 'worldStats'; stats: WorldStatsView }
   | { type: 'surplusPlan'; rows: SurplusRow[]; keep: number }
   | { type: 'scav'; view: ScavView }
+  | { type: 'farmAllPlan'; plan: FarmAllView }
   | { type: 'mintPlan'; rows: { id: number; name: string; x: number; y: number; coins: number }[]; keep: number }
   | { type: 'player'; player: PlayerView | null }
   | { type: 'notice'; level: 'info' | 'error'; text: string };
@@ -460,6 +464,20 @@ export interface SupportRow {
   units: UnitCounts;
   /** Walking time home (slowest unit). */
   travel: number;
+}
+
+/** Preview of "Farm alles". */
+export interface FarmAllView {
+  options: FarmAllOptions;
+  attacks: number;
+  /** Your villages that send, with how many attacks each. */
+  from: { id: number; name: string; attacks: number }[];
+  villages: number;
+  able: number;
+  skipped: { busy: number; lost: number; wall: number; noScout: number };
+  left: number;
+  /** Furthest target, fields. */
+  furthest: number;
 }
 
 /** Rooftochten of your villages. */
