@@ -94,6 +94,7 @@ export type Command =
   | { type: 'betray'; target: number }
   | { type: 'getOpinions' }
   | { type: 'getWorldStats' }
+  | { type: 'equipItem'; item: string | null }
   | { type: 'setDifficulty'; difficulty: 'easy' | 'normal' | 'hard' }
   | { type: 'mintAll'; keep: number }
   | { type: 'dismissToast'; id: number | 'all' }
@@ -337,6 +338,8 @@ export interface Snapshot {
   surplus: { keep: number; auto: boolean };
   /** Domination endgame. */
   endgame: EndgameView;
+  /** Paladin items worlds: your weapon chamber. */
+  items?: { found: { id: string; name: string; text: string }[]; equipped?: string; progress: number; all: number };
   /** Bot difficulty of this world (can be changed while playing). */
   difficulty: 'easy' | 'normal' | 'hard';
   /** Villages using each template (build and troop), by id. */

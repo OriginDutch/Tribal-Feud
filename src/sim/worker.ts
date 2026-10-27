@@ -61,6 +61,7 @@ import {
 } from './village';
 import { endgameRules } from './endgame';
 import { liveTribes } from './worldStats';
+import { ITEMS, ITEM_IDS, equipItem, type ItemId } from './paladin';
 import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
 import { DEFAULT_SURPLUS, mintAll, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
 
@@ -170,6 +171,7 @@ function snapshot(): Snapshot | null {
     surplus: state.surplus ?? DEFAULT_SURPLUS,
     difficulty: state.config.bots.difficulty,
     endgame: endgameView(state),
+    ...(state.config.paladin === 'items' ? { items: itemsView(state) } : {}),
     templateUse: templateUse(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
@@ -252,6 +254,16 @@ function opinionsView(s: WorldState): OpinionsView {
     betrayals: s.betrayals ?? 0,
     permissions: Object.entries(s.permissions ?? {}).map(([id, p]) => ({ target: Number(id), name: s.players[Number(id)]?.name ?? '?', ...(p.answer ? { answer: p.answer } : {}), ...(p.until ? { until: p.until } : {}) })),
     ...(ask ? { resourceAsk: { village: ask.village, res: [...ask.res] as [number, number, number], sent: [...ask.sent] as [number, number, number], at: ask.at } } : {}),
+  };
+}
+
+function itemsView(s: WorldState): NonNullable<Snapshot['items']> {
+  const it = s.players[HUMAN_ID]?.items;
+  return {
+    found: (it?.found ?? []).map((id) => ({ id, name: ITEMS[id].name, text: ITEMS[id].text })),
+    ...(it?.equipped ? { equipped: it.equipped } : {}),
+    progress: it?.progress ?? 0,
+    all: ITEM_IDS.filter((i) => s.config.archers || (ITEMS[i].unit !== 'archer' && ITEMS[i].unit !== 'marcher')).length,
   };
 }
 
@@ -850,6 +862,12 @@ async function handle(cmd: Command): Promise<void> {
       if (error) notice(error, 'error');
       else notice(cmd.type === 'askTribeResources' ? 'Je stam is om grondstoffen gevraagd. Stamgenoten antwoorden als ze online zijn.' : cmd.type === 'askPermission' ? 'Gevraagd. Je leider antwoordt als hij online is.' : 'Het is gebeurd. Er is geen weg terug.', 'info');
       post({ type: 'opinions', opinions: opinionsView(state) });
+      break;
+    }
+    case 'equipItem': {
+      if (!state) return;
+      const error = equipItem(state, HUMAN_ID, cmd.item as ItemId | null);
+      if (error) notice(error, 'error');
       break;
     }
     case 'getWorldStats':

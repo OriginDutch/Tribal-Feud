@@ -484,6 +484,10 @@ function research(state: WorldState, v: Village, profile: BotProfile): void {
 
 function recruitTroops(state: WorldState, v: Village, profile: BotProfile, reserve: Res): void {
   const { config } = state;
+  // one paladin, kept at home: with items he guards the village with his weapon
+  if (config.paladin !== 'off' && v.buildings.statue > 0 && recruitBlocker(state, v, 'knight') === null && maxRecruitable(state, v, 'knight') > 0) {
+    recruit(state, v.id, 'knight', 1);
+  }
   const have = currentResources(config, v, state.time);
   const spare: Res = [0, 1, 2].map((i) => Math.max(0, have[i as 0 | 1 | 2] - reserve[i as 0 | 1 | 2])) as Res;
   const budget: Res = spare.map((r) => r * profile.troopShare) as Res;

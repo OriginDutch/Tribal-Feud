@@ -23,6 +23,9 @@ export interface BattleInput {
   /** Whole-side multipliers (flags, faith); missing = 1. */
   attackerFactor?: number;
   defenderFactor?: number;
+  /** Siege effect multipliers (paladin items); missing = 1. */
+  ramFactor?: number;
+  catapultFactor?: number;
 }
 
 export interface BattleResult {
@@ -82,7 +85,7 @@ export function fight(config: WorldConfig, input: BattleInput): BattleResult {
   const fighters = UNIT_IDS.filter((u) => u !== 'spy' && count(input.attacker, u) > 0);
   const wallBefore = input.wall;
   const rams = count(input.attacker, 'ram');
-  const lowered = Math.min(Math.floor(wallBefore / 2), Math.round((rams / 4) * 1.09 ** -wallBefore));
+  const lowered = Math.min(Math.floor(wallBefore / 2), Math.round(((rams * (input.ramFactor ?? 1)) / 4) * 1.09 ** -wallBefore));
   const wallEffective = wallBefore - lowered;
 
   if (fighters.length === 0) {
@@ -142,9 +145,10 @@ export function fight(config: WorldConfig, input: BattleInput): BattleResult {
     const sent = count(input.attacker, u);
     if (sent === 0) return { effective: 0, perLevel: 2 };
     const lost = count(attackerLost, u);
+    const f = (u === 'ram' ? input.ramFactor : input.catapultFactor) ?? 1;
     return attackerWon
-      ? { effective: sent - lost + lost / 2, perLevel: 2 }
-      : { effective: sent * share ** 1.5, perLevel: 4 };
+      ? { effective: (sent - lost + lost / 2) * f, perLevel: 2 }
+      : { effective: sent * share ** 1.5 * f, perLevel: 4 };
   };
 
   const ram = siegeEffect('ram');

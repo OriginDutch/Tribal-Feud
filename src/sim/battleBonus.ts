@@ -1,14 +1,16 @@
 /**
  * Everything that makes troops stronger or weaker than their base stats, per battle:
- * research levels (per unit, from the village the troops come from). Later settings add to it.
+ * research levels (per unit, from the village the troops come from) and paladin items (the
+ * attacking paladin's item; every defending paladin's item for the units of its type there).
  * Defenders from several villages (own troops + support) get a weighted average per unit.
  */
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../shared/gameData';
 import type { BattleInput } from './combat';
+import { defendingItems, equipped } from './paladin';
 import type { WorldState } from './state';
 import { techLevel, techMultiplier, type Village } from './village';
 
-type Bonus = Pick<BattleInput, 'attackerUnitBonus' | 'defenderUnitBonus' | 'attackerFactor' | 'defenderFactor'>;
+type Bonus = Pick<BattleInput, 'attackerUnitBonus' | 'defenderUnitBonus' | 'attackerFactor' | 'defenderFactor' | 'ramFactor' | 'catapultFactor'>;
 
 /** Strength multiplier of unit `u` from village `v` (1 when nothing applies). */
 function unitMultiplier(state: WorldState, v: Village | undefined, u: UnitId): number {
@@ -37,6 +39,23 @@ export function battleBonus(state: WorldState, from: Village, target: Village, a
     const def: Partial<Record<UnitId, number>> = {};
     for (const u of UNIT_IDS) if (n[u]) { const m = sum[u]! / n[u]!; if (m !== 1) def[u] = m; }
     out.defenderUnitBonus = def;
+  }
+  // paladin items
+  if (state.config.paladin === 'items') {
+    const it = (attacker.knight ?? 0) > 0 ? equipped(state, from.owner) : null;
+    if (it?.unit && it.attack) out.attackerUnitBonus = { ...out.attackerUnitBonus, [it.unit]: (out.attackerUnitBonus?.[it.unit] ?? 1) * (1 + it.attack) };
+    if (it?.id === 'morningstar') out.ramFactor = 2;
+    if (it?.id === 'bonfire') out.catapultFactor = 2;
+    const best: Partial<Record<UnitId, number>> = {};
+    for (const d of defendingItems(state, target)) {
+      if (d.unit && d.defense) best[d.unit] = Math.max(best[d.unit] ?? 1, 1 + d.defense);
+      if (d.id === 'bonfire') best.catapult = 11;
+    }
+    if (Object.keys(best).length) {
+      const def = { ...out.defenderUnitBonus };
+      for (const [u, m] of Object.entries(best) as [UnitId, number][]) def[u] = (def[u] ?? 1) * m;
+      out.defenderUnitBonus = def;
+    }
   }
   return out;
 }

@@ -19,6 +19,7 @@ import { currentResources, isOperational, settle, type Village } from './village
 import { mateEvent, onVillageLost } from './loyalty';
 import { statAttack, statConquest } from './worldStats';
 import { battleBonus } from './battleBonus';
+import { equipped, itemKills } from './paladin';
 
 export interface Movement {
   id: number;
@@ -114,7 +115,7 @@ export interface Report {
   building?: { id: BuildingId; before: number; after: number };
   loot?: Res;
   carry?: number;
-  scouted?: { res: Res; buildings: Partial<Record<BuildingId, number>>; units: UnitCounts; barbType?: BarbType };
+  scouted?: { res: Res; buildings: Partial<Record<BuildingId, number>>; units: UnitCounts; barbType?: BarbType; away?: UnitCounts };
   /** Loyalty before and after a nobleman hit it. */
   loyalty?: { before: number; after: number };
   /** The attacker took the village. */
@@ -316,6 +317,9 @@ function arriveAttack(state: WorldState, m: Movement): void {
 
   // defender losses, shared between the village's own troops and its support
   const supportLost = applyDefenderLosses(state, target, battle.defenderLost);
+  // the weapon chamber fills faster with every enemy killed
+  itemKills(state, m.owner, UNIT_IDS.reduce((t, u) => t + (battle.defenderLost[u] ?? 0), 0));
+  itemKills(state, target.owner, UNIT_IDS.reduce((t, u) => t + (battle.attackerLost[u] ?? 0), 0));
 
   // attacker losses and survivors
   const survivors: UnitCounts = {};
@@ -354,7 +358,9 @@ function arriveAttack(state: WorldState, m: Movement): void {
   const oldOwner = target.owner;
   if (battle.attackerWon && (survivors.snob ?? 0) > 0 && target.owner !== m.owner) {
     const before = Math.floor(loyaltyNow(config, target, state.time));
-    const drop = nextInt(state.rng, config.conquest.loyaltyDropMin, config.conquest.loyaltyDropMax);
+    const rolled = nextInt(state.rng, config.conquest.loyaltyDropMin, config.conquest.loyaltyDropMax);
+    // Vasco's scepter: with the paladin along, at least 30
+    const drop = (m.units.knight ?? 0) > 0 && equipped(state, m.owner)?.id === 'scepter' ? Math.max(30, rolled) : rolled;
     if (before - drop <= 0) {
       // one nobleman takes the village and is used up; the rest of the attack stays there
       survivors.snob = (survivors.snob ?? 0) - 1;
@@ -429,6 +435,8 @@ function arriveAttack(state: WorldState, m: Movement): void {
         units: cleanCounts(target.units),
       };
       if (target.barbType) report.scouted.barbType = target.barbType;
+      // Kalid's telescope: the scouts also see who is away
+      if (equipped(state, m.owner)?.id === 'telescope') report.scouted.away = cleanCounts(target.outside);
     }
     recordIntel(state, target, {
       ...(seesDefender ? { wall: battle.wallAfter } : {}),

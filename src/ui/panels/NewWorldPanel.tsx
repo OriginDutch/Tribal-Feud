@@ -40,6 +40,7 @@ export function NewWorldPanel() {
   const [winShare, setWinShare] = useState(0.75);
   const [winBarbs, setWinBarbs] = useState(true);
   const [research, setResearch] = useState<'simple' | 'levels3' | 'levels10'>('simple');
+  const [paladin, setPaladin] = useState<'off' | 'on' | 'items'>('on');
 
   const changePreset = (p: Preset) => {
     setPreset(p);
@@ -58,6 +59,7 @@ export function NewWorldPanel() {
     if (farm !== 1) overrides.farmMultiplier = farm;
     if (curve !== 'tiered') overrides.nobleCurve = curve;
     if (research !== 'simple') overrides.research = research;
+    if (paladin !== 'on') overrides.paladin = paladin;
     if (winShare !== 0.75 || !winBarbs) overrides.winCondition = { villageShare: winShare, countBarbarians: winBarbs };
     const cmd: Command = { type: 'newWorld', preset, name, overrides };
     if (seed.trim() !== '') cmd.seed = Number(seed) >>> 0;
@@ -110,6 +112,14 @@ export function NewWorldPanel() {
           <option value="simple">Simpel (ontwikkeld ja/nee)</option>
           <option value="levels3">3 levels (tot ×1,4)</option>
           <option value="levels10">10 levels (tot ×1,5)</option>
+        </select>
+      </label>
+      <label title="Met items vindt je paladijn wapens die een eenheidstype sterker maken.">
+        Paladijn
+        <select value={paladin} onChange={(e) => setPaladin(e.currentTarget.value as 'off' | 'on' | 'items')}>
+          <option value="off">Uit</option>
+          <option value="on">Aan</option>
+          <option value="items">Aan, met items</option>
         </select>
       </label>
       <h3>Eindspel</h3>

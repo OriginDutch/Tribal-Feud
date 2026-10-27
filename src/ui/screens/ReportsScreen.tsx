@@ -198,7 +198,7 @@ function ReportDetail({ r }: { r: Report }) {
               .map((b) => `${bname(b)} ${r.scouted?.buildings[b]}`)
               .join(' · ')}
           </p>
-          <UnitTable rows={[{ label: 'In het dorp', units: r.scouted.units }]} />
+          <UnitTable rows={[{ label: 'In het dorp', units: r.scouted.units }, ...(r.scouted.away ? [{ label: 'Niet thuis (telescoop)', units: r.scouted.away }] : [])]} />
         </div>
       )}
 

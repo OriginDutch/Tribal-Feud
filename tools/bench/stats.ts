@@ -8,7 +8,7 @@ import { advance } from '../../src/sim/simulation';
 import { createWorld, villagesOf } from '../../src/sim/state';
 
 const bots = Number(process.argv[2] ?? 200), barbs = Number(process.argv[3] ?? 3000), days = Number(process.argv[4] ?? 7);
-const s = createWorld(createConfig('classic', 'Stats', 7, { worldSpeed: Number(process.argv[5] ?? 20), bots: { count: bots, difficulty: process.argv[6] ?? 'normal' }, map: { barbarianCount: barbs } } as never));
+const s = createWorld(createConfig('classic', 'Stats', 7, { worldSpeed: Number(process.argv[5] ?? 20), bots: { count: bots, difficulty: process.argv[6] ?? 'normal' }, map: { barbarianCount: barbs }, ...(process.env.EXTRA ? JSON.parse(process.env.EXTRA) : {}) } as never));
 const t0 = performance.now();
 for (let d = 1; d <= days; d++) {
   for (let h = 0; h < 24; h++) {

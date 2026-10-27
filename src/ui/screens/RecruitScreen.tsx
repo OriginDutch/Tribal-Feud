@@ -1,4 +1,5 @@
 import { MintAllPanel } from '../components/MintAllPanel';
+import { ItemsPanel } from '../components/ItemsPanel';
 import { useState } from 'preact/hooks';
 import { UnitIcon } from '../units/UnitIcon';
 import { BuildingHeader } from '../buildings/BuildingHeader';
@@ -183,6 +184,7 @@ export function RecruitScreen({ building }: { building: RecruitBuilding }) {
         <>
           {building === 'snob' && <CoinPanel />}
           {building === 'snob' && <MintAllPanel />}
+          {building === 'statue' && <ItemsPanel />}
           <div class="unit-grid">
             {units.map((u) => (
               <UnitCard key={u.id} villageId={v.id} u={u} have={v.res} />

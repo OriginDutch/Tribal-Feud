@@ -12,6 +12,7 @@ import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
 import { kindness } from '../shared/config';
 import { endgameTick, leaderBonus, tribeShares } from './endgame';
 import { loyaltyTick } from './loyalty';
+import { itemsTick } from './paladin';
 import { HOUR, MINUTE } from '../shared/time';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { sawAttack } from './botReact';
@@ -310,6 +311,7 @@ export function onDiplomacy(state: WorldState): void {
 
   diplomacy(state);
   loyaltyTick(state);
+  itemsTick(state);
   endgameTick(state);
   humanTribeTick(state);
   push(state.queue, state.time + DIPLOMACY_EVERY, { kind: 'diplomacy' });
