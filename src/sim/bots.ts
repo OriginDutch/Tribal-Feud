@@ -5,6 +5,7 @@
  * own reports told them. They don't attack players yet.
  */
 import { botScavenge } from './scavenge';
+import { BOT_SPIES, beatable, farmablePlayerVillage, scoutForConquest, scoutForFarming, strike } from './botStrategy';
 import { ARCHETYPES, BOT_PROFILES, type BotProfile } from '../shared/botProfiles';
 import { RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { MINUTE } from '../shared/time';
@@ -207,6 +208,8 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   if (!saving) recruitTroops(state, v, profile, reserve);
   if (attentive) helpTribe(state, player, v, profile);
   if (attentive && !forgets(0.8)) farm(state, player, v, profile, skill);
+  // war and revenge: a real army at an enemy it scouted and can beat
+  if (attentive && !saving) strike(state, player, v);
   // what stays home after farming goes scavenging (not when the bot is about to fight)
   if (attentive && !forgets(0.5) && !atWar(state, player)) botScavenge(state, v, profile.farmUnits);
   if (attentive) trade(state, player, v);
@@ -475,7 +478,7 @@ function storageOf(v: Village): number {
 
 function research(state: WorldState, v: Village, profile: BotProfile): void {
   if (v.research) return;
-  const wanted = [...profile.farmUnits, ...(Object.keys(profile.troops) as UnitId[])];
+  const wanted = [...profile.farmUnits, ...(Object.keys(profile.troops) as UnitId[]), 'spy' as UnitId];
   for (const u of wanted) {
     if (v.researched.includes(u)) continue;
     if (researchBlocker(state, v, u) === null) {
@@ -505,6 +508,12 @@ function recruitTroops(state: WorldState, v: Village, profile: BotProfile, reser
   // one paladin, kept at home: with items he guards the village with his weapon
   if (config.paladin !== 'off' && v.buildings.statue > 0 && recruitBlocker(state, v, 'knight') === null && maxRecruitable(state, v, 'knight') > 0) {
     recruit(state, v.id, 'knight', 1);
+  }
+  // a few scouts in every village: bots look before they attack a player
+  const spies = v.units.spy + v.outside.spy + v.recruitQueues.stable.filter((j) => j.unit === 'spy').reduce((n, j) => n + j.total - j.done, 0);
+  if (spies < BOT_SPIES && recruitBlocker(state, v, 'spy') === null) {
+    const n = Math.min(BOT_SPIES - spies, maxRecruitable(state, v, 'spy'));
+    if (n > 0) recruit(state, v.id, 'spy', n);
   }
   const have = currentResources(config, v, state.time);
   const spare: Res = [0, 1, 2].map((i) => Math.max(0, have[i as 0 | 1 | 2] - reserve[i as 0 | 1 | 2])) as Res;
@@ -538,6 +547,9 @@ function farm(state: WorldState, player: Player, v: Village, profile: BotProfile
   // sloppier players send fewer farm runs
   const farmAttacksPerTurn = Math.max(1, Math.round(state.config.bots.farmAttacksPerTurn * skill));
 
+  const near = farmTargets(state, player, v, profile, farmRadius);
+  // players in range: look before farming them
+  scoutForFarming(state, player, v, profile, near);
   if (!profile.farmUnits.some((u) => v.units[u] >= (FARM_GROUP[u] ?? 10))) return;
   // villages this bot already has troops on the way to
   const busy = new Set<number>(bot.outgoing);
@@ -548,8 +560,10 @@ function farm(state: WorldState, player: Player, v: Village, profile: BotProfile
     // which keeps the number of attacks (and the work for the simulation) in check
     const group = Math.max(FARM_GROUP[u] ?? 10, Math.ceil((v.units[u] + v.outside[u]) / 20));
     if (v.units[u] < group) continue;
-    const targets = farmTargets(state, player, v, profile, farmRadius).filter((t) => {
+    const targets = near.filter((t) => {
       if (busy.has(t.id)) return false;
+      // a player village only when scouted and (nearly) empty
+      if (t.owner >= 0 && !farmablePlayerVillage(state, player, t, { [u]: group })) return false;
       const log = bot.farmLog[t.id];
       // a lost attack: stay away for a day
       return !(log && !log.won && state.time - log.at < 24 * 60 * MINUTE);
@@ -747,7 +761,11 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
   if (v.units.snob < NOBLE_TRAIN || !isOperational(config, v, 'place')) return false;
 
   const target = nobleTarget(state, player, v, profile);
-  if (!target) return false;
+  if (!target) {
+    // nothing known it can take: look around for a player village to go for
+    if (profile.attacksPlayers) scoutForConquest(state, player, v, villagesNear(state, v, Math.min(NOBLE_RADIUS, config.conquest.maxDistance)));
+    return false;
+  }
   // each nobleman gets his own escort: they arrive together, one after the other
   let sent = 0;
   for (let i = 0; i < NOBLE_TRAIN; i++) {
@@ -787,8 +805,8 @@ function nobleTarget(state: WorldState, player: Player, v: Village, profile: Bot
     if (t.owner === player.id || distance(t, v) > maxDist) return false;
     if (t.owner === BARBARIAN) return true;
     if (!profile.attacksPlayers || protectionBlocker(state, player.id, t.owner) !== null || !mayAttack(state, player.id, t.owner) || spares(state, bot, t.owner)) return false;
-    // only players it beat before
-    return bot.farmLog[t.id]?.won === true;
+    // only players it beat before, or scouted and can clearly break
+    return bot.farmLog[t.id]?.won === true || beatable(state, player, t, v);
   };
   if (current && ok(current) && bot.farmLog[current.id]?.won !== false) return current;
   let best: Village | null = null;

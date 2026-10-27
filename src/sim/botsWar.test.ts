@@ -31,7 +31,7 @@ describe('bots at war', () => {
     expect(mine.some((x) => x.loyalty !== undefined && x.id !== v.id)).toBe(true);
   });
 
-  it('aggressive bots farm players once protection is over, defensive ones keep a defense', () => {
+  it('aggressive bots scout players once protection is over, and farm the empty ones', () => {
     const s = createWorld(createConfig('classic', 'War', 32, { bots: { tiers: { pro: 1, mid: 0 }, count: 1 }, unitSpeed: 20, conquest: { protectionDays: 1 } }));
     const bot = s.players.find((p) => p.isBot);
     const v = bot ? villagesOf(s, bot.id)[0] : undefined;
@@ -44,12 +44,17 @@ describe('bots at war', () => {
     v.buildings.place = 1;
     v.buildings.barracks = 5;
     v.units.light = 50;
-    v.researched.push('light');
+    v.units.spy = 5;
+    v.buildings.stable = 1;
+    v.researched.push('light', 'spy');
     run(s, 0.5 * DAY);
     const before = s.reports.filter((r) => r.defense).length;
     expect(before).toBe(0);
     run(s, 1 * DAY);
-    expect(s.reports.filter((r) => r.defense).length).toBeGreaterThan(0);
+    const seen = s.reports.filter((r) => r.defense);
+    // first scouts, then (the village is empty) a farm run
+    expect(seen.some((r) => (r.attackerUnits.sent.spy ?? 0) > 0 && !r.attackerUnits.sent.light)).toBe(true);
+    expect(seen.some((r) => (r.attackerUnits.sent.light ?? 0) > 0)).toBe(true);
   });
 
   it('turtles recruit defense in proportion to their points', () => {

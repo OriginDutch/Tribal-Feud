@@ -20,6 +20,7 @@ import { mateEvent, onVillageLost } from './loyalty';
 import { leaderOrderSupport } from './tribeOrders';
 import { statAttack, statConquest } from './worldStats';
 import { battleBonus } from './battleBonus';
+import { judgeScout, rememberScout } from './botStrategy';
 import { equipped, itemKills } from './paladin';
 import { flagForConquest, flagKills, flagValue } from './flags';
 
@@ -423,7 +424,23 @@ function arriveAttack(state: WorldState, m: Movement): void {
   }
   removeMovement(state, m.id);
 
-  if (m.owner !== HUMAN_ID) rememberFarm(state, m.owner, target.id, battle.attackerWon);
+  if (m.owner !== HUMAN_ID) {
+    const spiesOnly = !UNIT_IDS.some((u) => u !== 'spy' && (m.units[u] ?? 0) > 0);
+    // a scout is no win or loss for the farm log: it only frees the target again
+    if (!spiesOnly) rememberFarm(state, m.owner, target.id, battle.attackerWon);
+    else {
+      const out = state.players[m.owner]?.bot?.outgoing;
+      const i = out ? out.indexOf(target.id) : -1;
+      if (out && i >= 0) out.splice(i, 1);
+    }
+    if (target.owner >= 0 && (m.units.spy ?? 0) > 0) {
+      // scouts that die see nothing: the bot notes that this one keeps its borders shut
+      if (battle.spiesSurvived > 0) rememberScout(state, m.owner, target, defenderPresent, battle.wallBefore);
+      else rememberScout(state, m.owner, target, null, 0);
+      const p = state.players[m.owner];
+      if (p) judgeScout(state, p, from, target);
+    }
+  }
 
   if (m.owner === HUMAN_ID) {
     const anyLost = UNIT_IDS.some((u) => (battle.attackerLost[u] ?? 0) > 0);

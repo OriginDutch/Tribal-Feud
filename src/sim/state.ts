@@ -142,6 +142,12 @@ export interface BotState {
   nextTurn: number;
   /** What the bot knows about barbarian villages it farmed: village id -> last result. */
   farmLog: Record<number, { at: number; won: boolean }>;
+  /** What its scouts saw in player villages: village id -> defense strength (see botStrategy). */
+  scouted?: Record<number, import('./botStrategy').BotScout>;
+  /** Players it leaves alone (scouted strong) until a time. */
+  wary?: Record<number, number>;
+  /** Last war or revenge attack. */
+  lastStrike?: number;
   /** Barbarian villages this bot has a farm attack on the way to. */
   outgoing: number[];
   /** Next village to look at when the bot has more villages than it handles per turn. */
