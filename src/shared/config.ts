@@ -49,6 +49,20 @@ export const DIFFICULTIES: Record<BotDifficulty, DifficultyDef> = {
   normal: { attentionMinutes: 45, villagesPerTurn: 5, conquestCooldownHours: 0 },
   hard: { attentionMinutes: 10, villagesPerTurn: 5, conquestCooldownHours: 0 },
 };
+/**
+ * How kind bots are to YOU and your tribe (bots among themselves don't change):
+ * accept: x chance they say yes to your invitation or application; reach: extra fields for
+ * your tribe's reach; treaty: + chance they take your NAP/alliance/peace; war: x chance a
+ * bot tribe declares war on yours; grudgeDecay: x how fast grudges against you fade.
+ */
+export interface Kindness { accept: number; reach: number; treaty: number; war: number; grudgeDecay: number }
+export const KINDNESS: Record<BotDifficulty, Kindness> = {
+  easy: { accept: 1.3, reach: 4, treaty: 0.2, war: 0.5, grudgeDecay: 2 },
+  normal: { accept: 1, reach: 0, treaty: 0, war: 1, grudgeDecay: 1 },
+  hard: { accept: 0.8, reach: -2, treaty: -0.1, war: 1.5, grudgeDecay: 1 },
+};
+export const kindness = (c: WorldConfig): Kindness => KINDNESS[c.bots.difficulty] ?? KINDNESS.normal;
+
 export type PresetId = 'classic' | 'speed' | 'hardcore' | 'custom';
 
 export interface WorldConfig {

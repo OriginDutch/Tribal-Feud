@@ -9,6 +9,7 @@
  * Runs on its own slow clock ('diplomacy' event), deterministic through the world rng.
  */
 import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
+import { kindness } from '../shared/config';
 import { HOUR, MINUTE } from '../shared/time';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { sawAttack } from './botReact';
@@ -156,7 +157,9 @@ export function fitCheck(state: WorldState, t: Tribe, candidate: number): { reas
   const tc = tribeCentre(state, t), cc = playerCentre(state, candidate);
   if (!tc || !cc) return { reason: 'gone', distance: 0, reach: REACH };
   const d = dist(tc, cc);
-  const reach = reachOf(state, t, tc);
+  // your tribe (or you as candidate): the difficulty makes bots more or less welcoming
+  const yours = candidate === HUMAN_ID || t.members.includes(HUMAN_ID);
+  const reach = reachOf(state, t, tc) + (yours ? kindness(state.config).reach : 0);
   const out = (reason: FitReason) => ({ reason, distance: d, reach });
   if (t.members.length >= MAX_MEMBERS) return out('full');
   if (d > reach) return out('far');
@@ -328,6 +331,7 @@ function diplomacy(state: WorldState): void {
     return true;
   };
   const allies = (t: Tribe) => Object.values(t.relations).filter((r) => r === 'ally').length;
+  const warFactor = (t: Tribe) => (t.members.includes(HUMAN_ID) ? kindness(state.config).war : 1);
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const a = list[i]!, b = list[j]!;
     const ca = centres.get(a.id), cb = centres.get(b.id);
@@ -343,7 +347,7 @@ function diplomacy(state: WorldState): void {
     if (!rel) {
       // the stronger side may smell blood; the more diplomatic side wants quiet
       const hunger = AGGRESSION[lead(strong)] * Math.min(1, (power - 1) / 1.5);
-      if (state.time > 36 * HOUR && roll < hunger * 0.05 && !human(strong)) {
+      if (state.time > 36 * HOUR && roll < hunger * 0.05 * warFactor(weak) && !human(strong)) {
         declareWar(state, strong, weak);
       } else if (roll > 1 - (1 - AGGRESSION[lead(a)]) * (1 - AGGRESSION[lead(b)]) * 0.012) {
         if (offer(a, b, 'nap')) continue;
@@ -357,7 +361,7 @@ function diplomacy(state: WorldState): void {
         if (offer(a, b, 'ally')) continue;
         setRelation(state, a, b, 'ally');
         addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] worden bondgenoten.` });
-      } else if (roll < AGGRESSION[lead(strong)] * 0.01 * (power - 1) && !human(strong)) {
+      } else if (roll < AGGRESSION[lead(strong)] * 0.01 * (power - 1) * warFactor(weak) && !human(strong)) {
         declareWar(state, strong, weak, true);
       }
     } else if (rel === 'war') {

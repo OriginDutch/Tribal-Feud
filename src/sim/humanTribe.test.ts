@@ -3,7 +3,8 @@ import { createConfig } from '../shared/config';
 import { answerMessage, applyToHuman, applyToTribe, foundTribe, humanTribeTick, invitePlayer, kickMember, leaveTribe, proposeToHuman } from './humanTribe';
 import { sendAttack } from './movement';
 import { HUMAN_ID, createWorld, playerVillage, villagesOf, type WorldState } from './state';
-import { declareWar, found, join, tribeOf, type Tribe } from './tribes';
+import { declareWar, fitCheck, found, join, tribeOf, type Tribe } from './tribes';
+import { grudge } from './botReact';
 
 /** All bots pro (always online) so their answers come at the first tick. */
 function world(seed = 31): WorldState {
@@ -127,5 +128,23 @@ describe('your tribe', () => {
     invitePlayer(s, loner.id);
     humanTribeTick(s);
     expect(s.tribeRefusals?.invites[loner.id]).toBe(2);
+  });
+});
+
+describe('difficulty: kindness to your tribe', () => {
+  it('easy reaches further for you, hard less; grudges against you fade faster on easy', () => {
+    const s = world();
+    expect(foundTribe(s, 'Leeuwen', 'LEEUW')).toBeNull();
+    const t = tribeOf(s, HUMAN_ID)!;
+    const bot = botsByDistance(s)[0]!;
+    const reach = (d: 'easy' | 'normal' | 'hard') => { s.config.bots.difficulty = d; return fitCheck(s, t, bot.id).reach; };
+    expect(reach('easy')).toBeCloseTo(reach('normal') + 4);
+    expect(reach('hard')).toBeCloseTo(reach('normal') - 2);
+    bot.bot!.grudges = { [HUMAN_ID]: { score: 1, at: s.time } } as never;
+    s.time += 12 * 3_600_000;
+    s.config.bots.difficulty = 'normal';
+    const normal = grudge(s, bot, HUMAN_ID);
+    s.config.bots.difficulty = 'easy';
+    expect(grudge(s, bot, HUMAN_ID)).toBeLessThan(normal);
   });
 });

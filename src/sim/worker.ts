@@ -164,6 +164,7 @@ function snapshot(): Snapshot | null {
     nobleTemplates: state.nobleTemplates ?? [],
     groups: state.villageGroups ?? [],
     surplus: state.surplus ?? DEFAULT_SURPLUS,
+    difficulty: state.config.bots.difficulty,
     templateUse: templateUse(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
@@ -753,6 +754,13 @@ async function handle(cmd: Command): Promise<void> {
     case 'getInbox':
       if (state) post({ type: 'inbox', inbox: inboxViews(state) });
       return;
+    case 'setDifficulty': {
+      if (!state) return;
+      if (!['easy', 'normal', 'hard'].includes(cmd.difficulty)) return;
+      state.config.bots.difficulty = cmd.difficulty;
+      addLog(state, { time: state.time, text: `Moeilijkheid van de bots: ${({ easy: 'Makkelijk', normal: 'Normaal', hard: 'Moeilijk' } as const)[cmd.difficulty]}.` });
+      break;
+    }
     case 'getMintPlan':
       if (state) post({ type: 'mintPlan', rows: mintRows(state, cmd.keep), keep: cmd.keep });
       return;

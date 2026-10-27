@@ -14,7 +14,8 @@ import { distance, protectionBlocker, sendAttack, sendSupport, travelTimeMs } fr
 import { mayAttack } from './tribes';
 import { spares } from './tribeOrders';
 import { nextFloat } from './rng';
-import { BARBARIAN, movementIndex, villagesOf, type BotTier, type Player, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, movementIndex, villagesOf, type BotTier, type Player, type WorldState } from './state';
+import { kindness } from '../shared/config';
 import { isOperational, type Village } from './village';
 
 export type AttackKind = 'noble' | 'siege' | 'sword' | 'infantry' | 'heavy' | 'cav' | 'scout';
@@ -164,7 +165,7 @@ const GRUDGE_HALF_LIFE_MS = 24 * 60 * MINUTE;
 export function grudge(state: WorldState, player: Player, against: number): number {
   const g = player.bot?.grudges?.[against];
   if (!g) return 0;
-  const age = (state.time - g.at) * state.config.worldSpeed;
+  const age = (state.time - g.at) * state.config.worldSpeed * (against === HUMAN_ID ? kindness(state.config).grudgeDecay : 1);
   return g.score * 0.5 ** (age / GRUDGE_HALF_LIFE_MS);
 }
 function addGrudge(state: WorldState, player: Player, against: number, danger: number): void {

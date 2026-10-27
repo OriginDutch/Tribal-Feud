@@ -88,6 +88,7 @@ export type Command =
   | { type: 'sendSurplus'; keep: number }
   | { type: 'getSurplusPlan'; keep: number }
   | { type: 'getMintPlan'; keep: number }
+  | { type: 'setDifficulty'; difficulty: 'easy' | 'normal' | 'hard' }
   | { type: 'mintAll'; keep: number }
   | { type: 'dismissToast'; id: number | 'all' }
   | { type: 'sendResources'; from: number; to: number; res: [number, number, number] }
@@ -317,6 +318,8 @@ export interface Snapshot {
   groups: VillageGroup[];
   /** Surplus to building villages: keep share and automatic on/off. */
   surplus: { keep: number; auto: boolean };
+  /** Bot difficulty of this world (can be changed while playing). */
+  difficulty: 'easy' | 'normal' | 'hard';
   /** Villages using each template (build and troop), by id. */
   templateUse: Record<string, number>;
   unreadReports: number;

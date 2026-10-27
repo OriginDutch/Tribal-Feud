@@ -5,6 +5,7 @@
  * themselves: the position rule (not too far, not behind an enemy, not prey in the middle),
  * the leader's view of your strength, their personality and any grudge against you.
  */
+import { kindness } from '../shared/config';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { DAY } from '../shared/time';
 import { isOnline } from './bots';
@@ -308,7 +309,7 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
       fits(state, t, HUMAN_ID) &&
       leaderAccepts(state, t, me) &&
       grudge(state, leader, HUMAN_ID) < 0.5 &&
-      nextFloat(state.rng) < (arch === 'opportunist' ? (strongEnough(state, t, HUMAN_ID) ? 0.9 : 0.3) : TAKES_YOU[arch] ?? 0.6);
+      nextFloat(state.rng) < Math.min(0.97, (arch === 'opportunist' ? (strongEnough(state, t, HUMAN_ID) ? 0.9 : 0.3) : TAKES_YOU[arch] ?? 0.6) * kindness(state.config).accept);
     if (ok) {
       join(state, t, me);
       addMessage(state, { kind: 'answer', from: leader.id, tribe: t.id, title: `Welkom bij ${tag(t)}`, text: `${leader.name} heeft je aanmelding geaccepteerd. Je bent nu lid van ${tag(t)} ${t.name}.` });
@@ -331,7 +332,7 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
       const mine = tribeCentre(state, t)?.points ?? 0, theirs = tribeCentre(state, current)?.points ?? 0;
       ok = arch === 'opportunist' && mine > theirs * 1.5 && nextFloat(state.rng) < 0.5;
     } else if (ok) {
-      ok = nextFloat(state.rng) < SOCIAL[arch] * 0.9;
+      ok = nextFloat(state.rng) < Math.min(0.97, SOCIAL[arch] * 0.9 * kindness(state.config).accept);
     }
     if (ok) {
       join(state, t, p);
@@ -361,6 +362,7 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
     chance = o.relations[mine.id] === 'nap' && since > DAY / (4 * state.config.worldSpeed) && allies < MAX_ALLIES ? SOCIAL[arch] * 0.7 - g * 0.5 : 0;
   }
   if (ask.relation === 'peace') chance = (1 - AGGRESSION[arch]) * 0.6 + (strongerUs ? 0.3 : 0) - g * 0.3;
+  if (chance > 0) chance += kindness(state.config).treaty;
   const ok = (ask.relation === 'peace' ? o.relations[mine.id] === 'war' : o.relations[mine.id] !== 'war') && nextFloat(state.rng) < chance;
   if (ok) {
     setRelation(state, mine, o, ask.relation === 'peace' ? null : ask.relation);
