@@ -25,7 +25,7 @@ import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteNobleTemplate, deleteTemplate, deleteTroopTemplate, findTemplate, saveNobleTemplate, saveTemplate, saveTroopTemplate, scheduleManager, setManager, templateUse } from './manager';
 import { HUMAN_ID, addLog } from './state';
 import { claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
-import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow, SurplusRow, EndgameView, OpinionsView } from '../shared/protocol';
+import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow, SurplusRow, EndgameView, OpinionsView, WorldStatsView } from '../shared/protocol';
 import {
   MERCHANT_CARRY,
   MERCHANT_MINUTES_PER_FIELD,
@@ -60,6 +60,7 @@ import {
   type Village,
 } from './village';
 import { endgameRules } from './endgame';
+import { liveTribes } from './worldStats';
 import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
 import { DEFAULT_SURPLUS, mintAll, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
 
@@ -202,6 +203,34 @@ function sendRanking(s: WorldState): void {
 }
 
 /** For a leader: the 20 players nearest to your villages that are not in your tribe. */
+function worldStatsView(s: WorldState): WorldStatsView {
+  const ws = s.worldStats ?? { days: [], players: {}, conquests: [] };
+  const name = (id: number) => (id < 0 ? 'barbaren' : (s.players[id]?.name ?? '?'));
+  const tagOf = (id: number) => { const t = s.players[id]?.tribe; return t !== undefined ? s.tribes?.[t]?.tag : undefined; };
+  const row = (id: number) => { const p = ws.players[id]!; return { id, name: name(id), ...(tagOf(id) ? { tag: tagOf(id)! } : {}), pvp: p.pvp, barb: p.barb, took: p.took, lost: p.lost }; };
+  const ids = Object.keys(ws.players).map(Number);
+  const live = liveTribes(s);
+  const days = ws.days;
+  // tribe series: every tribe in the top 8 of any day (or now), that still exists
+  const tribeIds = new Set<number>(Object.keys(live).map(Number));
+  for (const d of days) for (const id of Object.keys(d.tribes ?? {})) tribeIds.add(Number(id));
+  const tribes = [...tribeIds].map((id) => s.tribes?.[id]).filter((t): t is NonNullable<typeof t> => !!t)
+    .map((t) => ({ id: t.id, tag: t.tag, color: t.color, you: t.members.includes(HUMAN_ID), series: [...days.slice(0, -1).map((d) => d.tribes?.[t.id] ?? null), live[t.id] ?? null] }))
+    .sort((a, b) => (b.series.at(-1) ?? 0) - (a.series.at(-1) ?? 0)).slice(0, 8);
+  const you = ws.players[HUMAN_ID] ?? { pvp: 0, barb: 0, took: 0, tookBarb: 0, lost: 0 };
+  const wars = Object.values(s.tribes ?? {}).reduce((a, t) => a + Object.values(t.relations).filter((r) => r === 'war').length, 0) / 2;
+  const botsAlive = s.players.filter((p) => p.bot && villagesOf(s, p.id).length);
+  return {
+    days: days.map((d) => ({ day: d.day, attacksPvp: d.attacksPvp, attacksBarb: d.attacksBarb, conquestsPvp: d.conquestsPvp, conquestsBarb: d.conquestsBarb, onYou: d.onYou, byYou: d.byYou, wars: d.wars ?? wars })),
+    tribes,
+    topAttackers: ids.filter((id) => ws.players[id]!.pvp > 0).sort((a, b) => ws.players[b]!.pvp - ws.players[a]!.pvp).slice(0, 10).map(row),
+    topConquerors: ids.filter((id) => ws.players[id]!.took > 0).sort((a, b) => ws.players[b]!.took - ws.players[a]!.took).slice(0, 10).map(row),
+    recent: ws.conquests.slice(-30).reverse().map((c) => ({ time: c.time, name: c.name, from: c.from, fromName: name(c.from), to: c.to, toName: name(c.to) })),
+    you: { ...you },
+    totals: { conquestsPvp: s.conquests?.player ?? 0, conquestsBarb: s.conquests?.barbarian ?? 0, tribes: Object.keys(s.tribes ?? {}).length, wars, solo: botsAlive.filter((p) => p.tribe === undefined).length, bots: botsAlive.length },
+  };
+}
+
 function opinionsView(s: WorldState): OpinionsView {
   const t = s.players[HUMAN_ID]?.tribe !== undefined ? s.tribes?.[s.players[HUMAN_ID]!.tribe!] : undefined;
   const mates = t && t.leader === HUMAN_ID
@@ -823,6 +852,9 @@ async function handle(cmd: Command): Promise<void> {
       post({ type: 'opinions', opinions: opinionsView(state) });
       break;
     }
+    case 'getWorldStats':
+      if (state) post({ type: 'worldStats', stats: worldStatsView(state) });
+      return;
     case 'getOpinions':
       if (state) post({ type: 'opinions', opinions: opinionsView(state) });
       return;

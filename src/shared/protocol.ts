@@ -93,6 +93,7 @@ export type Command =
   | { type: 'askPermission'; target: number }
   | { type: 'betray'; target: number }
   | { type: 'getOpinions' }
+  | { type: 'getWorldStats' }
   | { type: 'setDifficulty'; difficulty: 'easy' | 'normal' | 'hard' }
   | { type: 'mintAll'; keep: number }
   | { type: 'dismissToast'; id: number | 'all' }
@@ -402,6 +403,7 @@ export type WorkerMessage =
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'supportList'; rows: SupportRow[] }
   | { type: 'opinions'; opinions: OpinionsView }
+  | { type: 'worldStats'; stats: WorldStatsView }
   | { type: 'surplusPlan'; rows: SurplusRow[]; keep: number }
   | { type: 'mintPlan'; rows: { id: number; name: string; x: number; y: number; coins: number }[]; keep: number }
   | { type: 'player'; player: PlayerView | null }
@@ -468,4 +470,16 @@ export interface OpinionsView {
   permissions: { target: number; name: string; answer?: 'yes' | 'no'; until?: number }[];
   /** Your open resource ask. */
   resourceAsk?: { village: number; res: [number, number, number]; sent: [number, number, number]; at: number };
+}
+
+/** World statistics screen. */
+export interface WorldStatsView {
+  days: { day: number; attacksPvp: number; attacksBarb: number; conquestsPvp: number; conquestsBarb: number; onYou: number; byYou: number; wars: number }[];
+  /** Villages per tribe per day (end of day; the last entry is now). */
+  tribes: { id: number; tag: string; color: string; you: boolean; series: (number | null)[] }[];
+  topAttackers: { id: number; name: string; tag?: string; pvp: number; barb: number; took: number; lost: number }[];
+  topConquerors: { id: number; name: string; tag?: string; pvp: number; barb: number; took: number; lost: number }[];
+  recent: { time: number; name: string; from: number; fromName: string; to: number; toName: string }[];
+  you: { pvp: number; barb: number; took: number; tookBarb: number; lost: number };
+  totals: { conquestsPvp: number; conquestsBarb: number; tribes: number; wars: number; solo: number; bots: number };
 }

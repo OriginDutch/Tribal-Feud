@@ -3,6 +3,7 @@ import type { VillageGroup } from './groups';
 import type { SurplusSettings } from './surplus';
 import type { EndgameState } from './endgame';
 import type { MoodNote } from './loyalty';
+import type { WorldStats } from './worldStats';
 import type { TradeOffer } from './market';
 import type { Intel } from './intel';
 import type { WorldConfig } from '../shared/config';
@@ -228,6 +229,8 @@ export interface WorldState {
   troopTemplates?: TroopTemplate[];
   /** Your village groups. */
   villageGroups?: VillageGroup[];
+  /** World statistics (attacks and conquests per day, per player). */
+  worldStats?: WorldStats;
   /** Domination endgame: warnings, the tribe holding the target, the winner. */
   endgame?: EndgameState;
   /** Surplus to building villages (button and automatic). */

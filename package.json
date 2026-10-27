@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "bench": "npx --yes esbuild tools/bench/bench.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/bench.mjs --log-level=error && node node_modules/.cache/bench.mjs",
     "fingerprint": "npx --yes esbuild tools/bench/fingerprint.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/fingerprint.mjs --log-level=error && node node_modules/.cache/fingerprint.mjs",
-    "growth": "npx --yes esbuild tools/bench/growth.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/growth.mjs --log-level=error && node node_modules/.cache/growth.mjs"
+    "growth": "npx --yes esbuild tools/bench/growth.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/growth.mjs --log-level=error && node node_modules/.cache/growth.mjs",
+    "stats": "npx --yes esbuild tools/bench/stats.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/stats.mjs --log-level=error && node node_modules/.cache/stats.mjs"
   },
   "repository": {
     "type": "git",

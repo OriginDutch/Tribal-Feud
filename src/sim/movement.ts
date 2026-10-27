@@ -17,6 +17,7 @@ import { formatGameTime } from '../shared/time';
 import { arriveTrade, arriveTradeReturn } from './market';
 import { currentResources, isOperational, settle, type Village } from './village';
 import { mateEvent, onVillageLost } from './loyalty';
+import { statAttack, statConquest } from './worldStats';
 
 export interface Movement {
   id: number;
@@ -295,6 +296,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
 
   growBarbarian(state, target, state.time);
   settle(config, target, state.time);
+  statAttack(state, m.owner, target.owner);
 
   const luck = config.luck ? (nextFloat(state.rng) * 2 - 1) * config.combat.luckRange : 0;
   // points only matter against players: skip the (expensive) count for barbarians
@@ -500,6 +502,7 @@ export function loyaltyNow(config: WorldState['config'], v: Village, time: numbe
 export function conquer(state: WorldState, v: Village, newOwner: number): void {
   const { config } = state;
   const old = v.owner;
+  statConquest(state, v.id, v.name, old, newOwner);
   if (old >= 0 && old !== HUMAN_ID) {
     const helped = Object.keys(v.support ?? {}).some((o) => state.villages[Number(o)]?.owner === HUMAN_ID);
     onVillageLost(state, old, helped, v.name);

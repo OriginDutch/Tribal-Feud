@@ -697,3 +697,11 @@ p.bad { color: #e5533f; }
 .mood-notes .good, span.good { color: #7fbf5a; }
 .mood-notes .bad, span.bad { color: #e5533f; }
 button.nuke { background: #b3261e; color: #fff; border-color: #b3261e; font-weight: 800; }
+.stats-chart { width: 100%; height: auto; display: block; margin-top: 8px; }
+.stats-chart .grid { stroke: rgba(255,255,255,0.07); stroke-width: 1; }
+.stats-chart .axis { fill: var(--muted, #9a8f80); font-size: 11px; }
+.stats-chart .axis.label { fill: var(--text, #e8dcc8); font-weight: 600; }
+.stats-chart .bar:hover rect:not([fill="transparent"]) { opacity: 0.85; }
+.stats-legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted, #9a8f80); }
+.stats-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.stats-tables { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }

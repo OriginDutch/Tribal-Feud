@@ -17,6 +17,7 @@ const PATHS: Record<string, string> = {
   farm: '<path d="M4 20c4-1 6-5 6-10"/><path d="M10 10c-3 0-5-2-5-5 3 0 5 2 5 5z"/><path d="M14 20c4-1 6-5 6-10"/><path d="M20 10c-3 0-5-2-5-5 3 0 5 2 5 5z"/>',
   reports: '<path d="M5 3h11l3 3v15H5z"/><path d="M9 9h6M9 13h6M9 17h4"/>',
   tribes: '<path d="M5 21V4"/><path d="M5 4h11l-2.5 3.5L16 11H5"/><circle cx="17" cy="17" r="2.2"/><path d="M13.5 21a3.5 3.5 0 0 1 7 0"/>',
+  stats: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   relations: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
   support: '<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
   inbox: '<path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 3h6l1-3h5"/>',
