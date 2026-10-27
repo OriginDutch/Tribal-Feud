@@ -3,8 +3,9 @@ import { Coords } from '../components/Coords';
 import { formatGameTime } from '../../shared/time';
 import { TripleConfirm } from '../components/TripleConfirm';
 import { num } from '../format';
-import type { MapVillage, PlayerView } from '../../shared/protocol';
-import { mapData, attackVillage, openTribe, playerFocus, playerView, send, showOnMap } from '../store';
+import type { PlayerView } from '../../shared/protocol';
+import { MapScreen } from './MapScreen';
+import { attackVillage, openTribe, playerFocus, playerView, send, showOnMap } from '../store';
 
 /** A player's profile: where they are, their villages, and what happened between you. */
 export function PlayerScreen() {
@@ -159,68 +160,12 @@ export function PlayerScreen() {
   );
 }
 
-/**
- * A small piece of the world map around him and his tribe: every village in the frame as a
- * square (like the big map), his in gold, his tribe mates' in the tribe colour, yours in blue,
- * the rest dim. Grid lines every 5 fields. Click a village for the big map.
- */
+/** The real map, small, framed on his villages (marked like "Toon op kaart" does). */
 function MiniMap({ p }: { p: PlayerView }) {
-  useEffect(() => { if (!mapData.value) send({ type: 'getMap' }); }, []);
-  const color = p.tribe?.color ?? '#9a8f7e';
-  const core = [...p.villages, ...p.mates.flatMap((m) => m.villages)];
-  let x0 = Math.min(...core.map((v) => v.x)), x1 = Math.max(...core.map((v) => v.x)) + 1;
-  let y0 = Math.min(...core.map((v) => v.y)), y1 = Math.max(...core.map((v) => v.y)) + 1;
-  // 4 fields of margin, at least 16 high, and landscape (3.8 : 1, the panel's shape)
-  x0 -= 4; x1 += 4; y0 -= 4; y1 += 4;
-  const growTo = (a: number, b: number, size: number): [number, number] => (b - a >= size ? [a, b] : [a - (size - (b - a)) / 2, b + (size - (b - a)) / 2]);
-  [y0, y1] = growTo(y0, y1, 16);
-  [x0, x1] = growTo(x0, x1, (y1 - y0) * 3.8);
-  [y0, y1] = growTo(y0, y1, (x1 - x0) / 3.8);
-  x0 = Math.floor(x0); y0 = Math.floor(y0); x1 = Math.ceil(x1); y1 = Math.ceil(y1);
-  const w = x1 - x0, h = y1 - y0;
-
-  const his = new Set<string>(p.villages.map((v) => `${v.x}|${v.y}`));
-  const mates = new Map<string, string>(p.mates.flatMap((m) => m.villages.map((v) => [`${v.x}|${v.y}`, m.name] as [string, string])));
-  const all = (mapData.value?.villages ?? []).filter((v) => v.x >= x0 && v.x < x1 && v.y >= y0 && v.y < y1);
-  const fill = (v: MapVillage) => {
-    const k = `${v.x}|${v.y}`;
-    if (his.has(k)) return '#e0b04a';
-    if (mates.has(k)) return color;
-    if (v.kind === 'own') return '#4f8fd6';
-    return v.kind === 'barb' ? '#463f34' : '#8f7f60';
-  };
-  const order = (v: MapVillage) => (his.has(`${v.x}|${v.y}`) ? 3 : mates.has(`${v.x}|${v.y}`) ? 2 : v.kind === 'own' ? 1 : 0);
-  const grid: preact.JSX.Element[] = [];
-  for (let x = Math.ceil(x0 / 5) * 5; x < x1; x += 5) grid.push(<line key={`gx${x}`} x1={x} y1={y0} x2={x} y2={y1} />);
-  for (let y = Math.ceil(y0 / 5) * 5; y < y1; y += 5) grid.push(<line key={`gy${y}`} x1={x0} y1={y} x2={x1} y2={y} />);
-
   return (
     <section class="panel">
       <h2>Kaart</h2>
-      <svg class="mini-map" viewBox={`${x0} ${y0} ${w} ${h}`} preserveAspectRatio="xMidYMid meet">
-        <rect x={x0} y={y0} width={w} height={h} class="mini-map-bg" />
-        <g class="mini-map-grid">{grid}</g>
-        {[...all].sort((a, b) => order(a) - order(b)).map((v) => {
-          const strong = order(v) >= 2;
-          const size = strong ? 0.8 : 0.62;
-          return (
-            <rect
-              key={v.id}
-              x={v.x + (1 - size) / 2} y={v.y + (1 - size) / 2} width={size} height={size} rx={0.12}
-              fill={fill(v)} stroke={his.has(`${v.x}|${v.y}`) ? '#1c1813' : 'none'} stroke-width={0.08}
-              onClick={() => showOnMap({ x: v.x, y: v.y })}
-            >
-              <title>{v.name} ({v.x}|{v.y}) · {v.kind === 'barb' ? 'barbaren' : v.ownerName} · {num(v.points)} p</title>
-            </rect>
-          );
-        })}
-      </svg>
-      <p class="hint">
-        <span style={{ color: '#e0b04a' }}>■</span> {p.name}
-        {p.mates.length > 0 && <> · <span style={{ color }}>■</span> stamgenoten ({p.mates.length})</>}
-        {' '}· <span style={{ color: '#4f8fd6' }}>■</span> jij · <span style={{ color: '#8f7f60' }}>■</span> anderen · <span style={{ color: '#463f34' }}>■</span> barbaren
-        {' '}· {w}×{h} velden ({x0}|{y0} – {x1 - 1}|{y1 - 1}). Klik een dorp voor de grote kaart.
-      </p>
+      <MapScreen embed={{ owner: p.id }} />
     </section>
   );
 }

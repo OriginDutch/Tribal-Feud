@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { MapVillage } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
-import { attackVillage, inviteCandidates, mapData, mapFocus, mapStyle, openPlayer, openSupport, openTribe, refusedInvites, tribeAsks, selectedVillage, send, setMapStyle, snapshot } from '../store';
+import { attackVillage, inviteCandidates, mapData, mapFocus, mapStyle, openPlayer, openSupport, openTribe, refusedInvites, showOnMap, tribeAsks, selectedVillage, send, setMapStyle, snapshot } from '../store';
 import { OVERHANG, forestAt, onSpriteLoad, tierOf, villageAt } from '../map/mapSprites';
 import { distance, travelMs } from '../units';
 
@@ -49,7 +49,11 @@ function continent(x: number, y: number): string {
   return `K${Math.floor(y / 100)}${Math.floor(x / 100)}`;
 }
 
-export function MapScreen() {
+/**
+ * The world map. With `embed` it is a small window on someone's villages (the player profile):
+ * just the canvas, his villages marked, drag and zoom work, a click opens the big map there.
+ */
+export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
   const data = mapData.value;
   const s = snapshot.value;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -80,7 +84,7 @@ export function MapScreen() {
   // open on the village you have selected, and follow it when you switch villages (A/D) on the map;
   // the snapshot is always fresh, the map data may still be from your last visit
   const here = s?.village;
-  if (here && cam.current.centeredOn !== here.id) {
+  if (!embed && here && cam.current.centeredOn !== here.id) {
     cam.current.cx = here.x;
     cam.current.cy = here.y;
     cam.current.centered = true;
@@ -104,8 +108,26 @@ export function MapScreen() {
     draw();
   };
 
+  // embedded: frame the player's villages once the data is there
+  useEffect(() => {
+    if (!embed || !data || cam.current.centeredOn === -2) return;
+    const list = data.villages.filter((v) => v.owner === embed.owner);
+    if (!list.length) return;
+    const xs = list.map((v) => v.x), ys = list.map((v) => v.y);
+    const c = canvasRef.current;
+    const w = c?.clientWidth || 800, h = c?.clientHeight || 300;
+    cam.current.cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    cam.current.cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const fit = Math.min(w / (Math.max(...xs) - Math.min(...xs) + 8), h / (Math.max(...ys) - Math.min(...ys) + 8));
+    cam.current.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, fit));
+    cam.current.centered = true;
+    cam.current.centeredOn = -2;
+    setFocus({ owner: embed.owner, name: list[0]!.ownerName, index: 0 });
+  }, [data, embed?.owner]);
+
   // a request from elsewhere (ranking, reports, ...) once the map data is there
   useEffect(() => {
+    if (embed) return;
     const req = mapFocus.value;
     if (!req || !data) return;
     mapFocus.value = null;
@@ -598,6 +620,10 @@ export function MapScreen() {
     if (d && !d.moved) {
       const f = fieldAt(e);
       const v = byCoord.get(key(f.x, f.y));
+      if (embed) {
+        if (v) showOnMap({ x: v.x, y: v.y });
+        return;
+      }
       selectedVillage.value = v ? v.id : null;
       // a player's village: show all of that player's villages at once
       if (v && v.kind === 'bot') {
@@ -633,6 +659,25 @@ export function MapScreen() {
   const selected = selectedVillage.value !== null ? byId.get(selectedVillage.value) : undefined;
   const selectedTribe = selected?.tribe !== undefined ? data?.tribes.find((t) => t.id === selected.tribe) : undefined;
   const hovered = hover ? byCoord.get(key(hover.x, hover.y)) : undefined;
+
+  if (embed) {
+    return (
+      <div class="map-embed">
+        <canvas
+          ref={canvasRef}
+          class="map-canvas"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={() => setHover(null)}
+          onWheel={onWheel}
+        />
+        <span class="map-embed-hover muted">
+          {hovered ? `${hovered.name} (${hovered.x}|${hovered.y}) · ${hovered.kind === 'barb' ? 'barbaren' : hovered.ownerName} · ${num(hovered.points)} p` : 'Slepen = verschuiven, scrollen = zoomen, klik = grote kaart'}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div class="screen map-screen">
