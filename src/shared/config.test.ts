@@ -16,6 +16,7 @@ describe('WorldConfig', () => {
 
   it('rejects settings the bots cannot play with yet', () => {
     const c = createConfig('classic', 'x', 1, { churches: true, research: 'levels10' });
-    expect(validateConfig(c)).toHaveLength(2);
+    // research levels are supported now; churches not yet
+    expect(validateConfig(c)).toHaveLength(1);
   });
 });
