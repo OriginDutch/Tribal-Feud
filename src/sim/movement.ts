@@ -117,7 +117,7 @@ export interface Report {
   building?: { id: BuildingId; before: number; after: number };
   loot?: Res;
   carry?: number;
-  scouted?: { res: Res; buildings: Partial<Record<BuildingId, number>>; units: UnitCounts; barbType?: BarbType; away?: UnitCounts };
+  scouted?: { res: Res; buildings: Partial<Record<BuildingId, number>>; units: UnitCounts; barbType?: BarbType; away?: UnitCounts; flag?: { type: string; level: number }; item?: string };
   /** Loyalty before and after a nobleman hit it. */
   loyalty?: { before: number; after: number };
   /** The attacker took the village. */
@@ -462,6 +462,9 @@ function arriveAttack(state: WorldState, m: Movement): void {
         units: cleanCounts(target.units),
       };
       if (target.barbType) report.scouted.barbType = target.barbType;
+      if (target.flag) report.scouted.flag = { ...target.flag };
+      // a paladin at home shows his weapon
+      if (target.units.knight > 0) { const it = equipped(state, target.owner); if (it) report.scouted.item = it.name; }
       // Kalid's telescope: the scouts also see who is away
       if (equipped(state, m.owner)?.id === 'telescope') report.scouted.away = cleanCounts(target.outside);
     }

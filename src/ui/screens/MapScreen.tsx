@@ -189,6 +189,30 @@ export function MapScreen() {
     for (const m of s.incoming) arrow(m.from, m.to, '#e5533f');
     ctx.restore();
   };
+  /** Churches: where your villages have faith (soft gold circles). */
+  const [faith, setFaithState] = useState(() => {
+    try { return localStorage.getItem('tf-map-faith') !== 'off'; } catch { return true; }
+  });
+  const setFaith = (on: boolean) => {
+    setFaithState(on);
+    try { localStorage.setItem('tf-map-faith', on ? 'on' : 'off'); } catch { /* fine */ }
+  };
+  const drawFaith = (ctx: CanvasRenderingContext2D, toScreen: (x: number, y: number) => readonly [number, number], zoom: number) => {
+    if (!faith || !data?.churches?.length) return;
+    ctx.save();
+    ctx.fillStyle = 'rgba(226,169,59,0.10)';
+    ctx.strokeStyle = 'rgba(226,169,59,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    for (const c of data.churches) {
+      const [cx, cy] = toScreen(c.x, c.y);
+      ctx.beginPath();
+      ctx.arc(cx, cy, c.radius * zoom, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  };
   /** The marked player's or tribe's ground: one soft fill over all their villages. */
   const drawArea = (ctx: CanvasRenderingContext2D, toScreen: (x: number, y: number) => readonly [number, number], zoom: number) => {
     if (!focus || focusList.length < 2) return;
@@ -404,6 +428,7 @@ export function MapScreen() {
         square(v.x, v.y, 2);
       }
     }
+    drawFaith(ctx, toScreen, zoom);
     drawArea(ctx, toScreen, zoom);
     drawLines(ctx, toScreen, zoom);
   };
@@ -509,6 +534,7 @@ export function MapScreen() {
         ctx.strokeRect(sx - size / 2 - 2, sy - size / 2 - 2, size + 4, size + 4);
       }
     }
+    drawFaith(ctx, toScreen, zoom);
     drawArea(ctx, toScreen, zoom);
     drawLines(ctx, toScreen, zoom);
   };
@@ -516,7 +542,7 @@ export function MapScreen() {
   // redraw only when what is drawn changes, not on every game update
   const sel = selectedVillage.value;
   const style = mapStyle.value;
-  useEffect(draw, [data, focusIds, sel, style, here?.id, lines, linesKey]);
+  useEffect(draw, [data, focusIds, sel, style, here?.id, lines, linesKey, faith]);
   // sprites load in the background: redraw when one is ready
   useEffect(() => {
     onSpriteLoad(() => draw());
@@ -640,6 +666,11 @@ export function MapScreen() {
           Bevelen {lines ? 'aan' : 'uit'}
           {s && s.incoming.length > 0 && <span class="badge">{s.incoming.length}</span>}
         </button>
+        {data?.churches && (
+          <button class={`small ${faith ? 'active' : ''}`} title="Waar je dorpen geloof hebben (bereik van je kerken)" onClick={() => setFaith(!faith)}>
+            Geloof {faith ? 'aan' : 'uit'}
+          </button>
+        )}
         <form class="map-search" onSubmit={(e) => { e.preventDefault(); runSearch(search); }}>
           <input
             list="map-search-list"

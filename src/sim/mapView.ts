@@ -2,7 +2,8 @@
 import type { IncomingView, MapData, MapVillage, MovementView } from '../shared/protocol';
 import { growBarbarian, villagePoints } from './barbarians';
 import { estimateLoot } from './intel';
-import { BARBARIAN, HUMAN_ID, currentVillage, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, currentVillage, villagesOf, type WorldState } from './state';
+import { churchRadius } from './church';
 import { CANCEL_WINDOW_MS, cancelBlocker, distance } from './movement';
 import { attackKind } from './botReact';
 import { tribeViews } from './tribes';
@@ -37,7 +38,10 @@ export function mapData(state: WorldState): MapData {
     if (last) mv.last = { ...last };
     villages.push(mv);
   }
-  return { ownVillageId: own?.id ?? -1, villages, tribes: tribeViews(state) };
+  const churches = state.config.churches
+    ? villagesOf(state, HUMAN_ID).map((v) => ({ x: v.x, y: v.y, radius: churchRadius(v) })).filter((c) => c.radius > 0)
+    : undefined;
+  return { ownVillageId: own?.id ?? -1, villages, tribes: tribeViews(state), ...(churches ? { churches } : {}) };
 }
 
 /** Attacks by others on the human's villages: origin, target and arrival only, like TW. */

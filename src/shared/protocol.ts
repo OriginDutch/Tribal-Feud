@@ -139,6 +139,8 @@ export interface MapData {
   ownVillageId: number;
   villages: MapVillage[];
   tribes: TribeView[];
+  /** Churches worlds: your churches and how far their faith reaches. */
+  churches?: { x: number; y: number; radius: number }[];
 }
 
 export type TribeRelation = 'ally' | 'nap' | 'war';

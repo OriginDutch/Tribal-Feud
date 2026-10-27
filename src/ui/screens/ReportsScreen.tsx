@@ -7,6 +7,7 @@ import { formatGameTime } from '../../shared/time';
 import type { Report } from '../../sim/movement';
 import { num } from '../format';
 import { attackVillage, reports, screen, send, simPrefill, snapshot } from '../store';
+import { FLAG_NAMES, type FlagType } from '../../shared/flags';
 import { UnitIcon } from '../units/UnitIcon';
 
 const RES = [
@@ -191,6 +192,8 @@ function ReportDetail({ r }: { r: Report }) {
           <h4>Verkend</h4>
           <div class="report-row inner">
             {r.scouted.barbType && <span class="pill">Type: {BARB_TYPE_NAMES[r.scouted.barbType]}</span>}
+            {r.scouted.flag && <span class="pill">Vlag: {FLAG_NAMES[r.scouted.flag.type as FlagType]} L{r.scouted.flag.level}</span>}
+            {r.scouted.item && <span class="pill">Paladijn met {r.scouted.item}</span>}
             <ResPills res={r.scouted.res} />
           </div>
           <p class="muted">
