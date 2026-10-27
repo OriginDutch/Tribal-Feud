@@ -36,7 +36,9 @@ import {
   recruit,
   recruitBlocker,
   researchBlocker,
+  researchCost,
   startResearch,
+  techLevel,
   type Village,
 } from './village';
 
@@ -462,6 +464,19 @@ function research(state: WorldState, v: Village, profile: BotProfile): void {
       startResearch(state, v.id, u);
       return;
     }
+  }
+  // research levels: once everything is developed, the main units go up a level when money allows
+  if (state.config.research === 'simple') return;
+  const main = (Object.entries(profile.troops) as [UnitId, number][]).sort((a, b) => b[1] - a[1]).map(([u]) => u);
+  const have = currentResources(state.config, v, state.time);
+  for (const u of main) {
+    const next = techLevel(state.config, v, u) + 1;
+    if (next < 2 || researchBlocker(state, v, u) !== null) continue;
+    // only with plenty left over: troops and buildings come first
+    const cost = researchCost(state.config, u, next);
+    if ([0, 1, 2].some((i) => have[i as 0 | 1 | 2] < cost[i as 0 | 1 | 2] * 3)) continue;
+    startResearch(state, v.id, u);
+    return;
   }
 }
 

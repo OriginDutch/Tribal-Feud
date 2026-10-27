@@ -18,6 +18,7 @@ import { arriveTrade, arriveTradeReturn } from './market';
 import { currentResources, isOperational, settle, type Village } from './village';
 import { mateEvent, onVillageLost } from './loyalty';
 import { statAttack, statConquest } from './worldStats';
+import { battleBonus } from './battleBonus';
 
 export interface Movement {
   id: number;
@@ -310,6 +311,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
     morale: mor,
     luck,
     ...(m.catapultTarget ? { catapultTarget: m.catapultTarget, targetLevel: target.buildings[m.catapultTarget] } : {}),
+    ...battleBonus(state, from, target, m.units),
   });
 
   // defender losses, shared between the village's own troops and its support

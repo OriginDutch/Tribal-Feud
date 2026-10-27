@@ -48,7 +48,34 @@ export function SmithScreen() {
                     <UnitIcon id={u.id} size={26} /> <strong>{u.name}</strong>
                   </span>
                 </td>
-                {u.researched ? (
+                {u.tech && u.tech.level >= 1 ? (
+                  u.tech.next ? (
+                    <>
+                      <td>
+                        <span class="chip">Level {u.tech.level}/{u.tech.max}</span>{' '}
+                        <span class="muted">×{u.tech.multiplier.toLocaleString('nl-NL', { maximumFractionDigits: 2 })}</span>
+                        <br />
+                        <Cost cost={u.tech.next.cost} have={v.res} />
+                      </td>
+                      <td class="right mono">{duration(u.tech.next.time)}</td>
+                      <td class="right">
+                        <button
+                          class="small action"
+                          disabled={u.tech.next.blocker !== null}
+                          title={u.tech.next.blocker ?? ''}
+                          onClick={() => send({ type: 'research', villageId: v.id, unit: u.id })}
+                        >
+                          {u.tech.next.blocker ?? `Naar level ${u.tech.next.level}`}
+                        </button>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td colSpan={2} class="muted">Level {u.tech.level}/{u.tech.max} · ×{u.tech.multiplier.toLocaleString('nl-NL', { maximumFractionDigits: 2 })} sterker</td>
+                      <td class="right good">✓</td>
+                    </>
+                  )
+                ) : u.researched ? (
                   <>
                     <td colSpan={2} class="muted">
                       {u.research ? 'Ontwikkeld' : u.id === 'spear' || u.id === 'sword' ? 'Beschikbaar vanaf de start' : 'Geen ontwikkeling nodig'}
@@ -81,7 +108,10 @@ export function SmithScreen() {
             ))}
           </tbody>
         </table>
-        <p class="hint">* Ontwikkeltijden zijn voorlopig: de echte TW-waardes zijn nog niet gevonden.</p>
+        <p class="hint">
+          * Ontwikkeltijden zijn voorlopig: de echte TW-waardes zijn nog niet gevonden.
+          {units.some((u) => u.tech) && ' Researchlevels: elk level maakt de eenheid sterker in aanval en verdediging (troepen uit dit dorp, ook als support elders).'}
+        </p>
       </section>
       {v.research && (
         <section class="panel">

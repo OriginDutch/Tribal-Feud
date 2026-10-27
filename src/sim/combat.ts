@@ -17,6 +17,12 @@ export interface BattleInput {
   catapultTarget?: BuildingId;
   /** Current level of the catapult target. */
   targetLevel?: number;
+  /** Per-unit strength multipliers (research levels, paladin items); missing = 1. */
+  attackerUnitBonus?: Partial<Record<UnitId, number>>;
+  defenderUnitBonus?: Partial<Record<UnitId, number>>;
+  /** Whole-side multipliers (flags, faith); missing = 1. */
+  attackerFactor?: number;
+  defenderFactor?: number;
 }
 
 export interface BattleResult {
@@ -95,7 +101,7 @@ export function fight(config: WorldConfig, input: BattleInput): BattleResult {
   }
 
   const attackByClass = { infantry: 0, cavalry: 0, archer: 0 };
-  for (const u of fighters) attackByClass[UNIT_CLASS[u]] += count(input.attacker, u) * units[u].attack;
+  for (const u of fighters) attackByClass[UNIT_CLASS[u]] += count(input.attacker, u) * units[u].attack * (input.attackerUnitBonus?.[u] ?? 1);
   const attackTotal = attackByClass.infantry + attackByClass.cavalry + attackByClass.archer;
 
   let defenseUnits = 0;
@@ -108,11 +114,12 @@ export function fight(config: WorldConfig, input: BattleInput): BattleResult {
         ? (attackByClass.infantry * def.defense + attackByClass.cavalry * def.defenseCavalry + attackByClass.archer * def.defenseArcher) /
           attackTotal
         : def.defense;
-    defenseUnits += n * weighted;
+    defenseUnits += n * weighted * (input.defenderUnitBonus?.[u] ?? 1);
   }
+  defenseUnits *= input.defenderFactor ?? 1;
   const defense =
     (defenseUnits + combat.baseDefense + combat.wallDefensePerLevel * wallEffective) * combat.wallFactor ** wallEffective;
-  const attack = attackTotal * (1 + input.luck) * input.morale;
+  const attack = attackTotal * (1 + input.luck) * input.morale * (input.attackerFactor ?? 1);
   const attackerWon = attack > defense;
 
   if (attackerWon) {

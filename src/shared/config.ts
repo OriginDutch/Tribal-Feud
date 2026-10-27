@@ -358,7 +358,6 @@ export function createConfig(
 export const UNSUPPORTED_SETTINGS: ReadonlyArray<{ check: (c: WorldConfig) => boolean; message: string }> = [
   { check: (c) => c.churches, message: 'Kerken worden nog niet ondersteund (fase 9).' },
   { check: (c) => c.flags, message: 'Vlaggen worden nog niet ondersteund (fase 9).' },
-  { check: (c) => c.research !== 'simple', message: 'Researchlevels worden nog niet ondersteund (fase 9).' },
   { check: (c) => c.paladin === 'items', message: 'Paladijn-items worden nog niet ondersteund (fase 9).' },
 ];
 

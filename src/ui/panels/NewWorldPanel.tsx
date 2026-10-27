@@ -39,6 +39,7 @@ export function NewWorldPanel() {
   const [curve, setCurve] = useState<'tiered' | 'classic'>('tiered');
   const [winShare, setWinShare] = useState(0.75);
   const [winBarbs, setWinBarbs] = useState(true);
+  const [research, setResearch] = useState<'simple' | 'levels3' | 'levels10'>('simple');
 
   const changePreset = (p: Preset) => {
     setPreset(p);
@@ -56,6 +57,7 @@ export function NewWorldPanel() {
     if (difficulty !== PRESETS[preset].bots.difficulty) overrides.bots = { difficulty };
     if (farm !== 1) overrides.farmMultiplier = farm;
     if (curve !== 'tiered') overrides.nobleCurve = curve;
+    if (research !== 'simple') overrides.research = research;
     if (winShare !== 0.75 || !winBarbs) overrides.winCondition = { villageShare: winShare, countBarbarians: winBarbs };
     const cmd: Command = { type: 'newWorld', preset, name, overrides };
     if (seed.trim() !== '') cmd.seed = Number(seed) >>> 0;
@@ -101,6 +103,15 @@ export function NewWorldPanel() {
           </label>
         ))}
       </div>
+      <h3>Extra</h3>
+      <label title="Simpel: een eenheid is ontwikkeld of niet. Met levels maak je eenheden in de smederij sterker.">
+        Smederij
+        <select value={research} onChange={(e) => setResearch(e.currentTarget.value as 'simple' | 'levels3' | 'levels10')}>
+          <option value="simple">Simpel (ontwikkeld ja/nee)</option>
+          <option value="levels3">3 levels (tot ×1,4)</option>
+          <option value="levels10">10 levels (tot ×1,5)</option>
+        </select>
+      </label>
       <h3>Eindspel</h3>
       <label title="Een stam die dit deel van de wereld 3 speldagen vasthoudt, wint.">
         Winnen bij {Math.round(winShare * 100)}%

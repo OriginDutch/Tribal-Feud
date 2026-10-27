@@ -35,6 +35,10 @@ import {
   productionRates,
   recruitBlocker,
   researchBlocker,
+  maxTech,
+  researchCost,
+  techLevel,
+  techMultiplier,
   type Village,
 } from './village';
 
@@ -73,6 +77,8 @@ export interface UnitView {
   stats: { attack: number; defense: number; defenseCavalry: number; defenseArcher: number; speed: number; carry: number };
   researched: boolean;
   research: { cost: Res; requires: string[]; time: number; blocker: string | null } | null;
+  /** Research levels worlds: current level, max, strength multiplier, and the next level. */
+  tech?: { level: number; max: number; multiplier: number; next: { level: number; cost: Res; time: number; blocker: string | null } | null };
   recruit: { perUnit: number; max: number; blocker: string | null };
 }
 
@@ -232,6 +238,18 @@ export function villageView(state: WorldState, v: Village): VillageView {
             blocker: researchBlocker(state, v, u),
           }
         : null,
+      ...(config.research !== 'simple'
+        ? (() => {
+            const level = techLevel(config, v, u), max = maxTech(config);
+            const next = level >= 1 && level < max ? level + 1 : null;
+            return {
+              tech: {
+                level, max, multiplier: techMultiplier(config, Math.max(1, level)),
+                next: next ? { level: next, cost: researchCost(config, u, next), time: Math.round(researchTimeMs(config, v.buildings.smith) * (1 + (next - 1) * 0.5)), blocker: researchBlocker(state, v, u) } : null,
+              },
+            };
+          })()
+        : {}),
       recruit: {
         perUnit: recruitTimeMs(config, def, v.buildings[def.building]),
         max: recruitBlocker(state, v, u) ? 0 : maxRecruitable(state, v, u),

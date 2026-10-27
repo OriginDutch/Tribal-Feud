@@ -70,6 +70,8 @@ export interface RecruitJob {
 export interface ResearchJob {
   id: number;
   unit: UnitId;
+  /** Tech level this job reaches (research levels worlds; 1 = developed). */
+  level?: number;
   end: number;
   cost: Res;
 }
@@ -89,6 +91,8 @@ export interface Village {
   /** Units of this village that are on the road (they still use farm space). */
   outside: Record<UnitId, number>;
   researched: UnitId[];
+  /** Research levels worlds: tech level per unit above 1 (developed units without an entry are level 1). */
+  tech?: Partial<Record<UnitId, number>>;
   buildQueue: BuildJob[];
   recruitQueues: Record<RecruitBuilding, RecruitJob[]>;
   research: ResearchJob | null;
@@ -418,19 +422,54 @@ export function isUnitEnabled(config: WorldConfig, u: UnitId): boolean {
   return true;
 }
 
+// --- research levels (world setting) ---------------------------------------------
+
+/** Highest tech level per unit: 1 (simple), 3 or 10. */
+export function maxTech(config: WorldConfig): number {
+  return config.research === 'levels3' ? 3 : config.research === 'levels10' ? 10 : 1;
+}
+/** A unit's tech level in a village: 0 = not developed. */
+export function techLevel(config: WorldConfig, v: Village, u: UnitId): number {
+  if (!v.researched.includes(u)) return 0;
+  return config.research === 'simple' ? 1 : Math.min(maxTech(config), v.tech?.[u] ?? 1);
+}
+/** Strength multiplier of a tech level (TW: three levels 1 / 1.25 / 1.4, ten levels up to 1.5). */
+export function techMultiplier(config: WorldConfig, level: number): number {
+  if (level <= 1 || config.research === 'simple') return 1;
+  if (config.research === 'levels3') return level >= 3 ? 1.4 : 1.25;
+  return 1 + (Math.min(10, level) - 1) / 18;
+}
+/** What researching `level` of a unit costs (TW: x4 per level on three levels, x1.6 on ten). */
+export function researchCost(config: WorldConfig, u: UnitId, level: number): Res {
+  const base = config.units[u].research?.cost ?? (config.units[u].cost.map((c) => c * 4) as Res);
+  const f = (config.research === 'levels3' ? 4 : 1.6) ** Math.max(0, level - 1);
+  return base.map((c) => Math.round(c * f)) as Res;
+}
+/** Smithy level needed for a tech level above 1. */
+export function smithForTech(config: WorldConfig, level: number): number {
+  if (level <= 1) return 0;
+  return config.research === 'levels3' ? (level === 2 ? 10 : 15) : Math.min(20, 2 * level);
+}
+
 export function researchBlocker(state: WorldState, v: Village, u: UnitId): string | null {
   const { config } = state;
   const research = config.units[u].research;
   if (!isUnitEnabled(config, u)) return 'Niet actief op deze wereld';
-  if (research === null || v.researched.includes(u)) return 'Al ontwikkeld';
+  const level = techLevel(config, v, u);
+  const next = level + 1;
+  if (level >= maxTech(config) || (level === 0 && research === null)) return level >= maxTech(config) && maxTech(config) > 1 ? 'Maximaal level' : 'Al ontwikkeld';
   if (v.research) return 'Smederij is al bezig';
   if (v.buildings.smith === 0) return 'Bouw eerst een smederij';
   if (!isOperational(config, v, 'smith')) return 'Smederij werkt niet';
-  const missing = missingRequirements(config, v, research.requires);
-  if (missing.length > 0) return `Vereist: ${missing.join(', ')}`;
+  if (next === 1 && research) {
+    const missing = missingRequirements(config, v, research.requires);
+    if (missing.length > 0) return `Vereist: ${missing.join(', ')}`;
+  }
+  if (v.buildings.smith < smithForTech(config, next)) return `Vereist: Smederij ${smithForTech(config, next)}`;
+  const cost = researchCost(config, u, next);
   const cap = storageCapacity(v.buildings.storage);
-  if (research.cost.some((c) => c > cap)) return 'Opslagplaats te klein';
-  if (!canAfford(currentResources(config, v, state.time), research.cost)) return 'Te weinig grondstoffen';
+  if (cost.some((c) => c > cap)) return 'Opslagplaats te klein';
+  if (!canAfford(currentResources(config, v, state.time), cost)) return 'Te weinig grondstoffen';
   return null;
 }
 
@@ -439,12 +478,12 @@ export function startResearch(state: WorldState, villageId: number, u: UnitId): 
   if (!v) return 'Dorp bestaat niet.';
   const blocker = researchBlocker(state, v, u);
   if (blocker) return blocker;
-  const research = state.config.units[u].research;
-  if (!research) return 'Al ontwikkeld';
+  const level = techLevel(state.config, v, u) + 1;
+  const cost = researchCost(state.config, u, level);
   settle(state.config, v, state.time);
-  pay(v, research.cost);
-  const end = state.time + researchTimeMs(state.config, v.buildings.smith);
-  v.research = { id: nextId(state), unit: u, end, cost: research.cost };
+  pay(v, cost);
+  const end = state.time + Math.round(researchTimeMs(state.config, v.buildings.smith) * (1 + (level - 1) * 0.5));
+  v.research = { id: nextId(state), unit: u, end, cost, ...(level > 1 ? { level } : {}) };
   push(state.queue, end, { kind: 'research', villageId: v.id, jobId: v.research.id });
   return null;
 }
@@ -462,9 +501,10 @@ export function onResearchDone(state: WorldState, villageId: number, jobId: numb
   const v = state.villages[villageId];
   const job = v?.research;
   if (!v || !job || job.id !== jobId || job.end !== state.time) return;
-  v.researched.push(job.unit);
+  if ((job.level ?? 1) > 1) (v.tech ??= {})[job.unit] = job.level;
+  else if (!v.researched.includes(job.unit)) v.researched.push(job.unit);
   v.research = null;
-  addLog(state, { time: state.time, text: `${v.name}: ${state.config.units[job.unit].name} ontwikkeld.` });
+  addLog(state, { time: state.time, text: `${v.name}: ${state.config.units[job.unit].name} ${(job.level ?? 1) > 1 ? `level ${job.level}` : 'ontwikkeld'}.` });
 }
 
 // --- recruitment ------------------------------------------------------------
