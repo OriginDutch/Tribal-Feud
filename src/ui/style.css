@@ -705,3 +705,5 @@ button.nuke { background: #b3261e; color: #fff; border-color: #b3261e; font-weig
 .stats-legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted, #9a8f80); }
 .stats-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
 .stats-tables { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.flag-select { max-width: 190px; font-size: 12px; }
+.flags-panel { margin-top: 12px; }

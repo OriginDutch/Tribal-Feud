@@ -14,6 +14,7 @@
 import type { NobleCurve } from '../shared/config';
 import type { Res } from '../shared/gameData';
 import { storageCapacity } from './formulas';
+import { flagValue } from './flags';
 import { villagesOf, type WorldState } from './state';
 import { currentResources, isOperational, settle, type Village } from './village';
 
@@ -92,8 +93,14 @@ export function nextNobleNeed(state: WorldState, v: Village): { have: number; ne
   return { have: v.packages ?? 0, need: slotCost(used + 1, curveOf(state)) };
 }
 
+/** What one coin costs in this village (a coin flag makes it cheaper). */
+export function coinCostIn(state: WorldState, v: Village): Res {
+  const f = 1 - flagValue(state.config, v, 'coin');
+  return state.config.conquest.coinCost.map((c) => Math.round(c * f)) as Res;
+}
+
 export function maxMintable(state: WorldState, v: Village): number {
-  const cost = state.config.conquest.coinCost;
+  const cost = coinCostIn(state, v);
   const have = currentResources(state.config, v, state.time);
   return Math.max(0, Math.floor(Math.min(...[0, 1, 2].map((i) => have[i as 0 | 1 | 2] / Math.max(1, cost[i as 0 | 1 | 2])))));
 }
@@ -101,7 +108,7 @@ export function maxMintable(state: WorldState, v: Village): number {
 export function mintBlocker(state: WorldState, v: Village): string | null {
   if (v.buildings.snob === 0) return 'Bouw eerst een adelshoeve';
   if (!isOperational(state.config, v, 'snob')) return 'Adelshoeve werkt niet';
-  const cost = state.config.conquest.coinCost;
+  const cost = coinCostIn(state, v);
   if (cost.some((c) => c > storageCapacity(v.buildings.storage))) return 'Opslagplaats te klein';
   if (maxMintable(state, v) === 0) return 'Te weinig grondstoffen';
   return null;
@@ -117,7 +124,7 @@ export function mintCoins(state: WorldState, villageId: number, count: number): 
   const max = maxMintable(state, v);
   if (count > max) return `Maximaal ${max} mogelijk`;
   settle(state.config, v, state.time);
-  const cost = state.config.conquest.coinCost;
+  const cost = coinCostIn(state, v);
   for (const i of [0, 1, 2] as const) v.res[i] -= cost[i] * count;
   if (state.config.nobleCost === 'coins') {
     const player = state.players[v.owner];

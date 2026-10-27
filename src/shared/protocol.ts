@@ -95,6 +95,8 @@ export type Command =
   | { type: 'getOpinions' }
   | { type: 'getWorldStats' }
   | { type: 'equipItem'; item: string | null }
+  | { type: 'upgradeFlag'; flag: string; level: number }
+  | { type: 'setFlag'; village: number; flag: { type: string; level: number } | null }
   | { type: 'setDifficulty'; difficulty: 'easy' | 'normal' | 'hard' }
   | { type: 'mintAll'; keep: number }
   | { type: 'dismissToast'; id: number | 'all' }
@@ -338,6 +340,8 @@ export interface Snapshot {
   surplus: { keep: number; auto: boolean };
   /** Domination endgame. */
   endgame: EndgameView;
+  /** Flags worlds: your free flags per kind and level (index 0 = level 1), and progress to the next. */
+  flags?: { free: Record<string, number[]>; kills: number };
   /** Paladin items worlds: your weapon chamber. */
   items?: { found: { id: string; name: string; text: string }[]; equipped?: string; progress: number; all: number };
   /** Bot difficulty of this world (can be changed while playing). */
@@ -382,6 +386,8 @@ export interface OwnVillageRow {
   maxMint: number;
   /** Churches worlds: does this village have faith? */
   faith?: boolean;
+  /** Flags worlds: the flag hanging here. */
+  flag?: { type: string; level: number };
 }
 
 export interface QuestsView {

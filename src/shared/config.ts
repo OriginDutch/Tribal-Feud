@@ -356,7 +356,6 @@ export function createConfig(
  * Until then, these values are rejected when creating a world.
  */
 export const UNSUPPORTED_SETTINGS: ReadonlyArray<{ check: (c: WorldConfig) => boolean; message: string }> = [
-  { check: (c) => c.flags, message: 'Vlaggen worden nog niet ondersteund (fase 9).' },
 ];
 
 export function validateConfig(c: WorldConfig): string[] {

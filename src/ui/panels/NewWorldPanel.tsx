@@ -42,6 +42,7 @@ export function NewWorldPanel() {
   const [research, setResearch] = useState<'simple' | 'levels3' | 'levels10'>('simple');
   const [paladin, setPaladin] = useState<'off' | 'on' | 'items'>('on');
   const [churches, setChurches] = useState(false);
+  const [flags, setFlags] = useState(false);
 
   const changePreset = (p: Preset) => {
     setPreset(p);
@@ -62,6 +63,7 @@ export function NewWorldPanel() {
     if (research !== 'simple') overrides.research = research;
     if (paladin !== 'on') overrides.paladin = paladin;
     if (churches) overrides.churches = true;
+    if (flags) overrides.flags = true;
     if (winShare !== 0.75 || !winBarbs) overrides.winCondition = { villageShare: winShare, countBarbarians: winBarbs };
     const cmd: Command = { type: 'newWorld', preset, name, overrides };
     if (seed.trim() !== '') cmd.seed = Number(seed) >>> 0;
@@ -126,6 +128,9 @@ export function NewWorldPanel() {
       </label>
       <label class="row" title="Troepen uit een dorp zonder kerk in de buurt vechten op halve kracht. Je begint met een eerste kerk.">
         <input type="checkbox" checked={churches} onChange={(e) => setChurches(e.currentTarget.checked)} /> Kerken
+      </label>
+      <label class="row" title="Eén vlag per dorp: productie, rekruteren, aanval, verdediging, geluk, bevolking, munten of buit. Je verdient ze met veroveringen en verslagen vijanden.">
+        <input type="checkbox" checked={flags} onChange={(e) => setFlags(e.currentTarget.checked)} /> Vlaggen
       </label>
       <h3>Eindspel</h3>
       <label title="Een stam die dit deel van de wereld 3 speldagen vasthoudt, wint.">

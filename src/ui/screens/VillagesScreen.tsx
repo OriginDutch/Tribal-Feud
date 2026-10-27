@@ -8,6 +8,7 @@ import type { UnitId } from '../../shared/gameData';
 import type { VillageGroup } from '../../sim/groups';
 import { Confirm } from '../components/Confirm';
 import { SupportReturn } from '../components/SupportReturn';
+import { FlagSelect, FlagsPanel } from '../components/FlagsPanel';
 import { groupFilter, groupVillages, screen, send, setGroupFilter, snapshot } from '../store';
 import { UNIT_SHORT } from '../units';
 
@@ -18,6 +19,7 @@ export function VillagesScreen() {
   const [manage, setManage] = useState(false);
   const [suggest, setSuggest] = useState(false);
   const [supports, setSupports] = useState(false);
+  const [flagsOpen, setFlagsOpen] = useState(false);
   if (!s) return null;
   const list = groupVillages(s.villages, s.groups);
   const used = UNIT_IDS.filter((u) => list.some((v) => (v.units[u] ?? 0) > 0));
@@ -55,6 +57,7 @@ export function VillagesScreen() {
             </button>
           ))}
           <span style={{ flex: 1 }} />
+          {s.flags && <button class="small" onClick={() => setFlagsOpen(!flagsOpen)}>Vlaggen</button>}
           <button class="small" onClick={() => { setSupports(!supports); setSuggest(false); setManage(false); }}>Ondersteuning terugsturen</button>
           <button class="small" onClick={() => { setSuggest(!suggest); setManage(false); setSupports(false); }}>Voorstellen</button>
           <button class="small" onClick={() => { setManage(!manage); setSuggest(false); setSupports(false); }}>Groepen beheren</button>
@@ -74,6 +77,7 @@ export function VillagesScreen() {
           </div>
         )}
         {manage && <GroupManager groups={s.groups} />}
+        {flagsOpen && <FlagsPanel />}
         {supports && <SupportReturn onClose={() => setSupports(false)} />}
         {suggest && <GroupSuggestions villages={s.villages} groups={s.groups} onDone={() => setSuggest(false)} />}
       </section>
@@ -108,6 +112,7 @@ export function VillagesScreen() {
               <th>Bouwt</th>
               <th class="right" title="Units in opleiding">Rekr.</th>
               <th>Beheer</th>
+              {s.flags && <th>Vlag</th>}
             </tr>
           </thead>
           <tbody>
@@ -150,6 +155,9 @@ export function VillagesScreen() {
                     {v.manager ?? 'handmatig'}
                   </span>
                 </td>
+                {s.flags && (
+                  <td><FlagSelect village={v.id} {...(v.flag ? { flag: v.flag } : {})} /></td>
+                )}
               </tr>
             ))}
           </tbody>

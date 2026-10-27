@@ -20,6 +20,7 @@ import { mateEvent, onVillageLost } from './loyalty';
 import { statAttack, statConquest } from './worldStats';
 import { battleBonus } from './battleBonus';
 import { equipped, itemKills } from './paladin';
+import { flagForConquest, flagKills, flagValue } from './flags';
 
 export interface Movement {
   id: number;
@@ -300,7 +301,10 @@ function arriveAttack(state: WorldState, m: Movement): void {
   settle(config, target, state.time);
   statAttack(state, m.owner, target.owner);
 
-  const luck = config.luck ? (nextFloat(state.rng) * 2 - 1) * config.combat.luckRange : 0;
+  const rolledLuck = config.luck ? (nextFloat(state.rng) * 2 - 1) * config.combat.luckRange : 0;
+  // a luck flag in the attacking village pulls luck towards 0
+  const luckFlag = flagValue(config, from, 'luck');
+  const luck = luckFlag ? Math.sign(rolledLuck) * Math.max(0, Math.abs(rolledLuck) - luckFlag) : rolledLuck;
   // points only matter against players: skip the (expensive) count for barbarians
   const mor =
     target.owner === BARBARIAN ? 1 : morale(config, playerPoints(state, m.owner), playerPoints(state, target.owner), false);
@@ -320,6 +324,10 @@ function arriveAttack(state: WorldState, m: Movement): void {
   // the weapon chamber fills faster with every enemy killed
   itemKills(state, m.owner, UNIT_IDS.reduce((t, u) => t + (battle.defenderLost[u] ?? 0), 0));
   itemKills(state, target.owner, UNIT_IDS.reduce((t, u) => t + (battle.attackerLost[u] ?? 0), 0));
+  if (config.flags) {
+    flagKills(state, m.owner, UNIT_IDS.reduce((t, u) => t + (battle.defenderLost[u] ?? 0), 0));
+    flagKills(state, target.owner, UNIT_IDS.reduce((t, u) => t + (battle.attackerLost[u] ?? 0), 0));
+  }
 
   // attacker losses and survivors
   const survivors: UnitCounts = {};
@@ -345,6 +353,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
   const fighters = UNIT_IDS.some((u) => u !== 'spy' && (m.units[u] ?? 0) > 0);
   if (battle.attackerWon && fighters) {
     for (const u of UNIT_IDS) carry += (survivors[u] ?? 0) * config.units[u].carry;
+    carry *= 1 + flagValue(config, from, 'haul');
     const hide = hidingCapacity(target.buildings.hide);
     const have = currentResources(config, target, state.time);
     const available = have.map((r) => Math.max(0, Math.floor(r - hide))) as Res;
@@ -513,6 +522,8 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   const { config } = state;
   const old = v.owner;
   statConquest(state, v.id, v.name, old, newOwner);
+  delete v.flag;
+  if (newOwner >= 0) flagForConquest(state, newOwner);
   if (old >= 0 && old !== HUMAN_ID) {
     const helped = Object.keys(v.support ?? {}).some((o) => state.villages[Number(o)]?.owner === HUMAN_ID);
     onVillageLost(state, old, helped, v.name);

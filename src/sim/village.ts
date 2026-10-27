@@ -36,6 +36,7 @@ import {
 import { HUMAN_ID, addLog, nextId, type WorldState } from './state';
 import { buildingReward } from './quests';
 import { hasFirstChurch } from './church';
+import { flagValue, type FlagType } from './flags';
 
 export interface BuildJob {
   id: number;
@@ -93,6 +94,8 @@ export interface Village {
   /** Units of this village that are on the road (they still use farm space). */
   outside: Record<UnitId, number>;
   researched: UnitId[];
+  /** Flags worlds: the flag hanging in this village. */
+  flag?: { type: FlagType; level: number };
   /** Research levels worlds: tech level per unit above 1 (developed units without an entry are level 1). */
   tech?: Partial<Record<UnitId, number>>;
   buildQueue: BuildJob[];
@@ -172,10 +175,11 @@ export function createVillage(
 
 export function productionRates(config: WorldConfig, v: Village): Res {
   const f = v.bonus ? BONUS_FACTORS[v.bonus] : ([1, 1, 1] as const);
+  const flag = 1 + flagValue(config, v, 'res');
   return [
-    productionPerHour(config, v.buildings.wood) * f[0],
-    productionPerHour(config, v.buildings.stone) * f[1],
-    productionPerHour(config, v.buildings.iron) * f[2],
+    productionPerHour(config, v.buildings.wood) * f[0] * flag,
+    productionPerHour(config, v.buildings.stone) * f[1] * flag,
+    productionPerHour(config, v.buildings.iron) * f[2] * flag,
   ];
 }
 
@@ -234,7 +238,8 @@ export function popUsed(config: WorldConfig, v: Village): number {
 }
 
 export function popMax(config: WorldConfig, v: Village): number {
-  return farmCapacityIn(config, v.buildings.farm);
+  const cap = farmCapacityIn(config, v.buildings.farm);
+  return v.flag ? Math.round(cap * (1 + flagValue(config, v, 'pop'))) : cap;
 }
 
 export function missingRequirements(
@@ -619,7 +624,7 @@ export function recruit(state: WorldState, villageId: number, u: UnitId, count: 
   if (u === 'snob') payPackages(state, v, count);
   const queue = v.recruitQueues[def.building];
   const last = queue.at(-1);
-  const perUnit = recruitTimeMs(config, def, v.buildings[def.building]);
+  const perUnit = Math.round(recruitTimeMs(config, def, v.buildings[def.building]) / (1 + flagValue(config, v, 'recruit')));
   const job: RecruitJob = {
     id: nextId(state),
     unit: u,
@@ -645,7 +650,7 @@ function retimeRecruitQueue(state: WorldState, v: Village, b: RecruitBuilding): 
   for (let i = 0; i < queue.length; i++) {
     const job = queue[i];
     if (!job) continue;
-    const perUnit = recruitTimeMs(state.config, state.config.units[job.unit], v.buildings[b]);
+    const perUnit = Math.round(recruitTimeMs(state.config, state.config.units[job.unit], v.buildings[b]) / (1 + flagValue(state.config, v, 'recruit')));
     const oldNext = job.nextAt, oldEnd = jobEnd(job);
     job.perUnit = perUnit;
     if (i > 0) job.nextAt = prevEnd + perUnit;

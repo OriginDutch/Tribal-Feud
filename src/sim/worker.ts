@@ -62,6 +62,7 @@ import {
 import { endgameRules } from './endgame';
 import { liveTribes } from './worldStats';
 import { hasFaith } from './church';
+import { FLAG_TYPES, freeFlags, setFlag, upgradeFlag, type FlagType } from './flags';
 import { ITEMS, ITEM_IDS, equipItem, type ItemId } from './paladin';
 import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
 import { DEFAULT_SURPLUS, mintAll, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
@@ -127,6 +128,7 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
           : null,
         maxMint: mintBlocker(s, v) === null ? maxMintable(s, v) : 0,
         ...(s.config.churches ? { faith: hasFaith(s, v) } : {}),
+        ...(v.flag ? { flag: { ...v.flag } } : {}),
       };
     });
 }
@@ -174,6 +176,7 @@ function snapshot(): Snapshot | null {
     difficulty: state.config.bots.difficulty,
     endgame: endgameView(state),
     ...(state.config.paladin === 'items' ? { items: itemsView(state) } : {}),
+    ...(state.config.flags ? { flags: flagsView(state) } : {}),
     templateUse: templateUse(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
@@ -256,6 +259,14 @@ function opinionsView(s: WorldState): OpinionsView {
     betrayals: s.betrayals ?? 0,
     permissions: Object.entries(s.permissions ?? {}).map(([id, p]) => ({ target: Number(id), name: s.players[Number(id)]?.name ?? '?', ...(p.answer ? { answer: p.answer } : {}), ...(p.until ? { until: p.until } : {}) })),
     ...(ask ? { resourceAsk: { village: ask.village, res: [...ask.res] as [number, number, number], sent: [...ask.sent] as [number, number, number], at: ask.at } } : {}),
+  };
+}
+
+function flagsView(s: WorldState): NonNullable<Snapshot['flags']> {
+  const p = s.players[HUMAN_ID]!;
+  return {
+    free: Object.fromEntries(FLAG_TYPES.map((t) => [t, Array.from({ length: 9 }, (_, i) => freeFlags(s, p, t, i + 1))])),
+    kills: p.flags?.kills ?? 0,
   };
 }
 
@@ -864,6 +875,13 @@ async function handle(cmd: Command): Promise<void> {
       if (error) notice(error, 'error');
       else notice(cmd.type === 'askTribeResources' ? 'Je stam is om grondstoffen gevraagd. Stamgenoten antwoorden als ze online zijn.' : cmd.type === 'askPermission' ? 'Gevraagd. Je leider antwoordt als hij online is.' : 'Het is gebeurd. Er is geen weg terug.', 'info');
       post({ type: 'opinions', opinions: opinionsView(state) });
+      break;
+    }
+    case 'upgradeFlag':
+    case 'setFlag': {
+      if (!state) return;
+      const error = cmd.type === 'upgradeFlag' ? upgradeFlag(state, HUMAN_ID, cmd.flag as FlagType, cmd.level) : setFlag(state, HUMAN_ID, cmd.village, cmd.flag as { type: FlagType; level: number } | null);
+      if (error) notice(error, 'error');
       break;
     }
     case 'equipItem': {

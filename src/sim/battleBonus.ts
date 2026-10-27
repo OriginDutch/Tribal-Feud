@@ -8,6 +8,7 @@
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../shared/gameData';
 import type { BattleInput } from './combat';
 import { faithFactor } from './church';
+import { flagValue } from './flags';
 import { defendingItems, equipped } from './paladin';
 import type { WorldState } from './state';
 import { techLevel, techMultiplier, type Village } from './village';
@@ -54,6 +55,12 @@ export function battleBonus(state: WorldState, from: Village, target: Village, a
     add(target, target.units);
     for (const [origin, units] of Object.entries(target.support ?? {})) add(state.villages[Number(origin)], units);
     if (n > 0) out.defenderFactor = sum / n;
+  }
+  // flags: attack strength of the attacking village, defense strength of the defending one
+  if (state.config.flags) {
+    const a = flagValue(state.config, from, 'attack'), d = flagValue(state.config, target, 'defense');
+    if (a) out.attackerFactor = (out.attackerFactor ?? 1) * (1 + a);
+    if (d) out.defenderFactor = (out.defenderFactor ?? 1) * (1 + d);
   }
   // paladin items
   if (state.config.paladin === 'items') {

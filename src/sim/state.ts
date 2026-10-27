@@ -5,6 +5,7 @@ import type { EndgameState } from './endgame';
 import type { MoodNote } from './loyalty';
 import type { WorldStats } from './worldStats';
 import type { PaladinItems } from './paladin';
+import type { FlagStock } from './flags';
 import type { TradeOffer } from './market';
 import type { Intel } from './intel';
 import type { WorldConfig } from '../shared/config';
@@ -168,6 +169,8 @@ export interface Player {
   tribe?: number;
   /** Paladin items worlds: the weapon chamber. */
   items?: PaladinItems;
+  /** Flags worlds: flags in stock. */
+  flags?: FlagStock;
 }
 
 /** The human player always has id 0. */
