@@ -56,6 +56,8 @@ export type Command =
   | { type: 'tribeKick'; player: number }
   | { type: 'tribePropose'; tribe: number; relation: 'nap' | 'ally' | 'peace' }
   | { type: 'tribeRelation'; tribe: number; action: 'war' | 'end' }
+  /** Leader: the war front your bot members fight (enemy tribe, optionally one village). null = let them choose. */
+  | { type: 'tribeFront'; enemy: number | null; target?: number }
   | { type: 'inboxAnswer'; id: number; accept: boolean }
   | { type: 'inboxRead' }
   | { type: 'getInbox' }
@@ -204,6 +206,27 @@ export interface InboxView {
   status?: 'open' | 'accepted' | 'declined' | 'expired';
   expires?: number;
 }
+export interface OpView {
+  id: number;
+  enemyTag: string;
+  target: { id: number; name: string; x: number; y: number; owner: number; ownerName: string };
+  landAt: number;
+  armies: number;
+  nobles: boolean;
+  /** You were asked to join. */
+  you: boolean;
+  sent: number;
+  failed: number;
+}
+
+export interface WarFrontView {
+  /** Tribes you are at war with. */
+  enemies: { id: number; tag: string; name: string }[];
+  /** Leader's choice (only when you lead). */
+  front: { enemy: number; target?: { id: number; name: string; x: number; y: number } } | null;
+  ops: OpView[];
+}
+
 export interface TribeView {
   id: number;
   name: string;
@@ -353,6 +376,8 @@ export interface Snapshot {
   helpAsked: number[];
   /** Your open orders / suggestions to the tribe. */
   orders: OrderView[];
+  /** Your tribe at war: the front and the joint operations underway. */
+  war: WarFrontView | null;
   /** Build templates: the presets first, then the player's own. */
   templates: BuildTemplate[];
   troopTemplates: TroopTemplate[];

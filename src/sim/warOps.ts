@@ -14,6 +14,7 @@
  * members sometimes forget their part.
  */
 import type { UnitCounts } from '../shared/gameData';
+import type { WarFrontView } from '../shared/protocol';
 import { DAY, HOUR, MINUTE } from '../shared/time';
 import { push } from './eventQueue';
 import { attackOf, effectiveAttack, freshSighting, nobleEscorts, scout as sendScouts } from './botStrategy';
@@ -77,11 +78,11 @@ function tribeIntel(state: WorldState, t: Tribe, villageId: number): number | un
   return best?.def;
 }
 
-/** Enemies this tribe fights now: every tribe at war with it, or only your chosen one when you lead. */
+/** Enemies this tribe fights now: every tribe at war with it, or only the front you chose when you lead. */
 function enemiesOf(state: WorldState, t: Tribe): Tribe[] {
-  if (t.leader === HUMAN_ID) {
-    const e = t.front && t.relations[t.front.enemy] === 'war' ? state.tribes?.[t.front.enemy] : undefined;
-    return e ? [e] : [];
+  if (t.leader === HUMAN_ID && t.front && t.relations[t.front.enemy] === 'war') {
+    const e = state.tribes?.[t.front.enemy];
+    if (e) return [e];
   }
   return Object.entries(t.relations).filter(([, r]) => r === 'war').map(([id]) => state.tribes?.[Number(id)]).filter((x): x is Tribe => !!x);
 }
@@ -233,4 +234,57 @@ function report(state: WorldState, t: Tribe, op: TribeOp): void {
 /** For views and tests: what this tribe is doing now. */
 export function activeOps(state: WorldState, t: Tribe): TribeOp[] {
   return (t.ops ?? []).filter((o) => state.time <= o.landAt + DAY);
+}
+
+/** Leader: choose the front (or null to let your bots pick it). */
+export function setFront(state: WorldState, enemy: number | null, target?: number): string | null {
+  const tid = state.players[HUMAN_ID]?.tribe;
+  const t = tid !== undefined ? state.tribes?.[tid] : undefined;
+  if (!t) return 'Je zit niet in een stam.';
+  if (t.leader !== HUMAN_ID) return 'Alleen de leider kiest het front.';
+  if (enemy === null) {
+    delete t.front;
+    return null;
+  }
+  const e = state.tribes?.[enemy];
+  if (!e || t.relations[enemy] !== 'war') return 'Jullie zijn niet in oorlog met die stam.';
+  if (target !== undefined) {
+    const v = state.villages[target];
+    if (!v || !e.members.includes(v.owner)) return `Dat dorp is niet van [${e.tag}].`;
+  }
+  t.front = target !== undefined ? { enemy, target } : { enemy };
+  // a new target: the plan for the old one stays, the next plan follows the new front
+  return null;
+}
+
+export function warFrontView(state: WorldState): WarFrontView | null {
+  const tid = state.players[HUMAN_ID]?.tribe;
+  const t = tid !== undefined ? state.tribes?.[tid] : undefined;
+  if (!t) return null;
+  const enemies = Object.entries(t.relations)
+    .filter(([, r]) => r === 'war')
+    .map(([id]) => state.tribes?.[Number(id)])
+    .filter((x): x is Tribe => !!x)
+    .map((e) => ({ id: e.id, tag: e.tag, name: e.name }));
+  const ops = activeOps(state, t).map((o) => {
+    const v = state.villages[o.target];
+    return {
+      id: o.id,
+      enemyTag: state.tribes?.[o.enemy]?.tag ?? '?',
+      target: { id: o.target, name: v?.name ?? '?', x: v?.x ?? 0, y: v?.y ?? 0, owner: v?.owner ?? -1, ownerName: v ? (state.players[v.owner]?.name ?? 'barbaren') : '?' },
+      landAt: o.landAt,
+      armies: o.roles.filter((r) => r.kind === 'nuke').length,
+      nobles: o.roles.some((r) => r.kind === 'nobles'),
+      you: !!o.human,
+      sent: o.roles.filter((r) => r.state === 'sent').length,
+      failed: o.roles.filter((r) => r.state === 'failed' || r.state === 'forgot').length,
+    };
+  });
+  if (!enemies.length && !ops.length) return null;
+  const fv = t.leader === HUMAN_ID && t.front ? state.villages[t.front.target ?? -1] : undefined;
+  return {
+    enemies,
+    front: t.leader === HUMAN_ID && t.front ? { enemy: t.front.enemy, ...(fv ? { target: { id: fv.id, name: fv.name, x: fv.x, y: fv.y } } : {}) } : null,
+    ops,
+  };
 }

@@ -78,3 +78,25 @@ describe('joint operations', () => {
     expect(home.units.axe + there).toBeGreaterThanOrEqual(axesBefore - 50);
   });
 });
+
+describe('the front you choose as leader', () => {
+  it('only a tribe you are at war with, only its villages', async () => {
+    const { setFront, warFrontView } = await import('./warOps');
+    const { HUMAN_ID } = await import('./state');
+    const { s, ta, target, a1 } = setup();
+    s.players[HUMAN_ID]!.tribe = ta.id;
+    ta.members.push(HUMAN_ID);
+    expect(setFront(s, 9202)).toMatch(/leider/);
+    ta.leader = HUMAN_ID;
+    expect(setFront(s, 12345)).toMatch(/niet in oorlog/);
+    expect(setFront(s, 9202, villagesOf(s, a1.id)[0]!.id)).toMatch(/niet van/);
+    expect(setFront(s, 9202, target.id)).toBeNull();
+    expect(ta.front).toEqual({ enemy: 9202, target: target.id });
+    warOpsTick(s);
+    const view = warFrontView(s)!;
+    expect(view.front?.target?.id).toBe(target.id);
+    expect(view.ops[0]?.target.id).toBe(target.id);
+    expect(setFront(s, null)).toBeNull();
+    expect(ta.front).toBeUndefined();
+  });
+});

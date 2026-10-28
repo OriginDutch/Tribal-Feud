@@ -2,6 +2,7 @@
  * Simulation worker: owns the world state, runs the clock, handles saves.
  * The UI never touches the state directly.
  */
+import { setFront, warFrontView } from './warOps';
 import { deleteGroup, saveGroup, setGroup } from './groups';
 import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderAttack } from './tribeOrders';
 import { grudge, grudgeHalfLife } from './botReact';
@@ -192,6 +193,7 @@ function snapshot(): Snapshot | null {
     tribePause: state.tribePause ?? { war: true, requests: true },
     helpAsked: (state.helpAsks ?? []).map((a) => a.movement),
     orders: orderViews(state),
+    war: warFrontView(state),
     templates: allTemplates(state),
     troopTemplates: state.troopTemplates ?? [],
     nobleTemplates: state.nobleTemplates ?? [],
@@ -965,6 +967,12 @@ async function handle(cmd: Command): Promise<void> {
       if (error) post({ type: 'notice', level: 'error', text: error });
       post({ type: 'inbox', inbox: inboxViews(s) });
       sendRanking(s);
+      break;
+    }
+    case 'tribeFront': {
+      if (!state) return;
+      const error = setFront(state, cmd.enemy, cmd.target);
+      if (error) notice(error, 'error');
       break;
     }
     case 'inboxRead':

@@ -4,6 +4,7 @@ import type { TribeRelation, TribeView } from '../../shared/protocol';
 import { MAX_MEMBERS } from '../../shared/tribes';
 import { formatGameTime } from '../../shared/time';
 import { Confirm } from '../components/Confirm';
+import { Coords } from '../components/Coords';
 import { MapLink } from '../components/MapLink';
 import { duration, num } from '../format';
 import { inviteCandidates, mapData, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes } from '../store';
@@ -126,8 +127,109 @@ function MyTribe({ t }: { t: TribeView }) {
           </p>
         </details>
       )}
+      {s.war && <WarFront />}
       {t.members.length > 1 && <TribeOrders />}
     </section>
+  );
+}
+
+/** At war: the front (leader chooses it) and the joint operations underway. */
+function WarFront() {
+  const s = snapshot.value!;
+  const w = s.war!;
+  const leader = s.myTribeLeader;
+  const [target, setTarget] = useState('');
+  const [error, setError] = useState('');
+  const enemy = w.front?.enemy ?? null;
+  const setFront = (e: number | null, t?: number) => send({ type: 'tribeFront', enemy: e, ...(t !== undefined ? { target: t } : {}) });
+  const pick = () => {
+    setError('');
+    const map = mapData.value;
+    if (!map) { send({ type: 'getMap' }); setError('Kaart laden… probeer het zo nog eens.'); return; }
+    const xy = /^(\d{1,4})\s*[|,/ ]\s*(\d{1,4})$/.exec(target.trim());
+    const v = xy ? map.villages.find((x) => x.x === Number(xy[1]) && x.y === Number(xy[2])) : undefined;
+    if (!v) { setError('Geen dorp op die coördinaten (schrijf bijv. 501|497).'); return; }
+    if (enemy === null) { setError('Kies eerst de vijand.'); return; }
+    setFront(enemy, v.id);
+    setTarget('');
+  };
+  return (
+    <div class="tribe-orders war-front">
+      <h3>Front</h3>
+      {w.enemies.length === 0 ? (
+        <p class="muted">Geen oorlog meer. De laatste operaties lopen nog af.</p>
+      ) : leader ? (
+        <>
+          <p class="hint">
+            Kies tegen wie je bots samen vechten, en eventueel welk dorp eerst. Ze verkennen het, plannen legers die tegelijk landen en sturen er een
+            edeltrein achteraan als ze het samen echt aankunnen. Zonder keuze pakken ze zelf het dichtstbijzijnde dorp van elke vijand.
+          </p>
+          <div class="row wrap order-form">
+            <select value={enemy ?? ''} onChange={(e) => setFront(e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}>
+              <option value="">Bots kiezen zelf</option>
+              {w.enemies.map((e) => (
+                <option key={e.id} value={e.id}>
+                  [{e.tag}] {e.name}
+                </option>
+              ))}
+            </select>
+            {enemy !== null && (
+              <form class="row" onSubmit={(e) => { e.preventDefault(); pick(); }}>
+                <input placeholder="doelwit 501|497 (optioneel)" value={target} onInput={(e) => setTarget(e.currentTarget.value)} />
+                <button class="small primary" type="submit" disabled={!target.trim()}>
+                  Doelwit
+                </button>
+              </form>
+            )}
+            {w.front?.target && (
+              <span>
+                Doelwit: {w.front.target.name} <Coords x={w.front.target.x} y={w.front.target.y} />{' '}
+                <button class="link" onClick={() => setFront(enemy)}>wissen</button>
+              </span>
+            )}
+            {error && <span class="error">{error}</span>}
+          </div>
+        </>
+      ) : (
+        <p class="hint">
+          In oorlog met {w.enemies.map((e) => `[${e.tag}]`).join(', ')}. De leider plant gezamenlijke aanvallen; heb je een dorp in de buurt, dan krijg je een
+          order met de landingstijd. Meedoen hoeft niet, maar wie nooit meedoet telt niet mee.
+        </p>
+      )}
+      {w.ops.length > 0 ? (
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Doelwit</th>
+              <th>Legers</th>
+              <th class="right">Landt</th>
+              <th class="right">Stand</th>
+            </tr>
+          </thead>
+          <tbody>
+            {w.ops.map((o) => (
+              <tr key={o.id}>
+                <td class="ellipsis">
+                  [{o.enemyTag}] {o.target.name} <Coords x={o.target.x} y={o.target.y} /> · <PlayerLink id={o.target.owner} name={o.target.ownerName} />
+                  {o.you && <strong> · jij doet mee</strong>}
+                </td>
+                <td>
+                  {o.armies} {o.armies === 1 ? 'leger' : 'legers'}
+                  {o.nobles ? ' + edelen' : ''}
+                </td>
+                <td class="right mono nowrap">{formatGameTime(o.landAt)}</td>
+                <td class="right nowrap">
+                  <span class={o.sent ? 'good' : 'muted'}>{o.sent}/{o.armies + (o.nobles ? 1 : 0)} vertrokken</span>
+                  {o.failed > 0 && <span class="error"> · {o.failed} niet</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        w.enemies.length > 0 && <p class="muted">Nog geen operatie: eerst verkennen, dan pas aanvallen als het samen echt lukt.</p>
+      )}
+    </div>
   );
 }
 
