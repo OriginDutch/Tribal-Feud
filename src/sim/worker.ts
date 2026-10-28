@@ -27,7 +27,7 @@ import { BARBARIAN } from './state';
 import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteNobleTemplate, deleteTemplate, deleteTroopTemplate, findTemplate, saveNobleTemplate, saveTemplate, saveTroopTemplate, scheduleManager, setManager, templateUse } from './manager';
 import { HUMAN_ID, addLog } from './state';
-import { chainActive, claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
+import { autoClaimRewards, chainActive, claimAllRewards, claimReward, demandStatus, dismissToast } from './quests';
 import type { CandidateView, MarketView, OrderView, PlayerView, MovementView, OfferView, OwnVillageRow, QuestsView, InboxView, RankingRow, SupportRow, SurplusRow, EndgameView, OpinionsView, WorldStatsView, SimInput, SimResult } from '../shared/protocol';
 import {
   MERCHANT_CARRY,
@@ -210,6 +210,7 @@ function snapshot(): Snapshot | null {
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
     hiddenTemplates: state.hiddenTemplates ?? [],
+    autoRewards: !!state.autoRewards,
     autoFarm: state.autoFarm ? { options: state.autoFarm.options, ...(state.autoFarm.at !== undefined ? { next: state.autoFarm.at } : {}), ...(state.autoFarm.last ? { last: state.autoFarm.last } : {}) } : null,
     marchFactor: state.config.worldSpeed * state.config.unitSpeed * state.config.marchSpeed,
     unitSpeeds: Object.fromEntries(UNIT_IDS.map((u) => [u, state!.config.units[u].speed])) as Record<UnitId, number>,
@@ -829,6 +830,11 @@ async function handle(cmd: Command): Promise<void> {
     case 'dismissToast':
       if (!state) return;
       dismissToast(state, cmd.id);
+      break;
+    case 'setAutoRewards':
+      if (!state) return;
+      state.autoRewards = cmd.on;
+      if (cmd.on) { delete state.autoRewardsAt; autoClaimRewards(state); }
       break;
     case 'claimAllRewards': {
       if (!state) return;

@@ -51,6 +51,7 @@ export type Command =
   | { type: 'getRanking' }
   | { type: 'claimReward'; id: number; villageId?: number }
   | { type: 'claimAllRewards'; villageId?: number }
+  | { type: 'setAutoRewards'; on: boolean }
   | { type: 'selectVillage'; id: number }
   | { type: 'setAlertMode'; mode: AlertMode }
   | { type: 'tribeFound'; name: string; tag: string }
@@ -407,6 +408,7 @@ export interface Snapshot {
   farmTemplates: FarmTemplates;
   /** Template ids you hid. */
   hiddenTemplates: string[];
+  autoRewards: boolean;
   /** Auto-farm: its settings, the next round and what the last one sent. */
   autoFarm: { options: FarmAllOptions; next?: number; last?: { time: number; sent: number } } | null;
   /** worldSpeed * unitSpeed * marchSpeed, to preview travel times. */

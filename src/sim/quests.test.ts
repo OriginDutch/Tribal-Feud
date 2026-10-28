@@ -128,3 +128,25 @@ describe('quest toasts', () => {
     expect(fromSaveData(data).questToasts).toEqual([]);
   });
 });
+
+describe('auto rewards', () => {
+  it('a reward that fits goes in by itself; one that fits nowhere waits', async () => {
+    const { autoClaimRewards } = await import('./quests');
+    const { createWorld: cw, playerVillage: pv } = await import('./state');
+    const { createConfig: cc } = await import('../shared/config');
+    const s = cw(cc('classic', 'R', 9, { bots: { count: 0 } } as never));
+    const v = pv(s)!;
+    v.res = [100, 100, 100];
+    v.resAt = s.time;
+    s.rewards = [
+      { id: 1, text: 'klein', res: [200, 200, 200] },
+      { id: 2, text: 'te groot', res: [999999, 0, 0] },
+    ] as never;
+    autoClaimRewards(s);
+    expect(s.rewards.map((r) => r.id)).toEqual([1, 2]); // off by default
+    s.autoRewards = true;
+    autoClaimRewards(s);
+    expect(s.rewards.map((r) => r.id)).toEqual([2]);
+    expect(v.res[0]).toBeGreaterThanOrEqual(300);
+  });
+});

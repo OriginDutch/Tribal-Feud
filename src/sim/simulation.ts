@@ -6,7 +6,7 @@ import { nextInt } from './rng';
 import { HUMAN_ID, addLog, villagesOf, type GameEvent, type LogEntry, type WorldState } from './state';
 import { onBuildDone, onRecruitTick, onResearchDone, settleRecruits } from './village';
 import { onArrive } from './movement';
-import { checkQuests } from './quests';
+import { checkQuests , autoClaimRewards } from './quests';
 import { onBotTurn } from './bots';
 import { onManagerCheck } from './manager';
 import { settleScavenge } from './scavenge';
@@ -122,6 +122,7 @@ export function advance(state: WorldState, realDtMs: number): AdvanceResult {
     let entry = handle(state, next.event);
     result.processed++;
     checkQuests(state);
+    autoClaimRewards(state);
     if (state.alert) {
       // a game event raised an alert (incoming attack, village lost): pause right here
       entry = state.alert;

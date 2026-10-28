@@ -234,6 +234,9 @@ export interface WorldState {
   farmTemplates: FarmTemplates;
   /** Farm alles on its own, every little while (game time), with these settings. */
   autoFarm?: { options: import('./farmAll').FarmAllOptions; at?: number; last?: { time: number; sent: number } };
+  /** Quest rewards go in by themselves when they fit. */
+  autoRewards?: boolean;
+  autoRewardsAt?: number;
   /** Build, troop and noble template ids you hid from the lists. */
   hiddenTemplates?: string[];
   /** What the human player knows about other villages. */

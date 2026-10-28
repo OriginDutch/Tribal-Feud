@@ -15,6 +15,9 @@ export function QuestsScreen() {
       <section class="panel">
         <div class="row">
           <h3 style={{ margin: 0, flex: 1 }}>Beloningen ({q.rewards.length})</h3>
+          <label class="row" title="Een beloning gaat vanzelf naar het dorp waar hij helemaal in de opslag past (het dorp met de meeste ruimte over). Wat nergens past, blijft hier staan.">
+            <input type="checkbox" checked={s.autoRewards} onChange={(e) => send({ type: 'setAutoRewards', on: e.currentTarget.checked })} /> Automatisch ophalen als het past
+          </label>
           {q.rewards.length > 1 && (
             <button class="small primary" onClick={() => send({ type: 'claimAllRewards' })}>
               Alles ophalen

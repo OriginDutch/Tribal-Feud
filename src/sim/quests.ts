@@ -233,3 +233,27 @@ export function claimAllRewards(state: WorldState, villageId?: number): string |
   for (const r of [...state.rewards]) if (claimReward(state, r.id, villageId) === null) anyClaimed = true;
   return anyClaimed ? null : 'Je opslag zit vol.';
 }
+
+/**
+ * Auto-claim: every reward that fits completely in one of your villages goes there (the village
+ * with the most room left after it). Rewards bigger than any storage wait for you.
+ */
+export function autoClaimRewards(state: WorldState): void {
+  if (!state.autoRewards || !state.rewards.length) return;
+  // at most once a game minute
+  if (state.autoRewardsAt !== undefined && state.time - state.autoRewardsAt < 60_000) return;
+  state.autoRewardsAt = state.time;
+  const mine = villagesOf(state, HUMAN_ID);
+  for (const r of [...state.rewards]) {
+    let best: { v: Village; room: number } | undefined;
+    for (const v of mine) {
+      settle(state.config, v, state.time);
+      const cap = storageCapacity(v.buildings.storage);
+      const left = [0, 1, 2].map((i) => cap - v.res[i as 0] - r.res[i as 0]);
+      if (left.some((x) => x < 0)) continue;
+      const room = Math.min(...left);
+      if (!best || room > best.room) best = { v, room };
+    }
+    if (best) claimReward(state, r.id, best.v.id);
+  }
+}
