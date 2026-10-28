@@ -16,7 +16,8 @@
     "growth": "npx --yes esbuild tools/bench/growth.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/growth.mjs --log-level=error && node node_modules/.cache/growth.mjs",
     "stats": "npx --yes esbuild tools/bench/stats.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/stats.mjs --log-level=error && node node_modules/.cache/stats.mjs",
     "smoke": "node tools/smoke/smoke.mjs",
-    "realism": "npx --yes esbuild tools/bench/realism.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/realism.mjs --log-level=error && node node_modules/.cache/realism.mjs"
+    "realism": "npx --yes esbuild tools/bench/realism.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/realism.mjs --log-level=error && node node_modules/.cache/realism.mjs",
+    "pace": "npx --yes esbuild tools/bench/pace.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/pace.mjs --log-level=error && node node_modules/.cache/pace.mjs"
   },
   "repository": {
     "type": "git",
