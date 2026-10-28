@@ -14,7 +14,8 @@
     "bench": "npx --yes esbuild tools/bench/bench.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/bench.mjs --log-level=error && node node_modules/.cache/bench.mjs",
     "fingerprint": "npx --yes esbuild tools/bench/fingerprint.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/fingerprint.mjs --log-level=error && node node_modules/.cache/fingerprint.mjs",
     "growth": "npx --yes esbuild tools/bench/growth.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/growth.mjs --log-level=error && node node_modules/.cache/growth.mjs",
-    "stats": "npx --yes esbuild tools/bench/stats.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/stats.mjs --log-level=error && node node_modules/.cache/stats.mjs"
+    "stats": "npx --yes esbuild tools/bench/stats.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/stats.mjs --log-level=error && node node_modules/.cache/stats.mjs",
+    "smoke": "node tools/smoke/smoke.mjs"
   },
   "repository": {
     "type": "git",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",
     "fake-indexeddb": "^6.2.6",
+    "playwright": "^1.63.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
