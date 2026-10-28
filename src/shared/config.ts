@@ -270,7 +270,7 @@ const BASE: PresetValues = {
   },
   marchSpeed: 1,
   map: {
-    barbarianCount: 3000,
+    barbarianCount: 5000,
     density: 0.3,
     minPlayerDistance: 3,
     playerStart: 'random',
@@ -282,7 +282,7 @@ const BASE: PresetValues = {
     luckRange: 0.25,
   },
   bots: {
-    count: 200,
+    count: 500,
     difficulty: 'normal',
     turnMinMinutes: 5,
     turnMaxMinutes: 30,
@@ -291,7 +291,8 @@ const BASE: PresetValues = {
     farmRadius: 15,
     farmAttacksPerTurn: 5,
     abandonAfterDays: 3,
-    tiers: { pro: 0.1, mid: 0.3 },
+    // a real world's pyramid: a few no-lifers, a middle group, a long tail of casuals (500 bots: 35 / 115 / 350)
+    tiers: { pro: 0.07, mid: 0.23 },
   },
   winCondition: {
     villageShare: 0.75,

@@ -37,11 +37,11 @@ function nearestBarbarian(s: WorldState, v: Village): Village {
 }
 
 describe('map', () => {
-  it('has the player, ~200 bots and ~3000 barbarians on unique fields', () => {
+  it('has the player, 500 bots and 5000 barbarians (the classic default) on unique fields', () => {
     const { s } = setup();
     const villages = Object.values(s.villages);
-    expect(villages.filter((x) => x.owner === BARBARIAN)).toHaveLength(3000);
-    expect(s.players.filter((p) => p.isBot)).toHaveLength(200);
+    expect(villages.filter((x) => x.owner === BARBARIAN)).toHaveLength(5000);
+    expect(s.players.filter((p) => p.isBot)).toHaveLength(500);
     expect(new Set(villages.map((x) => `${x.x}|${x.y}`)).size).toBe(villages.length);
     for (const x of villages) {
       expect(x.x).toBeGreaterThanOrEqual(0);

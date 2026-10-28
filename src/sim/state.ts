@@ -113,6 +113,10 @@ export interface SeenAttack {
 
 export interface BotState {
   archetype: Archetype;
+  /** Stopped playing for good (its villages went to the barbarians). */
+  quit?: boolean;
+  /** Game time of the previous turn (for the chance to quit in between). */
+  lastTurnAt?: number;
   /** How serious this "player" is: presence, sharpness and reactions follow from it. */
   tier?: BotTier;
   /**

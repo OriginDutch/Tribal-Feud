@@ -18,8 +18,8 @@ describe('where everyone starts', () => {
       const s = world(seed);
       const me = villagesOf(s, HUMAN_ID)[0]!;
       const pros = s.players.filter((p) => p.bot?.tier === 'pro').map((p) => villagesOf(s, p.id)[0]!);
-      expect(pros.length).toBe(30);
-      expect(s.players.filter((p) => p.bot?.tier === 'mid').length).toBe(90);
+      expect(pros.length).toBe(21);
+      expect(s.players.filter((p) => p.bot?.tier === 'mid').length).toBe(69);
       // nearest other pro: with 30 pros spread over the map, never a handful of fields
       const all = s.players.filter((p) => p.bot).map((p) => villagesOf(s, p.id)[0]!);
       const radius = Math.max(...all.map((v) => Math.hypot(v.x - 500, v.y - 500)));

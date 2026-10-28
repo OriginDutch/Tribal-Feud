@@ -23,7 +23,7 @@ import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { restartSpot } from './map';
 import { grudge, reactToIncoming } from './botReact';
 import { focusWeight, spares, tribeDuties } from './tribeOrders';
-import { helpShare, isHelping, mayAttack, targetWeight, threatsFor } from './tribes';
+import { helpShare, isHelping, leave as leaveTribe, mayAttack, targetWeight, threatsFor } from './tribes';
 import { BARBARIAN, HUMAN_ID, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type BotState, type BotTier, type Player, type WorldState } from './state';
 import {
   buildBlocker,
@@ -62,8 +62,39 @@ export function initBots(state: WorldState): void {
   }
 }
 
-/** How sharp a tier plays: 1 = never forgets anything. */
-const SKILL: Record<BotTier, number> = { pro: 1, mid: 0.85, casual: 0.7 };
+/**
+ * How sharp a bot plays, 0..1 (1 = never forgets anything). A sliding scale inside each tier, so the
+ * world gets a smooth spread from no-lifers to people who log in now and then: pros 0.9-1, mid
+ * 0.65-0.9, casuals 0.3-0.65 with most of them at the sloppy end.
+ */
+export function skillOf(state: WorldState, id: number, bot: BotState): number {
+  const h = hashFloat(state.config.seed, id, 11);
+  const tier = bot.tier ?? 'pro';
+  if (tier === 'pro') return 0.9 + 0.1 * h;
+  if (tier === 'mid') return 0.65 + 0.25 * h;
+  return 0.3 + 0.35 * h * h;
+}
+
+/**
+ * Casuals stop playing now and then (their villages become barbarian, like in TW). The chance per
+ * game day at world speed 1: about 0.6% for the sloppiest, 0.1% for the best casual, so after a few
+ * months of game time about half of them are gone.
+ */
+function quitChance(state: WorldState, id: number, bot: BotState, ms: number): number {
+  if ((bot.tier ?? 'pro') !== 'casual' || bot.reference) return 0;
+  const perDay = 0.006 * Math.max(0, 0.75 - skillOf(state, id, bot)) / 0.45;
+  return 1 - Math.pow(1 - perDay, (ms * state.config.worldSpeed) / DAY);
+}
+
+/** The bot leaves the game for good: its villages go to the barbarians. */
+export function quitGame(state: WorldState, player: Player): void {
+  const villages = villagesOf(state, player.id);
+  toBarbarians(state, player);
+  leaveTribe(state, player);
+  player.bot!.quit = true;
+  delete player.bot!.nobleTarget;
+  addLog(state, { time: state.time, text: `${player.name} is gestopt met spelen${villages.length ? `: ${villages.length === 1 ? 'zijn dorp wordt' : `zijn ${villages.length} dorpen worden`} barbaars` : ''}.` });
+}
 
 // --- tiers and presence ----------------------------------------------------------
 
@@ -186,7 +217,13 @@ export function difficulty(state: WorldState): DifficultyDef {
 export function onBotTurn(state: WorldState, playerId: number): void {
   const player = state.players[playerId];
   const bot = player?.bot;
-  if (!player || !bot || bot.nextTurn !== state.time) return; // stale event
+  if (!player || !bot || bot.quit || bot.nextTurn !== state.time) return; // stale event, or gone
+  // casuals give up now and then (chance over the time since the last turn)
+  if (bot.lastTurnAt !== undefined && nextFloat(state.rng) < quitChance(state, playerId, bot, state.time - bot.lastTurnAt)) {
+    quitGame(state, player);
+    return;
+  }
+  bot.lastTurnAt = state.time;
 
   // away from the game: nothing new happens until it comes back (queues keep running)
   if (!isOnline(state, playerId, bot)) {
@@ -228,14 +265,15 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   // farming and noblemen only when the bot looks at the game; building and troops always
   const attentive = checksIn(state, player.bot);
   // coins and noblemen come first once there is an academy; while saving, buildings wait too
-  const saving = attentive ? nobleTurn(state, player, v, profile, [0, 0, 0]) : false;
+  // a sloppy player often doesn't get round to his noblemen at all
+  const saving = attentive && nextFloat(state.rng) < skillOf(state, player.id, player.bot) ? nobleTurn(state, player, v, profile, [0, 0, 0]) : false;
   // churches: a village without faith gets one (the first church again if it was lost)
   if (attentive && state.config.churches && v.buildQueue.length < 2 && !hasFaith(state, v)) {
     if (!hasFirstChurch(state, player.id)) { if (buildBlocker(state, v, 'church_f') === null) queueBuild(state, v.id, 'church_f'); }
     else if (buildBlocker(state, v, 'church') === null) queueBuild(state, v.id, 'church');
   }
   // sloppiness: less serious players forget things now and then
-  const skill = SKILL[player.bot.tier ?? 'pro'];
+  const skill = skillOf(state, player.id, player.bot);
   const forgets = (weight: number) => skill < 1 && nextFloat(state.rng) < (1 - skill) * weight;
   const reserve = forgets(0.6) ? [0, 0, 0] as Res : autoBuild(state, v, profile.buildOrder, saving ? nobleNeed(state, v) : [0, 0, 0]);
   if (!forgets(0.6)) research(state, v, profile);
@@ -357,10 +395,10 @@ function shouldAbandon(state: WorldState, player: Player): boolean {
 }
 
 /** The bot's villages become barbarian; the bot starts over with one fresh village at the outer ring. */
-export function abandonAndRestart(state: WorldState, player: Player): Village {
+/** All the player's villages become barbarian; his troops on the road are lost. */
+function toBarbarians(state: WorldState, player: Player): void {
   const { config } = state;
-  const old = villagesOf(state, player.id);
-  for (const v of old) {
+  for (const v of villagesOf(state, player.id)) {
     settle(config, v, state.time);
     v.owner = BARBARIAN;
     v.name = 'Barbarendorp';
@@ -377,6 +415,13 @@ export function abandonAndRestart(state: WorldState, player: Player): Village {
   // troops on the road are lost with the player
   for (const m of Object.values(state.movements)) if (m.owner === player.id) removeMovement(state, m.id);
   invalidateOwners(state);
+  forgetNeighbourhoods(state);
+}
+
+export function abandonAndRestart(state: WorldState, player: Player): Village {
+  const { config } = state;
+  const old = villagesOf(state, player.id).map((v) => ({ x: v.x, y: v.y }));
+  toBarbarians(state, player);
 
   // a gap between other players at the outer ring, with a few barbarians around it
   const [x, y] = restartSpot(state);
