@@ -306,6 +306,12 @@ export function moraleFor(state: WorldState, attacker: number, defender: number)
   return Math.max(base, floor);
 }
 
+/** Measurement only (tools/bench): sees every attack as it lands, before the battle. Null in the game. */
+let attackHook: ((state: WorldState, m: Movement, target: Village, after?: { won: boolean; conquered: boolean; loyalty?: number }) => void) | null = null;
+export function setAttackHook(fn: typeof attackHook): void {
+  attackHook = fn;
+}
+
 function arriveAttack(state: WorldState, m: Movement): void {
   const { config } = state;
   const from = state.villages[m.from];
@@ -316,6 +322,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
   }
 
   growBarbarian(state, target, state.time);
+  attackHook?.(state, m, target);
   settle(config, target, state.time);
   statAttack(state, m.owner, target.owner);
   // a real attack between tribes rubs; scouts don't count
@@ -408,6 +415,8 @@ function arriveAttack(state: WorldState, m: Movement): void {
       loyalty = { before, after: before - drop };
     }
   }
+
+  attackHook?.(state, m, target, { won: battle.attackerWon, conquered, ...(loyalty ? { loyalty: loyalty.after } : {}) });
 
   // send the survivors home
   if (!conquered && Object.keys(survivors).length > 0) {

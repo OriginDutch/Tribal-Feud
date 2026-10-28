@@ -15,7 +15,7 @@ import { DIFFICULTIES, type DifficultyDef } from '../shared/config';
 const DAY = 86_400_000;
 import { push } from './eventQueue';
 import { buildingCost } from './formulas';
-import { distance, protectionBlocker, protectionEndsAt, sendAttack, sendSupport, travelTimeMs } from './movement';
+import { distance, protectionBlocker, protectionEndsAt, sendAttack, sendNobleTrain, sendSupport, travelTimeMs } from './movement';
 import { coinsForSlots, curveOf, mintCoins, noblesAllowed, playerCoins, slotsUsed } from './nobles';
 import { MERCHANT_CARRY, acceptOffer, cancelOffer, createOffer, merchantsFree, offersOf, type TradeOffer } from './market';
 import { hashFloat, nextFloat } from './rng';
@@ -771,6 +771,23 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
     if (profile.attacksPlayers) scoutForConquest(state, player, v, villagesNear(state, v, Math.min(NOBLE_RADIUS, config.conquest.maxDistance)));
     return false;
   }
+  // a player: first a pure clear with the whole army, the nobles right behind it (like a player
+  // does), so a lost battle never costs a nobleman
+  if (target.owner !== BARBARIAN) {
+    const clear: UnitCounts = {};
+    for (const u of ['axe', 'light', 'marcher', 'ram', 'catapult'] as const) if (v.units[u] > 0) clear[u] = v.units[u];
+    const left = (u: 'spear' | 'sword') => Math.floor(v.units[u] / NOBLE_TRAIN);
+    const escorts: UnitCounts[] = Array.from({ length: NOBLE_TRAIN }, () => {
+      const e: UnitCounts = {};
+      for (const u of ['spear', 'sword'] as const) if (left(u) > 0) e[u] = left(u);
+      return e;
+    });
+    if (sendNobleTrain(state, v.id, target.id, clear, escorts, undefined, true) === null) {
+      bot.nobleTarget = target.id;
+      bot.outgoing.push(target.id);
+    }
+    return false;
+  }
   // each nobleman gets his own escort: they arrive together, one after the other
   let sent = 0;
   for (let i = 0; i < NOBLE_TRAIN; i++) {
@@ -806,13 +823,20 @@ function nobleTarget(state: WorldState, player: Player, v: Village, profile: Bot
   if (!bot) return null;
   const maxDist = Math.min(NOBLE_RADIUS, state.config.conquest.maxDistance);
   const current = bot.nobleTarget !== undefined ? state.villages[bot.nobleTarget] : undefined;
+  // tribe claims: what a tribe mate is going for is his
+  const claimed = new Set<number>();
+  const tribe = player.tribe !== undefined ? state.tribes?.[player.tribe] : undefined;
+  for (const m of tribe?.members ?? []) {
+    const c = m !== player.id ? state.players[m]?.bot?.nobleTarget : undefined;
+    if (c !== undefined) claimed.add(c);
+  }
   const ok = (t: Village) => {
-    if (t.owner === player.id || distance(t, v) > maxDist) return false;
+    if (t.owner === player.id || distance(t, v) > maxDist || claimed.has(t.id)) return false;
     if (t.owner === BARBARIAN) return true;
     if (!profile.attacksPlayers || protectionBlocker(state, player.id, t.owner) !== null || !mayAttack(state, player.id, t.owner) || spares(state, bot, t.owner)) return false;
     if (outclassed(state, player.id, t.owner)) return false;
-    // only players it beat before, or scouted and can clearly break
-    return bot.farmLog[t.id]?.won === true || beatable(state, player, t, v);
+    // a player only after a fresh scout says the army clearly breaks him (an old win says little)
+    return beatable(state, player, t, v);
   };
   if (current && ok(current) && bot.farmLog[current.id]?.won !== false) return current;
   let best: Village | null = null;

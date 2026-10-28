@@ -13,7 +13,7 @@ import type { UnitCounts, UnitId } from '../shared/gameData';
 import type { BotProfile } from '../shared/botProfiles';
 import { DAY, HOUR } from '../shared/time';
 import { grudge } from './botReact';
-import { distance, protectionBlocker, sendAttack } from './movement';
+import { distance, moraleFor, protectionBlocker, sendAttack } from './movement';
 import { nextFloat } from './rng';
 import { BARBARIAN, villagesOf, type Player, type WorldState } from './state';
 import { mayAttack, relationBetween } from './tribes';
@@ -120,7 +120,7 @@ export function farmablePlayerVillage(state: WorldState, player: Player, t: Vill
   if (t.owner === BARBARIAN) return true;
   if (!canTarget(state, player, t.owner) || isWary(state, player, t.owner)) return false;
   const sc = freshScout(state, player, t.id);
-  return !!sc && sc.def * 2.5 < attackOf(state, group);
+  return !!sc && sc.def * 2.5 < effectiveAttack(state, player.id, t.owner, group);
 }
 
 /** Sends scouts from `v` to a player village nearby that the bot wants to know about. */
@@ -146,13 +146,22 @@ export function judgeScout(state: WorldState, player: Player, v: Village, target
   if (sc.def > Math.max(500, farmPower * 0.2)) (player.bot.wary ??= {})[target.owner] = state.time + waryFor(state) * (sc.def >= SCOUTS_DIED ? 3 : 1);
 }
 
-/** Conquest: a scouted player village the army of `v` can clearly break. */
+/**
+ * What an army really brings against a player: its attack, times morale (a big attacker on a
+ * small defender fights weaker) and with bad luck (-25%). Bots plan for the bad day.
+ */
+export function effectiveAttack(state: WorldState, attacker: number, defender: number, army: UnitCounts): number {
+  const luck = state.config.luck ? 1 - state.config.combat.luckRange : 1;
+  return attackOf(state, army) * moraleFor(state, attacker, defender) * luck;
+}
+
+/** Conquest: a scouted player village the army of `v` clearly breaks (morale and bad luck included). */
 export function beatable(state: WorldState, player: Player, t: Village, v: Village): boolean {
   const sc = freshScout(state, player, t.id);
   if (!sc) return false;
   const army: UnitCounts = {};
   for (const u of STRIKE_UNITS) if (v.units[u] > 0) army[u] = v.units[u];
-  return sc.def * 1.2 < attackOf(state, army);
+  return sc.def * 1.2 < effectiveAttack(state, player.id, t.owner, army);
 }
 
 /** A noble train is ready but there is no target: scout the nearest unknown player village in reach. */
@@ -208,8 +217,8 @@ export function strike(state: WorldState, player: Player, v: Village): void {
 
   const army: UnitCounts = {};
   for (const u of STRIKE_UNITS) if (v.units[u] > 0) army[u] = v.units[u];
-  const power = attackOf(state, army);
-  if (power < 2000) return;
+  if (attackOf(state, army) < 2000) return;
+  const power = effectiveAttack(state, player.id, foe, army);
   const theirs = villagesOf(state, foe).filter((t) => distance(t, v) <= STRIKE_RADIUS).sort((a, b) => distance(a, v) - distance(b, v)).slice(0, 6);
   // the weakest scouted village it can clearly beat
   let best: Village | null = null;
