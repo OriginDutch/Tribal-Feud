@@ -10,7 +10,7 @@ import { BARBARIAN, createWorld, playerVillage, type WorldState } from './state'
 import { queueBuild } from './village';
 
 function setup() {
-  const s = createWorld(createConfig('classic', 'Test', 5, { luck: false }));
+  const s = createWorld(createConfig('classic', 'Test', 5, { luck: false, bots: { count: 100 }, map: { barbarianCount: 1000 } } as never));
   setPaused(s, false);
   const v = playerVillage(s);
   if (!v) throw new Error('no village');
@@ -109,7 +109,7 @@ describe('quest toasts', () => {
   });
 
   it('a quest reward can be claimed from its toast, which then disappears', () => {
-    const config = createConfig('classic', 'Test', 5, { luck: false });
+    const config = createConfig('classic', 'Test', 5, { luck: false, bots: { count: 100 }, map: { barbarianCount: 1000 } } as never);
     const first = config.quests.chains[0]?.quests[0];
     if (!first) throw new Error('no quest');
     first.reward = { res: [10, 10, 10] };

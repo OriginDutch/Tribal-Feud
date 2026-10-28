@@ -19,8 +19,9 @@ import {
   type Village,
 } from './village';
 
-function setup(overrides = {}): { s: WorldState; v: Village } {
-  const s = createWorld(createConfig('classic', 'Test', 1, overrides));
+function setup(overrides: object = {}): { s: WorldState; v: Village } {
+  // a small world: these tests are about one village, not the bots (the default is 500)
+  const s = createWorld(createConfig('classic', 'Test', 1, { bots: { count: 100 }, map: { barbarianCount: 1000 }, ...overrides } as never));
   setPaused(s, false);
   const v = playerVillage(s);
   if (!v) throw new Error('no village');
