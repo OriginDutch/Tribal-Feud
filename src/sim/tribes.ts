@@ -21,6 +21,7 @@ import { applyToHuman, humanTribeTick, proposeToHuman, warOnHuman } from './huma
 import { push } from './eventQueue';
 import { villagePoints } from './barbarians';
 import { nextFloat } from './rng';
+import { warOpsTick } from './warOps';
 import { WAR_FRICTION, clearFriction, frictionBetween, frictionTick, tribeStrength } from './warCause';
 import type { TribeView } from '../shared/protocol';
 import { BARBARIAN, HUMAN_ID, addLog as addWorldLog, movementIndex, villagesOf, type Player, type WorldState } from './state';
@@ -42,6 +43,10 @@ export interface Tribe {
   since?: Record<number, number>;
   /** Friction with other tribes (attacks, conquests, living close); kept symmetric. See warCause. */
   friction?: Record<number, number>;
+  /** Joint operations in its wars (see warOps). */
+  ops?: import('./warOps').TribeOp[];
+  /** You lead: the enemy (and maybe the village) your tribe goes for. */
+  front?: { enemy: number; target?: number };
 }
 
 export { MAX_MEMBERS };
@@ -71,6 +76,9 @@ const COLORS = [
 ];
 
 /** Diplomacy news: kept apart (the world log scrolls fast) and in the world log. */
+export function addTribeNews(state: WorldState, entry: { time: number; text: string }): void {
+  addLog(state, entry);
+}
 function addLog(state: WorldState, entry: { time: number; text: string }): void {
   addWorldLog(state, entry);
   (state.tribeNews ??= []).push(entry);
@@ -316,6 +324,7 @@ export function onDiplomacy(state: WorldState): void {
   }
 
   diplomacy(state);
+  warOpsTick(state);
   loyaltyTick(state);
   itemsTick(state);
   flagsTick(state);

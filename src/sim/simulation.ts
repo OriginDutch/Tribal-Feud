@@ -9,6 +9,7 @@ import { checkQuests } from './quests';
 import { onBotTurn } from './bots';
 import { onManagerCheck } from './manager';
 import { settleScavenge } from './scavenge';
+import { onOpLaunch } from './warOps';
 
 /**
  * Pure simulation core. No timers, no DOM, no worker APIs:
@@ -82,6 +83,9 @@ function handle(state: WorldState, event: GameEvent): LogEntry | null {
       return null;
     case 'scavenge':
       // settled in touch()
+      return null;
+    case 'opLaunch':
+      onOpLaunch(state, event.tribe, event.op, event.role);
       return null;
     case 'test': {
       const entry: LogEntry = { time: state.time, text: `Test-event: ${event.label}` };

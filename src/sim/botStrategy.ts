@@ -27,8 +27,10 @@ export interface BotScout { at: number; def: number; owner: number }
 /** Defense noted when the scouts were killed: unknown, treated as far too strong. */
 const SCOUTS_DIED = 1e12;
 /** Scouts each bot village keeps. */
-export const BOT_SPIES = 5;
-const SCOUT_GROUP = 2;
+/** Scouts a bot keeps per village, by tier: pros keep their villages hard to scout. */
+export const BOT_SPIES = { pro: 15, mid: 6, casual: 3 } as const;
+/** Scouts sent at a village; where they died before, everything that is home. */
+const SCOUT_GROUP = 5;
 /** How far a strike reaches (fields). */
 const STRIKE_RADIUS = 25;
 /** Units of a strike: the offensive army. */
@@ -73,7 +75,49 @@ export function rememberScout(state: WorldState, owner: number, target: Village,
   for (const [id, sc] of Object.entries(bot.scouted)) if (state.time - sc.at > 6 * waryFor(state)) delete bot.scouted[Number(id)];
 }
 
-function freshScout(state: WorldState, player: Player, villageId: number): BotScout | undefined {
+/**
+ * Escorts for the noblemen of a train. A clear kills the troops but the wall often still stands,
+ * and an empty village behind a wall 20 still has ~2000 defense: a nobleman with a few spears
+ * dies against it. So every escort first gets enough axes / light cavalry to beat an empty
+ * village behind this wall (with margin), then a share of the spears and swords.
+ * `pool` is what may be used (the clear keeps the rest); used units are taken out of it.
+ * Morale counts: against a much smaller player a nobleman alone can even lose to an empty village.
+ */
+export function nobleEscorts(state: WorldState, pool: UnitCounts, wall: number, n: number, morale = 1): UnitCounts[] {
+  const { units } = state.config;
+  // low morale (a much smaller target) weakens the escort too; bad luck on top
+  const need = (1.5 * defenseOf(state, {}, wall)) / Math.max(0.1, morale);
+  const out: UnitCounts[] = [];
+  for (let i = 0; i < n; i++) {
+    const e: UnitCounts = {};
+    let left = need;
+    for (const u of ['light', 'axe', 'marcher', 'heavy'] as const) {
+      if (left <= 0) break;
+      const have = pool[u] ?? 0;
+      const take = Math.min(have, Math.ceil(left / units[u].attack));
+      if (take <= 0) continue;
+      e[u] = take;
+      pool[u] = have - take;
+      left -= take * units[u].attack;
+    }
+    out.push(e);
+  }
+  for (const u of ['spear', 'sword'] as const) {
+    const share = Math.floor((pool[u] ?? 0) / n);
+    if (share <= 0) continue;
+    for (const e of out) e[u] = (e[u] ?? 0) + share;
+    pool[u] = (pool[u] ?? 0) - share * n;
+  }
+  return out;
+}
+
+/** A fresh scout that saw something (scouts that died saw nothing). */
+export function freshSighting(state: WorldState, player: Player, villageId: number): BotScout | undefined {
+  const sc = freshScout(state, player, villageId);
+  return sc && sc.def < SCOUTS_DIED ? sc : undefined;
+}
+
+export function freshScout(state: WorldState, player: Player, villageId: number): BotScout | undefined {
   const sc = player.bot?.scouted?.[villageId];
   return sc && state.time - sc.at <= scoutFresh(state) && state.villages[villageId]?.owner === sc.owner ? sc : undefined;
 }
@@ -124,9 +168,10 @@ export function farmablePlayerVillage(state: WorldState, player: Player, t: Vill
 }
 
 /** Sends scouts from `v` to a player village nearby that the bot wants to know about. */
-function scout(state: WorldState, v: Village, t: Village): boolean {
+export function scout(state: WorldState, v: Village, t: Village): boolean {
   if (v.units.spy < SCOUT_GROUP) return false;
-  return sendAttack(state, v.id, t.id, { spy: SCOUT_GROUP }) === null;
+  const died = (state.players[v.owner]?.bot?.scouted?.[t.id]?.def ?? 0) >= SCOUTS_DIED;
+  return sendAttack(state, v.id, t.id, { spy: died ? v.units.spy : SCOUT_GROUP }) === null;
 }
 
 /** Farmers scout one unknown player village in farm range per turn, so they know who is weak. */

@@ -40,6 +40,7 @@ const warAttackers = new Map<string, Set<number>>();
 const armyOf = (v: Village) => ['axe', 'light', 'marcher', 'heavy', 'ram', 'spear', 'sword'].reduce((n, u) => n + v.units[u as 'axe'] + v.outside[u as 'axe'], 0);
 
 const nobleOutcome: Record<string, number> = {};
+const nobleDef: Record<string, number> = {};
 const ownerBefore = new Map<number, number>();
 const clearInfo = new Map<number, { scouted: number; now: number; supported: boolean }>();
 const clearOut: { won: boolean; ratio: number; supported: boolean }[] = [];
@@ -51,13 +52,21 @@ setAttackHook((state: WorldState, m: Movement, target: Village, after?: { won: b
   if (after) {
     if ((m.units.snob ?? 0) > 0 && (after.conquered || !state.players[target.owner]?.bot === false || target.owner >= 0)) {
       const k = after.conquered ? 'veroverd' : !after.won ? 'gevecht verloren' : after.loyalty !== undefined ? `loyaliteit ${after.loyalty <= 25 ? '≤25' : after.loyalty <= 60 ? '26-60' : '>60'}` : 'eigen dorp al';
-      const who = ownerBefore.get(m.id) === BARBARIAN ? 'barb' : 'speler';
+      const ob = ownerBefore.has(m.id) ? ownerBefore.get(m.id) : m.owner;
+      const who = ob === BARBARIAN ? 'barb' : ob === m.owner ? 'al eigen' : m.op !== undefined ? 'operatie' : m.train !== undefined ? 'eigen trein' : 'speler los';
       ownerBefore.delete(m.id);
       nobleOutcome[`${who}: ${k}`] = (nobleOutcome[`${who}: ${k}`] ?? 0) + 1;
     }
     return;
   }
   if ((m.units.snob ?? 0) > 0) ownerBefore.set(m.id, target.owner);
+  if ((m.units.snob ?? 0) > 0 && target.owner >= 0 && target.owner !== m.owner) {
+    const own = Object.values(target.units).reduce((a, b) => a + b, 0);
+    const sup = Object.values(target.support ?? {}).reduce((a, s) => a + Object.values(s).reduce((x, y) => x + (y ?? 0), 0), 0);
+    const esc = Object.entries(m.units).filter(([u]) => u !== 'snob').reduce((a, [, n]) => a + (n ?? 0), 0);
+    const k = `${m.train !== undefined ? 'trein' : 'los'} eigen:${own === 0 ? '0' : own < 100 ? '<100' : own < 1000 ? '<1k' : '1k+'} sup:${sup === 0 ? '0' : sup < 1000 ? '<1k' : '1k+'} escort:${esc < 50 ? '<50' : esc < 500 ? '<500' : '500+'}`;
+    nobleDef[k] = (nobleDef[k] ?? 0) + 1;
+  }
   if (m.train !== undefined && !(m.units.snob ?? 0) && target.owner >= 0 && target.owner !== m.owner) {
     const sc = state.players[m.owner]?.bot?.scouted?.[target.id];
     const present: Record<string, number> = { ...target.units };
@@ -128,6 +137,7 @@ const hit = [...nobleTargets.keys()];
   const med = (a: number[]) => a.sort((x, y) => x - y)[Math.floor(a.length / 2)] ?? 0;
   console.log(`clears op spelers: ${won.length} gewonnen (verdediging bij aankomst / bij verkenning: mediaan ${med(won.map((c) => c.ratio)).toFixed(2)}×), ${lost.length} verloren (mediaan ${med(lost.map((c) => c.ratio)).toFixed(2)}×, met ondersteuning in het dorp: ${lost.filter((c) => c.supported).length})`);
 }
+console.log(`edel bij aankomst: ${JSON.stringify(nobleDef)}`);
 console.log(`uitkomst edelaanvallen (ook barbaren): ${JSON.stringify(nobleOutcome)}`);
 console.log(`edelaanvallen op spelers: ${nobleAttacks} op ${hit.length} dorpen, waarvan ${hit.filter((id) => taken.has(id)).length} veroverd · provocaties per soort: ${JSON.stringify(provBy)}`);
 const avgEnded = ended.length ? (ended.reduce((a, b) => a + b, 0) / ended.length).toFixed(0) : '-';

@@ -11,7 +11,7 @@
  */
 import type { Archetype } from '../shared/botProfiles';
 import { UNIT_IDS, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
-import { DAY, HOUR, MINUTE } from '../shared/time';
+import { DAY, HOUR, MINUTE, formatGameTime } from '../shared/time';
 import { villagesNear } from './bots';
 import { addMessage, alertHuman, pauses } from './humanTribe';
 import { distance, protectionBlocker, sendAttack, sendSupport, travelTimeMs } from './movement';
@@ -224,6 +224,24 @@ export function checkLeaderOrder(state: WorldState): void {
   if (!o || o.until > state.time) return;
   delete state.leaderOrder;
   changeStanding(state, -8, 'je zei ja maar deed het niet');
+}
+
+/**
+ * A joint operation of your bot tribe includes you: attack `target`, landing at `landAt`.
+ * Only when no order of yours is open. Returns whether the order went out.
+ */
+export function giveOpOrder(state: WorldState, leader: Player, target: Village, landAt: number): boolean {
+  const open = (state.inbox ?? []).some((m) => m.request?.type === 'order' && m.status === 'open');
+  if (open || state.leaderOrder) return false;
+  const request: Extract<BotRequest, { type: 'order' }> = { type: 'order', order: 'attack', village: target.id, x: target.x, y: target.y, arrives: landAt };
+  const title = `${leader.name}: gezamenlijke aanval op ${target.name}`;
+  state.leaderOrderAt = state.time;
+  addMessage(state, {
+    kind: 'request', from: leader.id, title, request, status: 'open', expires: landAt,
+    text: `${leader.name}: we vallen ${target.name} (${target.x}|${target.y}) van ${state.players[target.owner]?.name ?? '?'} samen aan. De legers landen om ${formatGameTime(landAt)}. Stuur je leger zodat het rond die tijd aankomt; de edels komen er direct achteraan.`,
+  });
+  if (pauses(state, 'requests')) alertHuman(state, title);
+  return true;
 }
 
 /** A bot leader of your tribe gives you an order now and then: support a mate, or attack an enemy. */

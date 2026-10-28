@@ -6,7 +6,7 @@
  */
 import { botScavenge } from './scavenge';
 import { outclassed } from './warCause';
-import { BOT_SPIES, beatable, farmablePlayerVillage, scoutForConquest, scoutForFarming, strike } from './botStrategy';
+import { BOT_SPIES, beatable, nobleEscorts, farmablePlayerVillage, scoutForConquest, scoutForFarming, strike } from './botStrategy';
 import { ARCHETYPES, BOT_PROFILES, type BotProfile } from '../shared/botProfiles';
 import { RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { MINUTE } from '../shared/time';
@@ -15,7 +15,7 @@ import { DIFFICULTIES, type DifficultyDef } from '../shared/config';
 const DAY = 86_400_000;
 import { push } from './eventQueue';
 import { buildingCost } from './formulas';
-import { distance, protectionBlocker, protectionEndsAt, sendAttack, sendNobleTrain, sendSupport, travelTimeMs } from './movement';
+import { distance, moraleFor, protectionBlocker, protectionEndsAt, sendAttack, sendNobleTrain, sendSupport, travelTimeMs } from './movement';
 import { coinsForSlots, curveOf, mintCoins, noblesAllowed, playerCoins, slotsUsed } from './nobles';
 import { MERCHANT_CARRY, acceptOffer, cancelOffer, createOffer, merchantsFree, offersOf, type TradeOffer } from './market';
 import { hashFloat, nextFloat } from './rng';
@@ -516,8 +516,9 @@ function recruitTroops(state: WorldState, v: Village, profile: BotProfile, reser
   }
   // a few scouts in every village: bots look before they attack a player
   const spies = v.units.spy + v.outside.spy + v.recruitQueues.stable.filter((j) => j.unit === 'spy').reduce((n, j) => n + j.total - j.done, 0);
-  if (spies < BOT_SPIES && recruitBlocker(state, v, 'spy') === null) {
-    const n = Math.min(BOT_SPIES - spies, maxRecruitable(state, v, 'spy'));
+  const keep = BOT_SPIES[state.players[v.owner]?.bot?.tier ?? 'pro'];
+  if (spies < keep && recruitBlocker(state, v, 'spy') === null) {
+    const n = Math.min(keep - spies, maxRecruitable(state, v, 'spy'));
     if (n > 0) recruit(state, v.id, 'spy', n);
   }
   const have = currentResources(config, v, state.time);
@@ -774,14 +775,15 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
   // a player: first a pure clear with the whole army, the nobles right behind it (like a player
   // does), so a lost battle never costs a nobleman
   if (target.owner !== BARBARIAN) {
+    const pool: UnitCounts = {};
+    for (const u of ['axe', 'light', 'marcher', 'heavy', 'spear', 'sword'] as const) if (v.units[u] > 0) pool[u] = v.units[u];
+    // the escorts are sized for the wall the clear's rams may leave standing
+    const escorts = nobleEscorts(state, pool, target.buildings.wall, NOBLE_TRAIN, moraleFor(state, v.owner, target.owner));
     const clear: UnitCounts = {};
-    for (const u of ['axe', 'light', 'marcher', 'ram', 'catapult'] as const) if (v.units[u] > 0) clear[u] = v.units[u];
-    const left = (u: 'spear' | 'sword') => Math.floor(v.units[u] / NOBLE_TRAIN);
-    const escorts: UnitCounts[] = Array.from({ length: NOBLE_TRAIN }, () => {
-      const e: UnitCounts = {};
-      for (const u of ['spear', 'sword'] as const) if (left(u) > 0) e[u] = left(u);
-      return e;
-    });
+    for (const u of ['axe', 'light', 'marcher', 'ram', 'catapult'] as const) {
+      const n = u === 'ram' || u === 'catapult' ? v.units[u] : (pool[u] ?? 0);
+      if (n > 0) clear[u] = n;
+    }
     if (sendNobleTrain(state, v.id, target.id, clear, escorts, undefined, true) === null) {
       bot.nobleTarget = target.id;
       bot.outgoing.push(target.id);

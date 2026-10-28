@@ -44,6 +44,8 @@ export interface Movement {
   train?: number;
   /** Merchants paying for an offer: they can't be called back. */
   offer?: true;
+  /** Part of a tribe's joint operation (warOps). */
+  op?: number;
 }
 
 /** How long after sending a command can still be cancelled (game time, like TW). */
@@ -180,6 +182,8 @@ export function sendAttack(
   train?: number,
   /** Walk at least this long (a pure clear walks with its noble train). */
   minDuration = 0,
+  /** Part of this joint operation of a tribe. */
+  op?: number,
 ): string | null {
   const { config } = state;
   const from = state.villages[fromId];
@@ -220,6 +224,7 @@ export function sendAttack(
   };
   if (catapultTarget && (units.catapult ?? 0) > 0) movement.catapultTarget = catapultTarget;
   if (train !== undefined) movement.train = train;
+  if (op !== undefined) movement.op = op;
   addMovement(state, movement);
   push(state.queue, movement.arrives, { kind: 'arrive', movementId: movement.id });
   if (to.owner === HUMAN_ID && from.owner !== HUMAN_ID) {
@@ -243,6 +248,8 @@ export function sendNobleTrain(
   catapultTarget?: BuildingId,
   /** The first wave is a pure clear, without a nobleman. */
   clearFirst = false,
+  /** Part of this joint operation of a tribe. */
+  op?: number,
 ): string | null {
   const from = state.villages[fromId];
   const to = state.villages[toId];
@@ -264,9 +271,9 @@ export function sendNobleTrain(
   const train = nextId(state);
   // a pure clear walks with the nobles, so it lands first, right before them
   const pace = clearFirst ? Math.max(...attacks.slice(1).map((a) => travelTimeMs(state, a, distance(from, to)))) : 0;
-  const error = sendAttack(state, fromId, toId, attacks[0] ?? {}, catapultTarget, train, pace);
+  const error = sendAttack(state, fromId, toId, attacks[0] ?? {}, catapultTarget, train, pace, op);
   if (error) return error;
-  for (const a of attacks.slice(1)) sendAttack(state, fromId, toId, a, undefined, train);
+  for (const a of attacks.slice(1)) sendAttack(state, fromId, toId, a, undefined, train, 0, op);
   return null;
 }
 
@@ -322,6 +329,18 @@ function arriveAttack(state: WorldState, m: Movement): void {
   }
 
   growBarbarian(state, target, state.time);
+  // the village became ours while this was underway (the rest of a noble train, a joint op):
+  // like in TW the troops just move in instead of fighting their own garrison
+  if (target.owner === m.owner) {
+    attackHook?.(state, m, target, { won: true, conquered: false });
+    removeMovement(state, m.id);
+    addSupport(target, from.id, m.units);
+    const out = state.players[m.owner]?.bot?.outgoing;
+    const i = out ? out.indexOf(target.id) : -1;
+    if (out && i >= 0) out.splice(i, 1);
+    if (m.owner === HUMAN_ID) addLog(state, { time: state.time, text: `Je aanval op ${target.name} (${target.x}|${target.y}) kwam aan in je eigen dorp: de troepen blijven daar.` });
+    return;
+  }
   attackHook?.(state, m, target);
   settle(config, target, state.time);
   statAttack(state, m.owner, target.owner);

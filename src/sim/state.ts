@@ -32,7 +32,9 @@ export type GameEvent =
   | { kind: 'botTurn'; playerId: number }
   | { kind: 'manager' }
   | { kind: 'diplomacy' }
-  | { kind: 'scavenge'; villageId: number };
+  | { kind: 'scavenge'; villageId: number }
+  /** A member's part of a tribe's joint operation leaves now (warOps). */
+  | { kind: 'opLaunch'; tribe: number; op: number; role: number };
 
 export interface LogEntry {
   time: number;
