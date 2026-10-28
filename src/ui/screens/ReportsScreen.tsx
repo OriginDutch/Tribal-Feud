@@ -19,7 +19,7 @@ const RES = [
 ] as const;
 
 type Kind = 'attack' | 'defense' | 'scout';
-type Filter = 'all' | Kind;
+type Filter = 'all' | Kind | 'auto';
 
 const scoutOnly = (r: Report) => {
   const sent = Object.entries(r.attackerUnits.sent).filter(([, n]) => (n ?? 0) > 0);
@@ -285,12 +285,17 @@ export function ReportsScreen() {
   const [open, setOpen] = useState<number | null>(null);
   const [filter, setFilter] = useSaved<Filter>('reports-filter', 'all');
   const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [hideAuto, setHideAuto] = useSaved('reports-hide-auto', true);
 
   useEffect(() => {
     send({ type: 'getReports' });
   }, [snapshot.value?.unreadReports]);
 
-  const shown = [...list].reverse().filter((r) => filter === 'all' || kindOf(r) === filter);
+  // auto-farm reports: their own filter; elsewhere hidden if you want
+  const shown = [...list].reverse().filter((r) =>
+    filter === 'auto' ? !!r.auto : (!r.auto || !hideAuto) && (filter === 'all' || kindOf(r) === filter),
+  );
+  const autoCount = list.filter((r) => r.auto).length;
   const pickedShown = shown.filter((r) => picked.has(r.id));
   const allPicked = shown.length > 0 && pickedShown.length === shown.length;
 
@@ -314,6 +319,7 @@ export function ReportsScreen() {
     { id: 'attack', label: 'Aanvallen' },
     { id: 'defense', label: 'Verdediging' },
     { id: 'scout', label: 'Verkenning' },
+    { id: 'auto', label: `Auto-farm (${autoCount})` },
   ];
 
   return (
@@ -331,6 +337,10 @@ export function ReportsScreen() {
               {f.label}
             </button>
           ))}
+          <span style={{ flex: 1 }} />
+          <label class="inline-check" title="Rapporten van automatisch farmen alleen tonen onder Auto-farm">
+            <input type="checkbox" checked={hideAuto} onChange={(e) => setHideAuto(e.currentTarget.checked)} /> auto-farm verbergen
+          </label>
         </div>
         <div class="row report-tools">
           <label class="inline-check">
@@ -342,6 +352,11 @@ export function ReportsScreen() {
           <button class="small" disabled={!list.some((r) => r.read)} onClick={() => remove('read')}>
             Verwijder gelezen
           </button>
+          {autoCount > 0 && (
+            <button class="small" onClick={() => remove(list.filter((r) => r.auto).map((r) => r.id))}>
+              Verwijder auto-farm ({autoCount})
+            </button>
+          )}
         </div>
         {shown.length === 0 ? (
           <p class="muted">{list.length === 0 ? 'Nog geen rapporten.' : 'Geen rapporten in deze categorie.'}</p>

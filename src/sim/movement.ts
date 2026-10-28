@@ -46,6 +46,8 @@ export interface Movement {
   offer?: true;
   /** Part of a tribe's joint operation (warOps). */
   op?: number;
+  /** Sent by auto-farm: its report comes in read, and in its own list. */
+  auto?: true;
 }
 
 /** How long after sending a command can still be cancelled (game time, like TW). */
@@ -108,6 +110,8 @@ export interface Report {
   id: number;
   time: number;
   read: boolean;
+  /** From auto-farm. */
+  auto?: true;
   attacker: ReportVillage;
   defender: ReportVillage;
   /** win = no losses, winLosses = won with losses, loss = attacker lost everything (or only spies died). */
@@ -135,6 +139,23 @@ export interface Report {
 }
 
 export const MAX_REPORTS = 300;
+/** Auto-farm reports have their own limit, so they never push out the others. */
+export const MAX_AUTO_REPORTS = 200;
+
+/** Adds a report; the oldest of its kind (auto-farm or the rest) goes when that list is full. */
+export function addReport(state: WorldState, report: Report): void {
+  state.reports.push(report);
+  const auto = !!report.auto;
+  const max = auto ? MAX_AUTO_REPORTS : MAX_REPORTS;
+  let excess = state.reports.reduce((c, r) => c + (!!r.auto === auto ? 1 : 0), 0) - max;
+  if (excess <= 0) return;
+  // oldest first
+  state.reports = state.reports.filter((r) => {
+    if (!!r.auto !== auto || excess <= 0) return true;
+    excess--;
+    return false;
+  });
+}
 
 export function distance(a: { x: number; y: number }, b: { x: number; y: number }): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -490,6 +511,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
       defenderUnits: seesDefender ? { present: defenderPresent, lost: cleanCounts(battle.defenderLost) } : null,
       ...(notes.attacker.length || (seesDefender && notes.defender.length) ? { modifiers: { attacker: notes.attacker, defender: seesDefender ? notes.defender : [] } } : {}),
     };
+    if (m.auto) { report.auto = true; report.read = true; }
     // the wall is always reported when the attacker saw the village
     if (seesDefender) report.wall = { before: battle.wallBefore, after: battle.wallAfter };
     if (m.catapultTarget && battle.buildingBefore !== undefined && battle.buildingAfter !== undefined && seesDefender) {
@@ -520,8 +542,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
       ...(seesDefender ? { wall: battle.wallAfter } : {}),
       ...(report.scouted ? { scouted: report.scouted } : {}),
     });
-    state.reports.push(report);
-    if (state.reports.length > MAX_REPORTS) state.reports.splice(0, state.reports.length - MAX_REPORTS);
+    addReport(state, report);
     state.lastAttack[target.id] = {
       time: report.time,
       result: report.result,
@@ -560,8 +581,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
     if (loot) report.loot = loot;
     if (loyalty) report.loyalty = loyalty;
     if (conquered) report.conquered = true;
-    state.reports.push(report);
-    if (state.reports.length > MAX_REPORTS) state.reports.splice(0, state.reports.length - MAX_REPORTS);
+    addReport(state, report);
     if (oldOwner === HUMAN_ID) {
       const text = conquered
         ? `${target.name} (${target.x}|${target.y}) is veroverd door ${ownerName(state, m.owner)}!`

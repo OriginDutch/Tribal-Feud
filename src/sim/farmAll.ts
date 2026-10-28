@@ -89,13 +89,21 @@ export function planFarmAll(state: WorldState, opts: FarmAllOptions): FarmAllPla
 }
 
 /** Sends the plan; returns how many attacks left and the first error. */
-export function farmAll(state: WorldState, opts: FarmAllOptions): { sent: number; error: string | null } {
+export function farmAll(state: WorldState, opts: FarmAllOptions, auto = false): { sent: number; error: string | null } {
   let sent = 0;
   let error: string | null = null;
   for (const s of planFarmAll(state, opts).sends) {
+    const before = state.nextId;
     const e = sendAttack(state, s.from, s.to, s.units);
-    if (e) error ??= e;
-    else sent++;
+    if (e) { error ??= e; continue; }
+    sent++;
+    if (auto) {
+      // the attack just sent: its report goes to the auto-farm list
+      for (let id = before; id < state.nextId; id++) {
+        const m = state.movements[id];
+        if (m && m.kind === 'attack' && m.to === s.to && m.owner === HUMAN_ID) m.auto = true;
+      }
+    }
   }
   return { sent, error };
 }
@@ -120,7 +128,7 @@ export function setAutoFarm(state: WorldState, options: FarmAllOptions | null): 
 export function onAutoFarm(state: WorldState): void {
   const a = state.autoFarm;
   if (!a || a.at !== state.time) return; // off, or stale
-  const r = farmAll(state, a.options);
+  const r = farmAll(state, a.options, true);
   a.last = { time: state.time, sent: r.sent };
   a.at = state.time + autoFarmInterval(state);
   push(state.queue, a.at, { kind: 'autoFarm' });

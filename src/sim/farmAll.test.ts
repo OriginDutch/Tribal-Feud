@@ -79,4 +79,29 @@ describe('farm alles', () => {
     expect(s.autoFarm).toBeUndefined();
     expect(queued).toBeLessThanOrEqual(1);
   });
+
+  it('auto-farm reports come in read, and have their own limit', async () => {
+    const { setAutoFarm } = await import('./farmAll');
+    const { advance } = await import('./simulation');
+    const { addReport, MAX_AUTO_REPORTS, MAX_REPORTS } = await import('./movement');
+    const { s, v } = setup();
+    s.config.unitSpeed = 50;
+    v.units.light = 10;
+    s.paused = false;
+    setAutoFarm(s, opts());
+    advance(s, 60 * 60_000);
+    const auto = s.reports.filter((r) => r.auto);
+    expect(auto.length).toBeGreaterThan(0);
+    expect(auto.every((r) => r.read)).toBe(true);
+    // a flood of auto reports never pushes out the others
+    s.reports = [];
+    for (let i = 0; i < 50; i++) addReport(s, { id: 1e6 + i, time: i, read: true } as never);
+    for (let i = 0; i < MAX_AUTO_REPORTS + 100; i++) addReport(s, { id: 2e6 + i, time: i, read: true, auto: true } as never);
+    expect(s.reports.filter((r) => !r.auto)).toHaveLength(50);
+    expect(s.reports.filter((r) => r.auto)).toHaveLength(MAX_AUTO_REPORTS);
+    expect(s.reports.find((r) => r.auto)!.id).toBe(2e6 + 100);
+    for (let i = 0; i < MAX_REPORTS + 10; i++) addReport(s, { id: 3e6 + i, time: i, read: true } as never);
+    expect(s.reports.filter((r) => !r.auto)).toHaveLength(MAX_REPORTS);
+    expect(s.reports.filter((r) => r.auto)).toHaveLength(MAX_AUTO_REPORTS);
+  });
 });
