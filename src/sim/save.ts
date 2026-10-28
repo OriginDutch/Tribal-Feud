@@ -1,3 +1,4 @@
+import { nameAllBotVillages } from './botNames';
 import { assignTiers } from './bots';
 import { rescheduleBotRecruits } from './village';
 import { initDiplomacy } from './tribes';
@@ -14,7 +15,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 16;
+export const SAVE_VERSION = 17;
 
 /** Barbarian growth of worlds made before 28 October 2026: keep it as it was. */
 const OLD_BARB_GROWTH = { capMode: 'fixed', speedScaling: 'linear', startRelative: undefined } as const;
@@ -179,6 +180,11 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     for (const c of ALL_CHAINS) if (!chains.some((x) => x.id === c.id)) chains.push(structuredClone(c));
     checkQuests(data.state);
     return { ...data, version: 16 };
+  },
+  // v16 bot villages were all called "Barbarendorp" or "X's dorp": bots name them in their style.
+  16: (data) => {
+    nameAllBotVillages(data.state);
+    return { ...data, version: 17 };
   },
 };
 

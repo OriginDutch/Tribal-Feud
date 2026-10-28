@@ -1,3 +1,4 @@
+import { nameAllBotVillages } from './botNames';
 import type { BuildTemplate, NobleTemplate, TroopTemplate } from './manager';
 import type { VillageGroup } from './groups';
 import type { SurplusSettings } from './surplus';
@@ -116,6 +117,8 @@ export interface BotState {
   archetype: Archetype;
   /** Stopped playing for good (only in saves from 28 Oct 2026; casuals don't quit any more). */
   quit?: boolean;
+  /** Villages it has named (its numbering). */
+  named?: number;
   /** A casual's spell away from the game: no turns until then. */
   awayUntil?: number;
   /** Game time of the previous turn (for the chance to quit in between). */
@@ -350,6 +353,7 @@ export function createWorld(config: WorldConfig): WorldState {
   state.villages[village.id] = village;
   generateMap(state);
   initBots(state);
+  nameAllBotVillages(state);
   initDiplomacy(state);
   checkQuests(state);
   return state;

@@ -4,6 +4,7 @@
  * functions (queueBuild, recruit, startResearch, sendAttack) and they only know what their
  * own reports told them. They don't attack players yet.
  */
+import { refreshRoleName } from './botNames';
 import { botScavenge } from './scavenge';
 import { outclassed } from './warCause';
 import { BOT_SPIES, beatable, defenseOf, nobleEscorts, farmablePlayerVillage, scoutForConquest, scoutForFarming, strike } from './botStrategy';
@@ -315,6 +316,7 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   // what stays home after farming goes scavenging (not when the bot is about to fight)
   if (attentive && !forgets(0.5) && !atWar(state, player)) botScavenge(state, v, profile.farmUnits);
   if (attentive) trade(state, player, v);
+  if (attentive) refreshRoleName(state, player, v);
 }
 
 /** A tribe at war (or a bot hunting a village) keeps its army home. */

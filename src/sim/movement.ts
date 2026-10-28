@@ -1,6 +1,7 @@
 /**
  * Troops on the road: attacks and returns. Each movement is one event at its arrival time.
  */
+import { nameConquered } from './botNames';
 import { mayAttack } from './tribes';
 import type { BarbType } from '../shared/barbarianTypes';
 import { BUILDING_IDS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
@@ -643,6 +644,7 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   else state.conquests.player++;
   v.owner = newOwner;
   const bot = state.players[newOwner]?.bot;
+  if (bot) nameConquered(state, v);
   if (bot) {
     bot.lastConquest = state.time;
     // the target is taken: the next train picks a new one
