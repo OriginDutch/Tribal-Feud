@@ -114,8 +114,10 @@ export interface SeenAttack {
 
 export interface BotState {
   archetype: Archetype;
-  /** Stopped playing for good (its villages went to the barbarians). */
+  /** Stopped playing for good (only in saves from 28 Oct 2026; casuals don't quit any more). */
   quit?: boolean;
+  /** A casual's spell away from the game: no turns until then. */
+  awayUntil?: number;
   /** Game time of the previous turn (for the chance to quit in between). */
   lastTurnAt?: number;
   /** How serious this "player" is: presence, sharpness and reactions follow from it. */

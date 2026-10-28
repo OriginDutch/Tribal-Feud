@@ -23,7 +23,7 @@ import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { restartSpot } from './map';
 import { grudge, reactToIncoming } from './botReact';
 import { focusWeight, spares, tribeDuties } from './tribeOrders';
-import { helpShare, isHelping, leave as leaveTribe, mayAttack, targetWeight, threatsFor } from './tribes';
+import { helpShare, isHelping, mayAttack, targetWeight, threatsFor } from './tribes';
 import { BARBARIAN, HUMAN_ID, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type BotState, type BotTier, type Player, type WorldState } from './state';
 import {
   buildBlocker,
@@ -75,26 +75,37 @@ export function skillOf(state: WorldState, id: number, bot: BotState): number {
   return 0.3 + 0.35 * h * h;
 }
 
-/**
- * Casuals stop playing now and then (their villages become barbarian, like in TW). The chance per
- * game day at world speed 1: about 0.6% for the sloppiest, 0.1% for the best casual, so after a few
- * months of game time about half of them are gone.
- */
-function quitChance(state: WorldState, id: number, bot: BotState, ms: number): number {
-  if ((bot.tier ?? 'pro') !== 'casual' || bot.reference) return 0;
-  const perDay = 0.006 * Math.max(0, 0.75 - skillOf(state, id, bot)) / 0.45;
+/** Chance over `ms` of game time, from a rate per game day at world speed 1. */
+function chanceOver(state: WorldState, perDay: number, ms: number): number {
   return 1 - Math.pow(1 - perDay, (ms * state.config.worldSpeed) / DAY);
 }
 
-/** The bot leaves the game for good: its villages go to the barbarians. */
-export function quitGame(state: WorldState, player: Player): void {
-  const villages = villagesOf(state, player.id);
-  toBarbarians(state, player);
-  leaveTribe(state, player);
-  player.bot!.quit = true;
-  delete player.bot!.nobleTarget;
-  addLog(state, { time: state.time, text: `${player.name} is gestopt met spelen${villages.length ? `: ${villages.length === 1 ? 'zijn dorp wordt' : `zijn ${villages.length} dorpen worden`} barbaars` : ''}.` });
+/** How sloppy a casual is, 0 (the best casual) .. 1 (the sloppiest). */
+function sloppiness(state: WorldState, id: number, bot: BotState): number {
+  return Math.max(0, 0.65 - skillOf(state, id, bot)) / 0.35;
 }
+
+/**
+ * Casuals don't quit, but they have their spells away: now and then one stops looking at the
+ * game for 5-30 game days (world speed 1); queues run empty and the village stands still, an
+ * easy target like an inactive in TW. The sloppiest go away about 2% of the days, the best
+ * casual hardly ever.
+ */
+function startsAwaySpell(state: WorldState, id: number, bot: BotState, ms: number): number | null {
+  if ((bot.tier ?? 'pro') !== 'casual' || bot.reference) return null;
+  if (nextFloat(state.rng) >= chanceOver(state, 0.02 * sloppiness(state, id, bot), ms)) return null;
+  const days = 5 + nextFloat(state.rng) * 25;
+  return state.time + (days * DAY) / state.config.worldSpeed;
+}
+
+/** A small casual that gets nowhere starts over now and then (at most 3 villages). */
+function restartsNow(state: WorldState, player: Player, ms: number): boolean {
+  const bot = player.bot!;
+  if ((bot.tier ?? 'pro') !== 'casual' || bot.reference) return false;
+  if (villagesOf(state, player.id).length > 3) return false;
+  return nextFloat(state.rng) < chanceOver(state, 0.002 * sloppiness(state, player.id, bot), ms);
+}
+
 
 // --- tiers and presence ----------------------------------------------------------
 
@@ -217,13 +228,30 @@ export function difficulty(state: WorldState): DifficultyDef {
 export function onBotTurn(state: WorldState, playerId: number): void {
   const player = state.players[playerId];
   const bot = player?.bot;
-  if (!player || !bot || bot.quit || bot.nextTurn !== state.time) return; // stale event, or gone
-  // casuals give up now and then (chance over the time since the last turn)
-  if (bot.lastTurnAt !== undefined && nextFloat(state.rng) < quitChance(state, playerId, bot, state.time - bot.lastTurnAt)) {
-    quitGame(state, player);
+  if (!player || !bot || bot.quit || bot.nextTurn !== state.time) return; // stale event, or gone (old saves)
+  // casuals: a spell away from the game now and then, or (small ones) a fresh start
+  const since = bot.lastTurnAt !== undefined ? state.time - bot.lastTurnAt : 0;
+  bot.lastTurnAt = state.time;
+  if (bot.awayUntil !== undefined && bot.awayUntil > state.time) {
+    bot.nextTurn = bot.awayUntil;
+    push(state.queue, bot.nextTurn, { kind: 'botTurn', playerId });
     return;
   }
-  bot.lastTurnAt = state.time;
+  if (bot.awayUntil !== undefined) {
+    // back from a spell away: standing still while away is not "stuck" (no restart for that)
+    delete bot.awayUntil;
+    if (bot.peak) bot.peak.at = state.time;
+  }
+  if (since > 0) {
+    if (restartsNow(state, player, since)) abandonAndRestart(state, player);
+    const away = startsAwaySpell(state, playerId, bot, since);
+    if (away !== null) {
+      bot.awayUntil = away;
+      bot.nextTurn = away;
+      push(state.queue, away, { kind: 'botTurn', playerId });
+      return;
+    }
+  }
 
   // away from the game: nothing new happens until it comes back (queues keep running)
   if (!isOnline(state, playerId, bot)) {
@@ -380,7 +408,8 @@ function shouldAbandon(state: WorldState, player: Player): boolean {
   if (!bot) return false;
   const villages = villagesOf(state, player.id);
   if (villages.length === 0) return true;
-  const days = state.config.bots.abandonAfterDays;
+  // casuals grow slowly by nature: standing still for a while is normal for them, not giving up
+  const days = state.config.bots.abandonAfterDays * ((bot.tier ?? 'pro') === 'casual' ? 5 : 1);
   if (days <= 0) return false;
   let points = 0;
   for (const v of villages) points += villagePoints(state.config, v);
