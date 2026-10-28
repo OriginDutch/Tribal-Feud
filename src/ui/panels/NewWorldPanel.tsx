@@ -48,6 +48,11 @@ export function NewWorldPanel() {
   const [morale, setMorale] = useSaved<'off' | 'points' | 'pointsTime'>('nw-morale', PRESETS.classic.morale);
   const [night, setNight] = useSaved('nw-night', false);
   const [start, setStart] = useSaved<'random' | 'center'>('nw-start', 'random');
+  const [botCount, setBotCount] = useSaved<number | null>('nw-bot-count', null);
+  const [barbCount, setBarbCount] = useSaved<number | null>('nw-barb-count', null);
+  // empty = the preset's number; barbarians follow the bots (10 each, at least 3000) unless you set them
+  const bots = botCount ?? PRESETS[preset].bots.count;
+  const barbs = barbCount ?? Math.max(3000, bots * 10);
   const [barbCap, setBarbCap] = useSaved<'none' | 'fixed' | 'varied' | 'full'>('nw-barb-cap', 'varied');
   const [barbMax, setBarbMax] = useSaved('nw-barb-max', 3000);
   const [barbSpread, setBarbSpread] = useSaved('nw-barb-spread', 500);
@@ -67,7 +72,9 @@ export function NewWorldPanel() {
       const value = Number(knobs[key]);
       if (value > 0 && value !== PRESETS[preset][key]) overrides[key] = value;
     }
-    if (difficulty !== PRESETS[preset].bots.difficulty) overrides.bots = { difficulty };
+    if (difficulty !== PRESETS[preset].bots.difficulty || bots !== PRESETS[preset].bots.count) {
+      overrides.bots = { ...(difficulty !== PRESETS[preset].bots.difficulty ? { difficulty } : {}), ...(bots !== PRESETS[preset].bots.count ? { count: bots } : {}) };
+    }
     if (farm !== 1) overrides.farmMultiplier = farm;
     if (curve !== 'tiered') overrides.nobleCurve = curve;
     if (research !== 'simple') overrides.research = research;
@@ -77,7 +84,9 @@ export function NewWorldPanel() {
     if (!scavenging) overrides.scavenging = false;
     if (morale !== PRESETS[preset].morale) overrides.morale = morale;
     if (night) overrides.nightBonus = true;
-    if (start === 'center') overrides.map = { playerStart: 'center' };
+    if (start === 'center' || barbs !== PRESETS[preset].map.barbarianCount) {
+      overrides.map = { ...(start === 'center' ? { playerStart: 'center' } : {}), ...(barbs !== PRESETS[preset].map.barbarianCount ? { barbarianCount: barbs } : {}) };
+    }
     const b = PRESETS[preset].barbarians;
     if (barbCap !== b.capMode || barbMax !== b.growthCap || barbSpread !== b.capSpread || barbRate !== b.growthRate) {
       overrides.barbarians = { capMode: barbCap, growthCap: Math.max(100, barbMax), capSpread: Math.max(0, barbSpread), growthRate: barbRate };
@@ -121,6 +130,14 @@ export function NewWorldPanel() {
         </select>
       </label>
       <div class="knobs">
+        <label title={`Leeg = ${PRESETS[preset].bots.count} (de preset). Meer bots = een levendigere wereld, maar zwaarder om te rekenen.`}>
+          Aantal bots
+          <input type="number" min={0} max={2000} step={50} placeholder={String(PRESETS[preset].bots.count)} value={botCount ?? ''} onInput={(e) => { const v = e.currentTarget.value; setBotCount(v === '' ? null : Math.max(0, Math.min(2000, Math.floor(Number(v) || 0)))); }} />
+        </label>
+        <label title="Leeg = automatisch: 10 per bot, minstens 3000.">
+          Barbarendorpen
+          <input type="number" min={0} max={20000} step={500} placeholder={`${Math.max(3000, bots * 10)} (auto)`} value={barbCount ?? ''} onInput={(e) => { const v = e.currentTarget.value; setBarbCount(v === '' ? null : Math.max(0, Math.min(20000, Math.floor(Number(v) || 0)))); }} />
+        </label>
         {KNOBS.map(({ key, label, hint }) => (
           <label key={key} title={hint}>
             {label}

@@ -394,6 +394,7 @@ export function validateConfig(c: WorldConfig): string[] {
   if (!(c.marchSpeed > 0)) errors.push('Loopsnelheid moet groter dan 0 zijn.');
   if (!(c.map.density > 0 && c.map.density <= 1)) errors.push('Dichtheid moet tussen 0 en 1 liggen.');
   if (!Number.isInteger(c.bots.count) || c.bots.count < 0) errors.push('Aantal bots moet een geheel getal >= 0 zijn.');
+  if (!Number.isInteger(c.map.barbarianCount) || c.map.barbarianCount < 0) errors.push('Aantal barbarendorpen moet een geheel getal >= 0 zijn.');
   if (!(c.winCondition.villageShare > 0 && c.winCondition.villageShare <= 1)) {
     errors.push('Winvoorwaarde moet tussen 0 en 1 liggen.');
   }
