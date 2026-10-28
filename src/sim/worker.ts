@@ -2,6 +2,7 @@
  * Simulation worker: owns the world state, runs the clock, handles saves.
  * The UI never touches the state directly.
  */
+import { isFarmLetter } from '../shared/farmTemplates';
 import { setFront, warFrontView } from './warOps';
 import { deleteGroup, saveGroup, setGroup } from './groups';
 import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderAttack } from './tribeOrders';
@@ -207,6 +208,7 @@ function snapshot(): Snapshot | null {
     templateUse: templateUse(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
+    hiddenTemplates: state.hiddenTemplates ?? [],
     marchFactor: state.config.worldSpeed * state.config.unitSpeed * state.config.marchSpeed,
     unitSpeeds: Object.fromEntries(UNIT_IDS.map((u) => [u, state!.config.units[u].speed])) as Record<UnitId, number>,
     quests: questsView(state),
@@ -749,8 +751,8 @@ async function handle(cmd: Command): Promise<void> {
     case 'sendFarm': {
       if (!state) return;
       if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
-      const units = cmd.template === 'C' ? farmCUnits(state, cmd.from, cmd.to) : state.farmTemplates[cmd.template];
-      const error = typeof units === 'string' ? units : sendAttack(state, cmd.from, cmd.to, units);
+      const units = cmd.template === '*' ? farmCUnits(state, cmd.from, cmd.to) : state.farmTemplates[cmd.template];
+      const error = !units ? `Sjabloon ${cmd.template} bestaat niet.` : typeof units === 'string' ? units : sendAttack(state, cmd.from, cmd.to, units);
       if (error) notice(error, 'error');
       break;
     }
@@ -761,7 +763,16 @@ async function handle(cmd: Command): Promise<void> {
         const n = Math.floor(cmd.units[u] ?? 0);
         if (n > 0) units[u] = n;
       }
-      state.farmTemplates[cmd.template] = units;
+      if (!isFarmLetter(cmd.template)) break;
+      if (Object.keys(units).length) state.farmTemplates[cmd.template] = units;
+      else delete state.farmTemplates[cmd.template];
+      break;
+    }
+    case 'setTemplateHidden': {
+      if (!state) return;
+      const set = new Set(state.hiddenTemplates ?? []);
+      if (cmd.hidden) set.add(cmd.id); else set.delete(cmd.id);
+      state.hiddenTemplates = [...set];
       break;
     }
     case 'claimReward': {

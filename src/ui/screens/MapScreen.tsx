@@ -1,3 +1,4 @@
+import { definedLetters } from '../../shared/farmTemplates';
 import { PlayerLink } from '../components/PlayerLink';
 import { OWNER_COLORS, tribeIndex, villageColor } from '../map/colors';
 import { Minimap } from '../map/Minimap';
@@ -863,14 +864,15 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
                   <button class="primary" onClick={() => attackVillage(selected.x, selected.y)}>
                     {selected.kind === 'barb' ? 'Aanvallen' : 'Verzamelplaats'}
                   </button>
-                  <button onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: 'A' })}>Farm A</button>
-                  <button onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: 'B' })}>Farm B</button>
+                  {definedLetters(snapshot.value?.farmTemplates).map((l) => (
+                    <button key={l} onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: l })}>Farm {l}</button>
+                  ))}
                   <button
                     disabled={selected.estimate === undefined}
                     title={selected.estimate === undefined ? 'Eerst verkennen' : `~${num(selected.estimate)} buit`}
-                    onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: 'C' })}
+                    onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: '*' })}
                   >
-                    Farm C
+                    Farm *
                   </button>
                 </div>
               )}

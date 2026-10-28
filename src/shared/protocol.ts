@@ -17,6 +17,7 @@ import type { DemandStatus, PendingReward } from '../sim/quests';
 import type { Res } from './gameData';
 import type { ScavParams, ScavTemplate } from './scavenge';
 import type { FarmAllOptions } from '../sim/farmAll';
+import type { FarmKey, FarmLetter, FarmTemplates } from './farmTemplates';
 
 export type Command =
   | { type: 'newWorld'; preset: Exclude<PresetId, 'custom'>; name: string; seed?: number; overrides?: ConfigOverrides }
@@ -38,8 +39,11 @@ export type Command =
   | { type: 'recruit'; villageId: number; unit: UnitId; count: number }
   | { type: 'cancelRecruit'; villageId: number; jobId: number }
   | { type: 'sendAttack'; from: number; to: number; units: UnitCounts; catapultTarget?: BuildingId }
-  | { type: 'sendFarm'; from: number; to: number; template: 'A' | 'B' | 'C' }
-  | { type: 'setFarmTemplate'; template: 'A' | 'B'; units: UnitCounts }
+  | { type: 'sendFarm'; from: number; to: number; template: FarmKey }
+  /** Empty units = the letter is removed. */
+  | { type: 'setFarmTemplate'; template: FarmLetter; units: UnitCounts }
+  /** Build, troop and noble templates: hide from the lists and pickers (they keep working). */
+  | { type: 'setTemplateHidden'; id: string; hidden: boolean }
   | { type: 'getMap' }
   | { type: 'getReports' }
   | { type: 'markReportsRead'; ids: number[] | 'all' }
@@ -398,7 +402,9 @@ export interface Snapshot {
   /** Villages using each template (build and troop), by id. */
   templateUse: Record<string, number>;
   unreadReports: number;
-  farmTemplates: { A: UnitCounts; B: UnitCounts };
+  farmTemplates: FarmTemplates;
+  /** Template ids you hid. */
+  hiddenTemplates: string[];
   /** worldSpeed * unitSpeed * marchSpeed, to preview travel times. */
   marchFactor: number;
   /** Minutes per field at speed 1, per unit (travel = distance * speed / marchFactor). */

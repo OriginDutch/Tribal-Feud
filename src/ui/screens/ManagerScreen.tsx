@@ -1,3 +1,5 @@
+import { pickable } from '../templatesVisible';
+import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { useSaved } from '../useSaved';
 import { Coords } from '../components/Coords';
@@ -74,7 +76,7 @@ export function ManagerScreen() {
           Bouwsjabloon
           <select value={template} onChange={(e) => setTemplate(e.currentTarget.value)}>
             <option value="">Geen (zelf bouwen)</option>
-            {s.templates.map((t) => (
+            {pickable(s.templates, template).map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
@@ -91,7 +93,7 @@ export function ManagerScreen() {
           Troepensjabloon
           <select value={troopTemplate} onChange={(e) => setTroopTemplate(e.currentTarget.value)}>
             <option value="">Eigen aantallen voor dit dorp</option>
-            {s.troopTemplates.map((t) => (
+            {pickable(s.troopTemplates, troopTemplate).map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
@@ -218,6 +220,43 @@ function ExportBox({ text, onClose }: { text: string; onClose: () => void }) {
 }
 
 const usedBy = (use: Record<string, number>, id: string) => use[id] ?? 0;
+
+const isHidden = (id: string) => (snapshot.value?.hiddenTemplates ?? []).includes(id);
+
+/** Hidden templates keep working where they are used; they only leave the lists and pickers. */
+function HideButton({ id }: { id: string }) {
+  const hidden = isHidden(id);
+  return (
+    <button class="small" title={hidden ? 'Weer in de lijst en de keuzemenu\'s' : 'Uit de lijst en de keuzemenu\'s; blijft werken waar het al gebruikt wordt'} onClick={() => send({ type: 'setTemplateHidden', id, hidden: !hidden })}>
+      {hidden ? 'Tonen' : 'Verbergen'}
+    </button>
+  );
+}
+
+/** The templates, with the hidden ones folded away under "Verborgen sjablonen". */
+function SplitTable<T extends { id: string }>({ items, row }: { items: T[]; row: (t: T) => ComponentChildren }) {
+  const shown = items.filter((t) => !isHidden(t.id));
+  const hidden = items.filter((t) => isHidden(t.id));
+  return (
+    <>
+      {shown.length > 0 ? (
+        <table class="table">
+          <tbody>{shown.map(row)}</tbody>
+        </table>
+      ) : (
+        <p class="muted">Alles is verborgen.</p>
+      )}
+      {hidden.length > 0 && (
+        <details class="hidden-templates">
+          <summary>Verborgen sjablonen ({hidden.length})</summary>
+          <table class="table">
+            <tbody>{hidden.map(row)}</tbody>
+          </table>
+        </details>
+      )}
+    </>
+  );
+}
 const deleteSure = (n: number) => (n > 0 ? `Zeker? (${n} ${n === 1 ? 'dorp' : 'dorpen'})` : 'Zeker?');
 
 function BuildTemplates({ templates, use }: { templates: BuildTemplate[]; use: Record<string, number> }) {
@@ -254,9 +293,7 @@ function BuildTemplates({ templates, use }: { templates: BuildTemplate[]; use: R
       )}
       {io?.mode === 'export' && !editing && <ExportBox text={io.text} onClose={() => setIo(null)} />}
       {!editing ? (
-        <table class="table">
-          <tbody>
-            {templates.map((t) => {
+        <SplitTable items={templates} row={(t) => {
               const own = !t.id.startsWith('preset:');
               const n = usedBy(use, t.id);
               return (
@@ -279,13 +316,12 @@ function BuildTemplates({ templates, use }: { templates: BuildTemplate[]; use: R
                     <button class="small" onClick={() => setIo({ mode: 'export', text: templateToText(t.name, t.steps) })}>
                       Exporteren
                     </button>{' '}
+                    <HideButton id={t.id} />{' '}
                     {own && <Confirm label="Verwijderen" sure={deleteSure(n)} onConfirm={() => send({ type: 'deleteTemplate', id: t.id })} />}
                   </td>
                 </tr>
               );
-            })}
-          </tbody>
-        </table>
+            }} />
       ) : (
         <div>
           <label>
@@ -416,9 +452,7 @@ function TroopTemplates({ templates, use }: { templates: TroopTemplate[]; use: R
         templates.length === 0 ? (
           <p class="muted">Nog geen troepensjablonen. Maak er een voor bijvoorbeeld offensieve, defensieve of support-dorpen.</p>
         ) : (
-          <table class="table">
-            <tbody>
-              {templates.map((t) => {
+          <SplitTable items={templates} row={(t) => {
                 const n = usedBy(use, t.id);
                 return (
                   <tr key={t.id}>
@@ -434,13 +468,12 @@ function TroopTemplates({ templates, use }: { templates: TroopTemplate[]; use: R
                       <button class="small" onClick={() => setIo({ mode: 'export', text: troopsToText(t.name, t.troops) })}>
                         Exporteren
                       </button>{' '}
+                      <HideButton id={t.id} />{' '}
                       <Confirm label="Verwijderen" sure={deleteSure(n)} onConfirm={() => send({ type: 'deleteTroopTemplate', id: t.id })} />
                     </td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
+              }} />
         )
       ) : (
         <div>
@@ -546,9 +579,7 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
         templates.length === 0 ? (
           <p class="muted">Nog geen edeltrein-sjablonen. Maak er hier een, of stel een trein samen in de verzamelplaats en kies "Opslaan als sjabloon".</p>
         ) : (
-          <table class="table">
-            <tbody>
-              {templates.map((t) => (
+          <SplitTable items={templates} row={(t) => (
                 <tr key={t.id}>
                   <td>{t.name}</td>
                   <td class="muted">
@@ -562,12 +593,11 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
                     <button class="small" onClick={() => setIo({ mode: 'export', text: trainToText(t.name, t.first, t.escorts, t.catapultTarget, t.clearFirst) })}>
                       Exporteren
                     </button>{' '}
+                    <HideButton id={t.id} />{' '}
                     <Confirm label="Verwijderen" onConfirm={() => send({ type: 'deleteNobleTemplate', id: t.id })} />
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              )} />
         )
       ) : (
         <div>

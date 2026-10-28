@@ -44,4 +44,17 @@ describe('farm alles', () => {
     expect(farmAll(s, opts()).sent).toBe(2);
     expect(v.units.light).toBe(0);
   });
+
+  it('any letter A to J works; a missing letter sends nothing; * goes by the scouted loot', async () => {
+    const { definedLetters } = await import('../shared/farmTemplates');
+    const { s, v, barbs } = setup();
+    s.farmTemplates.G = { light: 3 };
+    expect(definedLetters(s.farmTemplates)).toEqual(['A', 'B', 'G']);
+    expect(planFarmAll(s, opts({ template: 'G' })).sends.length).toBe(5);
+    expect(planFarmAll(s, opts({ template: 'E' })).sends.length).toBe(0);
+    s.intel[barbs[0]!.id] = { scouted: [400, 400, 400] } as never;
+    const star = planFarmAll(s, opts({ template: '*' }));
+    expect(star.skipped.noScout).toBeGreaterThan(0);
+    void v;
+  });
 });

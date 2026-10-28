@@ -3,13 +3,14 @@
  * that can still pay the chosen template. Closest pairs go first until troops run out.
  */
 import { UNIT_IDS, type UnitCounts } from '../shared/gameData';
+import type { FarmKey } from '../shared/farmTemplates';
 import { FARM_C_UNIT, estimateLoot } from './intel';
 import { distance, sendAttack } from './movement';
 import { BARBARIAN, HUMAN_ID, villagesOf, type WorldState } from './state';
 import { isOperational } from './village';
 
 export interface FarmAllOptions {
-  template: 'A' | 'B' | 'C';
+  template: FarmKey;
   /** Skip targets whose last attack was lost. */
   skipLost: boolean;
   /** Skip targets with a known wall above this; null = no limit. */
@@ -35,7 +36,7 @@ function fits(units: UnitCounts, pool: UnitCounts): boolean {
 export function planFarmAll(state: WorldState, opts: FarmAllOptions): FarmAllPlan {
   const own = villagesOf(state, HUMAN_ID).filter((v) => isOperational(state.config, v, 'place'));
   const pools = new Map(own.map((v) => [v.id, { ...v.units } as UnitCounts]));
-  const template = opts.template === 'C' ? null : state.farmTemplates[opts.template];
+  const template = opts.template === '*' ? null : (state.farmTemplates[opts.template] ?? {});
   const hasTemplate = template && Object.values(template).some((n) => n && n > 0);
   const able = own.filter((v) => (template ? hasTemplate && fits(template, v.units) : v.units[FARM_C_UNIT] > 0)).length;
 
@@ -58,7 +59,7 @@ export function planFarmAll(state: WorldState, opts: FarmAllOptions): FarmAllPla
     if (opts.skipLost && state.lastAttack[t.id]?.result === 'loss') { skipped.lost++; continue; }
     const wall = state.intel[t.id]?.wall;
     if (opts.maxWall !== null && wall !== undefined && wall > opts.maxWall) { skipped.wall++; continue; }
-    if (opts.template === 'C' && estimateLoot(state, t.id) === undefined) { skipped.noScout++; continue; }
+    if (opts.template === '*' && estimateLoot(state, t.id) === undefined) { skipped.noScout++; continue; }
     pairs.push(...local);
   }
   pairs.sort((a, b) => a.d - b.d);

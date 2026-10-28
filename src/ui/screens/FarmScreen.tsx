@@ -10,10 +10,11 @@ import { farmAllPlan, mapData, send, snapshot } from '../store';
 import { Confirm } from '../components/Confirm';
 import type { FarmAllOptions } from '../../sim/farmAll';
 import { UNIT_SHORT, distance, travelMs, unitsText } from '../units';
+import { FARM_LETTERS, definedLetters, type FarmKey, type FarmLetter } from '../../shared/farmTemplates';
 
 const FARM_UNITS: UnitId[] = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'knight'];
 
-function TemplateEditor({ name, units }: { name: 'A' | 'B'; units: UnitCounts }) {
+function TemplateEditor({ name, units, onRemove }: { name: FarmLetter; units: UnitCounts; onRemove: () => void }) {
   const [draft, setDraft] = useState<Partial<Record<UnitId, string>>>({});
   useEffect(() => {
     const d: Partial<Record<UnitId, string>> = {};
@@ -32,7 +33,7 @@ function TemplateEditor({ name, units }: { name: 'A' | 'B'; units: UnitCounts })
 
   return (
     <div class="template">
-      <strong>Template {name}</strong>
+      <strong>Sjabloon {name}</strong>
       <div class="template-units">
         {FARM_UNITS.map((u) => (
           <label key={u} title={UNIT_SHORT[u]}>
@@ -43,9 +44,12 @@ function TemplateEditor({ name, units }: { name: 'A' | 'B'; units: UnitCounts })
           </label>
         ))}
       </div>
-      <button class="small" onClick={save}>
-        Opslaan
-      </button>
+      <div class="row">
+        <button class="small" onClick={save}>
+          Opslaan
+        </button>
+        <Confirm label="Verwijderen" sure={`Sjabloon ${name} weg?`} onConfirm={onRemove} />
+      </div>
     </div>
   );
 }
@@ -56,6 +60,8 @@ export function FarmScreen() {
   const data = mapData.value;
   const [limit, setLimit] = useSaved('farm-limit', 50);
   const [all, setAll] = useSaved('farm-all-villages', false);
+  // a new letter shows an empty editor until it is saved
+  const [adding, setAdding] = useState<FarmLetter | null>(null);
 
   useEffect(() => {
     send({ type: 'getMap' });
@@ -88,7 +94,11 @@ export function FarmScreen() {
   }, [data, v?.id, limit, multi, own.length]);
 
   if (!s || !v) return null;
-  const { A, B } = s.farmTemplates;
+  const letters = definedLetters(s.farmTemplates);
+  const tpl = (l: FarmLetter): UnitCounts => s.farmTemplates[l] ?? {};
+  const editors = adding && !letters.includes(adding) ? [...letters, adding].sort() : letters;
+  const free = FARM_LETTERS.find((l) => !editors.includes(l));
+  const first = letters[0];
   // units at home per village (the snapshot's village rows), for every row's "from" village
   const homeIn = (villageId: number | undefined, u: UnitId) => own.find((x) => x.id === villageId)?.units[u] ?? 0;
   const canSend = (t: UnitCounts, villageId: number | undefined) =>
@@ -99,13 +109,22 @@ export function FarmScreen() {
     <div class="screen narrow">
       <h2>Farm-assistent</h2>
       <section class="panel">
+        <div class="row">
+          <h3 style={{ margin: 0, flex: 1 }}>Sjablonen</h3>
+          {free && (
+            <button class="small" onClick={() => setAdding(free)}>
+              Nieuw sjabloon ({free})
+            </button>
+          )}
+        </div>
         <div class="templates">
-          <TemplateEditor name="A" units={A} />
-          <TemplateEditor name="B" units={B} />
+          {editors.map((l) => (
+            <TemplateEditor key={l} name={l} units={tpl(l)} onRemove={() => { send({ type: 'setFarmTemplate', template: l, units: {} }); if (adding === l) setAdding(null); }} />
+          ))}
         </div>
         <p class="muted">
-          A: {unitsText(A) || 'leeg'} · B: {unitsText(B) || 'leeg'}. Een template is pas te sturen als alle troepen ervan thuis zijn.
-          C stuurt genoeg lichte cavalerie voor de geschatte buit (na verkenning).
+          {letters.map((l) => `${l}: ${unitsText(tpl(l))}`).join(' · ') || 'Nog geen sjablonen.'} Een sjabloon is pas te sturen als alle troepen ervan thuis zijn.
+          * stuurt genoeg lichte cavalerie voor de geschatte buit (na verkenning).
         </p>
       </section>
       <FarmAllPanel />
@@ -141,7 +160,7 @@ export function FarmScreen() {
                 <th>Type</th>
                 <th class="right">Muur</th>
                 <th>Laatste aanval</th>
-                <th class="right">Looptijd A</th>
+                <th class="right">Looptijd {first ?? ''}</th>
                 {multi && <th>Vanaf</th>}
                 <th />
               </tr>
@@ -149,8 +168,7 @@ export function FarmScreen() {
             <tbody>
               {rows.map((m) => {
                 const fromId = m.from?.id;
-                const okA = canSend(A, fromId);
-                const okB = canSend(B, fromId);
+                const ok = (l: FarmLetter) => canSend(tpl(l), fromId);
                 const lightHome = homeIn(fromId, 'light');
                 return (
                 <tr key={m.id}>
@@ -174,26 +192,27 @@ export function FarmScreen() {
                       <span class="muted">—</span>
                     )}
                   </td>
-                  <td class="right mono muted">{okA ? duration(travelMs(A, v.units, m.dist, s.marchFactor)) : '—'}</td>
+                  <td class="right mono muted">{first && ok(first) ? duration(travelMs(tpl(first), v.units, m.dist, s.marchFactor)) : '—'}</td>
                   {multi && (
                     <td class="mono muted">
                       {m.from && <Coords x={m.from.x} y={m.from.y} bare />}
                     </td>
                   )}
                   <td class="right nowrap">
-                    <button class="small" disabled={!okA} onClick={() => send({ type: 'sendFarm', from: fromId ?? v.id, to: m.id, template: 'A' })}>
-                      A
-                    </button>{' '}
-                    <button class="small" disabled={!okB} onClick={() => send({ type: 'sendFarm', from: fromId ?? v.id, to: m.id, template: 'B' })}>
-                      B
-                    </button>{' '}
+                    {letters.map((l) => (
+                      <span key={l}>
+                        <button class="small" disabled={!ok(l)} onClick={() => send({ type: 'sendFarm', from: fromId ?? v.id, to: m.id, template: l })}>
+                          {l}
+                        </button>{' '}
+                      </span>
+                    ))}
                     <button
                       class="small"
                       disabled={m.estimate === undefined || lightHome === 0}
                       title={m.estimate === undefined ? 'Eerst verkennen' : `${Math.min(lightHome, Math.max(1, Math.ceil(m.estimate / lightCarry)))} LC voor ~${num(m.estimate)} buit`}
-                      onClick={() => send({ type: 'sendFarm', from: fromId ?? v.id, to: m.id, template: 'C' })}
+                      onClick={() => send({ type: 'sendFarm', from: fromId ?? v.id, to: m.id, template: '*' })}
                     >
-                      C
+                      *
                     </button>
                   </td>
                 </tr>
@@ -217,7 +236,12 @@ export function FarmScreen() {
  * nearest of your villages that can still pay it. Closest pairs first, until troops run out.
  */
 function FarmAllPanel() {
-  const [template, setTemplate] = useSaved<'A' | 'B' | 'C'>('farmall-template', 'A');
+  const s = snapshot.value;
+  const letters = definedLetters(s?.farmTemplates);
+  const keys: FarmKey[] = [...letters, '*'];
+  const [saved, setTemplate] = useSaved<FarmKey | 'C'>('farmall-template', 'A');
+  // an old choice ("C" was the light cavalry template) or a letter that is gone
+  const template: FarmKey = saved === 'C' && !letters.includes('C') ? '*' : keys.includes(saved as FarmKey) ? (saved as FarmKey) : (keys[0] ?? '*');
   const [skipLost, setSkipLost] = useSaved('farmall-skip-lost', true);
   const [wallOn, setWallOn] = useSaved('farmall-wall-on', false);
   const [maxWall, setMaxWall] = useSaved('farmall-wall', 0);
@@ -243,8 +267,8 @@ function FarmAllPanel() {
     <section class="panel farm-all">
       <div class="row wrap">
         <h3 style={{ margin: 0 }}>Farm alles</h3>
-        {(['A', 'B', 'C'] as const).map((t) => (
-          <button key={t} class={`chip ${template === t ? 'on' : ''}`} onClick={() => setTemplate(t)}>Template {t}</button>
+        {keys.map((t) => (
+          <button key={t} class={`chip ${template === t ? 'on' : ''}`} title={t === '*' ? 'Lichte cavalerie naar de verkende buit' : undefined} onClick={() => setTemplate(t)}>Alle {t}</button>
         ))}
         <span style={{ flex: 1 }} />
         <Confirm
@@ -271,8 +295,8 @@ function FarmAllPanel() {
         <>
           {plan.able < plan.villages && (
             <p class="warn">
-              {plan.able} van je {plan.villages} dorpen {plan.able === 1 ? 'kan' : 'kunnen'} template {template} sturen
-              {template === 'C' ? ' (geen lichte cavalerie thuis)' : ' (niet alle troepen thuis)'}.
+              {plan.able} van je {plan.villages} dorpen {plan.able === 1 ? 'kan' : 'kunnen'} sjabloon {template} sturen
+              {template === '*' ? ' (geen lichte cavalerie thuis)' : ' (niet alle troepen thuis)'}.
             </p>
           )}
           <p class="muted">

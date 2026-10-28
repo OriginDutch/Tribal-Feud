@@ -1,3 +1,4 @@
+import { pickable } from '../templatesVisible';
 import { useEffect, useState } from 'preact/hooks';
 import { useSaved } from '../useSaved';
 import { Coords } from '../components/Coords';
@@ -275,7 +276,7 @@ export function PlaceScreen() {
                 Sjabloon
                 <select value={s.nobleTemplates.some((t) => t.id === trainTpl) ? trainTpl : ''} onChange={(e) => applyTemplate(e.currentTarget.value)}>
                   <option value="">kies…</option>
-                  {s.nobleTemplates.map((t) => (
+                  {pickable(s.nobleTemplates, trainTpl).map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name} ({t.escorts.length + (t.clearFirst ? 0 : 1)} edels{t.clearFirst ? ' + clear' : ''})
                     </option>

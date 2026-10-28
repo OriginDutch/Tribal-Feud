@@ -1,3 +1,4 @@
+import { definedLetters } from '../../shared/farmTemplates';
 import { PlayerLink } from '../components/PlayerLink';
 import { useSaved } from '../useSaved';
 import { Coords } from '../components/Coords';
@@ -258,12 +259,11 @@ function ReportDetail({ r }: { r: Report }) {
           )}
           {ownAttacker && barbTarget && (
             <>
-              <button class="small" onClick={() => send({ type: 'sendFarm', from: r.attacker.id, to: r.defender.id, template: 'A' })}>
-                Farm A
-              </button>
-              <button class="small" onClick={() => send({ type: 'sendFarm', from: r.attacker.id, to: r.defender.id, template: 'B' })}>
-                Farm B
-              </button>
+              {definedLetters(snapshot.value?.farmTemplates).map((l) => (
+                <button key={l} class="small" onClick={() => send({ type: 'sendFarm', from: r.attacker.id, to: r.defender.id, template: l })}>
+                  Farm {l}
+                </button>
+              ))}
             </>
           )}
           {!r.defense && (

@@ -193,10 +193,8 @@ export const HUMAN_ID = 0;
 /** Owner id of barbarian villages. */
 export const BARBARIAN = -1;
 
-export interface FarmTemplates {
-  A: UnitCounts;
-  B: UnitCounts;
-}
+export type { FarmTemplates } from '../shared/farmTemplates';
+import type { FarmTemplates } from '../shared/farmTemplates';
 
 /**
  * The complete world. Plain data only: this object is what gets saved.
@@ -227,6 +225,8 @@ export interface WorldState {
   /** Your last attack per target village (map, farm assistant). Kept apart from reports, so deleting a report loses nothing. */
   lastAttack: Record<number, LastAttack>;
   farmTemplates: FarmTemplates;
+  /** Build, troop and noble template ids you hid from the lists. */
+  hiddenTemplates?: string[];
   /** What the human player knows about other villages. */
   intel: Record<number, Intel>;
   /** Index of the current quest per chain. */
