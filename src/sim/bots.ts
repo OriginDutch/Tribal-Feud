@@ -6,7 +6,7 @@
  */
 import { botScavenge } from './scavenge';
 import { outclassed } from './warCause';
-import { BOT_SPIES, beatable, nobleEscorts, farmablePlayerVillage, scoutForConquest, scoutForFarming, strike } from './botStrategy';
+import { BOT_SPIES, beatable, defenseOf, nobleEscorts, farmablePlayerVillage, scoutForConquest, scoutForFarming, strike } from './botStrategy';
 import { ARCHETYPES, BOT_PROFILES, type BotProfile } from '../shared/botProfiles';
 import { RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { MINUTE } from '../shared/time';
@@ -15,7 +15,7 @@ import { DIFFICULTIES, type DifficultyDef } from '../shared/config';
 const DAY = 86_400_000;
 import { push } from './eventQueue';
 import { buildingCost } from './formulas';
-import { distance, moraleFor, protectionBlocker, protectionEndsAt, sendAttack, sendNobleTrain, sendSupport, travelTimeMs } from './movement';
+import { distance, loyaltyNow, moraleFor, protectionBlocker, protectionEndsAt, sendAttack, sendNobleTrain, sendSupport, travelTimeMs } from './movement';
 import { coinsForSlots, curveOf, mintCoins, noblesAllowed, playerCoins, slotsUsed } from './nobles';
 import { MERCHANT_CARRY, acceptOffer, cancelOffer, createOffer, merchantsFree, offersOf, type TradeOffer } from './market';
 import { hashFloat, nextFloat } from './rng';
@@ -790,26 +790,36 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
     }
     return false;
   }
-  // each nobleman gets his own escort: they arrive together, one after the other
-  let sent = 0;
+  // a wave of ours still on its way there: wait for it, a second wave only lands in our own village
+  if (Object.values(state.movements).some((m) => m.kind === 'attack' && m.owner === player.id && m.to === target.id && (m.units.snob ?? 0) > 0)) return false;
+  // each nobleman gets his own escort: they arrive together, one after the other. The escort has to
+  // win with small losses, or the nobleman dies with them: losses are (defense/attack)^1.5 and a
+  // single nobleman dies from 50%, so 2.2x the defense (bad luck included) keeps him alive
+  const need = Math.max(BARB_ESCORT_ATTACK, 2.2 * defenseOf(state, target.units, target.buildings.wall));
+  const pool: UnitCounts = { axe: v.units.axe, light: v.units.light, spear: v.units.spear, sword: v.units.sword };
+  const wave: UnitCounts[] = [];
   for (let i = 0; i < NOBLE_TRAIN; i++) {
     const escort: UnitCounts = { snob: 1 };
-    if (target.owner === BARBARIAN || i > 0) {
-      // a wall still stands for every attack: enough attack to break through it
-      let left = BARB_ESCORT_ATTACK;
-      for (const u of ['axe', 'light', 'spear', 'sword'] as const) {
-        const attack = config.units[u].attack;
-        const n = Math.min(v.units[u], Math.ceil(left / attack));
-        if (n > 0) escort[u] = n;
-        left -= n * attack;
-        if (left <= 0) break;
-      }
-      if (left > BARB_ESCORT_ATTACK / 2) break;
-    } else {
-      // a player: everything offensive goes with the first nobleman
-      for (const u of ['axe', 'light', 'marcher', 'ram', 'catapult'] as const) if (v.units[u] > 0) escort[u] = v.units[u];
-      if ((escort.axe ?? 0) + (escort.light ?? 0) * 4 < 400) break;
+    let left = need;
+    for (const u of ['axe', 'light', 'spear', 'sword'] as const) {
+      const n = Math.min(pool[u] ?? 0, Math.ceil(left / config.units[u].attack));
+      if (n <= 0) continue;
+      escort[u] = n;
+      pool[u] = (pool[u] ?? 0) - n;
+      left -= n * config.units[u].attack;
+      if (left <= 0) break;
     }
+    if (left > 0) break;
+    wave.push(escort);
+  }
+  // a wave too short to bring the loyalty down only lets it come back: wait for the troops
+  const loyalty = loyaltyNow(config, target, state.time);
+  const enough = Math.min(NOBLE_TRAIN, Math.ceil(loyalty / config.conquest.loyaltyDropMin));
+  if (wave.length < enough) return false;
+  // and no more than it takes: with the loyalty already low (an earlier wave), the rest would only
+  // walk into a village that is ours by then
+  let sent = 0;
+  for (const escort of wave.slice(0, enough)) {
     if (sendAttack(state, v.id, target.id, escort) !== null) break;
     sent++;
   }
