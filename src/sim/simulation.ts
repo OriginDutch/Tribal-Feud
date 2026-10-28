@@ -1,8 +1,9 @@
+import { onAutoFarm } from './farmAll';
 import { onDiplomacy } from './tribes';
 import { MINUTE, type Speed } from '../shared/time';
 import { peek, pop, push } from './eventQueue';
 import { nextInt } from './rng';
-import { addLog, villagesOf, type GameEvent, type LogEntry, type WorldState } from './state';
+import { HUMAN_ID, addLog, villagesOf, type GameEvent, type LogEntry, type WorldState } from './state';
 import { onBuildDone, onRecruitTick, onResearchDone, settleRecruits } from './village';
 import { onArrive } from './movement';
 import { checkQuests } from './quests';
@@ -48,6 +49,9 @@ function touch(state: WorldState, event: GameEvent): void {
       if (m) { at(m.from); at(m.to); }
       return;
     }
+    case 'autoFarm':
+      for (const v of villagesOf(state, HUMAN_ID)) settleRecruits(state, v, true);
+      return;
     case 'botTurn':
       // stale turn events (rescheduled since) look at nothing
       if (state.players[event.playerId]?.bot?.nextTurn !== state.time) return;
@@ -86,6 +90,9 @@ function handle(state: WorldState, event: GameEvent): LogEntry | null {
       return null;
     case 'opLaunch':
       onOpLaunch(state, event.tribe, event.op, event.role);
+      return null;
+    case 'autoFarm':
+      onAutoFarm(state);
       return null;
     case 'test': {
       const entry: LogEntry = { time: state.time, text: `Test-event: ${event.label}` };

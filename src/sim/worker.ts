@@ -2,6 +2,7 @@
  * Simulation worker: owns the world state, runs the clock, handles saves.
  * The UI never touches the state directly.
  */
+import { autoFarmInterval, setAutoFarm } from './farmAll';
 import { isFarmLetter } from '../shared/farmTemplates';
 import { setFront, warFrontView } from './warOps';
 import { deleteGroup, saveGroup, setGroup } from './groups';
@@ -209,6 +210,7 @@ function snapshot(): Snapshot | null {
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
     hiddenTemplates: state.hiddenTemplates ?? [],
+    autoFarm: state.autoFarm ? { options: state.autoFarm.options, ...(state.autoFarm.at !== undefined ? { next: state.autoFarm.at } : {}), ...(state.autoFarm.last ? { last: state.autoFarm.last } : {}) } : null,
     marchFactor: state.config.worldSpeed * state.config.unitSpeed * state.config.marchSpeed,
     unitSpeeds: Object.fromEntries(UNIT_IDS.map((u) => [u, state!.config.units[u].speed])) as Record<UnitId, number>,
     quests: questsView(state),
@@ -1060,6 +1062,12 @@ async function handle(cmd: Command): Promise<void> {
     case 'getFarmAllPlan':
       if (state) post({ type: 'farmAllPlan', plan: farmAllView(state, cmd.options) });
       break;
+    case 'setAutoFarm': {
+      if (!state) return;
+      setAutoFarm(state, cmd.options);
+      notice(cmd.options ? `Automatisch farmen aan: elke ${Math.max(1, Math.round(autoFarmInterval(state) / 60_000))} speelminuten.` : 'Automatisch farmen uit.', 'info');
+      break;
+    }
     case 'farmAll': {
       if (!state) return;
       const r = farmAll(state, cmd.options);

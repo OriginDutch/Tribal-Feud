@@ -31,6 +31,7 @@ export type GameEvent =
   | { kind: 'arrive'; movementId: number }
   | { kind: 'botTurn'; playerId: number }
   | { kind: 'manager' }
+  | { kind: 'autoFarm' }
   | { kind: 'diplomacy' }
   | { kind: 'scavenge'; villageId: number }
   /** A member's part of a tribe's joint operation leaves now (warOps). */
@@ -229,6 +230,8 @@ export interface WorldState {
   /** Your last attack per target village (map, farm assistant). Kept apart from reports, so deleting a report loses nothing. */
   lastAttack: Record<number, LastAttack>;
   farmTemplates: FarmTemplates;
+  /** Farm alles on its own, every little while (game time), with these settings. */
+  autoFarm?: { options: import('./farmAll').FarmAllOptions; at?: number; last?: { time: number; sent: number } };
   /** Build, troop and noble template ids you hid from the lists. */
   hiddenTemplates?: string[];
   /** What the human player knows about other villages. */

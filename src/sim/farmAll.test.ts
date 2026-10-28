@@ -57,4 +57,26 @@ describe('farm alles', () => {
     expect(star.skipped.noScout).toBeGreaterThan(0);
     void v;
   });
+
+  it('auto-farm runs farm alles every little while until switched off', async () => {
+    const { setAutoFarm, autoFarmInterval } = await import('./farmAll');
+    const { advance } = await import('./simulation');
+    const { s, v } = setup();
+    s.config.unitSpeed = 50;
+    v.units.light = 10; // two attacks per round
+    s.paused = false;
+    setAutoFarm(s, opts());
+    advance(s, 1);
+    expect(s.autoFarm?.last?.sent).toBe(2);
+    // after the troops are back, the next round goes again
+    advance(s, 3 * autoFarmInterval(s));
+    const out = Object.values(s.movements).filter((m) => m.kind === 'attack').length;
+    expect(s.autoFarm?.last?.time).toBeGreaterThan(0);
+    expect(out + (s.autoFarm?.last?.sent ?? 0)).toBeGreaterThan(0);
+    setAutoFarm(s, null);
+    const queued = s.queue.heap.filter((e) => e.event.kind === 'autoFarm').length;
+    advance(s, 3 * autoFarmInterval(s));
+    expect(s.autoFarm).toBeUndefined();
+    expect(queued).toBeLessThanOrEqual(1);
+  });
 });

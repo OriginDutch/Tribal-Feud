@@ -6,6 +6,7 @@ import { UNIT_IDS, type UnitCounts } from '../shared/gameData';
 import type { FarmKey } from '../shared/farmTemplates';
 import { FARM_C_UNIT, estimateLoot } from './intel';
 import { distance, sendAttack } from './movement';
+import { push } from './eventQueue';
 import { BARBARIAN, HUMAN_ID, villagesOf, type WorldState } from './state';
 import { isOperational } from './village';
 
@@ -97,4 +98,30 @@ export function farmAll(state: WorldState, opts: FarmAllOptions): { sent: number
     else sent++;
   }
   return { sent, error };
+}
+
+/** How often auto-farm runs: every 30 game minutes at world speed 1. */
+export function autoFarmInterval(state: WorldState): number {
+  return (30 * 60_000) / state.config.worldSpeed;
+}
+
+/** Switches auto-farm on (with these settings) or off; keeps exactly one event queued. */
+export function setAutoFarm(state: WorldState, options: FarmAllOptions | null): void {
+  if (!options) { delete state.autoFarm; return; }
+  const had = state.autoFarm?.at !== undefined && state.autoFarm.at > state.time;
+  state.autoFarm = { ...state.autoFarm, options };
+  if (!had) {
+    // the first round right away
+    state.autoFarm.at = state.time;
+    push(state.queue, state.time, { kind: 'autoFarm' });
+  }
+}
+
+export function onAutoFarm(state: WorldState): void {
+  const a = state.autoFarm;
+  if (!a || a.at !== state.time) return; // off, or stale
+  const r = farmAll(state, a.options);
+  a.last = { time: state.time, sent: r.sent };
+  a.at = state.time + autoFarmInterval(state);
+  push(state.queue, a.at, { kind: 'autoFarm' });
 }

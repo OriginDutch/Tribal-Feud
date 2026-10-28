@@ -99,6 +99,8 @@ export type Command =
   | { type: 'getScav' }
   | { type: 'getFarmAllPlan'; options: FarmAllOptions }
   | { type: 'farmAll'; options: FarmAllOptions }
+  /** null = off. */
+  | { type: 'setAutoFarm'; options: FarmAllOptions | null }
   /** Rooftochten: units per level (index = level) per village. */
   | { type: 'sendScav'; plans: { villageId: number; plan: UnitCounts[] }[] }
   | { type: 'setScavRepeat'; villages: number[]; repeat: boolean }
@@ -405,6 +407,8 @@ export interface Snapshot {
   farmTemplates: FarmTemplates;
   /** Template ids you hid. */
   hiddenTemplates: string[];
+  /** Auto-farm: its settings, the next round and what the last one sent. */
+  autoFarm: { options: FarmAllOptions; next?: number; last?: { time: number; sent: number } } | null;
   /** worldSpeed * unitSpeed * marchSpeed, to preview travel times. */
   marchFactor: number;
   /** Minutes per field at speed 1, per unit (travel = distance * speed / marchFactor). */

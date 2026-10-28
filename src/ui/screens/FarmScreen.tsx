@@ -249,6 +249,11 @@ function FarmAllPanel() {
   const [maxDistance, setMaxDistance] = useSaved('farmall-dist', 15);
   const options: FarmAllOptions = { template, skipLost, maxWall: wallOn ? maxWall : null, maxDistance: distOn ? maxDistance : null };
   const key = JSON.stringify(options);
+  const auto = s?.autoFarm ?? null;
+  // auto-farm follows the settings shown here
+  useEffect(() => {
+    if (auto && JSON.stringify(auto.options) !== key) send({ type: 'setAutoFarm', options });
+  }, [key, !!auto]);
   useEffect(() => {
     send({ type: 'getFarmAllPlan', options });
     const t = window.setInterval(() => send({ type: 'getFarmAllPlan', options }), 3000);
@@ -271,6 +276,9 @@ function FarmAllPanel() {
           <button key={t} class={`chip ${template === t ? 'on' : ''}`} title={t === '*' ? 'Lichte cavalerie naar de verkende buit' : undefined} onClick={() => setTemplate(t)}>Alle {t}</button>
         ))}
         <span style={{ flex: 1 }} />
+        <label class="row" title="Elke 30 speelminuten (op snelheid 1; sneller op een snelle wereld) automatisch Farm alles met deze instellingen">
+          <input type="checkbox" checked={!!auto} onChange={(e) => send({ type: 'setAutoFarm', options: e.currentTarget.checked ? options : null })} /> Automatisch
+        </label>
         <Confirm
           label={`Farm alles${plan ? ` (${plan.attacks})` : ''}`}
           sure={`Zeker? ${plan?.attacks ?? 0} aanvallen`}
@@ -289,6 +297,13 @@ function FarmAllPanel() {
           <input type="number" min={1} value={maxDistance} disabled={!distOn} onInput={(e) => setMaxDistance(Math.max(1, Number(e.currentTarget.value) || 1))} /> velden
         </label>
       </div>
+      {auto && (
+        <p class="good">
+          Automatisch farmen staat aan met Alle {auto.options.template}.
+          {auto.last ? ` Laatste ronde ${formatGameTime(auto.last.time)}: ${auto.last.sent} aanval${auto.last.sent === 1 ? '' : 'len'}.` : ''}
+          {auto.next !== undefined ? ` Volgende ronde ${formatGameTime(auto.next)}.` : ''}
+        </p>
+      )}
       {!plan ? (
         <p class="muted">Berekenen…</p>
       ) : (
