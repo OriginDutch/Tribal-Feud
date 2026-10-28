@@ -431,25 +431,37 @@ function rejectReason(state: WorldState, t: Tribe, me: Player, leader: Player): 
   return `${who}: nu even niet.`;
 }
 
-/** A bot tribe with room nearby may invite you (one at a time, not again soon after a no). */
+/**
+ * A bot tribe with room nearby may invite you (one at a time, not again soon after a no). Not only
+ * the leader: any member that plays seriously (mid or pro) and is online can recruit, like a
+ * recruiter in TW. A tribe wants you more when you are stronger than its average member.
+ */
 function inviteHuman(state: WorldState, me: Player): void {
   if (me.tribe !== undefined) return;
   const inbox = state.inbox ?? [];
   if (inbox.some((m) => m.kind === 'invite' && m.status === 'open')) return;
   const cooldown = DAY / state.config.worldSpeed;
+  const mine = playerCentre(state, HUMAN_ID);
   for (const t of Object.values(state.tribes ?? {})) {
     if (t.leader === HUMAN_ID || t.members.length >= MAX_MEMBERS) continue;
     const leader = state.players[t.leader];
-    if (!leader?.bot || !isOnline(state, leader.id, leader.bot)) continue;
+    if (!leader?.bot) continue;
+    // who can invite now: the leader, or a serious member, online
+    const recruiter = [leader, ...t.members.map((m) => state.players[m]).filter((p): p is Player => !!p?.bot && p.id !== leader.id && (p.bot.tier ?? 'pro') !== 'casual')]
+      .find((p) => isOnline(state, p.id, p.bot!));
+    if (!recruiter) continue;
     if (inbox.some((m) => m.kind === 'invite' && m.tribe === t.id && state.time - m.time < cooldown * 2)) continue;
-    if (!fits(state, t, HUMAN_ID) || !leaderAccepts(state, t, me) || grudge(state, leader, HUMAN_ID) >= 0.5) continue;
-    if (nextFloat(state.rng) >= 0.04 * SOCIAL[leader.bot.archetype]) continue;
+    if (!fits(state, t, HUMAN_ID) || !leaderAccepts(state, t, me) || grudge(state, leader, HUMAN_ID) >= 0.5 || grudge(state, recruiter, HUMAN_ID) >= 0.5) continue;
+    const tc = tribeCentre(state, t);
+    const avg = tc ? tc.points / Math.max(1, t.members.length) : 0;
+    const keen = mine && avg > 0 && mine.points > 2 * avg ? 1.5 : 1;
+    if (nextFloat(state.rng) >= 0.25 * SOCIAL[recruiter.bot!.archetype] * keen) continue;
     addMessage(state, {
       kind: 'invite',
-      from: leader.id,
+      from: recruiter.id,
       tribe: t.id,
       title: `Uitnodiging van ${tag(t)}`,
-      text: `${leader.name} nodigt je uit voor ${tag(t)} ${t.name} (${t.members.length}/${MAX_MEMBERS} leden).`,
+      text: `${recruiter.name}${recruiter.id === leader.id ? '' : ` (namens leider ${leader.name})`} nodigt je uit voor ${tag(t)} ${t.name} (${t.members.length}/${MAX_MEMBERS} leden).`,
       status: 'open',
       expires: expiry(state),
     });

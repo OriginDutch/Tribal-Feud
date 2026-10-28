@@ -272,6 +272,29 @@ function tribeName(state: WorldState): [string, string] {
 
 // --- the diplomacy turn -------------------------------------------------------
 
+/**
+ * A bot tribe led by someone who is away (a casual on a break), or by a casual while a serious
+ * member is around: now and then the strongest active member takes over, so tribes are mostly led
+ * by players who are actually there.
+ */
+function handOverLeadership(state: WorldState): void {
+  for (const t of Object.values(state.tribes ?? {})) {
+    const leader = state.players[t.leader];
+    if (!leader?.bot || t.members.length < 2) continue;
+    const away = leader.bot.awayUntil !== undefined && leader.bot.awayUntil > state.time;
+    const casual = (leader.bot.tier ?? 'pro') === 'casual';
+    if (!away && !(casual && nextFloat(state.rng) < 0.1)) continue;
+    const rank = { pro: 2, mid: 1, casual: 0 } as const;
+    const next = t.members
+      .map((m) => state.players[m])
+      .filter((p): p is Player => !!p?.bot && p.id !== leader.id && !(p.bot.awayUntil !== undefined && p.bot.awayUntil > state.time))
+      .sort((a, b) => rank[b.bot!.tier ?? 'pro'] - rank[a.bot!.tier ?? 'pro'] || (playerCentre(state, b.id)?.points ?? 0) - (playerCentre(state, a.id)?.points ?? 0))[0];
+    if (!next || (!away && rank[next.bot!.tier ?? 'pro'] === 0)) continue;
+    t.leader = next.id;
+    addTribeNews(state, { time: state.time, text: `[${t.tag}]: ${next.name} neemt de leiding over van ${leader.name}${away ? ' (die is er een tijd niet)' : ''}.` });
+  }
+}
+
 export function initDiplomacy(state: WorldState): void {
   state.tribes ??= {};
   push(state.queue, state.time + 5 * MINUTE, { kind: 'diplomacy' });
@@ -323,6 +346,7 @@ export function onDiplomacy(state: WorldState): void {
     if (!nearby && nextFloat(state.rng) < (p.bot!.archetype === 'diplomat' ? 0.5 : 0.1 * social)) found(state, p);
   }
 
+  handOverLeadership(state);
   diplomacy(state);
   warOpsTick(state);
   loyaltyTick(state);
