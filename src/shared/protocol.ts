@@ -448,6 +448,26 @@ export type WorkerMessage =
   | { type: 'notice'; level: 'info' | 'error'; text: string };
 
 export const AUTOSAVE_SLOT = 'autosave';
+/** Rolling backups per world (the last BACKUPS_KEPT), and the original of a save before an update migrated it. */
+export const BACKUP_PREFIX = 'backup:';
+export const UPDATE_PREFIX = 'update:';
+export const BACKUPS_KEPT = 5;
+
+/** The slot for the next rolling backup: a free number up to `kept`, else the oldest one. */
+export function nextBackupSlot(existing: { slot: string; savedAt: number }[], prefix: string, kept = BACKUPS_KEPT): string {
+  const mine = existing.filter((x) => x.slot.startsWith(prefix)).sort((a, b) => a.savedAt - b.savedAt);
+  if (mine.length >= kept) return mine[0]!.slot;
+  const used = new Set(mine.map((x) => x.slot));
+  for (let n = 1; ; n++) if (!used.has(`${prefix}${n}`)) return `${prefix}${n}`;
+}
+
+/** How a slot is shown: autosaves, backups and pre-update copies get a readable name. */
+export function slotLabel(slot: string, version?: number): string {
+  if (slot === AUTOSAVE_SLOT || slot.startsWith(`${AUTOSAVE_SLOT}:`)) return 'Autosave';
+  if (slot.startsWith(BACKUP_PREFIX)) return `Backup ${slot.split(':')[2] ?? ''}`.trim();
+  if (slot.startsWith(UPDATE_PREFIX)) return `Voor update (v${version ?? slot.split(':v')[1] ?? '?'})`;
+  return slot;
+}
 
 export interface RankingRow {
   id: number;

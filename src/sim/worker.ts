@@ -9,11 +9,11 @@ import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leav
 import { fitCheck, tribeNews, tribeViews } from './tribes';
 import { farmCUnits } from './intel';
 import { createConfig, validateConfig } from '../shared/config';
-import { AUTOSAVE_SLOT, type Command, type Snapshot, type WorkerMessage } from '../shared/protocol';
+import { AUTOSAVE_SLOT, BACKUP_PREFIX, UPDATE_PREFIX, nextBackupSlot, type Command, type Snapshot, type WorkerMessage } from '../shared/protocol';
 import { DAY, SECOND } from '../shared/time';
 import { deleteSave, getSave, listSaves, putSave } from '../storage/saveStore';
 import { randomSeed } from './rng';
-import { fromSaveData, toSaveData } from './save';
+import { SAVE_VERSION, fromSaveData, toSaveData } from './save';
 import { advance, schedule, scheduleRandom, setPaused, setSpeed } from './simulation';
 import { createWorld, currentVillage, playerVillage, type Player, type WorldState } from './state';
 import { storageCapacity } from './formulas';
@@ -86,6 +86,8 @@ const TICK_MS = 50;
 const MAX_STEP_MS = 250;
 const SNAPSHOT_EVERY_TICKS = 2;
 const AUTOSAVE_EVERY_MS = 60 * SECOND;
+/** A rolling backup this often (real time while the game runs). */
+const BACKUP_EVERY_MS = 20 * 60 * SECOND;
 const SNAPSHOT_LOG_LINES = 40;
 
 let state: WorldState | null = null;
@@ -93,6 +95,20 @@ let suspended = false;
 let lastTick = performance.now();
 let ticks = 0;
 let runningSinceAutosave = 0;
+let runningSinceBackup = 0;
+
+/** Each world has its own autosave and backups (the seed tells worlds apart). */
+const worldKey = (s: WorldState) => String(s.config.seed);
+const autosaveSlot = (s: WorldState) => `${AUTOSAVE_SLOT}:${worldKey(s)}`;
+
+/** Writes a rolling backup: up to BACKUPS_KEPT per world, the oldest one is replaced. */
+async function backup(): Promise<void> {
+  if (!state) return;
+  const prefix = `${BACKUP_PREFIX}${worldKey(state)}:`;
+  const slot = nextBackupSlot(await listSaves(), prefix);
+  await putSave(slot, toSaveData(state, Date.now()));
+  runningSinceBackup = 0;
+}
 
 function post(msg: WorkerMessage): void {
   ctx.postMessage(msg);
@@ -623,7 +639,11 @@ async function save(slot: string, quiet = false): Promise<void> {
 }
 
 function autosave(): void {
-  save(AUTOSAVE_SLOT, true).catch((e: unknown) => notice(`Autosave mislukt: ${String(e)}`, 'error'));
+  if (!state) return;
+  const due = runningSinceBackup >= BACKUP_EVERY_MS;
+  save(autosaveSlot(state), true)
+    .then(() => (due ? backup().then(postSaves) : undefined))
+    .catch((e: unknown) => notice(`Autosave mislukt: ${String(e)}`, 'error'));
 }
 
 function tick(): void {
@@ -635,6 +655,7 @@ function tick(): void {
   if (!state.paused && !suspended) {
     const result = advance(state, dt);
     runningSinceAutosave += dt;
+    runningSinceBackup += dt;
     if (result.autoPaused) {
       post({ type: 'autoPaused', entry: result.autoPaused });
       autosave();
@@ -656,7 +677,8 @@ async function handle(cmd: Command): Promise<void> {
         return;
       }
       state = createWorld(config);
-      await save(AUTOSAVE_SLOT, true);
+      runningSinceBackup = 0;
+      await save(autosaveSlot(state), true);
       break;
     }
     case 'setSpeed':
@@ -693,7 +715,14 @@ async function handle(cmd: Command): Promise<void> {
         notice(`Save "${cmd.slot}" niet gevonden.`, 'error');
         return;
       }
+      // a save from before an update: keep the original first, the migration can't be undone
+      if (data.version < SAVE_VERSION) {
+        const seed = (data.state as { config?: { seed?: number } }).config?.seed ?? 'oud';
+        const keep = `${UPDATE_PREFIX}${seed}:v${data.version}`;
+        if (!(await getSave(keep))) await putSave(keep, data);
+      }
       state = fromSaveData(data);
+      runningSinceBackup = 0;
       // always resume paused, so nothing happens before the player looks
       state.paused = true;
       notice(`"${state.config.name}" geladen.`);

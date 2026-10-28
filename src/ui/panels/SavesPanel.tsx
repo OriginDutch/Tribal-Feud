@@ -1,4 +1,5 @@
-import { AUTOSAVE_SLOT } from '../../shared/protocol';
+import { BACKUP_PREFIX, BACKUPS_KEPT, UPDATE_PREFIX, slotLabel } from '../../shared/protocol';
+import type { SaveMeta } from '../../sim/save';
 import { formatGameTime } from '../../shared/time';
 import { fromSaveData, type SaveData } from '../../sim/save';
 import { getSave, listSaves, putSave } from '../../storage/saveStore';
@@ -96,37 +97,55 @@ export function SavesPanel() {
           </button>
         )}
       </div>
-      <ul class="saves">
-        {list.length === 0 && <li class="muted">Nog geen saves.</li>}
-        {list.map((save) => (
-          <li key={save.slot}>
-            <div class="meta">
-              <strong>
-                {save.slot === AUTOSAVE_SLOT ? 'Autosave' : save.slot} · {save.worldName}
-              </strong>
-              <span class="muted">
-                {formatGameTime(save.gameTime)} · {new Date(save.savedAt).toLocaleString('nl-NL')}
-              </span>
-            </div>
-            <div class="row">
-              <button
-                onClick={() => {
-                  autoPause.value = null;
-                  send({ type: 'load', slot: save.slot });
-                }}
-              >
-                Laden
-              </button>
-              <button title="Download deze save als bestand" onClick={() => void exportSlots([save.slot])}>
-                Exporteren
-              </button>
-              <button class="danger" onClick={() => send({ type: 'deleteSave', slot: save.slot })}>
-                Verwijder
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <SaveList list={list.filter((x) => !isSafetyCopy(x.slot))} empty="Nog geen saves." />
+      {list.some((x) => isSafetyCopy(x.slot)) && (
+        <details class="save-backups">
+          <summary>Backups ({list.filter((x) => isSafetyCopy(x.slot)).length})</summary>
+          <p class="hint">
+            Per wereld de laatste {BACKUPS_KEPT} (ongeveer elke 20 minuten spelen een nieuwe), en het origineel van een save van vóór een
+            update. Komt er na een update iets niet goed, laad dan de kopie "Voor update".
+          </p>
+          <SaveList list={list.filter((x) => isSafetyCopy(x.slot))} empty="" />
+        </details>
+      )}
     </section>
+  );
+}
+
+const isSafetyCopy = (slot: string) => slot.startsWith(BACKUP_PREFIX) || slot.startsWith(UPDATE_PREFIX);
+
+function SaveList({ list, empty }: { list: SaveMeta[]; empty: string }) {
+  return (
+    <ul class="saves">
+      {list.length === 0 && empty && <li class="muted">{empty}</li>}
+      {list.map((save) => (
+        <li key={save.slot}>
+          <div class="meta">
+            <strong>
+              {slotLabel(save.slot, save.version)} · {save.worldName}
+            </strong>
+            <span class="muted">
+              {formatGameTime(save.gameTime)} · {new Date(save.savedAt).toLocaleString('nl-NL')}
+            </span>
+          </div>
+          <div class="row">
+            <button
+              onClick={() => {
+                autoPause.value = null;
+                send({ type: 'load', slot: save.slot });
+              }}
+            >
+              Laden
+            </button>
+            <button title="Download deze save als bestand" onClick={() => void exportSlots([save.slot])}>
+              Exporteren
+            </button>
+            <button class="danger" onClick={() => send({ type: 'deleteSave', slot: save.slot })}>
+              Verwijder
+            </button>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
