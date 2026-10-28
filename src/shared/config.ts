@@ -150,6 +150,8 @@ export interface WorldConfig {
     density: number;
     /** Minimum distance between two player (or bot) villages. */
     minPlayerDistance: number;
+    /** Where your first village is: the middle (500|500) or anywhere among the bots. Missing = middle. */
+    playerStart?: 'center' | 'random';
   };
 
   combat: {
@@ -271,6 +273,7 @@ const BASE: PresetValues = {
     barbarianCount: 3000,
     density: 0.3,
     minPlayerDistance: 3,
+    playerStart: 'random',
   },
   combat: {
     baseDefense: 20,

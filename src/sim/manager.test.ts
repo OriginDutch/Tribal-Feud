@@ -38,6 +38,21 @@ describe('account manager', () => {
     expect(v.units.axe).toBe(20);
   });
 
+  it('units from the same building grow together, not first all spears and then all swords', () => {
+    const { s, v } = setup();
+    Object.assign(v.buildings, { main: 20, barracks: 20, smith: 20, farm: 30, storage: 30, wood: 30, stone: 30, iron: 30 });
+    v.researched.push('sword');
+    v.res = [400000, 400000, 400000];
+    expect(setManager(s, v.id, { troops: { spear: 3000, sword: 1500 }, troopShare: 1 })).toBeNull();
+    run(s, 6 * HOUR);
+    const spear = v.units.spear, sword = v.units.sword;
+    expect(spear).toBeLessThan(3000); // still on the way
+    expect(spear).toBeGreaterThan(0);
+    expect(sword).toBeGreaterThan(0);
+    // both about the same share of their target on the way there
+    expect(Math.abs(spear / 3000 - sword / 1500)).toBeLessThan(0.25);
+  });
+
   it('stops when cleared; own templates can be saved and deleted', () => {
     const { s, v } = setup();
     v.res = [5000, 5000, 5000];

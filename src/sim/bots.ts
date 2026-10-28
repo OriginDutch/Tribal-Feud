@@ -20,11 +20,11 @@ import { coinsForSlots, curveOf, mintCoins, noblesAllowed, playerCoins, slotsUse
 import { MERCHANT_CARRY, acceptOffer, cancelOffer, createOffer, merchantsFree, offersOf, type TradeOffer } from './market';
 import { hashFloat, nextFloat } from './rng';
 import { startBarbarianGrowth, villagePoints } from './barbarians';
-import { edgeSpot } from './map';
+import { restartSpot } from './map';
 import { grudge, reactToIncoming } from './botReact';
 import { focusWeight, spares, tribeDuties } from './tribeOrders';
 import { helpShare, isHelping, mayAttack, targetWeight, threatsFor } from './tribes';
-import { BARBARIAN, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type BotState, type BotTier, type Player, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type BotState, type BotTier, type Player, type WorldState } from './state';
 import {
   buildBlocker,
   createVillage,
@@ -48,10 +48,11 @@ import { hasFaith, hasFirstChurch } from './church';
 
 /** Gives every bot player a personality and schedules its first turn. */
 export function initBots(state: WorldState): void {
+  const spread = spreadTiers(state);
   for (const p of state.players) {
     if (!p.isBot || p.bot) continue;
     const archetype = ARCHETYPES[Math.floor(hashFloat(state.config.seed, p.id, 1) * ARCHETYPES.length)] ?? 'farmer';
-    const tier = tierFor(state, p.id);
+    const tier = spread.get(p.id) ?? tierFor(state, p.id);
     const activity = activityFor(state, p.id, tier);
     // spread the first turns so not all bots think at the same moment
     const first = state.time + Math.round(hashFloat(state.config.seed, p.id, 3) * turnInterval(state, activity));
@@ -71,6 +72,40 @@ function tierFor(state: WorldState, id: number): BotTier {
   const { pro, mid } = state.config.bots.tiers ?? { pro: 0.1, mid: 0.3 };
   const h = hashFloat(state.config.seed, id, 5);
   return h < pro ? 'pro' : h < pro + mid ? 'mid' : 'casual';
+}
+
+/**
+ * Tiers for a new world, spread over the map: the pros are picked one by one, each time the bot
+ * furthest from you and from the pros picked so far, so they never end up in one cluster (and
+ * never right next to your start). The rest is mid or casual by chance, in the configured shares.
+ */
+function spreadTiers(state: WorldState): Map<number, BotTier> {
+  const out = new Map<number, BotTier>();
+  const { pro, mid } = state.config.bots.tiers ?? { pro: 0.1, mid: 0.3 };
+  const bots = state.players
+    .filter((p) => p.isBot && !p.bot)
+    .map((p) => ({ id: p.id, v: villagesOf(state, p.id)[0] }))
+    .filter((b): b is { id: number; v: Village } => !!b.v);
+  if (bots.length === 0) return out;
+  const anchors = villagesOf(state, HUMAN_ID).map((v) => [v.x, v.y] as const);
+  const dist = new Map(bots.map((b) => [b.id, Math.min(Infinity, ...anchors.map(([x, y]) => Math.hypot(b.v.x - x, b.v.y - y)))]));
+  const pros = Math.round(pro * bots.length);
+  for (let i = 0; i < pros; i++) {
+    let best: { id: number; v: Village } | undefined;
+    for (const b of bots) {
+      if (out.has(b.id)) continue;
+      // a little noise so the pattern isn't a perfect grid
+      const d = (dist.get(b.id) ?? Infinity) * (0.9 + 0.2 * hashFloat(state.config.seed, b.id, 7));
+      if (!best || d > (dist.get(best.id) ?? Infinity) * (0.9 + 0.2 * hashFloat(state.config.seed, best.id, 7))) best = b;
+    }
+    if (!best) break;
+    out.set(best.id, 'pro');
+    for (const b of bots) dist.set(b.id, Math.min(dist.get(b.id) ?? Infinity, Math.hypot(b.v.x - best.v.x, b.v.y - best.v.y)));
+  }
+  const rest = bots.filter((b) => !out.has(b.id)).sort((a, b) => hashFloat(state.config.seed, a.id, 5) - hashFloat(state.config.seed, b.id, 5));
+  const mids = Math.round((mid / Math.max(0.0001, 1 - pro)) * rest.length);
+  rest.forEach((b, i) => out.set(b.id, i < mids ? 'mid' : 'casual'));
+  return out;
 }
 
 /** Where in the activity range (config) each tier sits. */
@@ -321,7 +356,7 @@ function shouldAbandon(state: WorldState, player: Player): boolean {
   return !maxed && !saving && state.time - bot.peak.at > (days * DAY) / state.config.worldSpeed;
 }
 
-/** The bot's villages become barbarian; the bot starts over with one fresh village at the edge. */
+/** The bot's villages become barbarian; the bot starts over with one fresh village at the outer ring. */
 export function abandonAndRestart(state: WorldState, player: Player): Village {
   const { config } = state;
   const old = villagesOf(state, player.id);
@@ -342,13 +377,14 @@ export function abandonAndRestart(state: WorldState, player: Player): Village {
   // troops on the road are lost with the player
   for (const m of Object.values(state.movements)) if (m.owner === player.id) removeMovement(state, m.id);
   invalidateOwners(state);
-  forgetNeighbourhoods(state);
 
-  const [x, y] = edgeSpot(state);
+  // a gap between other players at the outer ring, with a few barbarians around it
+  const [x, y] = restartSpot(state);
   const fresh = createVillage(config, nextId(state), player.id, `${player.name}s dorp`, x, y, state.time);
   state.villages[fresh.id] = fresh;
   player.joinedAt = state.time;
   invalidateOwners(state);
+  forgetNeighbourhoods(state);
   if (player.bot) {
     player.bot.farmLog = {};
     player.bot.outgoing = [];
@@ -357,7 +393,7 @@ export function abandonAndRestart(state: WorldState, player: Player): Village {
   const where = old[0] ? ` (${old.map((v) => `${v.x}|${v.y}`).join(', ')})` : '';
   addLog(state, {
     time: state.time,
-    text: `${player.name} heeft het opgegeven${where}: barbarendorp. Begint opnieuw aan de rand op ${x}|${y}.`,
+    text: `${player.name} heeft het opgegeven${where}: barbarendorp. Begint opnieuw op ${x}|${y}.`,
   });
   return fresh;
 }

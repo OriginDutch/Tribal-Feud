@@ -199,13 +199,14 @@ describe('intel and template C', () => {
 });
 
 describe('abandoned bots', () => {
-  it('a stalled bot gives its village to the barbarians and restarts at the edge', () => {
-    const s = createWorld(createConfig('classic', 'Quit', 7, { bots: { tiers: { pro: 1, mid: 0 }, count: 5 } }));
+  it('a stalled bot gives its village to the barbarians and restarts between players, with barbarians around', () => {
+    const s = createWorld(createConfig('classic', 'Quit', 7, { bots: { tiers: { pro: 1, mid: 0 }, count: 40 } }));
     const bot = s.players.find((p) => p.isBot);
     if (!bot?.bot) throw new Error('no bot');
     const [oldVillage] = villagesOf(s, bot.id);
     if (!oldVillage) throw new Error('no village');
     const maxR = Math.max(...Object.values(s.villages).map((v) => Math.hypot(v.x - 500, v.y - 500)));
+    const before = Object.keys(s.villages).length;
 
     // pretend it hasn't grown for a long time
     bot.bot.peak = { points: 1e9, at: -100 * DAY };
@@ -219,10 +220,18 @@ describe('abandoned bots', () => {
     expect(oldVillage.growth?.start).toBe(villagePoints(s.config, oldVillage));
     const fresh = villagesOf(s, bot.id);
     expect(fresh).toHaveLength(1);
-    const r = Math.hypot((fresh[0]?.x ?? 0) - 500, (fresh[0]?.y ?? 0) - 500);
-    expect(r).toBeGreaterThan(maxR);
-    expect(r).toBeLessThan(maxR + 6);
-    expect(s.log.at(-1)?.text).toContain('Begint opnieuw aan de rand');
+    const f = fresh[0]!;
+    // not beyond the last village of the map, but among the other players
+    expect(Math.hypot(f.x - 500, f.y - 500)).toBeLessThan(maxR);
+    const players = Object.values(s.villages).filter((v) => v.owner !== BARBARIAN && v.owner !== bot.id);
+    const nearest = Math.min(...players.map((v) => Math.hypot(v.x - f.x, v.y - f.y)));
+    expect(nearest).toBeGreaterThanOrEqual(s.config.map.minPlayerDistance);
+    expect(nearest).toBeLessThan(15);
+    // five small barbarian villages within reach to start with
+    expect(Object.keys(s.villages).length).toBe(before + 1 + 5);
+    const around = Object.values(s.villages).filter((v) => v.owner === BARBARIAN && v.id > f.id - 10 && v.id !== oldVillage.id && Math.hypot(v.x - f.x, v.y - f.y) <= 6.5);
+    expect(around.length).toBe(5);
+    expect(s.log.at(-1)?.text).toContain('Begint opnieuw op');
   });
 
   it('works for a bot with troops on the road', () => {

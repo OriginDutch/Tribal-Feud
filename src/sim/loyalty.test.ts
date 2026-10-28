@@ -6,7 +6,7 @@ import { HUMAN_ID, createWorld, villagesOf, type Player, type WorldState } from 
 import { found, join, setRelation, tribeOf } from './tribes';
 
 function world(): WorldState {
-  return createWorld(createConfig('classic', 'Trouw', 91, { bots: { tiers: { pro: 1, mid: 0 }, count: 30 } } as never));
+  return createWorld(createConfig('classic', 'Trouw', 91, { bots: { tiers: { pro: 1, mid: 0 }, count: 30 }, map: { playerStart: 'center' } } as never));
 }
 const bots = (s: WorldState): Player[] => s.players.filter((p) => p.bot && villagesOf(s, p.id).length);
 

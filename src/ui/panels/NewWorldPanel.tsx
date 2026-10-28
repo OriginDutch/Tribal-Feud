@@ -47,6 +47,7 @@ export function NewWorldPanel() {
   const [scavenging, setScavenging] = useSaved('nw-scavenging', true);
   const [morale, setMorale] = useSaved<'off' | 'points' | 'pointsTime'>('nw-morale', PRESETS.classic.morale);
   const [night, setNight] = useSaved('nw-night', false);
+  const [start, setStart] = useSaved<'random' | 'center'>('nw-start', 'random');
   const [barbCap, setBarbCap] = useSaved<'none' | 'fixed' | 'varied' | 'full'>('nw-barb-cap', 'varied');
   const [barbMax, setBarbMax] = useSaved('nw-barb-max', 3000);
   const [barbSpread, setBarbSpread] = useSaved('nw-barb-spread', 500);
@@ -76,6 +77,7 @@ export function NewWorldPanel() {
     if (!scavenging) overrides.scavenging = false;
     if (morale !== PRESETS[preset].morale) overrides.morale = morale;
     if (night) overrides.nightBonus = true;
+    if (start === 'center') overrides.map = { playerStart: 'center' };
     const b = PRESETS[preset].barbarians;
     if (barbCap !== b.capMode || barbMax !== b.growthCap || barbSpread !== b.capSpread || barbRate !== b.growthRate) {
       overrides.barbarians = { capMode: barbCap, growthCap: Math.max(100, barbMax), capSpread: Math.max(0, barbSpread), growthRate: barbRate };
@@ -101,6 +103,13 @@ export function NewWorldPanel() {
           <option value="classic">Classic</option>
           <option value="speed">Speed</option>
           <option value="hardcore">Hardcore</option>
+        </select>
+      </label>
+      <label title="Willekeurig: ergens tussen de bots, niet helemaal aan de rand. De sterkste bots worden altijd over de kaart verspreid en nooit direct naast je gezet.">
+        Startpositie
+        <select value={start} onChange={(e) => setStart(e.currentTarget.value as typeof start)}>
+          <option value="random">Willekeurig</option>
+          <option value="center">Midden (500|500)</option>
         </select>
       </label>
       <label title="Hoe oplettend en hebberig de bots spelen. Ze houden zich altijd aan dezelfde regels als jij.">

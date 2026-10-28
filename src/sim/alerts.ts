@@ -4,7 +4,7 @@
  * The player chooses when (state.alertMode); a lost village pauses unless alerts are off.
  */
 import { createVillage } from './village';
-import { edgeSpot } from './map';
+import { restartSpot } from './map';
 import { forgetNeighbourhoods } from './bots';
 import { HUMAN_ID, addLog, invalidateOwners, nextId, villagesOf, type WorldState } from './state';
 
@@ -34,16 +34,16 @@ export function onIncomingAttack(state: WorldState, fromVillage: number, text: s
   raise(state, text);
 }
 
-/** The human lost a village. With no villages left he starts over at the edge, like a bot. */
+/** The human lost a village. With no villages left he starts over at the outer ring, like a bot. */
 export function onHumanVillageLost(state: WorldState, text: string): void {
   if ((state.alertMode ?? 'perVillage') !== 'off') raise(state, text);
   if (villagesOf(state, HUMAN_ID).length > 0) return;
-  const [x, y] = edgeSpot(state);
+  const [x, y] = restartSpot(state);
   const v = createVillage(state.config, nextId(state), HUMAN_ID, 'Jouw dorp', x, y, state.time);
   state.villages[v.id] = v;
   state.players[HUMAN_ID]!.joinedAt = state.time;
   state.current = v.id;
   invalidateOwners(state);
   forgetNeighbourhoods(state);
-  addLog(state, { time: state.time, text: `Je hebt geen dorpen meer. Je begint opnieuw aan de rand op ${x}|${y}.` });
+  addLog(state, { time: state.time, text: `Je hebt geen dorpen meer. Je begint opnieuw op ${x}|${y}, met een paar barbarendorpen in de buurt.` });
 }

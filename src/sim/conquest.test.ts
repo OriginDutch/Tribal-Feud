@@ -209,7 +209,7 @@ describe('conquest', () => {
     expect(Object.values(s.movements).some((m) => m.from === second.id && m.owner === HUMAN_ID)).toBe(false);
   });
 
-  it('losing the last village starts you over at the edge', () => {
+  it('losing the last village starts you over, with barbarians around', () => {
     const { s, v } = world({ unitSpeed: 50, conquest: { protectionDays: 0 } });
     const bot = s.players.find((p) => p.isBot);
     const botVillage = bot ? villagesOf(s, bot.id)[0] : undefined;

@@ -1,6 +1,6 @@
 /**
- * World generation: bot players with one village each, and barbarian villages,
- * in a circle around the human player's village at 500|500.
+ * World generation: bot players with one village each, and barbarian villages, in a circle
+ * around 500|500. Your village is in the middle, or (playerStart: random) anywhere among the bots.
  */
 import { barbarianStartPoints, seedBarbarian } from './barbarians';
 import { nextFloat, nextInt } from './rng';
@@ -28,6 +28,16 @@ export function generateMap(state: WorldState): void {
   const total = existing.length + config.bots.count + config.map.barbarianCount;
   const radius = Math.sqrt(total / (Math.PI * config.map.density));
 
+  // your village anywhere among the bots: not at the very edge, where you'd have fewer neighbours
+  if (config.map.playerStart === 'random') {
+    for (const v of existing) {
+      if (v.owner === BARBARIAN) continue;
+      const r = radius * 0.75 * Math.sqrt(nextFloat(state.rng));
+      const angle = nextFloat(state.rng) * Math.PI * 2;
+      v.x = Math.round(CENTER + r * Math.cos(angle));
+      v.y = Math.round(CENTER + r * Math.sin(angle));
+    }
+  }
   const occupied = new Set(existing.map((v) => key(v.x, v.y)));
   const playerSpots = existing.filter((v) => v.owner !== BARBARIAN).map((v) => [v.x, v.y] as const);
 
@@ -86,4 +96,59 @@ export function edgeSpot(state: WorldState): [number, number] {
     const y = Math.round(CENTER + r * Math.sin(angle));
     if (!occupied.has(`${x}|${y}`)) return [x, y];
   }
+}
+
+/** Barbarian villages a restarted player finds around his new village. */
+export const RESTART_BARBARIANS = 5;
+
+/**
+ * Where a player who lost everything starts over: like TW, in a gap at the outer ring of the
+ * inhabited world, between other players, not beyond the last village of the map. Returns the
+ * spot and puts a few small barbarian villages around it to start with.
+ */
+export function restartSpot(state: WorldState): [number, number] {
+  const { config } = state;
+  const all = Object.values(state.villages);
+  const occupied = new Set(all.map((v) => key(v.x, v.y)));
+  const players = all.filter((v) => v.owner !== BARBARIAN);
+  const radii = players.map((v) => Math.hypot(v.x - CENTER, v.y - CENTER)).sort((a, b) => a - b);
+  const ring = radii[Math.floor(radii.length * 0.9)] ?? 0;
+  const minDist = Math.max(3, config.map.minPlayerDistance);
+  let best: { x: number; y: number; score: number } | undefined;
+  for (let i = 0; i < 80 && ring > 0; i++) {
+    const r = ring * (0.8 + nextFloat(state.rng) * 0.25);
+    const angle = nextFloat(state.rng) * Math.PI * 2;
+    const x = Math.round(CENTER + r * Math.cos(angle));
+    const y = Math.round(CENTER + r * Math.sin(angle));
+    if (occupied.has(key(x, y))) continue;
+    let nearestPlayer = Infinity, crowd = 0, neighbours = 0;
+    for (const v of all) {
+      const d = Math.hypot(v.x - x, v.y - y);
+      if (d <= 6) crowd++;
+      if (v.owner !== BARBARIAN) {
+        nearestPlayer = Math.min(nearestPlayer, d);
+        if (d <= 15) neighbours++;
+      }
+    }
+    if (nearestPlayer < minDist) continue;
+    // between players (a few within reach), with room around it for the starting barbarians
+    const score = Math.min(neighbours, 4) * 3 - crowd - Math.max(0, nearestPlayer - 10);
+    if (!best || score > best.score) best = { x, y, score };
+  }
+  const [x, y] = best ? [best.x, best.y] : edgeSpot(state);
+  occupied.add(key(x, y));
+  for (let n = 0, tries = 0; n < RESTART_BARBARIANS && tries < 200; tries++) {
+    const r = 3 + nextFloat(state.rng) * 3;
+    const angle = nextFloat(state.rng) * Math.PI * 2;
+    const bx = Math.round(x + r * Math.cos(angle));
+    const by = Math.round(y + r * Math.sin(angle));
+    if (occupied.has(key(bx, by))) continue;
+    occupied.add(key(bx, by));
+    const v = createVillage(config, nextId(state), BARBARIAN, 'Barbarendorp', bx, by, state.time);
+    v.res = [0, 0, 0];
+    seedBarbarian(config, v, barbarianStartPoints(config, v, nextFloat(state.rng)), state.time);
+    state.villages[v.id] = v;
+    n++;
+  }
+  return [x, y];
 }
