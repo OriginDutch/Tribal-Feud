@@ -1,11 +1,14 @@
 # Every push and pull request: typecheck, unit tests, build and the browser smoke test.
-# The deploy workflow only runs when this passes.
-name: Test
+# A push to main that passes all of it goes live on Firebase Hosting: exactly the build that was tested.
+name: Test en deploy
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -26,3 +29,41 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Smoke test (the built game in a real browser)
         run: npm run smoke
+      - name: Keep the tested build
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 7
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the Firebase key
+        id: key
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TRIBAL_FEUD }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deploy overgeslagen: de secret FIREBASE_SERVICE_ACCOUNT_TRIBAL_FEUD ontbreekt nog (firebase init hosting:github)."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: The tested build
+        if: steps.key.outputs.ready == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Deploy to Firebase Hosting
+        if: steps.key.outputs.ready == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TRIBAL_FEUD }}
+          channelId: live
+          projectId: tribal-feud
