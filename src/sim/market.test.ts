@@ -31,6 +31,7 @@ function secondVillage(s: WorldState, v: Village): Village {
     .sort((a, b) => distance(a, v) - distance(b, v))[0] as Village;
   w.owner = HUMAN_ID;
   delete w.growth;
+  w.buildings.storage = Math.max(w.buildings.storage, 10);
   invalidateOwners(s);
   return w;
 }

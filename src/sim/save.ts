@@ -16,6 +16,9 @@ import { createVillage } from './village';
  */
 export const SAVE_VERSION = 16;
 
+/** Barbarian growth of worlds made before 28 October 2026: keep it as it was. */
+const OLD_BARB_GROWTH = { capMode: 'fixed', speedScaling: 'linear', startRelative: undefined } as const;
+
 export interface SaveData {
   version: number;
   savedAt: number;
@@ -58,7 +61,7 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     config.marchSpeed ??= 1;
     config.map ??= structuredClone(base.map);
     config.combat ??= structuredClone(base.combat);
-    config.barbarians = { ...base.barbarians, ...config.barbarians };
+    config.barbarians = { ...base.barbarians, ...OLD_BARB_GROWTH, ...config.barbarians };
     for (const v of Object.values(state.villages)) {
       if (!v.outside) {
         v.outside = Object.fromEntries(UNIT_IDS.map((u) => [u, 0])) as Record<UnitId, number>;
@@ -94,6 +97,7 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     const c = data.state.config;
     c.barbarians = {
       ...PRESETS.classic.barbarians,
+      ...OLD_BARB_GROWTH,
       ...c.barbarians,
       types: structuredClone(PRESETS.classic.barbarians.types),
       growthMode: 'levels',

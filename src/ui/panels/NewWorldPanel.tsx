@@ -47,6 +47,10 @@ export function NewWorldPanel() {
   const [scavenging, setScavenging] = useSaved('nw-scavenging', true);
   const [morale, setMorale] = useSaved<'off' | 'points' | 'pointsTime'>('nw-morale', PRESETS.classic.morale);
   const [night, setNight] = useSaved('nw-night', false);
+  const [barbCap, setBarbCap] = useSaved<'none' | 'fixed' | 'varied' | 'full'>('nw-barb-cap', 'varied');
+  const [barbMax, setBarbMax] = useSaved('nw-barb-max', 3000);
+  const [barbSpread, setBarbSpread] = useSaved('nw-barb-spread', 500);
+  const [barbRate, setBarbRate] = useSaved('nw-barb-rate', 1);
 
   const changePreset = (p: Preset) => {
     setPreset(p);
@@ -72,6 +76,10 @@ export function NewWorldPanel() {
     if (!scavenging) overrides.scavenging = false;
     if (morale !== PRESETS[preset].morale) overrides.morale = morale;
     if (night) overrides.nightBonus = true;
+    const b = PRESETS[preset].barbarians;
+    if (barbCap !== b.capMode || barbMax !== b.growthCap || barbSpread !== b.capSpread || barbRate !== b.growthRate) {
+      overrides.barbarians = { capMode: barbCap, growthCap: Math.max(100, barbMax), capSpread: Math.max(0, barbSpread), growthRate: barbRate };
+    }
     if (winShare !== 0.75 || !winBarbs) overrides.winCondition = { villageShare: winShare, countBarbarians: winBarbs };
     const cmd: Command = { type: 'newWorld', preset, name, overrides };
     if (seed.trim() !== '') cmd.seed = Number(seed) >>> 0;
@@ -154,6 +162,42 @@ export function NewWorldPanel() {
       <label class="row" title="Tussen 0:00 en 8:00 (spelklok) verdedigen spelersdorpen dubbel zo sterk.">
         <input type="checkbox" checked={night} onChange={(e) => setNight(e.currentTarget.checked)} /> Nachtbonus (0:00–8:00)
       </label>
+      <h3>Barbaren</h3>
+      <label title="Hoe ver barbarendorpen doorgroeien. Ze beginnen rond de grootte van een vers spelersdorp (75% tot 125%).">
+        Groei
+        <select value={barbCap} onChange={(e) => setBarbCap(e.currentTarget.value as typeof barbCap)}>
+          <option value="none">Groeien niet</option>
+          <option value="fixed">Tot een vast maximum</option>
+          <option value="varied">Tot een maximum, verschilt per dorp</option>
+          <option value="full">Volledig uit</option>
+        </select>
+      </label>
+      {(barbCap === 'fixed' || barbCap === 'varied') && (
+        <label>
+          Maximum (punten)
+          <input type="number" min={100} step={100} value={barbMax} onInput={(e) => setBarbMax(Number(e.currentTarget.value) || 3000)} />
+        </label>
+      )}
+      {barbCap === 'varied' && (
+        <label title="Elk dorp krijgt een eigen maximum, tot zoveel punten erboven of eronder.">
+          Spreiding ± (punten)
+          <input type="number" min={0} step={100} value={barbSpread} onInput={(e) => setBarbSpread(Math.max(0, Number(e.currentTarget.value) || 0))} />
+        </label>
+      )}
+      {barbCap !== 'none' && (
+        <label title="Standaard groeien ze 100 punten per speldag × de wortel van de wereld- en bouwsnelheid: op speed 20 zo'n 450 per dag.">
+          Groeisnelheid
+          <select value={String(barbRate)} onChange={(e) => setBarbRate(Number(e.currentTarget.value))}>
+            {[0.25, 0.5, 0.75, 1, 1.5, 2, 3].map((r) => <option key={r} value={String(r)}>×{r}</option>)}
+          </select>
+        </label>
+      )}
+      <p class="hint">
+        {barbCap === 'none' ? 'Barbarendorpen blijven zo groot als ze beginnen.'
+          : barbCap === 'full' ? 'Barbarendorpen groeien tot alles uitgebouwd is.'
+          : barbCap === 'varied' ? `Elk barbarendorp groeit tot ergens tussen ${(barbMax - barbSpread).toLocaleString('nl-NL')} en ${(barbMax + barbSpread).toLocaleString('nl-NL')} punten.`
+          : `Barbarendorpen groeien tot ${barbMax.toLocaleString('nl-NL')} punten.`}
+      </p>
       <h3>Eindspel</h3>
       <label title="Een stam die dit deel van de wereld 3 speldagen vasthoudt, wint.">
         Winnen bij {Math.round(winShare * 100)}%

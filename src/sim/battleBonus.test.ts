@@ -26,7 +26,7 @@ describe('battle modifiers', () => {
     const s = createWorld(createConfig('classic', 'M', 9, { morale: 'pointsTime', bots: { count: 3 } } as never));
     const big = s.players.find((p) => p.bot)!;
     // make the bot huge so points morale is at its 30% floor
-    for (const v of Object.values(s.villages).filter((x) => x.owner === BARBARIAN).slice(0, 200)) v.owner = big.id;
+    for (const v of Object.values(s.villages).filter((x) => x.owner === BARBARIAN).slice(0, 1000)) v.owner = big.id;
     invalidateOwners(s);
     expect(moraleFor(s, big.id, HUMAN_ID)).toBeCloseTo(0.3, 2);
     s.time = 30 * DAY;

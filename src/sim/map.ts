@@ -2,7 +2,7 @@
  * World generation: bot players with one village each, and barbarian villages,
  * in a circle around the human player's village at 500|500.
  */
-import { seedBarbarian } from './barbarians';
+import { barbarianStartPoints, seedBarbarian } from './barbarians';
 import { nextFloat, nextInt } from './rng';
 import { BARBARIAN, nextId, type WorldState } from './state';
 import { createVillage } from './village';
@@ -65,7 +65,7 @@ export function generateMap(state: WorldState): void {
     const [x, y] = freeSpot(radius, 0);
     const v = createVillage(config, nextId(state), BARBARIAN, 'Barbarendorp', x, y, state.time);
     v.res = [0, 0, 0];
-    const target = nextInt(state.rng, config.barbarians.startPointsMin, config.barbarians.startPointsMax);
+    const target = barbarianStartPoints(config, v, nextFloat(state.rng));
     seedBarbarian(config, v, target, state.time);
     state.villages[v.id] = v;
   }

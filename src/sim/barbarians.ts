@@ -153,6 +153,28 @@ export function fillStartStock(config: WorldConfig, v: Village, time: number): v
   v.resAt = time;
 }
 
+/** Lowers buildings (never below their minimum) until the village is at most `target` points. */
+function shrinkTo(config: WorldConfig, v: Village, target: number): void {
+  let points = villagePoints(config, v);
+  for (let step = 0; points > target && step < 200; step++) {
+    const options = BUILDING_IDS.filter((b) => v.buildings[b] > (config.buildings[b].minLevel ?? 0) && v.buildings[b] > (b === 'main' ? 1 : 0));
+    if (!options.length) return;
+    const b = options[Math.floor(hashFloat(config.seed, v.id, 900 + step) * options.length)]!;
+    points -= levelPoints(config, v, b);
+    v.buildings[b]--;
+  }
+}
+
+/**
+ * Starting size of a new barbarian village: with startRelative, around a fresh player village
+ * (that is what createVillage gives) ± that share; else the old fixed range.
+ */
+export function barbarianStartPoints(config: WorldConfig, fresh: Village, roll: number): number {
+  const rel = config.barbarians.startRelative;
+  if (rel === undefined) return Math.round(config.barbarians.startPointsMin + roll * (config.barbarians.startPointsMax - config.barbarians.startPointsMin));
+  return Math.round(villagePoints(config, fresh) * (1 + (roll * 2 - 1) * rel));
+}
+
 /** Grows a fresh barbarian village to its (random) starting size and sets up its growth. */
 export function seedBarbarian(config: WorldConfig, v: Village, targetPoints: number, time = 0): void {
   if (config.barbarians.growthMode === 'points') {
@@ -160,6 +182,7 @@ export function seedBarbarian(config: WorldConfig, v: Village, targetPoints: num
     v.bonus = pickBonus(config, v.id);
   }
   v.growth = { step: 0, since: 0 };
+  shrinkTo(config, v, targetPoints);
   growTo(config, v, targetPoints);
   if (config.barbarians.growthMode === 'points') {
     v.growth.since = time;
@@ -190,7 +213,19 @@ export function growthIntervalMs(config: WorldConfig): number {
  * ('levels' mode, old worlds, keeps scaling with world speed only.)
  */
 export function barbarianBuildSpeed(config: WorldConfig): number {
-  return config.worldSpeed * config.buildSpeed;
+  const speed = config.worldSpeed * config.buildSpeed;
+  return config.barbarians.speedScaling === 'sqrt' ? Math.sqrt(speed) : speed;
+}
+
+/** How far this village grows (points), see capMode. */
+export function growthCapOf(config: WorldConfig, v: Village): number {
+  const b = config.barbarians;
+  switch (b.capMode ?? 'fixed') {
+    case 'none': return v.growth?.start ?? 0;
+    case 'full': return Infinity;
+    case 'varied': return Math.round(b.growthCap + (hashFloat(config.seed, v.id, 104) * 2 - 1) * (b.capSpread ?? 0));
+    default: return b.growthCap;
+  }
 }
 
 function pointsPerMs(config: WorldConfig): number {
@@ -210,7 +245,7 @@ export function targetPoints(config: WorldConfig, v: Village, time: number): num
   const g = v.growth;
   if (!g) return 0;
   const start = g.start ?? 0;
-  const grown = Math.max(start, Math.min(config.barbarians.growthCap, start + pointsPerMs(config) * Math.max(0, time - g.since)));
+  const grown = Math.max(start, Math.min(growthCapOf(config, v), start + pointsPerMs(config) * Math.max(0, time - g.since)));
   return grown - currentDebt(config, v, time);
 }
 

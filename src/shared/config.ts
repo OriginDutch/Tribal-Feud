@@ -102,8 +102,23 @@ export interface WorldConfig {
   nightBonus: boolean;
 
   barbarians: {
-    /** Max points a barbarian village grows to. */
+    /** Max points a barbarian village grows to (the middle of the range with capMode 'varied'). */
     growthCap: number;
+    /**
+     * How far they grow: 'none' = stay as they start, 'fixed' = up to growthCap, 'varied' = up to
+     * growthCap ± capSpread (different per village), 'full' = until every building is maxed.
+     * Missing (worlds made before this existed) = 'fixed'.
+     */
+    capMode?: 'none' | 'fixed' | 'varied' | 'full';
+    /** ± points around growthCap with capMode 'varied'. */
+    capSpread?: number;
+    /**
+     * How growth follows world speed and build speed: 'sqrt' = with the square root (fast worlds
+     * don't hand out full-grown villages before anyone can take them), 'linear' = in step (old worlds).
+     */
+    speedScaling?: 'sqrt' | 'linear';
+    /** Start size relative to a fresh player village: 0.25 = 75% .. 125% of it. Missing = startPointsMin/Max. */
+    startRelative?: number;
     /** Relative growth speed. 1 = default. */
     growthRate: number;
     /** Points range a barbarian village starts with. */
@@ -237,6 +252,10 @@ const BASE: PresetValues = {
   nightBonus: false,
   barbarians: {
     growthCap: 3000,
+    capMode: 'varied',
+    capSpread: 500,
+    speedScaling: 'sqrt',
+    startRelative: 0.25,
     growthRate: 1,
     startPointsMin: 30,
     startPointsMax: 300,

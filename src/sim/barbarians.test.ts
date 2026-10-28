@@ -13,8 +13,11 @@ import { BARBARIAN, createWorld, playerVillage, villagesOf, type WorldState } fr
 import { currentResources, productionRates, type Village } from './village';
 import { storageCapacity } from './formulas';
 
+/** These tests pin the classic growth (fixed cap, in step with world speed); the newer defaults have their own tests. */
+const CLASSIC_GROWTH = { capMode: 'fixed', speedScaling: 'linear' } as const;
+
 function world(overrides: ConfigOverrides = {}) {
-  return createWorld(createConfig('classic', 'Barb', 5, { luck: false, bots: { count: 0 }, ...overrides }));
+  return createWorld(createConfig('classic', 'Barb', 5, { luck: false, bots: { count: 0 }, ...overrides, barbarians: { ...CLASSIC_GROWTH, ...overrides.barbarians } } as ConfigOverrides));
 }
 
 const barbs = (s: WorldState) => Object.values(s.villages).filter((v) => v.owner === BARBARIAN);
@@ -255,5 +258,55 @@ describe('barbarian farms', () => {
     expect(buildBlocker(s, v, 'farm')).toBeNull();
     expect(buildBlocker(s, v, 'storage')).toBeNull();
     expect(buildBlocker(s, v, 'main')).toBe('Boerderij is vol');
+  });
+});
+
+describe('barbarian growth (new worlds)', () => {
+  const fresh = (barbarians: object = {}, extra: object = {}) =>
+    createWorld(createConfig('classic', 'Barb2', 5, { luck: false, bots: { count: 0 }, worldSpeed: 20, ...extra, barbarians } as ConfigOverrides));
+
+  it('grows with the square root of the world speed: ~450 points a day at speed 20', () => {
+    const s = fresh();
+    const v = barbs(s)[0]!;
+    const start = villagePoints(s.config, v);
+    growBarbarian(s, v, DAY);
+    const grown = villagePoints(s.config, v) - start;
+    expect(grown).toBeGreaterThanOrEqual(Math.floor(100 * Math.sqrt(20)) - 1);
+    expect(grown).toBeLessThan(100 * Math.sqrt(20) + 300);
+  });
+
+  it('each village has its own ceiling between 2500 and 3500', () => {
+    const s = fresh();
+    const all = barbs(s).slice(0, 300);
+    for (const v of all) growBarbarian(s, v, 60 * DAY);
+    const pts = all.map((v) => villagePoints(s.config, v));
+    expect(Math.min(...pts)).toBeGreaterThanOrEqual(2500);
+    expect(Math.max(...pts)).toBeLessThan(3500 + 400); // ceiling + at most one level
+    expect(Math.max(...pts) - Math.min(...pts)).toBeGreaterThan(500);
+  });
+
+  it("'none' stays as it starts, 'full' grows past every ceiling", () => {
+    const none = fresh({ capMode: 'none' });
+    const v = barbs(none)[0]!;
+    const start = villagePoints(none.config, v);
+    growBarbarian(none, v, 30 * DAY);
+    expect(villagePoints(none.config, v)).toBe(start);
+    const full = fresh({ capMode: 'full' });
+    const w = barbs(full)[0]!;
+    growBarbarian(full, w, 200 * DAY);
+    expect(villagePoints(full.config, w)).toBeGreaterThan(6000);
+  });
+
+  it('old worlds keep their growth after loading', () => {
+    const s = fresh();
+    const data = toSaveData(s, 0) as unknown as { version: number; state: { config: { barbarians: Record<string, unknown> } } };
+    delete data.state.config.barbarians.capMode;
+    delete data.state.config.barbarians.speedScaling;
+    const loaded = fromSaveData(data as never);
+    const v = barbs(loaded)[0]!;
+    const start = villagePoints(loaded.config, v);
+    growBarbarian(loaded, v, DAY / 4);
+    // in step with speed 20: 500 points in 6 hours
+    expect(villagePoints(loaded.config, v) - start).toBeGreaterThanOrEqual(499);
   });
 });

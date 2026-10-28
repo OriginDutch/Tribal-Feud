@@ -57,20 +57,23 @@ describe('map', () => {
     );
   });
 
-  it('barbarians start between 30 and 300 points (give or take one building level)', () => {
-    const { s } = setup();
+  it('barbarians start around the size of a fresh player village, 75%..125% (give or take a level)', () => {
+    const { s, v } = setup();
+    const fresh = villagePoints(s.config, v);
     const points = Object.values(s.villages)
       .filter((x) => x.owner === BARBARIAN)
       .map((x) => villagePoints(s.config, x));
-    expect(Math.min(...points)).toBeGreaterThanOrEqual(30);
-    expect(Math.max(...points)).toBeLessThan(400);
+    expect(Math.min(...points)).toBeGreaterThanOrEqual(Math.floor(fresh * 0.75) - 15);
+    expect(Math.max(...points)).toBeLessThanOrEqual(Math.ceil(fresh * 1.25) + 40);
+    expect(Math.min(...points)).toBeLessThan(fresh);
+    expect(Math.max(...points)).toBeGreaterThan(fresh);
   });
 });
 
 describe('barbarian growth', () => {
   it('grows lazily, the same no matter how often it is caught up, up to the cap', () => {
-    const a = setup({ barbarians: { growthCap: 600 } });
-    const b = setup({ barbarians: { growthCap: 600 } });
+    const a = setup({ barbarians: { growthCap: 600, capMode: 'fixed' } } as never);
+    const b = setup({ barbarians: { growthCap: 600, capMode: 'fixed' } } as never);
     const va = nearestBarbarian(a.s, a.v);
     const vb = nearestBarbarian(b.s, b.v);
     const t = 50 * growthIntervalMs(a.s.config);
