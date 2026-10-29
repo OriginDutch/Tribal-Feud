@@ -76,7 +76,7 @@ describe('bots', () => {
   });
 
   it('200 bots stay cheap: a game day takes well under 3 seconds to simulate', () => {
-    const s = createWorld(createConfig('classic', 'Perf', 2));
+    const s = createWorld(createConfig('classic', 'Perf', 2, { bots: { count: 200 }, map: { barbarianCount: 3000 } } as never));
     setPaused(s, false);
     runDays(s, 1);
     const t = performance.now();

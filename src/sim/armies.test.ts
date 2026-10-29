@@ -10,6 +10,7 @@ describe('bot armies', () => {
     const s = createWorld(createConfig('classic', 'Leger', 4, { bots: { count: 20 }, map: { barbarianCount: 200 } } as never));
     const p = s.players.find((x) => x.bot)!;
     p.bot!.archetype = 'rusher';
+    p.bot!.tier = 'pro';
     const first = villagesOf(s, p.id)[0]!;
     for (let i = 1; i <= 30; i++) s.villages[800000 + i] = createVillage(s.config, 800000 + i, p.id, `v${i}`, first.x + i, first.y + 40, 0);
     invalidateOwners(s);
