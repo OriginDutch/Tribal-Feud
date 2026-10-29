@@ -14,6 +14,7 @@ const KIND: Record<InboxView['kind'], string> = {
   request: 'Verzoek',
   merge: 'Fusie',
   treaty: 'Vredesverdrag',
+  talks: 'Vredesbesprekingen',
 };
 const ACCEPT: Record<string, string> = { none: 'Accepteren', support: 'Support plannen', resources: 'Versturen', permission: 'Toestaan', order: 'Akkoord' };
 const STATUS = { accepted: 'Geaccepteerd', declined: 'Afgewezen', expired: 'Verlopen' } as const;

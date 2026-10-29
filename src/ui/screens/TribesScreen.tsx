@@ -4,6 +4,7 @@ import type { TribeRelation, TribeView } from '../../shared/protocol';
 import { MAX_MEMBERS } from '../../shared/tribes';
 import { formatGameTime } from '../../shared/time';
 import { Confirm } from '../components/Confirm';
+import { TalksPanel } from '../components/TalksPanel';
 import { Coords } from '../components/Coords';
 import { MapLink } from '../components/MapLink';
 import { duration, num } from '../format';
@@ -334,6 +335,7 @@ export function TribesScreen() {
         </span>
       </div>
       {s && <EndgamePanel list={list} mine={mine?.id} />}
+      <TalksPanel />
       {s && (mine ? <MyTribe t={mine} /> : <FoundTribe />)}
       {!list.length ? (
         <section class="panel">
@@ -415,7 +417,7 @@ export function TribesScreen() {
                     {proposed.has(open.id) ? (
                       <span class="muted">Voorstel ({ASK_REL[proposed.get(open.id)!]}) loopt — de leider antwoordt als hij online is.</span>
                     ) : relToMine === 'war' ? (
-                      <button class="small" onClick={() => send({ type: 'tribePropose', tribe: open.id, relation: 'peace' })}>Vrede voorstellen</button>
+                      <button class="small" onClick={() => send({ type: 'tribePropose', tribe: open.id, relation: 'peace' })}>Vredesbesprekingen openen</button>
                     ) : (
                       <>
                         {relToMine !== 'nap' && relToMine !== 'ally' && (

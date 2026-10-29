@@ -11,6 +11,9 @@ import { grudge, grudgeHalfLife } from './botReact';
 import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, proposeRelation, setOwnRelation } from './humanTribe';
 import { fitCheck, playerCentre, tribeNews, tribeViews } from './tribes';
 import { latestNews } from './news';
+import { MAX_BIDS, cedable, isOutlaw, proposeTalks, voteTalks } from './talks';
+import { owedBy } from './reparations';
+import type { TalksView } from '../shared/protocol';
 import { farmCUnits } from './intel';
 import { createConfig, validateConfig } from '../shared/config';
 import { AUTOSAVE_SLOT, BACKUP_PREFIX, UPDATE_PREFIX, nextBackupSlot, type Command, type Snapshot, type WorkerMessage } from '../shared/protocol';
@@ -161,6 +164,39 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
     });
 }
 
+function talksViews(s: WorldState): TalksView[] {
+  const mine = s.players[HUMAN_ID]?.tribe;
+  if (mine === undefined || !s.talks?.length) return [];
+  const out: TalksView[] = [];
+  for (const t of s.talks) {
+    if (t.winner !== mine && t.loser !== mine) continue;
+    const enemy = s.tribes?.[t.winner === mine ? t.loser : t.winner];
+    const own = s.tribes?.[mine];
+    const loser = s.tribes?.[t.loser];
+    if (!enemy || !own || !loser) continue;
+    const votes = new Map<number, number>();
+    for (const id of Object.values(t.votes)) votes.set(id, (votes.get(id) ?? 0) + 1);
+    const yourTurn = t.side === mine;
+    out.push({
+      id: t.id,
+      enemy: { id: enemy.id, tag: enemy.tag, name: enemy.name },
+      youWin: t.winner === mine,
+      yourTurn,
+      until: t.until,
+      bids: t.bids.map((b) => ({ ours: b.side === mine, ...b.terms })),
+      // the other side's options and votes are theirs: you only see your own round
+      options: yourTurn
+        ? t.options.map((o) => ({ id: o.id, kind: o.kind, ...(o.terms ?? {}), ...(o.author !== undefined ? { author: s.players[o.author]?.name ?? '?', leader: o.author === own.leader } : {}), votes: votes.get(o.id) ?? 0 }))
+        : [],
+      myVote: yourTurn ? (t.votes[HUMAN_ID] ?? null) : null,
+      leader: own.leader === HUMAN_ID,
+      maxVillages: cedable(s, loser).length,
+      bidsLeft: MAX_BIDS - t.bids.length,
+    });
+  }
+  return out;
+}
+
 function snapshot(): Snapshot | null {
   if (!state) return null;
   return {
@@ -181,6 +217,9 @@ function snapshot(): Snapshot | null {
     },
     log: state.log.slice(-SNAPSHOT_LOG_LINES),
     news: latestNews(state, 15),
+    talks: talksViews(state),
+    outlawUntil: isOutlaw(state, HUMAN_ID) ? state.outlaws![HUMAN_ID]!.until : null,
+    owed: owedBy(state, HUMAN_ID),
     me: (() => { const c = playerCentre(state, HUMAN_ID); return c ? { x: Math.round(c.x), y: Math.round(c.y) } : null; })(),
     village: (() => {
       const v = currentVillage(state);
@@ -749,7 +788,7 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
       {
-        const error = sendAttack(state, cmd.from, cmd.to, cmd.units, cmd.catapultTarget);
+        const error = sendAttack(state, cmd.from, cmd.to, cmd.units, cmd.catapultTarget, undefined, 0, undefined, true);
         if (error) notice(error, 'error');
         else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); leaderOrderAttack(state, cmd.to); }
       }
@@ -1195,6 +1234,18 @@ async function handle(cmd: Command): Promise<void> {
     case 'getRanking':
       if (state) sendRanking(state);
       return;
+    case 'talksVote': {
+      const error = voteTalks(state!, cmd.talks, cmd.option);
+      if (error) notice(error, 'error');
+      postSnapshot();
+      break;
+    }
+    case 'talksPropose': {
+      const error = proposeTalks(state!, cmd.talks, { villages: cmd.villages, resources: cmd.resources });
+      if (error) notice(error, 'error');
+      postSnapshot();
+      break;
+    }
     case 'getNews':
       if (state) post({ type: 'news', news: [...(state.news ?? [])].reverse() });
       break;

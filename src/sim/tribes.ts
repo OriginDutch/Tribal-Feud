@@ -8,7 +8,9 @@
  *
  * Runs on its own slow clock ('diplomacy' event), deterministic through the world rng.
  */
-import { cededAway, offerTreaty, treatiesTick } from './peace';
+import { cededAway, treatiesTick } from './peace';
+import { huntsOutlaw, isOutlaw, mayTalk, outlawsTick, startTalks, talksOfTribes } from './talks';
+import { reparationsTick } from './reparations';
 import { allianceTick } from './alliances';
 import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
 import { kindness } from '../shared/config';
@@ -119,16 +121,22 @@ export function relationBetween(state: WorldState, a: number, b: number): Relati
   return ta.relations[tb.id] ?? null;
 }
 
-/** May `attacker` attack villages of `defender`? No for tribe mates, allies and NAP partners. */
+/**
+ * May `attacker` attack villages of `defender`? No for tribe mates, allies and NAP partners, and
+ * not during peace talks between their tribes (that NAP can be broken, see talks: only on purpose).
+ */
 export function mayAttack(state: WorldState, attacker: number, defender: number): boolean {
   if (attacker === defender) return false;
   if (attacker === BARBARIAN || defender === BARBARIAN) return true;
   const r = relationBetween(state, attacker, defender);
-  return r !== 'same' && r !== 'ally' && r !== 'nap';
+  if (r === 'same' || r === 'ally' || r === 'nap') return false;
+  return !(r === 'war' && state.talks?.length && talksOfTribes(state, tribeOf(state, attacker)!.id, tribeOf(state, defender)!.id));
 }
 
 /** Weight for choosing targets: enemies at war are preferred. */
 export function targetWeight(state: WorldState, attacker: number, defender: number): number {
+  // an outlaw is fair game for the two tribes he betrayed
+  if (state.outlaws && huntsOutlaw(state, attacker, defender)) return 3 * leaderBonus(state, attacker, defender);
   return (relationBetween(state, attacker, defender) === 'war' ? 2.5 : 1) * leaderBonus(state, attacker, defender);
 }
 
@@ -385,7 +393,7 @@ export function onDiplomacy(state: WorldState): void {
   }
 
   // solo bots: apply to a tribe nearby, or found one
-  const solos = bots.filter((p) => p.tribe === undefined);
+  const solos = bots.filter((p) => p.tribe === undefined && !isOutlaw(state, p.id));
   for (let i = solos.length - 1; i > 0; i--) { const j = Math.floor(nextFloat(state.rng) * (i + 1)); [solos[i], solos[j]] = [solos[j]!, solos[i]!]; }
   for (const p of solos) {
     const social = SOCIAL[p.bot!.archetype] * (0.6 + p.bot!.activity * 0.4);
@@ -410,6 +418,8 @@ export function onDiplomacy(state: WorldState): void {
 
   handOverLeadership(state);
   treatiesTick(state);
+  outlawsTick(state);
+  reparationsTick(state);
   diplomacy(state);
   rankingNews(state);
   warOpsTick(state);
@@ -502,16 +512,17 @@ function diplomacy(state: WorldState): void {
       // sues for peace, and a not too bloodthirsty winner takes it
       // war fatigue: a long war without a clear winner ends in a plain peace
       const stalemate = since > 48 * HOUR && power < 2 && roll < 0.03;
-      // a clearly beaten side sues for peace (and gives up villages for it, see peace)
+      // talks underway: they decide (see talks)
+      if (talksOfTribes(state, a.id, b.id)) continue;
+      // a clearly beaten side sues for peace: talks, with terms (a bot leader on either side starts them)
       const sues = since > 24 * HOUR && power >= 2 && roll < 0.1 * (1.2 - AGGRESSION[lead(strong)]);
-      // a clear defeat ends with a treaty: the loser gives up border villages (an offer to you if you lead a side)
-      if (sues && !(state.treaties ?? []).some((x) => (x.winner === strong.id && x.loser === weak.id) || (x.winner === weak.id && x.loser === strong.id))) {
-        if (offerTreaty(state, strong, weak, power)) continue;
+      if (sues && mayTalk(state, strong, weak)) {
+        startTalks(state, strong, weak);
+        continue;
       }
-      if (stalemate || sues) {
+      if (stalemate) {
         if (offer(a, b, 'peace')) continue;
-        setRelation(state, a, b, null, sues);
-        if (sues) addNews(state, { kind: 'peace', tribes: [weak.id, strong.id], ...between(state, weak, strong), dry: `[${weak.tag}] vraagt om vrede en [${strong.tag}] stemt in.`, head: [`[${weak.tag}] smeekt om vrede, [${strong.tag}] is genadig`, `Witte vlag bij [${weak.tag}]: [${strong.tag}] accepteert de overgave`] });
+        setRelation(state, a, b, null);
       }
     }
   }

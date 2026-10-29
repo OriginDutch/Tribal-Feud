@@ -15,7 +15,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 18;
+export const SAVE_VERSION = 19;
 
 /** Barbarian growth of worlds made before 28 October 2026: keep it as it was. */
 const OLD_BARB_GROWTH = { capMode: 'fixed', speedScaling: 'linear', startRelative: undefined } as const;
@@ -194,6 +194,13 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     b.strikeMinShare ??= 0.5;
     b.armyGrades ??= true;
     return { ...data, version: 18 };
+  },
+  // peace goes through talks now: treaties still on offer and their inbox questions run out
+  18: (data) => {
+    const st = data.state as unknown as { treaties?: { status: string }[]; inbox?: { kind: string; status?: string }[] };
+    if (st.treaties) st.treaties = st.treaties.filter((t) => t.status === 'signed');
+    for (const m of st.inbox ?? []) if (m.kind === 'treaty' && m.status === 'open') m.status = 'expired';
+    return { ...data, version: 19 };
   },
 };
 

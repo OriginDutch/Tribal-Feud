@@ -769,3 +769,12 @@ details.hidden-templates > summary { cursor: pointer; color: var(--muted, #9a8f7
 @media (max-width: 1500px) { .toast-col { bottom: 44px; } }
 .layout:has(.map-screen) .toast-col { bottom: 44px; }
 .rail { padding-bottom: 40px; }
+
+/* peace talks */
+.talks-item { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+.talks-bids { margin: 0; padding-left: 20px; }
+.talks-options { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.talks-options li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; }
+.talks-options li.on { border-color: var(--accent-line); background: var(--accent-soft); }
+.talks-bid { flex-wrap: wrap; gap: 8px; align-items: center; }
+.talks-bid input { width: 110px; }

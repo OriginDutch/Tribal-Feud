@@ -5,8 +5,8 @@
  * themselves: the position rule (not too far, not behind an enemy, not prey in the middle),
  * the leader's view of your strength, their personality and any grudge against you.
  */
-import { answerTreaty } from './peace';
 import { kindness } from '../shared/config';
+import { humanStartTalks, isOutlaw } from './talks';
 import { mateEvent, moodAll, trustFactor } from './loyalty';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { DAY } from '../shared/time';
@@ -125,6 +125,7 @@ const human = (state: WorldState): Player => state.players[HUMAN_ID]!;
 export function foundTribe(state: WorldState, name: string, tagIn: string): string | null {
   const me = human(state);
   if (me.tribe !== undefined) return 'Je zit al in een stam.';
+  if (isOutlaw(state, HUMAN_ID)) return 'Je bent vogelvrij: geen stam neemt je nu aan.';
   const nm = name.trim(), tg = tagIn.trim().toUpperCase();
   if (nm.length < 3 || nm.length > 32) return 'Een naam heeft 3 tot 32 tekens.';
   if (!/^[A-Z0-9]{2,6}$/.test(tg)) return 'Een tag heeft 2 tot 6 letters of cijfers.';
@@ -142,6 +143,7 @@ export function applyToTribe(state: WorldState, tribeId: number): string | null 
   const t = state.tribes?.[tribeId];
   if (!t) return 'Die stam bestaat niet meer.';
   if (me.tribe !== undefined) return 'Verlaat eerst je huidige stam.';
+  if (isOutlaw(state, HUMAN_ID)) return 'Je bent vogelvrij: geen stam neemt je nu aan.';
   if (t.members.length >= MAX_MEMBERS) return 'Die stam is vol.';
   if ((state.tribeAsks ?? []).some((a) => a.kind === 'apply' && a.tribe === tribeId)) return 'Je aanmelding loopt al.';
   (state.tribeAsks ??= []).push({ kind: 'apply', tribe: tribeId, at: state.time });
@@ -200,7 +202,9 @@ export function proposeRelation(state: WorldState, tribeId: number, relation: 'n
   if (!o || o.id === t.id) return 'Die stam bestaat niet.';
   const now = t.relations[o.id];
   if (relation === 'peace' && now !== 'war') return 'Jullie zijn niet in oorlog.';
-  if (relation !== 'peace' && now === 'war') return 'Sluit eerst vrede.';
+  // peace after a war goes through talks, with terms
+  if (relation === 'peace') return humanStartTalks(state, o.id);
+  if (now === 'war') return 'Sluit eerst vrede.';
   if (relation === now) return 'Dat verdrag hebben jullie al.';
   if (relation === 'ally' && Object.values(t.relations).filter((r) => r === 'ally').length >= MAX_ALLIES) return `Je hebt al ${MAX_ALLIES} bondgenoten.`;
   if ((state.tribeAsks ?? []).some((a) => a.kind === 'propose' && a.tribe === tribeId)) return 'Je voorstel loopt al.';
@@ -233,9 +237,10 @@ export function answerMessage(state: WorldState, id: number, accept: boolean): s
   const m = (state.inbox ?? []).find((x) => x.id === id);
   if (!m || m.status !== 'open') return 'Dit bericht vraagt geen antwoord meer.';
   m.read = true;
-  if (m.kind === 'treaty' && m.treaty !== undefined) {
-    m.status = accept ? 'accepted' : 'declined';
-    return answerTreaty(state, m.treaty, accept);
+  if (m.kind === 'treaty') {
+    // peace goes through the talks now (see talks); old offers ran out
+    m.status = 'expired';
+    return 'Vrede loopt nu via vredesbesprekingen (Stammen).';
   }
   const t = m.tribe !== undefined ? state.tribes?.[m.tribe] : undefined;
   if (!accept && m.kind !== 'request') {
@@ -248,6 +253,7 @@ export function answerMessage(state: WorldState, id: number, accept: boolean): s
   if (m.kind === 'invite') {
     const me = human(state);
     if (me.tribe !== undefined) return 'Verlaat eerst je huidige stam.';
+    if (isOutlaw(state, HUMAN_ID)) return 'Je bent vogelvrij: geen stam neemt je nu aan.';
     if (t.members.length >= MAX_MEMBERS) { m.status = 'expired'; return 'Die stam is inmiddels vol.'; }
     join(state, t, me);
     m.status = 'accepted';
@@ -439,7 +445,7 @@ function rejectReason(state: WorldState, t: Tribe, me: Player, leader: Player): 
  * recruiter in TW. A tribe wants you more when you are stronger than its average member.
  */
 function inviteHuman(state: WorldState, me: Player): void {
-  if (me.tribe !== undefined) return;
+  if (me.tribe !== undefined || isOutlaw(state, HUMAN_ID)) return;
   const inbox = state.inbox ?? [];
   if (inbox.some((m) => m.kind === 'invite' && m.status === 'open')) return;
   const cooldown = DAY / state.config.worldSpeed;

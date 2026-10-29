@@ -494,6 +494,7 @@ export function abandonAndRestart(state: WorldState, player: Player): Village {
   const fresh = createVillage(config, nextId(state), player.id, `${player.name}s dorp`, x, y, state.time);
   state.villages[fresh.id] = fresh;
   player.joinedAt = state.time;
+  player.home = fresh.id;
   invalidateOwners(state);
   forgetNeighbourhoods(state);
   if (player.bot) {

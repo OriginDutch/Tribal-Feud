@@ -1,3 +1,4 @@
+import { onTalksRound } from './talks';
 import { onAutoFarm } from './farmAll';
 import { onDiplomacy } from './tribes';
 import { MINUTE, type Speed } from '../shared/time';
@@ -90,6 +91,9 @@ function handle(state: WorldState, event: GameEvent): LogEntry | null {
       return null;
     case 'opLaunch':
       onOpLaunch(state, event.tribe, event.op, event.role);
+      return null;
+    case 'talks':
+      onTalksRound(state, event.talks);
       return null;
     case 'autoFarm':
       onAutoFarm(state);

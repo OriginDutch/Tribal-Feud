@@ -36,7 +36,8 @@ export type GameEvent =
   | { kind: 'diplomacy' }
   | { kind: 'scavenge'; villageId: number }
   /** A member's part of a tribe's joint operation leaves now (warOps). */
-  | { kind: 'opLaunch'; tribe: number; op: number; role: number };
+  | { kind: 'opLaunch'; tribe: number; op: number; role: number }
+  | { kind: 'talks'; talks: number };
 
 export interface LogEntry {
   time: number;
@@ -46,7 +47,7 @@ export interface LogEntry {
 
 export type BotTier = 'pro' | 'mid' | 'casual';
 
-export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty';
+export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty' | 'talks';
 export interface InboxMessage {
   id: number;
   time: number;
@@ -65,6 +66,8 @@ export interface InboxMessage {
   merge?: 'yoursIntoTheirs' | 'theirsIntoYours';
   /** kind 'treaty': the peace treaty it is about. */
   treaty?: number;
+  /** kind 'talks': the peace talks it is about. */
+  talks?: number;
   /** Messages with a choice: open until answered or expired. */
   status?: 'open' | 'accepted' | 'declined' | 'expired';
   expires?: number;
@@ -198,6 +201,8 @@ export interface Player {
   flags?: FlagStock;
   /** Game time this player (re)started in the world (time-based morale); missing = 0. */
   joinedAt?: number;
+  /** His first village (since the last start): never ceded in peace talks. */
+  home?: number;
 }
 
 /** The human player always has id 0. */
@@ -241,6 +246,12 @@ export interface WorldState {
   autoFarm?: { options: import('./farmAll').FarmAllOptions; at?: number; last?: { time: number; sent: number } };
   /** Peace treaties with ceded villages (see peace). */
   treaties?: import('./peace').Treaty[];
+  /** Peace talks underway (see talks), when talks between two tribes last ended ("a:b"), outlaws. */
+  talks?: import('./talks').Talks[];
+  talksEnded?: Record<string, number>;
+  outlaws?: Record<number, import('./talks').Outlaw>;
+  /** Resources the losers of peace talks still have to pay (see reparations). */
+  reparations?: import('./reparations').Reparation[];
   /** Quest rewards go in by themselves when they fit. */
   autoRewards?: boolean;
   autoRewardsAt?: number;
@@ -360,6 +371,7 @@ export function createWorld(config: WorldConfig): WorldState {
   };
   const village = createVillage(config, nextId(state), HUMAN_ID, 'Jouw dorp', 500, 500, 0);
   state.villages[village.id] = village;
+  state.players[HUMAN_ID]!.home = village.id;
   generateMap(state);
   initBots(state);
   nameAllBotVillages(state);

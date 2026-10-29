@@ -69,6 +69,7 @@ export function generateMap(state: WorldState): void {
     playerSpots.push([x, y]);
     const v = createVillage(config, nextId(state), id, `${name}s dorp`, x, y, state.time);
     state.villages[v.id] = v;
+    state.players[id]!.home = v.id;
   }
 
   for (let i = 0; i < config.map.barbarianCount; i++) {

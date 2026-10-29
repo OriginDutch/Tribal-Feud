@@ -47,6 +47,8 @@ export type Command =
   | { type: 'getMap' }
   | { type: 'getReports' }
   | { type: 'getNews' }
+  | { type: 'talksVote'; talks: number; option: number }
+  | { type: 'talksPropose'; talks: number; villages: number; resources: number }
   | { type: 'markReportsRead'; ids: number[] | 'all' }
   | { type: 'deleteReports'; ids: number[] | 'read' }
   | { type: 'getRanking' }
@@ -203,7 +205,7 @@ export interface OrderView {
 export interface InboxView {
   id: number;
   time: number;
-  kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty';
+  kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty' | 'talks';
   from: number;
   fromName: string;
   request?: BotRequest;
@@ -350,6 +352,24 @@ export interface MarketView {
   trades: MovementView[];
 }
 
+export interface TalksView {
+  id: number;
+  enemy: { id: number; tag: string; name: string };
+  /** Your tribe is the winning side. */
+  youWin: boolean;
+  /** Your tribe decides now. */
+  yourTurn: boolean;
+  until: number;
+  bids: { ours: boolean; villages: number; resources: number }[];
+  options: { id: number; kind: 'accept' | 'bid' | 'reject'; villages?: number; resources?: number; author?: string; leader?: boolean; votes: number }[];
+  myVote: number | null;
+  leader: boolean;
+  /** Villages the losing side can give up at most (none: only resources can be asked). */
+  maxVillages: number;
+  /** Bids left (three in total). */
+  bidsLeft: number;
+}
+
 export interface Snapshot {
   worldName: string;
   seed: number;
@@ -367,6 +387,12 @@ export interface Snapshot {
   news: import('../sim/news').NewsItem[];
   /** Where you are (centre of your villages), for news "near me". */
   me: { x: number; y: number } | null;
+  /** Peace talks your tribe is in. */
+  talks: TalksView[];
+  /** You are outlawed until this game time (attacked during peace talks). */
+  outlawUntil: number | null;
+  /** Resources you still have to pay after a lost war. */
+  owed: number;
   /** The selected village, fully computed for display. */
   village: VillageView | null;
   /** All the player's villages, short, for the village switcher and the overview. */

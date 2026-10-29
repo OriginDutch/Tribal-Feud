@@ -6,6 +6,7 @@ import { cededTo, onTreatyAttack } from './peace';
 import { creditAllyAttack, creditAllySupport } from './alliances';
 import { nameConquered } from './botNames';
 import { mayAttack } from './tribes';
+import { breachTalks, talksBetween } from './talks';
 import type { BarbType } from '../shared/barbarianTypes';
 import { BUILDING_IDS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { growBarbarian, onBarbarianDamaged, villagePoints } from './barbarians';
@@ -211,6 +212,8 @@ export function sendAttack(
   minDuration = 0,
   /** Part of this joint operation of a tribe. */
   op?: number,
+  /** You, on purpose: an attack during peace talks goes out, and you are outlawed for it. */
+  breach = false,
 ): string | null {
   const { config } = state;
   const from = state.villages[fromId];
@@ -226,7 +229,9 @@ export function sendAttack(
   }
   const protectedMsg = protectionBlocker(state, from.owner, to.owner);
   if (protectedMsg) return protectedMsg;
-  if (to.owner >= 0 && !mayAttack(state, from.owner, to.owner) && !cededTo(state, from.owner, to.id)) return 'Dat is een stamgenoot, bondgenoot of NAP-partner.';
+  const talks = to.owner >= 0 && state.talks?.length ? talksBetween(state, from.owner, to.owner) : undefined;
+  if (talks && !breach) return 'Er lopen vredesbesprekingen met die stam: aanvallen betekent vogelvrij.';
+  if (to.owner >= 0 && !talks && !mayAttack(state, from.owner, to.owner) && !cededTo(state, from.owner, to.id)) return 'Dat is een stamgenoot, bondgenoot of NAP-partner.';
   for (const u of UNIT_IDS) {
     if ((units[u] ?? 0) > from.units[u]) return `Niet genoeg ${config.units[u].name.toLowerCase()} in het dorp.`;
   }
@@ -257,6 +262,7 @@ export function sendAttack(
   if (to.owner === HUMAN_ID && from.owner !== HUMAN_ID) {
     onIncomingAttack(state, from.id, `Inkomende aanval op ${to.name} (${to.x}|${to.y}) van ${ownerName(state, from.owner)}, aankomst ${formatGameTime(movement.arrives)}.`);
   }
+  if (talks) breachTalks(state, talks, from.owner);
   return null;
 }
 
