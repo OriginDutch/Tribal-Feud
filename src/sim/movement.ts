@@ -51,6 +51,8 @@ export interface Movement {
   op?: number;
   /** Sent by auto-farm: its report comes in read, and in its own list. */
   auto?: true;
+  /** A bot's counter-attack: never answered with another counter (no endless ping-pong). */
+  counter?: true;
 }
 
 /** How long after sending a command can still be cancelled (game time, like TW). */

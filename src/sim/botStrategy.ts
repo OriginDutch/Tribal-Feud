@@ -19,7 +19,7 @@ import { BARBARIAN, villagesOf, type Player, type WorldState } from './state';
 import { mayAttack, relationBetween } from './tribes';
 import { outclassed } from './warCause';
 import type { Village } from './village';
-import { isOperational } from './village';
+import { isOperational, popMax } from './village';
 
 /** What a bot learned from a scout. */
 export interface BotScout { at: number; def: number; owner: number }
@@ -44,7 +44,18 @@ export const scoutFresh = (state: WorldState) => Math.max(4 * HOUR, DAY / state.
 /** A strong target is left alone this long. */
 const waryFor = (state: WorldState) => 2 * scoutFresh(state);
 /** At most one strike per bot this often. */
-const strikeCooldown = (state: WorldState) => DAY / (2 * state.config.worldSpeed);
+export const strikeCooldown = (state: WorldState) => DAY / (2 * state.config.worldSpeed);
+
+/**
+ * Is this army worth an attack on a player? With strikeMinShare set, only an army that fills at
+ * least that share of the village's farm goes: no handfuls of troops.
+ */
+export function bigEnough(state: WorldState, v: Village, army: UnitCounts): boolean {
+  const min = state.config.bots.strikeMinShare ?? 0;
+  if (min <= 0) return true;
+  const pop = Object.entries(army).reduce((n, [u, k]) => n + (k ?? 0) * state.config.units[u as UnitId].pop, 0);
+  return pop >= min * popMax(state.config, v);
+}
 
 /** Defense strength of what stands in the village, roughly as the battle sees it. */
 export function defenseOf(state: WorldState, present: UnitCounts, wall: number): number {
@@ -262,7 +273,7 @@ export function strike(state: WorldState, player: Player, v: Village): void {
 
   const army: UnitCounts = {};
   for (const u of STRIKE_UNITS) if (v.units[u] > 0) army[u] = v.units[u];
-  if (attackOf(state, army) < 2000) return;
+  if (attackOf(state, army) < 2000 || !bigEnough(state, v, army)) return;
   const power = effectiveAttack(state, player.id, foe, army);
   const theirs = villagesOf(state, foe).filter((t) => distance(t, v) <= STRIKE_RADIUS).sort((a, b) => distance(a, v) - distance(b, v)).slice(0, 6);
   // the weakest scouted village it can clearly beat

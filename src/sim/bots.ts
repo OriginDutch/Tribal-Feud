@@ -293,7 +293,7 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   if (!player.bot) return;
   // given up in a peace treaty: nothing more goes into it
   if (cededAway(state, v.id)) return;
-  const profile = BOT_PROFILES[player.bot.archetype];
+  const profile = roleProfile(state, player, v, BOT_PROFILES[player.bot.archetype]);
   // farming and noblemen only when the bot looks at the game; building and troops always
   const attentive = checksIn(state, player.bot);
   // coins and noblemen come first once there is an academy; while saving, buildings wait too
@@ -320,6 +320,29 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
   if (attentive && !forgets(0.5) && !atWar(state, player)) botScavenge(state, v, profile.farmUnits);
   if (attentive) trade(state, player, v);
   if (attentive) refreshRoleName(state, player, v);
+}
+
+// --- village roles --------------------------------------------------------------
+
+/** Share of its villages a bot of this kind makes offensive. */
+const OFF_SHARE: Record<string, number> = { rusher: 0.7, opportunist: 0.55, farmer: 0.35, diplomat: 0.3, supporter: 0.2, turtle: 0.15 };
+const OFF_TROOPS: BotProfile['troops'] = { axe: 6, light: 3, marcher: 1, ram: 0.6 };
+const DEF_TROOPS: BotProfile['troops'] = { spear: 4, sword: 3, archer: 2, heavy: 1 };
+
+/** What a bot village is for: its first village stays mixed, the rest is offensive or defensive. */
+export function villageRole(state: WorldState, player: Player, v: Village): 'off' | 'def' | 'mixed' {
+  if (!state.config.bots.villageRoles || !player.bot) return 'mixed';
+  const mine = villagesOf(state, player.id);
+  if (mine.length < 2 || mine.every((o) => o.id >= v.id)) return 'mixed';
+  return hashFloat(state.config.seed, v.id, 53) < (OFF_SHARE[player.bot.archetype] ?? 0.4) ? 'off' : 'def';
+}
+
+/** The profile a village plays by: an offensive village fills its farm with an army, a defensive one with defense. */
+function roleProfile(state: WorldState, player: Player, v: Village, base: BotProfile): BotProfile {
+  const role = villageRole(state, player, v);
+  if (role === 'off') return { ...base, troops: OFF_TROOPS, troopShare: Math.max(base.troopShare, 0.7), defensePerPoint: 0.02, farmUnits: ['light'] };
+  if (role === 'def') return { ...base, troops: DEF_TROOPS, troopShare: Math.max(base.troopShare, 0.6), defensePerPoint: base.defensePerPoint * 2, farmUnits: ['spear', 'light'] };
+  return base;
 }
 
 /** A tribe at war (or a bot hunting a village) keeps its army home. */

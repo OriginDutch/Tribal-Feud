@@ -6,6 +6,7 @@
  * real troops. How likely it reacts depends on its tier and on how dangerous the attack looks;
  * reacting takes time in fixed game minutes, so on a fast world it is often too late (like for you).
  */
+import { bigEnough, strikeCooldown } from './botStrategy';
 import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../shared/gameData';
 import { MINUTE } from '../shared/time';
@@ -98,7 +99,7 @@ export function reactToIncoming(state: WorldState, player: Player): void {
       // noticed at all (in time or not): it remembers who it was, and the sharp ones hit back
       if (inTime || tier === 'pro') {
         addGrudge(state, player, m.owner, danger);
-        if (reacts) counter(state, player, v, from, m.sent, m.arrives, danger);
+        if (reacts && !m.counter) counter(state, player, v, from, m.sent, m.arrives, danger);
       }
     }
   }
@@ -203,6 +204,9 @@ function counter(state: WorldState, player: Player, target: Village, from: Villa
     if (scout) sendAttack(state, scout.id, from.id, { spy: Math.min(5, scout.units.spy) });
   }
   if (danger < 0.5 || nextFloat(state.rng) >= COUNTER[tier]) return;
+  // not after every attack: the same pause as between its own strikes
+  const bot = player.bot!;
+  if (bot.lastStrike !== undefined && state.time - bot.lastStrike < strikeCooldown(state)) return;
   // their army is home again at about arrives + (arrives - sent)
   const home = arrives + (arrives - sent);
   let best: { v: Village; units: UnitCounts; at: number } | null = null;
@@ -211,12 +215,16 @@ function counter(state: WorldState, player: Player, target: Village, from: Villa
     const units: UnitCounts = {};
     let n = 0;
     for (const u of OFFENSE) if (u !== 'snob' && o.units[u] > 0) { units[u] = o.units[u]; n += o.units[u]; }
-    if (n < 100) continue;
+    if (n < 100 || !bigEnough(state, o, units)) continue;
     const at = state.time + travelTimeMs(state, units, distance(o, from));
     if (at >= home) continue; // too slow: their army would be back
     if (!best || at < best.at) best = { v: o, units, at };
   }
-  if (best) sendAttack(state, best.v.id, from.id, best.units);
+  if (best && sendAttack(state, best.v.id, from.id, best.units) === null) {
+    const sent = state.movements[state.nextId - 1];
+    if (sent) sent.counter = true;
+    bot.lastStrike = state.time;
+  }
 }
 
 /** Did the owner of this village see (and act on) this attack? Tribe mates only help with those. */

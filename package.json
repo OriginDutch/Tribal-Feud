@@ -18,7 +18,8 @@
     "smoke": "node tools/smoke/smoke.mjs",
     "realism": "npx --yes esbuild tools/bench/realism.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/realism.mjs --log-level=error && node node_modules/.cache/realism.mjs",
     "pace": "npx --yes esbuild tools/bench/pace.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/pace.mjs --log-level=error && node node_modules/.cache/pace.mjs",
-    "curve": "npx --yes esbuild tools/bench/curve.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/curve.mjs --log-level=error && node node_modules/.cache/curve.mjs"
+    "curve": "npx --yes esbuild tools/bench/curve.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/curve.mjs --log-level=error && node node_modules/.cache/curve.mjs",
+    "armies": "npx --yes esbuild tools/bench/armies.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/armies.mjs --log-level=error && node node_modules/.cache/armies.mjs"
   },
   "repository": {
     "type": "git",

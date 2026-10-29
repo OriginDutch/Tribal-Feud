@@ -183,6 +183,10 @@ export interface WorldConfig {
      * only runs while you play), the others come and go at random moments.
      */
     tiers: { pro: number; mid: number };
+    /** Bot villages specialise: offensive villages build a full army, defensive ones defense (the first village stays mixed). */
+    villageRoles?: boolean;
+    /** A bot only strikes or hits back with at least this share of the village's farm in offense (0 = any army). */
+    strikeMinShare?: number;
   };
 
   winCondition: {
@@ -293,6 +297,8 @@ const BASE: PresetValues = {
     abandonAfterDays: 3,
     // a real world's pyramid: a few no-lifers, a middle group, a long tail of casuals (500 bots: 35 / 115 / 350)
     tiers: { pro: 0.07, mid: 0.23 },
+    villageRoles: true,
+    strikeMinShare: 0.5,
   },
   winCondition: {
     villageShare: 0.75,
