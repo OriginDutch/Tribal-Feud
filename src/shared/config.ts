@@ -42,12 +42,17 @@ export interface DifficultyDef {
    * Active bots wait less, sleepy ones more (x0.5 .. x1.2 by activity), so they don't all grow alike.
    */
   conquestCooldownHours: number;
+  /**
+   * Extra pause with graded armies (armyGrades): specialised villages conquer more efficiently, so on
+   * easy the bots would grow ~20% faster than before; this keeps easy at its old pace.
+   */
+  gradedCooldownHours: number;
 }
 
 export const DIFFICULTIES: Record<BotDifficulty, DifficultyDef> = {
-  easy: { attentionMinutes: 120, villagesPerTurn: 5, conquestCooldownHours: 0 },
-  normal: { attentionMinutes: 45, villagesPerTurn: 5, conquestCooldownHours: 0 },
-  hard: { attentionMinutes: 10, villagesPerTurn: 5, conquestCooldownHours: 0 },
+  easy: { attentionMinutes: 120, villagesPerTurn: 5, conquestCooldownHours: 0, gradedCooldownHours: 48 },
+  normal: { attentionMinutes: 45, villagesPerTurn: 5, conquestCooldownHours: 0, gradedCooldownHours: 0 },
+  hard: { attentionMinutes: 10, villagesPerTurn: 5, conquestCooldownHours: 0, gradedCooldownHours: 0 },
 };
 /**
  * How kind bots are to YOU and your tribe (bots among themselves don't change):

@@ -884,7 +884,9 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
   const bot = player.bot;
   if (!bot || !isOperational(config, v, 'snob')) return false;
   // the difficulty decides how soon after a conquest a bot goes for the next village
-  const cooldown = ((difficulty(state).conquestCooldownHours * (1.5 - bot.activity)) * 3_600_000) / config.worldSpeed;
+  const dif = difficulty(state);
+  const hours = dif.conquestCooldownHours + (config.bots.armyGrades ? dif.gradedCooldownHours : 0);
+  const cooldown = ((hours * (1.5 - bot.activity)) * 3_600_000) / config.worldSpeed;
   if (!bot.reference && bot.lastConquest !== undefined && state.time - bot.lastConquest < cooldown) return false;
   const queued = v.recruitQueues.snob.reduce((n, j) => n + j.total - j.done, 0);
   const nobles = v.units.snob + v.outside.snob + queued;

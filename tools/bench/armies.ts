@@ -4,7 +4,7 @@
  * offensive armies in bot villages are (share of the farm, "nukes"), and how big the attacks on
  * players are that are not scouts, noblemen or farming.
  */
-import { createConfig } from '../../src/shared/config';
+import { createConfig, DIFFICULTIES } from '../../src/shared/config';
 import { DAY, HOUR } from '../../src/shared/time';
 import { setAttackHook, type Movement } from '../../src/sim/movement';
 import { advance } from '../../src/sim/simulation';
@@ -13,6 +13,8 @@ import { popMax, type Village } from '../../src/sim/village';
 import { villagePoints } from '../../src/sim/barbarians';
 
 const bots = Number(process.argv[2] ?? 200), days = Number(process.argv[3] ?? 10), difficulty = process.argv[4] ?? 'normal';
+// try a conquest pause (game hours at speed 1) for every difficulty: COOLDOWN=96
+if (process.env.COOLDOWN) for (const d of Object.values(DIFFICULTIES)) d.conquestCooldownHours = Number(process.env.COOLDOWN);
 const extra = process.env.EXTRA ? JSON.parse(process.env.EXTRA) : {};
 const s = createWorld(createConfig('classic', 'Armies', Number(process.env.SEED ?? 11), {
   worldSpeed: 20, productionMultiplier: 2, farmMultiplier: 2, recruitSpeed: 2, ...extra,
