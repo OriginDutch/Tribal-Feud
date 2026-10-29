@@ -13,6 +13,7 @@ import { fitCheck, playerCentre, tribeNews, tribeViews } from './tribes';
 import { latestNews } from './news';
 import { MAX_BIDS, cedable, isOutlaw, proposeTalks, voteTalks } from './talks';
 import { owedBy } from './reparations';
+import { dutyOf } from './duties';
 import type { TalksView } from '../shared/protocol';
 import { farmCUnits } from './intel';
 import { createConfig, validateConfig } from '../shared/config';
@@ -177,21 +178,23 @@ function talksViews(s: WorldState): TalksView[] {
     const votes = new Map<number, number>();
     for (const id of Object.values(t.votes)) votes.set(id, (votes.get(id) ?? 0) + 1);
     const yourTurn = t.side === mine;
+    const help = (h?: { target: number; space: number }) => (h ? { help: { target: h.target, space: h.space, tag: s.tribes?.[h.target]?.tag ?? '?' } } : {});
     out.push({
       id: t.id,
       enemy: { id: enemy.id, tag: enemy.tag, name: enemy.name },
       youWin: t.winner === mine,
       yourTurn,
       until: t.until,
-      bids: t.bids.map((b) => ({ ours: b.side === mine, ...b.terms })),
+      bids: t.bids.map((b) => ({ ours: b.side === mine, villages: b.terms.villages, resources: b.terms.resources, ...help(b.terms.help) })),
       // the other side's options and votes are theirs: you only see your own round
       options: yourTurn
-        ? t.options.map((o) => ({ id: o.id, kind: o.kind, ...(o.terms ?? {}), ...(o.author !== undefined ? { author: s.players[o.author]?.name ?? '?', leader: o.author === own.leader } : {}), votes: votes.get(o.id) ?? 0 }))
+        ? t.options.map((o) => ({ id: o.id, kind: o.kind, ...(o.terms ? { villages: o.terms.villages, resources: o.terms.resources, ...help(o.terms.help) } : {}), ...(o.author !== undefined ? { author: s.players[o.author]?.name ?? '?', leader: o.author === own.leader } : {}), votes: votes.get(o.id) ?? 0 }))
         : [],
       myVote: yourTurn ? (t.votes[HUMAN_ID] ?? null) : null,
       leader: own.leader === HUMAN_ID,
       maxVillages: cedable(s, loser).length,
       bidsLeft: MAX_BIDS - t.bids.length,
+      helpTargets: Object.values(s.tribes ?? {}).filter((x) => x.id !== t.winner && x.id !== t.loser).map((x) => ({ id: x.id, tag: x.tag, war: s.tribes![t.winner]!.relations[x.id] === 'war' })).sort((a, b) => Number(b.war) - Number(a.war) || a.tag.localeCompare(b.tag)),
     });
   }
   return out;
@@ -220,6 +223,7 @@ function snapshot(): Snapshot | null {
     talks: talksViews(state),
     outlawUntil: isOutlaw(state, HUMAN_ID) ? state.outlaws![HUMAN_ID]!.until : null,
     owed: owedBy(state, HUMAN_ID),
+    duty: (() => { const d = dutyOf(state, HUMAN_ID); return d ? { tag: state.tribes?.[d.target]?.tag ?? '?', space: d.space, sent: d.sent, due: d.due } : null; })(),
     me: (() => { const c = playerCentre(state, HUMAN_ID); return c ? { x: Math.round(c.x), y: Math.round(c.y) } : null; })(),
     village: (() => {
       const v = currentVillage(state);
@@ -1241,7 +1245,7 @@ async function handle(cmd: Command): Promise<void> {
       break;
     }
     case 'talksPropose': {
-      const error = proposeTalks(state!, cmd.talks, { villages: cmd.villages, resources: cmd.resources });
+      const error = proposeTalks(state!, cmd.talks, { villages: cmd.villages, resources: cmd.resources, ...(cmd.help ? { help: cmd.help } : {}) });
       if (error) notice(error, 'error');
       postSnapshot();
       break;

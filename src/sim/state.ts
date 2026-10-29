@@ -252,6 +252,9 @@ export interface WorldState {
   outlaws?: Record<number, import('./talks').Outlaw>;
   /** Resources the losers of peace talks still have to pay (see reparations). */
   reparations?: import('./reparations').Reparation[];
+  /** Help in attacks owed after peace talks, and when each player last failed one (see duties). */
+  duties?: import('./duties').Duty[];
+  dutyStrikes?: Record<number, number>;
   /** Quest rewards go in by themselves when they fit. */
   autoRewards?: boolean;
   autoRewardsAt?: number;

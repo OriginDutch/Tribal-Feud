@@ -25,9 +25,10 @@ import { addNews } from './news';
 import { cedeVillages } from './peace';
 import { nextFloat } from './rng';
 import { HUMAN_ID, addLog, addMovement, nextId, removeMovement, villagesOf, type Player, type WorldState } from './state';
-import { AGGRESSION, between, leave, tribeOf, type Tribe } from './tribes';
+import { AGGRESSION, between, leave, tribeCentre as tribeCentreOf, tribeOf, type Tribe } from './tribes';
 import { tribeStrength } from './warCause';
 import { addReparations } from './reparations';
+import { addDuty, offensiveSpace } from './duties';
 import type { Village } from './village';
 
 export const ROUND_HOURS = 12;
@@ -40,6 +41,8 @@ const RES_PER_POINT = 60;
 export interface Terms {
   villages: number;
   resources: number;
+  /** Help in attacks: every loser member sends at least `space` farm space of offensive troops at `target` (a tribe). */
+  help?: { target: number; space: number };
 }
 
 export interface TalksOption {
@@ -74,10 +77,14 @@ export interface Outlaw {
 const T = (t: Tribe) => `[${t.tag}]`;
 const round = (n: number) => Math.round(n / 1000) * 1000;
 
-export function termsText(t: Terms): string {
+export function termsText(t: Terms, state?: WorldState): string {
   const parts = [];
   if (t.villages > 0) parts.push(`${t.villages} dorp${t.villages === 1 ? '' : 'en'}`);
   if (t.resources > 0) parts.push(`${Math.round(t.resources).toLocaleString('nl-NL')} grondstoffen`);
+  if (t.help && t.help.space > 0) {
+    const tag = state?.tribes?.[t.help.target]?.tag;
+    parts.push(`hulp: ${t.help.space.toLocaleString('nl-NL')} boerderijplekken aanval per lid${tag ? ` tegen [${tag}]` : ''}`);
+  }
   return parts.join(' + ') || 'niets';
 }
 
@@ -143,8 +150,22 @@ export function suggestion(state: WorldState, winner: Tribe, loser: Tribe, sever
   // no villages to give: the price is paid in resources
   const perVillage = Math.max(1000, (tribePoints(state, loser) / Math.max(1, loser.members.length)) * RES_PER_POINT * 0.3);
   const resources = round(Math.max(0, (base * severity - villages) * perVillage + tribePoints(state, loser) * 8 * Math.min(3, Math.max(0.5, power - 1)) * severity));
-  return { villages, resources };
+  const help = helpSuggestion(state, winner, loser, severity);
+  return help ? { villages, resources, help } : { villages, resources };
 }
+
+/** The winner wants help against another enemy of his (the nearest one at war with him), if any. */
+function helpSuggestion(state: WorldState, winner: Tribe, loser: Tribe, severity: number): Terms['help'] | undefined {
+  const c = tribeCentreOf(state, winner);
+  const enemies = Object.entries(winner.relations).filter(([id, r]) => r === 'war' && Number(id) !== loser.id).map(([id]) => state.tribes?.[Number(id)]).filter((t): t is Tribe => !!t);
+  if (!c || !enemies.length) return undefined;
+  const target = enemies.sort((a, b) => dist(state, a, c) - dist(state, b, c))[0]!;
+  // a third of what an average loser member has in offensive troops
+  const avg = loser.members.reduce((s, m) => s + villagesOf(state, m).reduce((x, v) => x + offensiveSpace(state, v.units), 0), 0) / Math.max(1, loser.members.length);
+  const space = Math.round((avg * 0.33 * severity) / 100) * 100;
+  return space >= 200 ? { target: target.id, space } : undefined;
+}
+const dist = (state: WorldState, t: Tribe, c: { x: number; y: number }) => { const x = tribeCentreOf(state, t); return x ? Math.hypot(x.x - c.x, x.y - c.y) : Infinity; };
 
 /** How heavy terms are, as a fraction of the "fair" terms (1 = what the war's outcome says). */
 function weight(state: WorldState, t: Talks, terms: Terms): number {
@@ -152,7 +173,8 @@ function weight(state: WorldState, t: Talks, terms: Terms): number {
   if (!winner || !loser) return 1;
   const fair = suggestion(state, winner, loser);
   const perVillage = Math.max(1000, (tribePoints(state, loser) / Math.max(1, loser.members.length)) * RES_PER_POINT * 0.3);
-  const value = (x: Terms) => x.villages * perVillage + x.resources;
+  // help: each member's farm space, as if it were resources (a soldier costs ~130 resources)
+  const value = (x: Terms) => x.villages * perVillage + x.resources + (x.help ? x.help.space * loser.members.length * 130 : 0);
   return value(terms) / Math.max(1, value(fair));
 }
 
@@ -200,8 +222,15 @@ function sideTribes(state: WorldState, t: Talks): { me: Tribe; other: Tribe; win
 export function clampTerms(state: WorldState, t: Talks, terms: Terms): Terms {
   const loser = state.tribes?.[t.loser];
   const free = loser ? cedable(state, loser).length : 0;
-  return { villages: Math.max(0, Math.min(free, Math.floor(terms.villages))), resources: Math.max(0, round(terms.resources)) };
+  const out: Terms = { villages: Math.max(0, Math.min(free, Math.floor(terms.villages))), resources: Math.max(0, round(terms.resources)) };
+  const h = terms.help;
+  // help only against a tribe that exists and is not one of the two
+  if (h && h.space > 0 && state.tribes?.[h.target] && h.target !== t.winner && h.target !== t.loser) out.help = { target: h.target, space: Math.round(h.space / 100) * 100 };
+  if (out.help && out.help.space <= 0) delete out.help;
+  return out;
 }
+
+const scale = (h: Terms['help'], f: number): Terms['help'] => (h ? { target: h.target, space: h.space * f } : undefined);
 
 /** The leader's suggestion for this round. */
 function leaderBid(state: WorldState, t: Talks): Terms {
@@ -212,11 +241,13 @@ function leaderBid(state: WorldState, t: Talks): Terms {
     const full = suggestion(state, s.winner, s.loser, 0.8 + 0.4 * AGGRESSION[lead(state, s.me)]);
     if (!last) return full;
     const mine = t.bids.filter((b) => b.side === t.winner).at(-1)!.terms;
-    return clampTerms(state, t, { villages: Math.round((mine.villages + last.villages) / 2), resources: (mine.resources + last.resources) / 2 });
+    const help = mine.help ? { target: mine.help.target, space: (mine.help.space + (last.help?.space ?? 0)) / 2 } : undefined;
+    return clampTerms(state, t, { villages: Math.round((mine.villages + last.villages) / 2), resources: (mine.resources + last.resources) / 2, ...(help ? { help } : {}) });
   }
   // the loser counters with less
   const give = 0.35 + 0.3 * (1 - AGGRESSION[lead(state, s.me)]);
-  return clampTerms(state, t, { villages: Math.floor((last?.villages ?? 0) * give), resources: (last?.resources ?? 0) * give });
+  const help = scale(last?.help, give);
+  return clampTerms(state, t, { villages: Math.floor((last?.villages ?? 0) * give), resources: (last?.resources ?? 0) * give, ...(help ? { help } : {}) });
 }
 
 const lead = (state: WorldState, tribe: Tribe) => state.players[tribe.leader]?.bot?.archetype ?? 'diplomat';
@@ -241,7 +272,8 @@ function openRound(state: WorldState, t: Talks): void {
       const base = t.options.find((o) => o.kind === 'bid')!.terms!;
       // hawks ask more / give less, doves the other way round
       const f = t.side === t.winner ? (a >= 0.8 ? 1.4 : 0.7) : (a >= 0.8 ? 0.6 : 1.3);
-      opt({ kind: 'bid', terms: clampTerms(state, t, { villages: Math.round(base.villages * f), resources: base.resources * f }), author: m });
+      const help = scale(base.help, f);
+      opt({ kind: 'bid', terms: clampTerms(state, t, { villages: Math.round(base.villages * f), resources: base.resources * f, ...(help ? { help } : {}) }), author: m });
       alts++;
     }
   }
@@ -258,7 +290,7 @@ function openRound(state: WorldState, t: Talks): void {
       talks: t.id,
       title: `Vredesbesprekingen met ${T(s.other)}: jullie zijn aan zet`,
       text: asked
-        ? `${T(s.other)} biedt: ${termsText(asked.terms)}. Stem in de stamtab: accepteren, een tegenbod doen${t.bids.length >= MAX_BIDS ? ' (kan niet meer: dit was het laatste bod)' : ''} of afbreken.`
+        ? `${T(s.other)} biedt: ${termsText(asked.terms, state)}. Stem in de stamtab: accepteren, een tegenbod doen${t.bids.length >= MAX_BIDS ? ' (kan niet meer: dit was het laatste bod)' : ''} of afbreken.`
         : `De besprekingen beginnen. Stem in de stamtab over het eerste bod aan ${T(s.other)}.`,
     });
     alertHuman(state, `Vredesbesprekingen met ${T(s.other)}: jullie zijn aan zet.`);
@@ -338,11 +370,12 @@ function conclude(state: WorldState, t: Talks, terms: Terms): void {
   const villages = cedable(state, s.loser).slice(0, terms.villages).map((v) => v.id);
   cedeVillages(state, s.winner, s.loser, villages);
   if (terms.resources > 0) addReparations(state, s.winner, s.loser, terms.resources);
-  const got = { villages: villages.length, resources: terms.resources };
+  if (terms.help) addDuty(state, s.winner, s.loser, terms.help.target, terms.help.space);
+  const got: Terms = { villages: villages.length, resources: terms.resources, ...(terms.help ? { help: terms.help } : {}) };
   addNews(state, { kind: 'treaty', tribes: [s.winner.id, s.loser.id], ...between(state, s.winner, s.loser),
-    dry: `Vrede tussen ${T(s.winner)} en ${T(s.loser)}: ${T(s.loser)} geeft ${termsText(got)}.`,
-    head: [`Vrede getekend: ${T(s.loser)} betaalt ${termsText(got)} aan ${T(s.winner)}`, `${T(s.winner)} dicteert de vrede: ${termsText(got)} van ${T(s.loser)}`, `Het is vrede. De rekening voor ${T(s.loser)}: ${termsText(got)}`] });
-  if (s.winner.members.includes(HUMAN_ID) || s.loser.members.includes(HUMAN_ID)) alertHuman(state, `Vrede tussen ${T(s.winner)} en ${T(s.loser)}: ${termsText(got)}.`);
+    dry: `Vrede tussen ${T(s.winner)} en ${T(s.loser)}: ${T(s.loser)} geeft ${termsText(got, state)}.`,
+    head: [`Vrede getekend: ${T(s.loser)} betaalt ${termsText(got, state)} aan ${T(s.winner)}`, `${T(s.winner)} dicteert de vrede: ${termsText(got, state)} van ${T(s.loser)}`, `Het is vrede. De rekening voor ${T(s.loser)}: ${termsText(got, state)}`] });
+  if (s.winner.members.includes(HUMAN_ID) || s.loser.members.includes(HUMAN_ID)) alertHuman(state, `Vrede tussen ${T(s.winner)} en ${T(s.loser)}: ${termsText(got, state)}.`);
 }
 
 // --- your part ------------------------------------------------------------------
@@ -365,7 +398,7 @@ export function proposeTalks(state: WorldState, talksId: number, terms: Terms): 
   if (me.tribe !== t.side) return 'Jullie zijn nu niet aan zet.';
   if (t.bids.length >= MAX_BIDS) return 'Er zijn al drie biedingen gedaan: alleen accepteren of afbreken kan nog.';
   const clean = clampTerms(state, t, terms);
-  if (clean.villages <= 0 && clean.resources <= 0) return 'Een bod vraagt dorpen of grondstoffen.';
+  if (clean.villages <= 0 && clean.resources <= 0 && !clean.help) return 'Een bod vraagt dorpen, grondstoffen of hulp.';
   // as leader your bid is the leader's suggestion (made for you at the start of the round); as a
   // member it is an alternative next to it. Either way you vote for it.
   let mine = t.options.find((o) => o.kind === 'bid' && o.author === HUMAN_ID);

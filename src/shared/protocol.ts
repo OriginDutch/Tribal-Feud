@@ -48,7 +48,7 @@ export type Command =
   | { type: 'getReports' }
   | { type: 'getNews' }
   | { type: 'talksVote'; talks: number; option: number }
-  | { type: 'talksPropose'; talks: number; villages: number; resources: number }
+  | { type: 'talksPropose'; talks: number; villages: number; resources: number; help?: { target: number; space: number } }
   | { type: 'markReportsRead'; ids: number[] | 'all' }
   | { type: 'deleteReports'; ids: number[] | 'read' }
   | { type: 'getRanking' }
@@ -352,6 +352,12 @@ export interface MarketView {
   trades: MovementView[];
 }
 
+export interface HelpView {
+  target: number;
+  tag: string;
+  space: number;
+}
+
 export interface TalksView {
   id: number;
   enemy: { id: number; tag: string; name: string };
@@ -360,8 +366,10 @@ export interface TalksView {
   /** Your tribe decides now. */
   yourTurn: boolean;
   until: number;
-  bids: { ours: boolean; villages: number; resources: number }[];
-  options: { id: number; kind: 'accept' | 'bid' | 'reject'; villages?: number; resources?: number; author?: string; leader?: boolean; votes: number }[];
+  bids: { ours: boolean; villages: number; resources: number; help?: HelpView }[];
+  options: { id: number; kind: 'accept' | 'bid' | 'reject'; villages?: number; resources?: number; help?: HelpView; author?: string; leader?: boolean; votes: number }[];
+  /** Tribes help can be asked against (not one of the two). */
+  helpTargets: { id: number; tag: string; war: boolean }[];
   myVote: number | null;
   leader: boolean;
   /** Villages the losing side can give up at most (none: only resources can be asked). */
@@ -393,6 +401,8 @@ export interface Snapshot {
   outlawUntil: number | null;
   /** Resources you still have to pay after a lost war. */
   owed: number;
+  /** Help in attacks you owe after a lost war. */
+  duty: { tag: string; space: number; sent: number; due: number } | null;
   /** The selected village, fully computed for display. */
   village: VillageView | null;
   /** All the player's villages, short, for the village switcher and the overview. */

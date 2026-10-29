@@ -1,13 +1,14 @@
 import { useState } from 'preact/hooks';
-import type { TalksView } from '../../shared/protocol';
+import type { HelpView, TalksView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { num } from '../format';
 import { send, snapshot } from '../store';
 
-const terms = (v?: number, r?: number) => {
+const terms = (v?: number, r?: number, h?: HelpView) => {
   const parts = [];
   if (v) parts.push(`${v} dorp${v === 1 ? '' : 'en'}`);
   if (r) parts.push(`${num(r)} grondstoffen`);
+  if (h) parts.push(`hulp: ${num(h.space)} boerderijplekken aanval per lid tegen [${h.tag}]`);
   return parts.join(' + ') || 'niets';
 };
 
@@ -16,12 +17,19 @@ export function TalksPanel() {
   const s = snapshot.value;
   if (!s) return null;
   const list = s.talks ?? [];
-  if (!list.length && s.outlawUntil === null && !s.owed) return null;
+  if (!list.length && s.outlawUntil === null && !s.owed && !s.duty) return null;
   return (
     <section class="panel talks">
       <h3>Vredesbesprekingen</h3>
       {s.outlawUntil !== null && (
         <p class="bad">Je bent vogelvrij tot {formatGameTime(s.outlawUntil)}: beide stammen mogen je dorpen innemen, en geen stam neemt je aan.</p>
+      )}
+      {s.duty && (
+        <p>
+          Vredesvoorwaarde: val [{s.duty.tag}] aan met samen minstens {num(s.duty.space)} boerderijplekken aan aanvalstroepen (bijlen, lichte cav, boogruiters, rammen,
+          katapulten), uit al je dorpen samen. Verstuurd: <strong class={s.duty.sent >= s.duty.space ? 'good' : ''}>{num(s.duty.sent)}</strong> · tot {formatGameTime(s.duty.due)}.
+          Niet helpen terwijl het kon kost je bijna al je aanzien; twee keer binnen 7 dagen en je ligt eruit.
+        </p>
       )}
       {s.owed > 0 && <p class="muted">Je betaalt nog {num(s.owed)} grondstoffen aan herstelbetalingen. Je handelaren brengen het weg zodra ze vrij zijn.</p>}
       {list.map((t) => <Talks key={t.id} t={t} />)}
@@ -32,10 +40,12 @@ export function TalksPanel() {
 function Talks({ t }: { t: TalksView }) {
   const [villages, setVillages] = useState(0);
   const [resources, setResources] = useState(0);
+  const [helpTarget, setHelpTarget] = useState<number | null>(t.helpTargets.find((x) => x.war)?.id ?? null);
+  const [helpSpace, setHelpSpace] = useState(0);
   const now = snapshot.value!.time;
   const total = t.options.reduce((sum, o) => sum + o.votes, 0);
   const label = (o: TalksView['options'][number]) =>
-    o.kind === 'accept' ? `Accepteren: ${terms(t.bids.at(-1)?.villages, t.bids.at(-1)?.resources)}` : o.kind === 'reject' ? 'Afbreken: de oorlog gaat door' : `${t.bids.length === 0 || !t.youWin ? 'Bod' : 'Tegenbod'}: ${terms(o.villages, o.resources)}`;
+    o.kind === 'accept' ? `Accepteren: ${terms(t.bids.at(-1)?.villages, t.bids.at(-1)?.resources, t.bids.at(-1)?.help)}` : o.kind === 'reject' ? 'Afbreken: de oorlog gaat door' : `${t.bids.length === 0 || !t.youWin ? 'Bod' : 'Tegenbod'}: ${terms(o.villages, o.resources, o.help)}`;
   return (
     <div class="talks-item">
       <p>
@@ -45,7 +55,7 @@ function Talks({ t }: { t: TalksView }) {
         <ol class="talks-bids">
           {t.bids.map((b, i) => (
             <li key={i}>
-              {b.ours ? 'Jullie' : `[${t.enemy.tag}]`}: {terms(b.villages, b.resources)}
+              {b.ours ? 'Jullie' : `[${t.enemy.tag}]`}: {terms(b.villages, b.resources, b.help)}
             </li>
           ))}
         </ol>
@@ -83,7 +93,20 @@ function Talks({ t }: { t: TalksView }) {
                 grondstoffen{' '}
                 <input type="number" min={0} step={10000} value={resources} onInput={(e) => setResources(Math.max(0, Number(e.currentTarget.value) || 0))} />
               </label>
-              <button class="small primary" onClick={() => send({ type: 'talksPropose', talks: t.id, villages, resources })}>
+              <label>
+                hulp tegen{' '}
+                <select value={helpTarget ?? ''} onChange={(e) => setHelpTarget(e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}>
+                  <option value="">geen</option>
+                  {t.helpTargets.map((x) => (
+                    <option key={x.id} value={x.id}>[{x.tag}]{x.war ? ' (oorlog)' : ''}</option>
+                  ))}
+                </select>
+              </label>
+              <label title="Per lid van de verliezer, opgeteld over al zijn dorpen: bijlen 1, lichte cav 4, boogruiters 5, rammen 5, katapulten 8">
+                boerderijplekken per lid{' '}
+                <input type="number" min={0} step={100} value={helpSpace} disabled={helpTarget === null} onInput={(e) => setHelpSpace(Math.max(0, Number(e.currentTarget.value) || 0))} />
+              </label>
+              <button class="small primary" onClick={() => send({ type: 'talksPropose', talks: t.id, villages, resources, ...(helpTarget !== null && helpSpace > 0 ? { help: { target: helpTarget, space: helpSpace } } : {}) })}>
                 Voorstellen en erop stemmen
               </button>
               <span class="muted">

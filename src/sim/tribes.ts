@@ -11,6 +11,7 @@
 import { cededAway, treatiesTick } from './peace';
 import { huntsOutlaw, isOutlaw, mayTalk, outlawsTick, startTalks, talksOfTribes } from './talks';
 import { reparationsTick } from './reparations';
+import { dutiesTick } from './duties';
 import { allianceTick } from './alliances';
 import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
 import { kindness } from '../shared/config';
@@ -420,6 +421,7 @@ export function onDiplomacy(state: WorldState): void {
   treatiesTick(state);
   outlawsTick(state);
   reparationsTick(state);
+  dutiesTick(state);
   diplomacy(state);
   rankingNews(state);
   warOpsTick(state);

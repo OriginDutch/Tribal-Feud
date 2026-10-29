@@ -7,6 +7,7 @@ import { creditAllyAttack, creditAllySupport } from './alliances';
 import { nameConquered } from './botNames';
 import { mayAttack } from './tribes';
 import { breachTalks, talksBetween } from './talks';
+import { creditDuty } from './duties';
 import type { BarbType } from '../shared/barbarianTypes';
 import { BUILDING_IDS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { growBarbarian, onBarbarianDamaged, villagePoints } from './barbarians';
@@ -263,6 +264,7 @@ export function sendAttack(
     onIncomingAttack(state, from.id, `Inkomende aanval op ${to.name} (${to.x}|${to.y}) van ${ownerName(state, from.owner)}, aankomst ${formatGameTime(movement.arrives)}.`);
   }
   if (talks) breachTalks(state, talks, from.owner);
+  if (to.owner >= 0 && state.duties?.length) creditDuty(state, from.owner, to.owner, units);
   return null;
 }
 
