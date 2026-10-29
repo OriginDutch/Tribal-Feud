@@ -9,6 +9,7 @@
  *   real army. How quickly a grudge turns into an attack depends on the difficulty.
  * - Conquest (nobles) and the counter to an attack are handled elsewhere (bots.ts, botReact.ts).
  */
+import { skillOf } from './bots';
 import type { UnitCounts, UnitId } from '../shared/gameData';
 import type { BotProfile } from '../shared/botProfiles';
 import { DAY, HOUR } from '../shared/time';
@@ -51,8 +52,11 @@ export const strikeCooldown = (state: WorldState) => DAY / (2 * state.config.wor
  * least that share of the village's farm goes: no handfuls of troops.
  */
 export function bigEnough(state: WorldState, v: Village, army: UnitCounts): boolean {
-  const min = state.config.bots.strikeMinShare ?? 0;
+  let min = state.config.bots.strikeMinShare ?? 0;
   if (min <= 0) return true;
+  // graded: a pro waits for a full army (~0.6 of the farm), a sloppy casual goes with ~0.3
+  const p = state.players[v.owner];
+  if (state.config.bots.armyGrades && p?.bot) min = (min / 0.5) * (0.2 + 0.4 * skillOf(state, p.id, p.bot));
   const pop = Object.entries(army).reduce((n, [u, k]) => n + (k ?? 0) * state.config.units[u as UnitId].pop, 0);
   return pop >= min * popMax(state.config, v);
 }

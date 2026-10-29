@@ -187,6 +187,12 @@ export interface WorldConfig {
     villageRoles?: boolean;
     /** A bot only strikes or hits back with at least this share of the village's farm in offense (0 = any army). */
     strikeMinShare?: number;
+    /**
+     * Grades on top of roles and the minimum army: how cleanly a bot specialises and how big an
+     * army it waits for follow its skill (pros only full armies, sloppy casuals mixed villages and
+     * half armies); the difficulty sets how many of its villages are offensive (easy x0.7, hard x1.25).
+     */
+    armyGrades?: boolean;
   };
 
   winCondition: {
@@ -299,6 +305,7 @@ const BASE: PresetValues = {
     tiers: { pro: 0.07, mid: 0.23 },
     villageRoles: true,
     strikeMinShare: 0.5,
+    armyGrades: true,
   },
   winCondition: {
     villageShare: 0.75,

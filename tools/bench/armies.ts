@@ -10,6 +10,7 @@ import { setAttackHook, type Movement } from '../../src/sim/movement';
 import { advance } from '../../src/sim/simulation';
 import { BARBARIAN, createWorld, type WorldState } from '../../src/sim/state';
 import { popMax, type Village } from '../../src/sim/village';
+import { villagePoints } from '../../src/sim/barbarians';
 
 const bots = Number(process.argv[2] ?? 200), days = Number(process.argv[3] ?? 10), difficulty = process.argv[4] ?? 'normal';
 const extra = process.env.EXTRA ? JSON.parse(process.env.EXTRA) : {};
@@ -25,7 +26,21 @@ const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(Math.r
 
 let attacks: { att: number; share: number; won?: boolean }[] = [];
 const pending = new Map<number, { att: number; share: number }>();
+const conq: Record<string, number> = {};
+const firstConq = new Map<number, number>();
+const tierAtt: Record<string, { n: number; won: number }> = {};
+const tierOf = (st: WorldState, id: number) => st.players[id]?.bot?.tier ?? 'pro';
 setAttackHook((st, m, target, after) => {
+  if (after?.conquered && st.players[m.owner]?.bot) {
+    const key = `${tierOf(st, m.owner)}`;
+    conq[key] = (conq[key] ?? 0) + 1;
+    if (!firstConq.has(m.owner)) firstConq.set(m.owner, st.time);
+  }
+  if (after && target.owner >= 0 && (m.units.snob ?? 0) === 0 && st.players[m.owner]?.bot && offAtt(st, m.units) >= 1000) {
+    const t = (tierAtt[tierOf(st, m.owner)] ??= { n: 0, won: 0 });
+    t.n++;
+    if (after.won) t.won++;
+  }
   if (target.owner < 0 || target.owner === BARBARIAN || !st.players[m.owner]?.bot || (m.units.snob ?? 0) > 0) return;
   const att = offAtt(st, m.units);
   if (att < 1000) return; // scouts and farm groups
@@ -50,4 +65,16 @@ for (let d = 1; d <= days; d++) {
   const won = attacks.filter((a) => a.won).length;
   console.log(`dag ${d}: dorpen (pro/mid, boerderij>=15) ${vs.length} · offensief deel van de boerderij p50/p90 ${pct(shares, 0.5).toFixed(2)}/${pct(shares, 0.9).toFixed(2)} · >=60% (nuke) ${nukes} · >=30% ${half} · aanvallen op spelers ${attacks.length}: aanval p10/p50/p90 ${k(pct(attacks.map((a) => a.att), 0.1))}/${k(pct(attacks.map((a) => a.att), 0.5))}/${k(pct(attacks.map((a) => a.att), 0.9))}, deel van de boerderij p50 ${pct(attacks.map((a) => a.share), 0.5).toFixed(2)}, onder 100k ${attacks.filter((a) => a.att < 100_000).length} (gewonnen ${attacks.filter((a) => a.att < 100_000 && a.won).length}), gewonnen ${attacks.length ? Math.round((100 * won) / attacks.length) : 0}% · ${sec.toFixed(0)} s`);
   attacks = [];
+  if (d % 4 === 0) {
+    const pts = new Map<number, { p: number; v: number }>();
+    for (const v of Object.values(s.villages)) { if (v.owner <= 0) continue; const r = pts.get(v.owner) ?? { p: 0, v: 0 }; r.p += villagePoints(s.config, v); r.v++; pts.set(v.owner, r); }
+    const line = (tier: string) => {
+      const ids = s.players.filter((p) => p.bot?.tier === tier).map((p) => p.id);
+      const ps = ids.map((id) => pts.get(id)?.p ?? 0), vs2 = ids.map((id) => pts.get(id)?.v ?? 0);
+      const first = ids.map((id) => firstConq.get(id)).filter((x): x is number => x !== undefined).map((t) => t / DAY);
+      const a = tierAtt[tier] ?? { n: 0, won: 0 };
+      return `${tier}: punten p50/max ${k(pct(ps, 0.5))}/${k(Math.max(0, ...ps))}, dorpen p50/max ${pct(vs2, 0.5)}/${Math.max(0, ...vs2)}, veroverd ${conq[tier] ?? 0}, eerste verovering p50 dag ${first.length ? pct(first, 0.5).toFixed(1) : '-'} (${first.length}/${ids.length}), aanvallen op spelers ${a.n} gewonnen ${a.n ? Math.round((100 * a.won) / a.n) : 0}%`;
+    };
+    console.log(`  == dag ${d}: ${['pro', 'mid', 'casual'].map(line).join(' || ')}`);
+  }
 }

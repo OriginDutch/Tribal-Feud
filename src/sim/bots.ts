@@ -326,6 +326,8 @@ function villageTurn(state: WorldState, player: Player, v: Village): void {
 
 /** Share of its villages a bot of this kind makes offensive. */
 const OFF_SHARE: Record<string, number> = { rusher: 0.7, opportunist: 0.55, farmer: 0.35, diplomat: 0.3, supporter: 0.2, turtle: 0.15 };
+/** How many of its villages a bot makes offensive, per difficulty. */
+const ARMY_DIFFICULTY: Record<string, number> = { easy: 0.7, normal: 1, hard: 1.25 };
 const OFF_TROOPS: BotProfile['troops'] = { axe: 6, light: 3, marcher: 1, ram: 0.6 };
 const DEF_TROOPS: BotProfile['troops'] = { spear: 4, sword: 3, archer: 2, heavy: 1 };
 
@@ -334,7 +336,14 @@ export function villageRole(state: WorldState, player: Player, v: Village): 'off
   if (!state.config.bots.villageRoles || !player.bot) return 'mixed';
   const mine = villagesOf(state, player.id);
   if (mine.length < 2 || mine.every((o) => o.id >= v.id)) return 'mixed';
-  return hashFloat(state.config.seed, v.id, 53) < (OFF_SHARE[player.bot.archetype] ?? 0.4) ? 'off' : 'def';
+  let share = OFF_SHARE[player.bot.archetype] ?? 0.4;
+  if (state.config.bots.armyGrades) {
+    // a sloppy player leaves villages mixed; the difficulty sets how many armies there are
+    const skill = skillOf(state, player.id, player.bot);
+    if (hashFloat(state.config.seed, v.id, 59) > Math.min(1, Math.max(0, (skill - 0.3) / 0.6))) return 'mixed';
+    share = Math.min(0.85, share * (ARMY_DIFFICULTY[state.config.bots.difficulty] ?? 1));
+  }
+  return hashFloat(state.config.seed, v.id, 53) < share ? 'off' : 'def';
 }
 
 /** The profile a village plays by: an offensive village fills its farm with an army, a defensive one with defense. */
