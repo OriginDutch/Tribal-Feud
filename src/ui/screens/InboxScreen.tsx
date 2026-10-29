@@ -13,6 +13,7 @@ const KIND: Record<InboxView['kind'], string> = {
   info: 'Bericht',
   request: 'Verzoek',
   merge: 'Fusie',
+  treaty: 'Vredesverdrag',
 };
 const ACCEPT: Record<string, string> = { none: 'Accepteren', support: 'Support plannen', resources: 'Versturen', permission: 'Toestaan', order: 'Akkoord' };
 const STATUS = { accepted: 'Geaccepteerd', declined: 'Afgewezen', expired: 'Verlopen' } as const;
@@ -54,10 +55,10 @@ export function InboxScreen() {
                 if (m.request?.type === 'order' && m.request.order === 'attack') attackVillage(m.request.x, m.request.y);
               }}
             >
-              {ACCEPT[m.request?.type ?? 'none']}
+              {m.kind === 'treaty' ? 'Tekenen' : ACCEPT[m.request?.type ?? 'none']}
             </button>
             <button class="small" onClick={() => send({ type: 'inboxAnswer', id: m.id, accept: false })}>
-              {m.request?.type === 'permission' ? 'Weigeren' : 'Afwijzen'}
+              {m.kind === 'treaty' ? 'Weigeren' : m.request?.type === 'permission' ? 'Weigeren' : 'Afwijzen'}
             </button>
             {m.expires !== undefined && <span class="muted">verloopt {formatGameTime(m.expires)}</span>}
           </>

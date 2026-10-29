@@ -46,7 +46,7 @@ export interface LogEntry {
 
 export type BotTier = 'pro' | 'mid' | 'casual';
 
-export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge';
+export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty';
 export interface InboxMessage {
   id: number;
   time: number;
@@ -63,6 +63,8 @@ export interface InboxMessage {
   request?: BotRequest;
   /** kind 'merge': which tribe goes up in which (yours into theirs, or theirs into yours). */
   merge?: 'yoursIntoTheirs' | 'theirsIntoYours';
+  /** kind 'treaty': the peace treaty it is about. */
+  treaty?: number;
   /** Messages with a choice: open until answered or expired. */
   status?: 'open' | 'accepted' | 'declined' | 'expired';
   expires?: number;
@@ -237,6 +239,8 @@ export interface WorldState {
   farmTemplates: FarmTemplates;
   /** Farm alles on its own, every little while (game time), with these settings. */
   autoFarm?: { options: import('./farmAll').FarmAllOptions; at?: number; last?: { time: number; sent: number } };
+  /** Peace treaties with ceded villages (see peace). */
+  treaties?: import('./peace').Treaty[];
   /** Quest rewards go in by themselves when they fit. */
   autoRewards?: boolean;
   autoRewardsAt?: number;

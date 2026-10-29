@@ -40,6 +40,7 @@ const warAttackers = new Map<string, Set<number>>();
 const armyOf = (v: Village) => ['axe', 'light', 'marcher', 'heavy', 'ram', 'spear', 'sword'].reduce((n, u) => n + v.units[u as 'axe'] + v.outside[u as 'axe'], 0);
 
 const nobleOutcome: Record<string, number> = {};
+const warPairs: Record<string, number> = {};
 const nobleDef: Record<string, number> = {};
 const loyBefore = new Map<number, number>();
 const conqAt: Record<string, number> = {};
@@ -104,6 +105,7 @@ setAttackHook((state: WorldState, m: Movement, target: Village, after?: { won: b
   else if (from && size < 0.1 * Math.max(1, armyOf(from) + size)) c = 'farm';
   else c = 'none';
   total[c]++; day[c]++;
+  if (c === 'war') { const ta = tribeOf(state, m.owner), tb = tribeOf(state, target.owner); const k = `${ta?.tag}>${tb?.tag} ${state.players[m.owner]?.name}`; warPairs[k] = (warPairs[k] ?? 0) + 1; }
   if (c !== 'scout' && outclassed(state, m.owner, target.owner)) { provocations++; provBy[c] = (provBy[c] ?? 0) + 1; }
   if (c === 'conquest') { nobleAttacks++; nobleTargets.set(target.id, (nobleTargets.get(target.id) ?? 0) + 1); }
   if (c !== 'scout' && relationBetween(state, m.owner, target.owner) === 'war') {
@@ -117,10 +119,14 @@ setAttackHook((state: WorldState, m: Movement, target: Village, after?: { won: b
 const warStart = new Map<string, number>();
 const ended: number[] = [];
 const t0 = performance.now();
+const newsSeen = new Set<string>();
+const newsCount: Record<string, number> = {};
+const NEWS: [string, RegExp][] = [['vredesverdrag', /^Vrede tussen/], ['ally helpt', /te hulp tegen/], ['ally koelt af', /bondgenootschap .* om naar een NAP/], ['verdrag opgezegd', /zegt het verdrag .* op/], ['verdrag gebroken', /vredesverdrag .* gebroken/], ['weigeraar eruit', /weigert .* uit de stam/], ['weigeraar: doorvechten', /weigert .* vecht door/], ['nieuwe leider', /neemt de leiding over/]];
+const countNews = () => { for (const n of s.tribeNews ?? []) { const k = `${n.time}|${n.text}`; if (newsSeen.has(k)) continue; newsSeen.add(k); for (const [name, re] of NEWS) if (re.test(n.text)) newsCount[name] = (newsCount[name] ?? 0) + 1; } };
 for (let d = 1; d <= days; d++) {
   warAttackers.clear();
   const end = d * DAY;
-  while (s.time < end) { s.paused = false; advance(s, Math.min(HOUR, end - s.time)); }
+  while (s.time < end) { s.paused = false; advance(s, Math.min(HOUR, end - s.time)); countNews(); }
   // wars now
   const now = new Set<string>();
   for (const t of Object.values(s.tribes ?? {})) for (const [o, r] of Object.entries(t.relations)) {
@@ -160,6 +166,19 @@ console.log(`bij verovering nog eigen edels onderweg: ${JSON.stringify(restAt)}`
 console.log(`veroveringen: ${JSON.stringify(conqAt)}`);
 console.log(`edels die in al eigen dorp landen, per soort: ${JSON.stringify(afterOwn)}`);
 console.log(`edel bij aankomst: ${JSON.stringify(nobleDef)}`);
+{
+  const { tribeStrength } = await import('../../src/sim/warCause');
+  const rows: string[] = [];
+  for (const t of Object.values(s.tribes ?? {})) for (const [o, r] of Object.entries(t.relations)) {
+    if (r !== 'war' || t.id > Number(o)) continue;
+    const u = s.tribes![Number(o)]!;
+    const a = tribeStrength(s, t), b = tribeStrength(s, u);
+    rows.push(`[${t.tag}]-[${u.tag}] kracht ${(Math.max(a, b) / Math.max(1, Math.min(a, b))).toFixed(2)}x, ${Math.round((s.time - (t.since?.[u.id] ?? s.time)) / HOUR)} u`);
+  }
+  console.log(`oorlogen: ${rows.join(' | ')}`);
+}
+console.log(`oorlogsaanvallen top: ${Object.entries(warPairs).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `${k}: ${n}`).join(' | ')}`);
+console.log(`stamnieuws: ${JSON.stringify(newsCount)} · bondgenootschappen nu ${Object.values(s.tribes ?? {}).reduce((n, t) => n + Object.values(t.relations).filter((r) => r === 'ally').length, 0) / 2}`);
 console.log(`uitkomst edelaanvallen (ook barbaren): ${JSON.stringify(nobleOutcome)}`);
 console.log(`edelaanvallen op spelers: ${nobleAttacks} op ${hit.length} dorpen, waarvan ${hit.filter((id) => taken.has(id)).length} veroverd · provocaties per soort: ${JSON.stringify(provBy)}`);
 const avgEnded = ended.length ? (ended.reduce((a, b) => a + b, 0) / ended.length).toFixed(0) : '-';

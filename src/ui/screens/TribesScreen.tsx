@@ -476,6 +476,16 @@ export function TribesScreen() {
                             <span class={`rel rel-${r.rel}`}>{REL[r.rel]}</span>
                             <Tag t={o} onClick={() => (tribeFocus.value = o.id)} /> {o.name}
                             <span class="muted mono"> sinds {formatGameTime(r.since)}</span>
+                            {r.trust !== undefined && (() => {
+                              const back = o.relations.find((x) => x.id === open.id)?.trust;
+                              const cls = (n: number) => (n < 30 ? 'error' : n < 50 ? 'warn' : 'good');
+                              return (
+                                <span title="Vertrouwen (0-100): zakt als een bondgenoot niet helpt in een oorlog, stijgt door mee te vechten of support te sturen. Onder 30 wordt een bot-bondgenootschap een NAP.">
+                                  {' '}· vertrouwen <span class={cls(r.trust!)}>{r.trust}</span>
+                                  {back !== undefined && <> (zij in [{open.tag}]: <span class={cls(back)}>{back}</span>)</>}
+                                </span>
+                              );
+                            })()}
                           </li>
                         ) : null;
                       })}

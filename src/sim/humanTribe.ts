@@ -5,6 +5,7 @@
  * themselves: the position rule (not too far, not behind an enemy, not prey in the middle),
  * the leader's view of your strength, their personality and any grudge against you.
  */
+import { answerTreaty } from './peace';
 import { kindness } from '../shared/config';
 import { mateEvent, moodAll, trustFactor } from './loyalty';
 import { MAX_MEMBERS } from '../shared/tribes';
@@ -233,6 +234,10 @@ export function answerMessage(state: WorldState, id: number, accept: boolean): s
   const m = (state.inbox ?? []).find((x) => x.id === id);
   if (!m || m.status !== 'open') return 'Dit bericht vraagt geen antwoord meer.';
   m.read = true;
+  if (m.kind === 'treaty' && m.treaty !== undefined) {
+    m.status = accept ? 'accepted' : 'declined';
+    return answerTreaty(state, m.treaty, accept);
+  }
   const t = m.tribe !== undefined ? state.tribes?.[m.tribe] : undefined;
   if (!accept && m.kind !== 'request') {
     m.status = 'declined';

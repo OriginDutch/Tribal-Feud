@@ -202,7 +202,7 @@ export interface OrderView {
 export interface InboxView {
   id: number;
   time: number;
-  kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge';
+  kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty';
   from: number;
   fromName: string;
   request?: BotRequest;
@@ -246,7 +246,8 @@ export interface TribeView {
   villages: number;
   /** Share of the world (endgame), 0..1. */
   share: number;
-  relations: { id: number; rel: TribeRelation; since: number }[];
+  /** trust: this tribe's trust in an ally (0..100), see alliances. */
+  relations: { id: number; rel: TribeRelation; since: number; trust?: number }[];
 }
 
 /** Everything you can see about another player (profile screen). */

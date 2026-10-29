@@ -8,6 +8,8 @@
  *
  * Runs on its own slow clock ('diplomacy' event), deterministic through the world rng.
  */
+import { cededAway, offerTreaty, treatiesTick } from './peace';
+import { allianceTick } from './alliances';
 import { BOT_PROFILES, type Archetype } from '../shared/botProfiles';
 import { kindness } from '../shared/config';
 import { endgameTick, leaderBonus, tribeShares } from './endgame';
@@ -47,6 +49,10 @@ export interface Tribe {
   ops?: import('./warOps').TribeOp[];
   /** You lead: the enemy (and maybe the village) your tribe goes for. */
   front?: { enemy: number; target?: number };
+  /** Trust in each ally (0..100); see alliances. */
+  allyTrust?: Record<number, number>;
+  /** Help from each ally since the last diplomacy tick. */
+  allyHelp?: Record<number, number>;
 }
 
 export { MAX_MEMBERS };
@@ -201,6 +207,9 @@ export function setRelation(state: WorldState, a: Tribe, b: Tribe, rel: Relation
     x.since ??= {};
     if (rel) { x.relations[y.id] = rel; x.since[y.id] = state.time; }
     else { delete x.relations[y.id]; delete x.since[y.id]; }
+    // a new alliance starts with fresh trust; no treaty at all, no trust to keep
+    if (rel === 'ally') (x.allyTrust ??= {})[y.id] = 60;
+    else if (!rel || rel === 'war') { if (x.allyTrust) delete x.allyTrust[y.id]; if (x.allyHelp) delete x.allyHelp[y.id]; }
   }
 }
 
@@ -347,6 +356,7 @@ export function onDiplomacy(state: WorldState): void {
   }
 
   handOverLeadership(state);
+  treatiesTick(state);
   diplomacy(state);
   warOpsTick(state);
   loyaltyTick(state);
@@ -393,6 +403,16 @@ function diplomacy(state: WorldState): void {
   frictionTick(state, near);
   for (const { a, b, d } of near) {
     if (d > REACH * 2.4) { if (a.relations[b.id] && a.relations[b.id] !== 'war') setRelation(state, a, b, null); continue; }
+    // allies: who helps whom in their wars (may cool an alliance down)
+    if (a.relations[b.id] === 'ally' || a.relations[b.id] === 'nap') {
+      allianceTick(state, a, b, {
+        strength: (t) => tribeStrength(state, t),
+        social: (t) => SOCIAL[lead(t)],
+        declareWar: (by, on) => declareWar(state, by, on),
+        setRelation: (x, y, r) => setRelation(state, x, y, r),
+        news: (text) => addTribeNews(state, { time: state.time, text }),
+      });
+    }
     const rel = a.relations[b.id];
     const since = state.time - (a.since?.[b.id] ?? state.time);
     // troops decide, not points: strength with allies on both sides
@@ -428,8 +448,14 @@ function diplomacy(state: WorldState): void {
     } else if (rel === 'war') {
       // a war that drags on between equals ends in peace; a side that is badly outmatched
       // sues for peace, and a not too bloodthirsty winner takes it
-      const stalemate = since > 48 * HOUR && power < 1.4 && roll < 0.02;
-      const sues = since > 24 * HOUR && power >= 2.5 && roll < 0.05 * (1 - AGGRESSION[lead(strong)]);
+      // war fatigue: a long war without a clear winner ends in a plain peace
+      const stalemate = since > 48 * HOUR && power < 2 && roll < 0.03;
+      // a clearly beaten side sues for peace (and gives up villages for it, see peace)
+      const sues = since > 24 * HOUR && power >= 2 && roll < 0.1 * (1.2 - AGGRESSION[lead(strong)]);
+      // a clear defeat ends with a treaty: the loser gives up border villages (an offer to you if you lead a side)
+      if (sues && !(state.treaties ?? []).some((x) => (x.winner === strong.id && x.loser === weak.id) || (x.winner === weak.id && x.loser === strong.id))) {
+        if (offerTreaty(state, strong, weak, power)) continue;
+      }
       if (stalemate || sues) {
         if (offer(a, b, 'peace')) continue;
         setRelation(state, a, b, null);
@@ -455,6 +481,7 @@ export function threatsFor(state: WorldState, tribeId: number): { village: numbe
   for (const member of t.members) {
     if (member === HUMAN_ID) continue;
     for (const v of villagesOf(state, member)) {
+      if (cededAway(state, v.id)) continue; // given up in a treaty: nobody defends it
       const at = ix.attacks.get(v.id);
       if (!at) continue;
       // only attacks the member saw and called out: an unseen attack gets no help
@@ -483,7 +510,7 @@ export function tribeViews(state: WorldState): TribeView[] {
     for (const m of t.members) for (const v of villagesOf(state, m)) { points += villagePoints(state.config, v); villages++; }
     out.push({
       id: t.id, name: t.name, tag: t.tag, color: t.color, leader: t.leader, members: [...t.members], founded: t.founded, points, villages, share: shares.get(t.id) ?? 0,
-      relations: Object.entries(t.relations).map(([id, rel]) => ({ id: Number(id), rel, since: t.since?.[Number(id)] ?? t.founded })),
+      relations: Object.entries(t.relations).map(([id, rel]) => ({ id: Number(id), rel, since: t.since?.[Number(id)] ?? t.founded, ...(t.allyTrust?.[Number(id)] !== undefined ? { trust: Math.round(t.allyTrust[Number(id)]!) } : {}) })),
     });
   }
   return out.sort((a, b) => b.points - a.points);

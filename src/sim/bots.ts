@@ -4,9 +4,10 @@
  * functions (queueBuild, recruit, startResearch, sendAttack) and they only know what their
  * own reports told them. They don't attack players yet.
  */
+import { cededAway, cededTo } from './peace';
 import { refreshRoleName } from './botNames';
 import { botScavenge } from './scavenge';
-import { outclassed } from './warCause';
+import { outclassed, strengthOf } from './warCause';
 import { BOT_SPIES, beatable, defenseOf, nobleEscorts, farmablePlayerVillage, scoutForConquest, scoutForFarming, strike } from './botStrategy';
 import { ARCHETYPES, BOT_PROFILES, type BotProfile } from '../shared/botProfiles';
 import { RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
@@ -24,7 +25,7 @@ import { startBarbarianGrowth, villagePoints } from './barbarians';
 import { restartSpot } from './map';
 import { grudge, reactToIncoming } from './botReact';
 import { focusWeight, spares, tribeDuties } from './tribeOrders';
-import { helpShare, isHelping, mayAttack, targetWeight, threatsFor } from './tribes';
+import { helpShare, isHelping, mayAttack, relationBetween, targetWeight, threatsFor } from './tribes';
 import { BARBARIAN, HUMAN_ID, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type BotState, type BotTier, type Player, type WorldState } from './state';
 import {
   buildBlocker,
@@ -290,6 +291,8 @@ export function onBotTurn(state: WorldState, playerId: number): void {
 
 function villageTurn(state: WorldState, player: Player, v: Village): void {
   if (!player.bot) return;
+  // given up in a peace treaty: nothing more goes into it
+  if (cededAway(state, v.id)) return;
   const profile = BOT_PROFILES[player.bot.archetype];
   // farming and noblemen only when the bot looks at the game; building and troops always
   const attentive = checksIn(state, player.bot);
@@ -942,6 +945,20 @@ function nobleTurn(state: WorldState, player: Player, v: Village, profile: BotPr
   return false;
 }
 
+/**
+ * How much a neighbouring player threatens this bot (0..2): his army against ours, and a war
+ * with him. A dangerous neighbour you can beat now is better taken (his villages near you first)
+ * than avoided until he is too big. A pro sees it fully, a mid half; a casual doesn't think ahead.
+ */
+function dangerOf(state: WorldState, me: Player, other: number): number {
+  const sight = { pro: 1, mid: 0.5, casual: 0 }[me.bot?.tier ?? 'pro'];
+  if (!sight) return 0;
+  const mine = strengthOf(state, me.id), theirs = strengthOf(state, other);
+  const threat = Math.min(1.5, theirs.off / Math.max(1, mine.def + mine.off * 0.5));
+  const war = relationBetween(state, me.id, other) === 'war' ? 0.5 : 0;
+  return Math.min(2, threat + war) * sight;
+}
+
 function nobleTarget(state: WorldState, player: Player, v: Village, profile: BotProfile): Village | null {
   const bot = player.bot;
   if (!bot) return null;
@@ -957,6 +974,8 @@ function nobleTarget(state: WorldState, player: Player, v: Village, profile: Bot
   const ok = (t: Village) => {
     if (t.owner === player.id || distance(t, v) > maxDist || claimed.has(t.id)) return false;
     if (t.owner === BARBARIAN) return true;
+    // ceded to our tribe in a peace treaty: emptied, ours to take
+    if (cededTo(state, player.id, t.id)) return true;
     if (!profile.attacksPlayers || protectionBlocker(state, player.id, t.owner) !== null || !mayAttack(state, player.id, t.owner) || spares(state, bot, t.owner)) return false;
     if (outclassed(state, player.id, t.owner)) return false;
     // a player only after a fresh scout says the army clearly breaks him (an old win says little)
@@ -969,7 +988,7 @@ function nobleTarget(state: WorldState, player: Player, v: Village, profile: Bot
     if (!ok(t)) continue;
     const log = bot.farmLog[t.id];
     if (log && !log.won && state.time - log.at < 24 * 60 * MINUTE) continue;
-    const score = (villagePoints(state.config, t) / (3 + distance(t, v))) * (t.owner >= 0 ? targetWeight(state, player.id, t.owner) * (1 + Math.min(2, grudge(state, player, t.owner))) * focusWeight(state, bot, t.owner) : 1);
+    const score = (villagePoints(state.config, t) / (3 + distance(t, v))) * (t.owner >= 0 ? targetWeight(state, player.id, t.owner) * (1 + Math.min(2, grudge(state, player, t.owner))) * focusWeight(state, bot, t.owner) * (1 + dangerOf(state, player, t.owner)) * (cededTo(state, player.id, t.id) ? 4 : 1) : 1);
     if (score > bestScore) {
       bestScore = score;
       best = t;

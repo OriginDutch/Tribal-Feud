@@ -1,6 +1,8 @@
 /**
  * Troops on the road: attacks and returns. Each movement is one event at its arrival time.
  */
+import { cededTo, onTreatyAttack } from './peace';
+import { creditAllyAttack, creditAllySupport } from './alliances';
 import { nameConquered } from './botNames';
 import { mayAttack } from './tribes';
 import type { BarbType } from '../shared/barbarianTypes';
@@ -221,7 +223,7 @@ export function sendAttack(
   }
   const protectedMsg = protectionBlocker(state, from.owner, to.owner);
   if (protectedMsg) return protectedMsg;
-  if (to.owner >= 0 && !mayAttack(state, from.owner, to.owner)) return 'Dat is een stamgenoot, bondgenoot of NAP-partner.';
+  if (to.owner >= 0 && !mayAttack(state, from.owner, to.owner) && !cededTo(state, from.owner, to.id)) return 'Dat is een stamgenoot, bondgenoot of NAP-partner.';
   for (const u of UNIT_IDS) {
     if ((units[u] ?? 0) > from.units[u]) return `Niet genoeg ${config.units[u].name.toLowerCase()} in het dorp.`;
   }
@@ -367,7 +369,13 @@ function arriveAttack(state: WorldState, m: Movement): void {
   settle(config, target, state.time);
   statAttack(state, m.owner, target.owner);
   // a real attack between tribes rubs; scouts don't count
-  if (target.owner >= 0 && UNIT_IDS.some((u) => u !== 'spy' && (m.units[u] ?? 0) > 0)) addFriction(state, m.owner, target.owner, FRICTION_ATTACK);
+  if (target.owner >= 0 && UNIT_IDS.some((u) => u !== 'spy' && (m.units[u] ?? 0) > 0)) {
+    addFriction(state, m.owner, target.owner, FRICTION_ATTACK);
+    // fighting an enemy of your allies counts as help to them
+    creditAllyAttack(state, m.owner, target.owner);
+    // the loser of a peace treaty attacking the winner breaks it
+    onTreatyAttack(state, m.owner, target.owner, m.sent);
+  }
 
   const rolledLuck = config.luck ? (nextFloat(state.rng) * 2 - 1) * config.combat.luckRange : 0;
   // a luck flag in the attacking village pulls luck towards 0
@@ -817,6 +825,7 @@ function arriveSupport(state: WorldState, m: Movement): void {
   // if the home village was lost meanwhile, conquer() already removed this movement
   if (!host || !origin || origin.owner !== m.owner) return;
   addSupport(host, origin.id, m.units);
+  creditAllySupport(state, m.owner, host.owner);
   if (m.owner === HUMAN_ID && host.owner === HUMAN_ID) return;
   if (m.owner === HUMAN_ID) {
     addLog(state, { time: state.time, text: `Ondersteuning aangekomen in ${host.name} (${host.x}|${host.y}).` });

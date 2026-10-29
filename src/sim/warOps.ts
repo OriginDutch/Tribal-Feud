@@ -13,6 +13,7 @@
  * Tiers: a pro leader plans every tick, a mid one now and then, a casual one rarely. Casual
  * members sometimes forget their part.
  */
+import { changeMood, moodAll } from './loyalty';
 import type { UnitCounts } from '../shared/gameData';
 import type { WarFrontView } from '../shared/protocol';
 import { DAY, HOUR, MINUTE } from '../shared/time';
@@ -199,7 +200,12 @@ export function onOpLaunch(state: WorldState, tribeId: number, opId: number, rol
   const enemy = state.tribes?.[op.enemy];
   // the village changed hands, the war is over, or the target is ours already
   if (!v || v.owner !== r.member || !target || !enemy?.members.includes(target.owner) || t.relations[enemy.id] !== 'war') { r.state = 'failed'; return; }
-  if (nextFloat(state.rng) < FORGET[tierOf(state.players[r.member])]) { r.state = 'forgot'; return; }
+  if (nextFloat(state.rng) < FORGET[tierOf(state.players[r.member])]) {
+    r.state = 'forgot';
+    // the tribe noticed: whoever leaves his mates alone in an attack hears about it
+    if (r.member !== t.leader) changeMood(state, state.players[r.member], -3, 'aangesproken op een gemiste gezamenlijke aanval');
+    return;
+  }
   let error: string | null;
   // the nobles only go when every army really left (a forgotten or missing army means a dead nobleman)
   // (an army still to leave later, from farther away or slower, is fine)
@@ -226,7 +232,15 @@ export function onOpLaunch(state: WorldState, tribeId: number, opId: number, rol
 /** After an operation: news when it took the village. */
 function report(state: WorldState, t: Tribe, op: TribeOp): void {
   const target = state.villages[op.target];
-  if (!target || !t.members.includes(target.owner)) return;
+  const took = !!target && t.members.includes(target.owner);
+  // taking part counts: a win together lifts everyone who went, a failed attack costs them a little
+  const went = new Set(op.roles.filter((r) => r.state === 'sent').map((r) => r.member));
+  for (const m of went) {
+    if (m === t.leader) continue;
+    changeMood(state, state.players[m], took ? 4 : -2, took ? `we namen ${target!.name} samen in` : 'de gezamenlijke aanval mislukte');
+  }
+  if (took) moodAll(state, t, 1, `de stam nam ${target!.name} in`, undefined);
+  if (!took || !target) return;
   const sent = op.roles.filter((r) => r.state === 'sent').length;
   addTribeNews(state, { time: state.time, text: `[${t.tag}] neemt ${target.name} (${target.x}|${target.y}) in met een gezamenlijke aanval van ${sent} legers.` });
 }
