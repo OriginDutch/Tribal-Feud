@@ -23,7 +23,8 @@ import { distance, returnSupport, travelTimeMs } from './movement';
 import { push } from './eventQueue';
 import { nextFloat } from './rng';
 import { HUMAN_ID, addLog, addMovement, nextId, villagesOf, type WorldState } from './state';
-import { AGGRESSION, addTribeNews, declareWar, leave, setRelation, tribeCentre, tribeOf, type Tribe } from './tribes';
+import { addNews } from './news';
+import { AGGRESSION, between, declareWar, leave, setRelation, tribeCentre, tribeOf, type Tribe } from './tribes';
 import { grudge } from './botReact';
 import { addFriction } from './warCause';
 import type { Village } from './village';
@@ -130,9 +131,9 @@ function settleRefusals(state: WorldState, treaty: Treaty, winner: Tribe, loser:
     if (kick) {
       leave(state, p);
       treaty.villages = treaty.villages.filter((id) => state.villages[id]?.owner !== o);
-      addTribeNews(state, { time: state.time, text: `${p.name} weigert zijn dorpen op te geven: ${tag(loser)} zet hem uit de stam.` });
+      addNews(state, { kind: 'treaty', tribes: [loser.id, winner.id], players: [p.id], ...between(state, loser, winner), dry: `${p.name} weigert zijn dorpen op te geven: ${tag(loser)} zet hem uit de stam.`, head: [`${p.name} weigert te buigen en vliegt uit ${tag(loser)}`] });
     } else {
-      addTribeNews(state, { time: state.time, text: `${p.name} weigert zijn dorpen op te geven: ${tag(loser)} vecht door tegen ${tag(winner)}.` });
+      addNews(state, { kind: 'talksFailed', tribes: [loser.id, winner.id], players: [p.id], ...between(state, loser, winner), dry: `${p.name} weigert zijn dorpen op te geven: ${tag(loser)} vecht door tegen ${tag(winner)}.`, head: [`Vrede op het laatste moment geklapt: ${p.name} houdt zijn dorpen`, `${tag(loser)} vecht door: ${p.name} weigert ook maar één dorp af te staan`] });
       return false;
     }
   }
@@ -152,10 +153,11 @@ export function signTreaty(state: WorldState, treaty: Treaty): boolean {
   treaty.status = 'signed';
   treaty.signedAt = state.time;
   treaty.until = state.time + (WINDOW_DAYS * DAY) / state.config.worldSpeed;
-  setRelation(state, winner, loser, 'nap');
+  setRelation(state, winner, loser, 'nap', true);
   const names = treaty.villages.map((id) => state.villages[id]).filter((v): v is Village => !!v).map(where).join(', ');
-  addTribeNews(state, { time: state.time, text: `Vrede tussen ${tag(winner)} en ${tag(loser)}: ${tag(loser)} ontruimt ${names}.` });
-  if (winner.members.includes(HUMAN_ID) || loser.members.includes(HUMAN_ID)) addLog(state, { time: state.time, text: `Vrede tussen ${tag(winner)} en ${tag(loser)}. Ontruimd: ${names}.` });
+  const n = treaty.villages.length;
+  addNews(state, { kind: 'treaty', tribes: [winner.id, loser.id], ...between(state, winner, loser), dry: `Vrede tussen ${tag(winner)} en ${tag(loser)}: ${tag(loser)} ontruimt ${names}.`,
+    head: [`Vrede getekend: ${tag(loser)} betaalt met ${n} dorp${n === 1 ? '' : 'en'} aan ${tag(winner)}`, `${tag(winner)} dicteert de vrede, ${tag(loser)} moet ${n} dorp${n === 1 ? '' : 'en'} opgeven`] });
   return true;
 }
 
@@ -225,10 +227,10 @@ export function onTreatyAttack(state: WorldState, attacker: number, defender: nu
 
 function breakTreaty(state: WorldState, treaty: Treaty, winner: Tribe, loser: Tribe, why: string): void {
   drop(state, treaty);
-  declareWar(state, winner, loser, true);
-  addTribeNews(state, { time: state.time, text: `${tag(loser)} ${why}: het vredesverdrag met ${tag(winner)} is gebroken.` });
+  addNews(state, { kind: 'talksFailed', tribes: [loser.id, winner.id], ...between(state, loser, winner), dry: `${tag(loser)} ${why}: het vredesverdrag met ${tag(winner)} is gebroken.`, head: [`Vrede van korte duur: ${tag(loser)} breekt het verdrag met ${tag(winner)}`] });
+  declareWar(state, winner, loser, true, 'na een gebroken verdrag');
   // a dent in everybody's trust: friction with all its neighbours
-  for (const other of Object.values(state.tribes ?? {})) if (other.id !== loser.id && other.leader !== undefined) addFriction(state, other.leader, loser.leader, 2);
+  for (const other of Object.values(state.tribes ?? {})) if (other.id !== loser.id && other.leader !== undefined) addFriction(state, other.leader, loser.leader, 2, 'treaty');
 }
 
 /** Your answer to a treaty in the inbox (leader of either side, or a member asked to evacuate). */

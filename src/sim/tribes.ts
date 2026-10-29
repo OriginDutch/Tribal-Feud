@@ -24,7 +24,8 @@ import { push } from './eventQueue';
 import { villagePoints } from './barbarians';
 import { nextFloat } from './rng';
 import { warOpsTick } from './warOps';
-import { WAR_FRICTION, clearFriction, frictionBetween, frictionTick, tribeStrength } from './warCause';
+import { WAR_FRICTION, clearFriction, frictionBetween, frictionTick, tribeStrength, warReason } from './warCause';
+import { addNews } from './news';
 import type { TribeView } from '../shared/protocol';
 import { BARBARIAN, HUMAN_ID, addLog as addWorldLog, movementIndex, villagesOf, type Player, type WorldState } from './state';
 
@@ -45,6 +46,8 @@ export interface Tribe {
   since?: Record<number, number>;
   /** Friction with other tribes (attacks, conquests, living close); kept symmetric. See warCause. */
   friction?: Record<number, number>;
+  /** Where that friction came from, per tribe (fades with it). */
+  frictionWhy?: Record<number, Partial<Record<import('./warCause').FrictionWhy, number>>>;
   /** Joint operations in its wars (see warOps). */
   ops?: import('./warOps').TribeOp[];
   /** You lead: the enemy (and maybe the village) your tribe goes for. */
@@ -200,7 +203,50 @@ export function fits(state: WorldState, t: Tribe, candidate: number): boolean {
   return fitCheck(state, t, candidate).reason === 'ok';
 }
 
-export function setRelation(state: WorldState, a: Tribe, b: Tribe, rel: Relation | null): void {
+/** Where two tribes meet, for news "near me". */
+export function between(state: WorldState, a: Tribe, b: Tribe): { x?: number; y?: number } {
+  const ca = tribeCentre(state, a), cb = tribeCentre(state, b);
+  if (!ca || !cb) return ca ? { x: Math.round(ca.x), y: Math.round(ca.y) } : {};
+  return { x: Math.round((ca.x + cb.x) / 2), y: Math.round((ca.y + cb.y) / 2) };
+}
+const T = (t: Tribe) => `[${t.tag}]`;
+
+/** News for a change of relation (wars have their own, with a reason: see declareWar). */
+function relationNews(state: WorldState, a: Tribe, b: Tribe, old: Relation | undefined, rel: Relation | null): void {
+  const base = { tribes: [a.id, b.id], ...between(state, a, b) };
+  if (old === 'war' && rel !== 'war') {
+    addNews(state, { ...base, kind: 'peace', dry: `${T(a)} en ${T(b)} sluiten vrede.`, head: [
+      `De wapens zwijgen: ${T(a)} en ${T(b)} sluiten vrede`,
+      `Einde van de oorlog tussen ${T(a)} en ${T(b)}`,
+      `Vrede! ${T(a)} en ${T(b)} leggen de bijlen neer`,
+    ] });
+  } else if (rel === 'ally' && old !== 'ally') {
+    addNews(state, { ...base, kind: 'ally', dry: `${T(a)} en ${T(b)} worden bondgenoten.`, head: [
+      `Nieuw machtsblok: ${T(a)} en ${T(b)} smeden een alliantie`,
+      `${T(a)} en ${T(b)} gaan voortaan samen ten strijde`,
+      `Handjeklap: ${T(a)} en ${T(b)} zijn nu bondgenoten`,
+    ] });
+  } else if (rel === 'nap' && !old) {
+    addNews(state, { ...base, kind: 'nap', dry: `${T(a)} en ${T(b)} sluiten een niet-aanvalsverdrag.`, head: [
+      `${T(a)} en ${T(b)} beloven elkaar met rust te laten`,
+      `Wapenstilstand aan de grens: NAP tussen ${T(a)} en ${T(b)}`,
+    ] });
+  } else if (rel === 'nap' && old === 'ally') {
+    addNews(state, { ...base, kind: 'allyEnd', dry: `De alliantie van ${T(a)} en ${T(b)} wordt een NAP.`, head: [
+      `Bekoelde vriendschap: ${T(a)} en ${T(b)} terug naar een NAP`,
+      `Scheurtjes in het blok: alliantie ${T(a)}–${T(b)} afgezwakt`,
+    ] });
+  } else if (!rel && (old === 'ally' || old === 'nap')) {
+    addNews(state, { ...base, kind: 'allyEnd', dry: `${T(a)} en ${T(b)} zeggen hun ${old === 'ally' ? 'alliantie' : 'NAP'} op.`, head: [
+      `Breuk: ${T(a)} en ${T(b)} gaan uit elkaar`,
+      `${T(a)} en ${T(b)} verscheuren hun verdrag`,
+    ] });
+  }
+}
+
+export function setRelation(state: WorldState, a: Tribe, b: Tribe, rel: Relation | null, quiet = false): void {
+  const old = a.relations[b.id];
+  if (!quiet && old !== (rel ?? undefined) && rel !== 'war') relationNews(state, a, b, old, rel);
   // peace after a war: the slate is clean
   if (a.relations[b.id] === 'war' && rel !== 'war') clearFriction(a, b);
   for (const [x, y] of [[a, b], [b, a]] as const) {
@@ -220,8 +266,10 @@ export function leave(state: WorldState, player: Player): void {
   t.members = t.members.filter((m) => m !== player.id);
   if (!t.members.length) {
     for (const o of Object.values(state.tribes ?? {})) { delete o.relations[t.id]; delete o.since?.[t.id]; }
+    const c = playerCentre(state, player.id);
     delete state.tribes![t.id];
-    addLog(state, { time: state.time, text: `Stam [${t.tag}] ${t.name} is opgeheven.` });
+    addNews(state, { kind: 'tribeEnd', tribes: [t.id], players: [player.id], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
+      dry: `Stam ${T(t)} ${t.name} is opgeheven.`, head: [`Het doek valt voor ${T(t)} ${t.name}`, `${T(t)} ${t.name} houdt op te bestaan`] });
     return;
   }
   if (t.leader === player.id) {
@@ -248,7 +296,9 @@ export function found(state: WorldState, player: Player, own?: { name: string; t
   state.tribes ??= {};
   state.tribes[id] = t;
   join(state, t, player);
-  addLog(state, { time: state.time, text: `${player.name} richt de stam [${tag}] ${name} op.` });
+  const c = playerCentre(state, player.id);
+  addNews(state, { kind: 'tribeNew', tribes: [t.id], players: [player.id], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
+    dry: `${player.name} richt de stam [${tag}] ${name} op.`, head: [`Nieuwe vlag op de kaart: ${player.name} sticht [${tag}] ${name}`, `[${tag}] ${name} ziet het levenslicht`] });
   return t;
 }
 
@@ -300,7 +350,10 @@ function handOverLeadership(state: WorldState): void {
       .sort((a, b) => rank[b.bot!.tier ?? 'pro'] - rank[a.bot!.tier ?? 'pro'] || (playerCentre(state, b.id)?.points ?? 0) - (playerCentre(state, a.id)?.points ?? 0))[0];
     if (!next || (!away && rank[next.bot!.tier ?? 'pro'] === 0)) continue;
     t.leader = next.id;
-    addTribeNews(state, { time: state.time, text: `[${t.tag}]: ${next.name} neemt de leiding over van ${leader.name}${away ? ' (die is er een tijd niet)' : ''}.` });
+    const c = tribeCentre(state, t);
+    addNews(state, { kind: 'leader', tribes: [t.id], players: [next.id, leader.id], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
+      dry: `[${t.tag}]: ${next.name} neemt de leiding over van ${leader.name}${away ? ' (die is er een tijd niet)' : ''}.`,
+      head: away ? [`Machtsvacuüm bij [${t.tag}]: ${next.name} grijpt het roer`, `${leader.name} spoorloos, ${next.name} leidt nu [${t.tag}]`] : [`Paleisrevolutie bij [${t.tag}]: ${next.name} aan de macht`, `${next.name} duwt ${leader.name} opzij als leider van [${t.tag}]`] });
   }
 }
 
@@ -358,6 +411,7 @@ export function onDiplomacy(state: WorldState): void {
   handOverLeadership(state);
   treatiesTick(state);
   diplomacy(state);
+  rankingNews(state);
   warOpsTick(state);
   loyaltyTick(state);
   itemsTick(state);
@@ -408,9 +462,9 @@ function diplomacy(state: WorldState): void {
       allianceTick(state, a, b, {
         strength: (t) => tribeStrength(state, t),
         social: (t) => SOCIAL[lead(t)],
-        declareWar: (by, on) => declareWar(state, by, on),
-        setRelation: (x, y, r) => setRelation(state, x, y, r),
-        news: (text) => addTribeNews(state, { time: state.time, text }),
+        declareWar: (by, on, reason) => declareWar(state, by, on, false, reason),
+        setRelation: (x, y, r) => setRelation(state, x, y, r, true),
+        news: (x, y, dry, head) => addNews(state, { kind: 'allyEnd', tribes: [x.id, y.id], ...between(state, x, y), dry, head }),
       });
     }
     const rel = a.relations[b.id];
@@ -432,7 +486,6 @@ function diplomacy(state: WorldState): void {
       } else if (friction < need / 2 && roll > 1 - (1 - AGGRESSION[lead(a)]) * (1 - AGGRESSION[lead(b)]) * 0.012) {
         if (offer(a, b, 'nap')) continue;
         setRelation(state, a, b, 'nap');
-        addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] sluiten een niet-aanvalsverdrag.` });
       }
     } else if (rel === 'nap') {
       // a long NAP between friendly leaders, both fighting the same enemy, becomes an alliance
@@ -440,7 +493,6 @@ function diplomacy(state: WorldState): void {
       if (since > 24 * HOUR && allies(a) < MAX_ALLIES && allies(b) < MAX_ALLIES && (shared || roll < 0.01) && SOCIAL[lead(a)] + SOCIAL[lead(b)] > 1.2) {
         if (offer(a, b, 'ally')) continue;
         setRelation(state, a, b, 'ally');
-        addLog(state, { time: state.time, text: `[${a.tag}] en [${b.tag}] worden bondgenoten.` });
       } else if (!human(strong) && friction >= need * 2 && power >= 1.5 && roll < 0.3) {
         // only a lot of bad blood breaks a treaty
         declareWar(state, strong, weak, true);
@@ -458,17 +510,48 @@ function diplomacy(state: WorldState): void {
       }
       if (stalemate || sues) {
         if (offer(a, b, 'peace')) continue;
-        setRelation(state, a, b, null);
-        addLog(state, { time: state.time, text: sues ? `[${weak.tag}] vraagt om vrede en [${strong.tag}] stemt in.` : `[${a.tag}] en [${b.tag}] sluiten vrede.` });
+        setRelation(state, a, b, null, sues);
+        if (sues) addNews(state, { kind: 'peace', tribes: [weak.id, strong.id], ...between(state, weak, strong), dry: `[${weak.tag}] vraagt om vrede en [${strong.tag}] stemt in.`, head: [`[${weak.tag}] smeekt om vrede, [${strong.tag}] is genadig`, `Witte vlag bij [${weak.tag}]: [${strong.tag}] accepteert de overgave`] });
       }
     }
   }
 }
 
+/** News when the biggest tribe changes; keeps the top-10 players for conquest news. */
+function rankingNews(state: WorldState): void {
+  const pts = new Map<number, number>();
+  for (const v of Object.values(state.villages)) {
+    if (!v || v.owner < 0) continue;
+    pts.set(v.owner, (pts.get(v.owner) ?? 0) + villagePoints(state.config, v));
+  }
+  const players = [...pts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id]) => id);
+  let top: Tribe | undefined, best = 0;
+  for (const t of Object.values(state.tribes ?? {})) {
+    const p = t.members.reduce((sum, m) => sum + (pts.get(m) ?? 0), 0);
+    if (p > best) { best = p; top = t; }
+  }
+  const before = state.newsTop;
+  state.newsTop = { players, ...(top ? { tribe: top.id } : {}) };
+  if (!before || !top || before.tribe === top.id) return;
+  const old = before.tribe !== undefined ? state.tribes?.[before.tribe] : undefined;
+  const c = tribeCentre(state, top);
+  addNews(state, { kind: 'ranking', tribes: [top.id, ...(old ? [old.id] : [])], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
+    dry: old ? `${T(top)} is nu de grootste stam, voor ${T(old)}.` : `${T(top)} is nu de grootste stam.`,
+    head: old ? [`Nieuwe nummer één: ${T(top)} passeert ${T(old)}`, `${T(old)} van de troon gestoten, ${T(top)} is de grootste`] : [`${T(top)} is de grootste stam van de wereld`] });
+}
+
 /** War between tribes; if it is declared on your tribe you hear it (and the game pauses, if you want). */
-export function declareWar(state: WorldState, by: Tribe, on: Tribe, breaksTreaty = false): void {
+export function declareWar(state: WorldState, by: Tribe, on: Tribe, breaksTreaty = false, reason?: string): void {
+  const why = reason ?? warReason(by, on);
   setRelation(state, by, on, 'war');
-  addLog(state, { time: state.time, text: breaksTreaty ? `[${by.tag}] verbreekt het verdrag en verklaart [${on.tag}] de oorlog.` : `[${by.tag}] verklaart [${on.tag}] de oorlog.` });
+  const a = T(by), b = T(on);
+  addNews(state, {
+    kind: 'war', tribes: [by.id, on.id], ...between(state, by, on),
+    dry: breaksTreaty ? `${a} verbreekt het verdrag en verklaart ${b} de oorlog${why ? ` (${why})` : ''}.` : `${a} verklaart ${b} de oorlog${why ? ` (${why})` : ''}.`,
+    head: breaksTreaty && !reason
+      ? [`Verraad! ${a} scheurt het verdrag en valt ${b} aan`, `Dolk in de rug: ${a} verklaart bondgenoot ${b} de oorlog`]
+      : [`Oorlog! ${a} trekt ten strijde tegen ${b}${why ? ` ${why}` : ''}`, `${a} verklaart ${b} de oorlog${why ? ` ${why}` : ''}`, `Spanning ontploft: ${a} en ${b} in oorlog${why ? ` ${why}` : ''}`],
+  });
   if (state.players[HUMAN_ID]?.tribe === on.id) warOnHuman(state, by, on, breaksTreaty);
 }
 

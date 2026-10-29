@@ -1,6 +1,7 @@
 /**
  * Troops on the road: attacks and returns. Each movement is one event at its arrival time.
  */
+import { addNews } from './news';
 import { cededTo, onTreatyAttack } from './peace';
 import { creditAllyAttack, creditAllySupport } from './alliances';
 import { nameConquered } from './botNames';
@@ -623,7 +624,7 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   const { config } = state;
   const old = v.owner;
   statConquest(state, v.id, v.name, old, newOwner);
-  if (old >= 0) addFriction(state, newOwner, old, FRICTION_CONQUEST);
+  if (old >= 0) addFriction(state, newOwner, old, FRICTION_CONQUEST, 'conquest');
   delete v.flag;
   delete v.scav;
   if (newOwner >= 0) flagForConquest(state, newOwner);
@@ -665,6 +666,23 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   v.loyalty = config.conquest.loyaltyAfterConquest;
   v.loyaltyAt = state.time;
   moveOwner(state, v.id, old, newOwner);
+  if (old >= 0) conquestNews(state, v, old, newOwner);
+}
+
+/** Conquests that are news: a top-10 player loses a village, or a player is wiped off the map. */
+function conquestNews(state: WorldState, v: Village, old: number, by: number): void {
+  const loser = state.players[old], winner = state.players[by];
+  if (!loser || !winner) return;
+  const tribes = [loser.tribe, winner.tribe].filter((t): t is number => t !== undefined);
+  const base = { tribes, players: [old, by], x: v.x, y: v.y };
+  const tag = (p: typeof loser) => (p.tribe !== undefined && state.tribes?.[p.tribe] ? ` [${state.tribes[p.tribe]!.tag}]` : '');
+  if (villagesOf(state, old).length === 0) {
+    addNews(state, { ...base, kind: 'wiped', dry: `${loser.name}${tag(loser)} is van de kaart geveegd: ${winner.name}${tag(winner)} nam het laatste dorp (${v.x}|${v.y}).`,
+      head: [`Uitgeroeid! ${winner.name} veegt ${loser.name} van de kaart`, `Het laatste bolwerk van ${loser.name} valt in handen van ${winner.name}`, `${loser.name} is niet meer: ${winner.name} neemt ${v.x}|${v.y}`] });
+  } else if (state.newsTop?.players.includes(old)) {
+    addNews(state, { ...base, kind: 'conquest', dry: `Top-10 speler ${loser.name}${tag(loser)} verliest ${v.name} (${v.x}|${v.y}) aan ${winner.name}${tag(winner)}.`,
+      head: [`Grote vis gehaakt: ${winner.name} pakt een dorp van ${loser.name}`, `Ook de top is niet veilig: ${loser.name} verliest ${v.x}|${v.y}`, `${winner.name} zet de tanden in topspeler ${loser.name}`] });
+  }
 }
 
 // --- support ------------------------------------------------------------------

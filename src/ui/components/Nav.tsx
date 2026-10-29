@@ -26,6 +26,7 @@ const ITEMS: Item[] = [
   { id: 'simulator', label: 'Simulator' },
   { id: 'reports', label: 'Rapporten' },
   { id: 'inbox', label: 'Inbox' },
+  { id: 'news', label: 'Nieuws' },
   { id: 'ranking', label: 'Ranglijst' },
   { id: 'stats', label: 'Statistiek' },
   { id: 'tribes', label: 'Stammen' },

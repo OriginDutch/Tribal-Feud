@@ -46,6 +46,7 @@ export type Command =
   | { type: 'setTemplateHidden'; id: string; hidden: boolean }
   | { type: 'getMap' }
   | { type: 'getReports' }
+  | { type: 'getNews' }
   | { type: 'markReportsRead'; ids: number[] | 'all' }
   | { type: 'deleteReports'; ids: number[] | 'read' }
   | { type: 'getRanking' }
@@ -362,6 +363,10 @@ export interface Snapshot {
   /** World speed settings, for display. */
   multipliers: { world: number; production: number; build: number; recruit: number; farm: number };
   log: LogEntry[];
+  /** The latest world news, newest first (for the ticker). */
+  news: import('../sim/news').NewsItem[];
+  /** Where you are (centre of your villages), for news "near me". */
+  me: { x: number; y: number } | null;
   /** The selected village, fully computed for display. */
   village: VillageView | null;
   /** All the player's villages, short, for the village switcher and the overview. */
@@ -472,6 +477,7 @@ export type WorkerMessage =
   | { type: 'saves'; saves: SaveMeta[] }
   | { type: 'map'; map: MapData }
   | { type: 'reports'; reports: Report[] }
+  | { type: 'news'; news: import('../sim/news').NewsItem[] }
   | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number> }
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'supportList'; rows: SupportRow[] }

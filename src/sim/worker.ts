@@ -9,7 +9,8 @@ import { deleteGroup, saveGroup, setGroup } from './groups';
 import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderAttack } from './tribeOrders';
 import { grudge, grudgeHalfLife } from './botReact';
 import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, proposeRelation, setOwnRelation } from './humanTribe';
-import { fitCheck, tribeNews, tribeViews } from './tribes';
+import { fitCheck, playerCentre, tribeNews, tribeViews } from './tribes';
+import { latestNews } from './news';
 import { farmCUnits } from './intel';
 import { createConfig, validateConfig } from '../shared/config';
 import { AUTOSAVE_SLOT, BACKUP_PREFIX, UPDATE_PREFIX, nextBackupSlot, type Command, type Snapshot, type WorkerMessage } from '../shared/protocol';
@@ -179,6 +180,8 @@ function snapshot(): Snapshot | null {
       farm: state.config.farmMultiplier ?? 1,
     },
     log: state.log.slice(-SNAPSHOT_LOG_LINES),
+    news: latestNews(state, 15),
+    me: (() => { const c = playerCentre(state, HUMAN_ID); return c ? { x: Math.round(c.x), y: Math.round(c.y) } : null; })(),
     village: (() => {
       const v = currentVillage(state);
       return v ? villageView(state, v) : null;
@@ -1192,6 +1195,9 @@ async function handle(cmd: Command): Promise<void> {
     case 'getRanking':
       if (state) sendRanking(state);
       return;
+    case 'getNews':
+      if (state) post({ type: 'news', news: [...(state.news ?? [])].reverse() });
+      break;
     case 'getReports':
       if (state) post({ type: 'reports', reports: state.reports });
       return;

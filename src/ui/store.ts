@@ -9,7 +9,7 @@ import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'support' | 'player' | 'debug' | 'building' | 'relations' | 'stats' | 'simulator' | 'scavenge';
+export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'support' | 'player' | 'debug' | 'building' | 'relations' | 'stats' | 'simulator' | 'scavenge' | 'news';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);
@@ -45,6 +45,7 @@ export function openBuilding(id: BuildingId): void {
 }
 export const mapData = signal<MapData | null>(null);
 export const reports = signal<Report[]>([]);
+export const newsList = signal<import('../sim/news').NewsItem[]>([]);
 export const ranking = signal<RankingRow[]>([]);
 export const tribes = signal<TribeView[]>([]);
 /** Tribe opened on the tribe screen. */
@@ -170,6 +171,9 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'reports':
       reports.value = msg.reports;
+      break;
+    case 'news':
+      newsList.value = msg.news;
       break;
     case 'ranking':
       ranking.value = msg.ranking;

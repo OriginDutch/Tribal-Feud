@@ -225,7 +225,6 @@ export function setOwnRelation(state: WorldState, tribeId: number, action: 'war'
   }
   if (!t.relations[o.id] || t.relations[o.id] === 'war') return 'Er is geen verdrag om te beëindigen.';
   setRelation(state, t, o, null);
-  addLog(state, { time: state.time, text: `${tag(t)} beëindigt het verdrag met ${tag(o)}.` });
   return null;
 }
 
@@ -284,7 +283,6 @@ export function answerMessage(state: WorldState, id: number, accept: boolean): s
     if (m.relation === 'ally' && Object.values(mine.relations).filter((r) => r === 'ally').length >= MAX_ALLIES) return `Je hebt al ${MAX_ALLIES} bondgenoten.`;
     setRelation(state, mine, t, m.relation === 'peace' ? null : m.relation);
     m.status = 'accepted';
-    addLog(state, { time: state.time, text: `${tag(mine)} en ${tag(t)}: ${REL_NAME[m.relation]} gesloten.` });
     return null;
   }
   return 'Dit bericht vraagt geen antwoord.';
@@ -390,7 +388,6 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
   const ok = (ask.relation === 'peace' ? o.relations[mine.id] === 'war' : o.relations[mine.id] !== 'war') && nextFloat(state.rng) < chance;
   if (ok) {
     setRelation(state, mine, o, ask.relation === 'peace' ? null : ask.relation);
-    addLog(state, { time: state.time, text: `${tag(mine)} en ${tag(o)}: ${REL_NAME[ask.relation]} gesloten.` });
     addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: `${tag(o)} gaat akkoord`, text: `${leader.name} gaat akkoord met ${REL_NAME[ask.relation]}.` });
   } else {
     addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: `${tag(o)} wijst je voorstel af`, text: `${leader.name} wil geen ${REL_NAME[ask.relation]} met ${tag(mine)}.` });

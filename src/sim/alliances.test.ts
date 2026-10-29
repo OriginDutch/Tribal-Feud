@@ -17,9 +17,9 @@ function setup() {
   const hooks = (joins = false) => ({
     strength: () => 1000,
     social: () => (joins ? 100 : 0),
-    declareWar: (by: Tribe, on: Tribe) => setRelation(s, by, on, 'war'),
-    setRelation: (x: Tribe, y: Tribe, r: 'nap' | null) => setRelation(s, x, y, r),
-    news: (t: string) => news.push(t),
+    declareWar: (by: Tribe, on: Tribe, reason: string) => { setRelation(s, by, on, 'war'); news.push(reason); },
+    setRelation: (x: Tribe, y: Tribe, r: 'nap' | null) => setRelation(s, x, y, r, true),
+    news: (_a: Tribe, _b: Tribe, t: string) => news.push(t),
   });
   return { s, a, b, e, bots, news, hooks };
 }
@@ -52,6 +52,6 @@ describe('allies', () => {
     const { s, a, b, e, hooks, news } = setup();
     for (let i = 0; i < 20 && b.relations[e.id] !== 'war'; i++) allianceTick(s, a, b, hooks(true));
     expect(b.relations[e.id]).toBe('war');
-    expect(news.some((n) => n.includes('te hulp'))).toBe(true);
+    expect(news.some((n) => n.includes('bij te staan'))).toBe(true);
   });
 });

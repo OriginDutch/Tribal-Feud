@@ -291,6 +291,11 @@ export interface WorldState {
   tribes?: Record<number, Tribe>;
   /** Recent diplomacy news. */
   tribeNews?: LogEntry[];
+  /** World news for the ticker and the news screen (see news). */
+  news?: import('./news').NewsItem[];
+  newsSeq?: number;
+  /** For ranking news: the biggest tribe and the top-10 players at the last diplomacy tick. */
+  newsTop?: { tribe?: number; players: number[] };
   /** Your messages: invitations, proposals, answers, war declarations. */
   inbox?: InboxMessage[];
   /** What you asked bots, waiting for their answer (they answer when they are online). */

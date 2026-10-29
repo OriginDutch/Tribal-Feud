@@ -62,9 +62,10 @@ function tribeOfId(state: WorldState, player: number): Tribe | undefined {
 export interface AllyHooks {
   strength: (t: Tribe) => number;
   social: (t: Tribe) => number;
-  declareWar: (by: Tribe, on: Tribe) => void;
+  declareWar: (by: Tribe, on: Tribe, reason: string) => void;
+  /** Quietly: the news for it comes from `news`. */
   setRelation: (a: Tribe, b: Tribe, rel: 'nap' | null) => void;
-  news: (text: string) => void;
+  news: (a: Tribe, b: Tribe, dry: string, head: string[]) => void;
 }
 
 /** Diplomacy tick for one alliance, both ways. */
@@ -86,9 +87,8 @@ export function allianceTick(state: WorldState, a: Tribe, b: Tribe, hooks: AllyH
     if (me.relations[ally.id] === 'ally' && ally.leader !== HUMAN_ID && unhelped.length) {
       const enemy = state.tribes?.[unhelped[0]!];
       if (enemy && ally.relations[enemy.id] !== 'nap' && hooks.strength(ally) * 2 >= hooks.strength(enemy) && nextFloat(state.rng) < 0.08 * hooks.social(ally)) {
-        hooks.declareWar(ally, enemy);
+        hooks.declareWar(ally, enemy, `om bondgenoot [${me.tag}] bij te staan`);
         setTrust(me, ally.id, trustIn(me, ally.id) + 15);
-        hooks.news(`[${ally.tag}] komt bondgenoot [${me.tag}] te hulp tegen [${enemy.tag}].`);
       }
     }
   }
@@ -99,13 +99,13 @@ export function allianceTick(state: WorldState, a: Tribe, b: Tribe, hooks: AllyH
     const trust = trustIn(me, ally.id);
     if (rel === 'ally' && trust < COOL) {
       hooks.setRelation(me, ally, 'nap');
-      hooks.news(`[${me.tag}] zet het bondgenootschap met [${ally.tag}] om naar een NAP: geen hulp in de oorlog.`);
+      hooks.news(me, ally, `[${me.tag}] zet het bondgenootschap met [${ally.tag}] om naar een NAP: geen hulp in de oorlog.`, [`[${me.tag}] voelt zich in de steek gelaten door [${ally.tag}]: alliantie geschrapt`, `Geen hulp, geen vriendschap: [${me.tag}] degradeert [${ally.tag}] naar een NAP`]);
       if (ally.members.includes(HUMAN_ID)) addLog(state, { time: state.time, text: `[${me.tag}] vertrouwt jullie niet meer als bondgenoot: jullie hielpen niet in hun oorlog. Het is nu een NAP.` });
       return;
     }
     if (rel === 'nap' && trust < BREAK) {
       hooks.setRelation(me, ally, null);
-      hooks.news(`[${me.tag}] zegt het verdrag met [${ally.tag}] op.`);
+      hooks.news(me, ally, `[${me.tag}] zegt het verdrag met [${ally.tag}] op.`, [`[${me.tag}] heeft er genoeg van en verscheurt het verdrag met [${ally.tag}]`]);
       if (ally.members.includes(HUMAN_ID)) addLog(state, { time: state.time, text: `[${me.tag}] zegt het verdrag met jullie op.` });
       return;
     }

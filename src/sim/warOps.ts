@@ -23,7 +23,8 @@ import { villagesNear } from './bots';
 import { distance, moraleFor, sendAttack, sendNobleTrain, travelTimeMs } from './movement';
 import { nextFloat } from './rng';
 import { HUMAN_ID, nextId, villagesOf, type Player, type WorldState } from './state';
-import { addTribeNews, type Tribe } from './tribes';
+import { type Tribe } from './tribes';
+import { addNews } from './news';
 import { giveOpOrder } from './tribeOrders';
 import type { Village } from './village';
 import { isOperational } from './village';
@@ -242,7 +243,8 @@ function report(state: WorldState, t: Tribe, op: TribeOp): void {
   if (took) moodAll(state, t, 1, `de stam nam ${target!.name} in`, undefined);
   if (!took || !target) return;
   const sent = op.roles.filter((r) => r.state === 'sent').length;
-  addTribeNews(state, { time: state.time, text: `[${t.tag}] neemt ${target.name} (${target.x}|${target.y}) in met een gezamenlijke aanval van ${sent} legers.` });
+  addNews(state, { kind: 'conquest', tribes: [t.id], x: target.x, y: target.y, dry: `[${t.tag}] neemt ${target.name} (${target.x}|${target.y}) in met een gezamenlijke aanval van ${sent} legers.`,
+    head: [`Gecoördineerde klap: [${t.tag}] neemt ${target.x}|${target.y} met ${sent} legers tegelijk`, `[${t.tag}] laat zien hoe samenwerken werkt: ${target.x}|${target.y} gevallen`] });
 }
 
 /** For views and tests: what this tribe is doing now. */

@@ -28,6 +28,8 @@ import { QuestsScreen } from './screens/QuestsScreen';
 import { RankingScreen } from './screens/RankingScreen';
 import { VillagesScreen } from './screens/VillagesScreen';
 import { ManagerScreen } from './screens/ManagerScreen';
+import { NewsScreen } from './screens/NewsScreen';
+import { NewsTicker } from './components/NewsTicker';
 import { stepVillage } from './components/VillageSwitcher';
 import { QuestToasts } from './components/QuestToasts';
 import { CommandPalette } from './components/CommandPalette';
@@ -100,6 +102,8 @@ function CurrentScreen() {
       return <VillagesScreen />;
     case 'manager':
       return <ManagerScreen />;
+    case 'news':
+      return <NewsScreen />;
     default:
       return <RecruitScreen building={screen.value} />;
   }
@@ -134,6 +138,7 @@ export function App() {
           </aside>
           <CommandPalette />
           <EndgameModal />
+          <NewsTicker />
         </div>
       ) : (
         <StartScreen />
