@@ -15,7 +15,7 @@ function run(s: WorldState, ms: number): void {
 
 describe('bots at war', () => {
   it('a bot with an academy mints a coin, trains a nobleman and takes a barbarian village', () => {
-    const s = createWorld(createConfig('classic', 'War', 31, { bots: { tiers: { pro: 1, mid: 0 }, count: 1 }, unitSpeed: 20 }));
+    const s = createWorld(createConfig('classic', 'War', 31, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: 1 }, unitSpeed: 20 }));
     const bot = s.players.find((p) => p.isBot);
     const v = bot ? villagesOf(s, bot.id)[0] : undefined;
     if (!bot?.bot || !v) throw new Error('setup');
@@ -32,7 +32,7 @@ describe('bots at war', () => {
   });
 
   it('aggressive bots scout players once protection is over, and farm the empty ones', () => {
-    const s = createWorld(createConfig('classic', 'War', 32, { bots: { tiers: { pro: 1, mid: 0 }, count: 1 }, unitSpeed: 20, conquest: { protectionDays: 1 } }));
+    const s = createWorld(createConfig('classic', 'War', 32, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: 1 }, unitSpeed: 20, conquest: { protectionDays: 1 } }));
     const bot = s.players.find((p) => p.isBot);
     const v = bot ? villagesOf(s, bot.id)[0] : undefined;
     const human = playerVillage(s);
@@ -58,7 +58,7 @@ describe('bots at war', () => {
   });
 
   it('turtles recruit defense in proportion to their points', () => {
-    const s = createWorld(createConfig('classic', 'War', 33, { bots: { tiers: { pro: 1, mid: 0 }, count: 1 } }));
+    const s = createWorld(createConfig('classic', 'War', 33, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: 1 } }));
     const bot = s.players.find((p) => p.isBot);
     const v = bot ? villagesOf(s, bot.id)[0] : undefined;
     if (!bot?.bot || !v) throw new Error('setup');
@@ -78,7 +78,7 @@ describe('bots at war', () => {
 
 describe('alert modes', () => {
   it('perVillage pauses once per attacking village per day; lostOnly and off never for attacks', () => {
-    const s = createWorld(createConfig('classic', 'Alerts', 34, { bots: { tiers: { pro: 1, mid: 0 }, count: 0 } }));
+    const s = createWorld(createConfig('classic', 'Alerts', 34, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: 0 } }));
     const text = (): string | undefined => s.alert?.text;
     onIncomingAttack(s, 7, 'a');
     expect(text()).toBe('a');
@@ -108,7 +108,7 @@ describe('alert modes', () => {
 describe('difficulty', () => {
   it('easier bots look at the game (farm) less often', () => {
     const farmed = (difficulty: 'easy' | 'normal' | 'hard') => {
-      const s = createWorld(createConfig('classic', 'Diff', 40, { bots: { tiers: { pro: 1, mid: 0 }, count: 20, difficulty } }));
+      const s = createWorld(createConfig('classic', 'Diff', 40, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: 20, difficulty } }));
       for (const p of s.players) {
         const v = p.bot ? villagesOf(s, p.id)[0] : undefined;
         if (!v) continue;
@@ -128,7 +128,7 @@ describe('difficulty', () => {
   it('the conquest cooldown knob makes a bot wait before nobling again', () => {
     const before = DIFFICULTIES.normal.conquestCooldownHours;
     DIFFICULTIES.normal.conquestCooldownHours = 16;
-    const s = createWorld(createConfig('classic', 'Diff', 41, { bots: { tiers: { pro: 1, mid: 0 }, count: 1, difficulty: 'normal' }, unitSpeed: 20 }));
+    const s = createWorld(createConfig('classic', 'Diff', 41, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: 1, difficulty: 'normal' }, unitSpeed: 20 }));
     const bot = s.players.find((p) => p.isBot);
     const v = bot ? villagesOf(s, bot.id)[0] : undefined;
     if (!bot?.bot || !v) throw new Error('setup');

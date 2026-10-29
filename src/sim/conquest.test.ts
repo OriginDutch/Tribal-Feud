@@ -9,7 +9,7 @@ import { recruit, type Village } from './village';
 import { fromSaveData, toSaveData } from './save';
 
 function world(overrides: ConfigOverrides = {}) {
-  const s = createWorld(createConfig('classic', 'Edel', 21, { luck: false, bots: { count: 2 }, ...overrides }));
+  const s = createWorld(createConfig('classic', 'Edel', 21, { worldSpeed: 1, luck: false, bots: { count: 2 }, ...overrides }));
   setPaused(s, false);
   const v = playerVillage(s);
   if (!v) throw new Error('no village');

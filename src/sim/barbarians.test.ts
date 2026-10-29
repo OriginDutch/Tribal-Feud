@@ -17,7 +17,7 @@ import { storageCapacity } from './formulas';
 const CLASSIC_GROWTH = { capMode: 'fixed', speedScaling: 'linear' } as const;
 
 function world(overrides: ConfigOverrides = {}) {
-  return createWorld(createConfig('classic', 'Barb', 5, { luck: false, bots: { count: 0 }, ...overrides, barbarians: { ...CLASSIC_GROWTH, ...overrides.barbarians } } as ConfigOverrides));
+  return createWorld(createConfig('classic', 'Barb', 5, { worldSpeed: 1, luck: false, bots: { count: 0 }, ...overrides, barbarians: { ...CLASSIC_GROWTH, ...overrides.barbarians } } as ConfigOverrides));
 }
 
 const barbs = (s: WorldState) => Object.values(s.villages).filter((v) => v.owner === BARBARIAN);
@@ -200,7 +200,7 @@ describe('intel and template C', () => {
 
 describe('abandoned bots', () => {
   it('a stalled bot gives its village to the barbarians and restarts between players, with barbarians around', () => {
-    const s = createWorld(createConfig('classic', 'Quit', 7, { bots: { tiers: { pro: 1, mid: 0 }, count: 40 } }));
+    const s = createWorld(createConfig('classic', 'Quit', 7, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: 40 } }));
     const bot = s.players.find((p) => p.isBot);
     if (!bot?.bot) throw new Error('no bot');
     const [oldVillage] = villagesOf(s, bot.id);
@@ -235,7 +235,7 @@ describe('abandoned bots', () => {
   });
 
   it('works for a bot with troops on the road', () => {
-    const s = createWorld(createConfig('classic', 'Quit', 8, { bots: { count: 3 } }));
+    const s = createWorld(createConfig('classic', 'Quit', 8, { worldSpeed: 1, bots: { count: 3 } }));
     run(s, 2 * DAY);
     const bot = s.players.find((p) => p.isBot);
     if (!bot) throw new Error('no bot');
@@ -248,7 +248,7 @@ describe('abandoned bots', () => {
 
 describe('barbarian farms', () => {
   it('a grown barbarian has room on its farm for its buildings', () => {
-    const s = createWorld(createConfig('classic', 'Boer', 9));
+    const s = createWorld(createConfig('classic', 'Boer', 9, { worldSpeed: 1 }));
     const barbs = Object.values(s.villages).filter((v) => v.owner === BARBARIAN).slice(0, 40);
     for (const v of barbs) {
       seedBarbarian(s.config, v, 4000);
@@ -257,7 +257,7 @@ describe('barbarian farms', () => {
   });
 
   it('farm and storage can be built even when a village is over its farm', () => {
-    const s = createWorld(createConfig('classic', 'Boer', 9));
+    const s = createWorld(createConfig('classic', 'Boer', 9, { worldSpeed: 1 }));
     const v = Object.values(s.villages).find((x) => x.owner === BARBARIAN);
     if (!v) throw new Error('no barb');
     Object.assign(v.buildings, { farm: 9, wood: 27, stone: 29, iron: 30, main: 7, storage: 18 });

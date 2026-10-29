@@ -10,7 +10,7 @@ import { BARBARIAN, createWorld, playerVillage, type WorldState } from './state'
 import { queueBuild } from './village';
 
 function setup() {
-  const s = createWorld(createConfig('classic', 'Test', 5, { luck: false, bots: { count: 100 }, map: { barbarianCount: 1000 } } as never));
+  const s = createWorld(createConfig('classic', 'Test', 5, { worldSpeed: 1, luck: false, bots: { count: 100 }, map: { barbarianCount: 1000 } } as never));
   setPaused(s, false);
   const v = playerVillage(s);
   if (!v) throw new Error('no village');
@@ -109,7 +109,7 @@ describe('quest toasts', () => {
   });
 
   it('a quest reward can be claimed from its toast, which then disappears', () => {
-    const config = createConfig('classic', 'Test', 5, { luck: false, bots: { count: 100 }, map: { barbarianCount: 1000 } } as never);
+    const config = createConfig('classic', 'Test', 5, { worldSpeed: 1, luck: false, bots: { count: 100 }, map: { barbarianCount: 1000 } } as never);
     const first = config.quests.chains[0]?.quests[0];
     if (!first) throw new Error('no quest');
     first.reward = { res: [10, 10, 10] };
@@ -134,7 +134,7 @@ describe('auto rewards', () => {
     const { autoClaimRewards } = await import('./quests');
     const { createWorld: cw, playerVillage: pv } = await import('./state');
     const { createConfig: cc } = await import('../shared/config');
-    const s = cw(cc('classic', 'R', 9, { bots: { count: 0 } } as never));
+    const s = cw(cc('classic', 'R', 9, { worldSpeed: 1, bots: { count: 0 } } as never));
     const v = pv(s)!;
     v.res = [100, 100, 100];
     v.resAt = s.time;

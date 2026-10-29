@@ -17,7 +17,7 @@ function run(s: WorldState, ms: number): void {
 
 /** A world with bots and a hand-made tribe around the first bot. */
 function setup() {
-  const s = createWorld(createConfig('classic', 'T', 11, { bots: { count: 30 } }));
+  const s = createWorld(createConfig('classic', 'T', 11, { worldSpeed: 1, bots: { count: 30 } }));
   const bots = s.players.filter((p) => p.isBot && villagesOf(s, p.id).length);
   const lead = bots[0]!;
   const t: Tribe = { id: 9001, name: 'Test', tag: 'TST', color: '#fff', leader: lead.id, members: [lead.id], founded: 0, relations: {} };
@@ -80,7 +80,7 @@ describe('tribes', () => {
   });
 
   it('bots form tribes over time, no tribe is over the limit, members live close together', () => {
-    const s = createWorld(createConfig('classic', 'T', 7, { bots: { count: 40 } }));
+    const s = createWorld(createConfig('classic', 'T', 7, { worldSpeed: 1, bots: { count: 40 } }));
     run(s, 6 * DAY);
     const list = Object.values(s.tribes ?? {});
     expect(list.length).toBeGreaterThan(2);
@@ -94,7 +94,7 @@ describe('tribes', () => {
   });
 
   it('an old save without tribes starts the diplomacy layer', () => {
-    const s = createWorld(createConfig('classic', 'T', 3, { bots: { count: 10 } }));
+    const s = createWorld(createConfig('classic', 'T', 3, { worldSpeed: 1, bots: { count: 10 } }));
     const data = JSON.parse(JSON.stringify(toSaveData(s, 0))) as { version: number; state: WorldState };
     delete data.state.tribes;
     data.state.queue.heap = data.state.queue.heap.filter((i) => (i.event as { kind: string }).kind !== 'diplomacy');
@@ -106,7 +106,7 @@ describe('tribes', () => {
   });
 
   it('a tribe mate sends support to a member under a real attack', () => {
-    const s = createWorld(createConfig('classic', 'T', 11, { bots: { count: 30 }, unitSpeed: 1, conquest: { protectionDays: 0 } }));
+    const s = createWorld(createConfig('classic', 'T', 11, { worldSpeed: 1, bots: { count: 30 }, unitSpeed: 1, conquest: { protectionDays: 0 } }));
     const bots = s.players.filter((p) => p.isBot && villagesOf(s, p.id).length);
     const a = bots[0]!, home = villagesOf(s, a.id)[0]!;
     const near = bots.slice(1).sort((x, y) => { const d = (id: number) => { const v = villagesOf(s, id)[0]!; return Math.hypot(v.x - home.x, v.y - home.y); }; return d(x.id) - d(y.id); });

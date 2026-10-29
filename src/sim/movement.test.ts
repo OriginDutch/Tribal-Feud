@@ -12,7 +12,7 @@ import { BARBARIAN, createWorld, playerVillage, type WorldState } from './state'
 import type { Village } from './village';
 
 function setup(overrides: ConfigOverrides = {}) {
-  const s = createWorld(createConfig('classic', 'Test', 3, { luck: false, ...overrides }));
+  const s = createWorld(createConfig('classic', 'Test', 3, { worldSpeed: 1, luck: false, ...overrides }));
   setPaused(s, false);
   const v = playerVillage(s);
   if (!v) throw new Error('no village');

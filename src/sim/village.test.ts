@@ -21,7 +21,7 @@ import {
 
 function setup(overrides: object = {}): { s: WorldState; v: Village } {
   // a small world: these tests are about one village, not the bots (the default is 500)
-  const s = createWorld(createConfig('classic', 'Test', 1, { bots: { count: 100 }, map: { barbarianCount: 1000 }, ...overrides } as never));
+  const s = createWorld(createConfig('classic', 'Test', 1, { worldSpeed: 1, bots: { count: 100 }, map: { barbarianCount: 1000 }, ...overrides } as never));
   setPaused(s, false);
   const v = playerVillage(s);
   if (!v) throw new Error('no village');
@@ -413,8 +413,8 @@ describe('population fun option', () => {
     const { createConfig } = await import('../shared/config');
     const { createWorld, playerVillage } = await import('./state');
     const { popMax } = await import('./village');
-    const one = createWorld(createConfig('classic', 'F', 4, { bots: { count: 0 }, map: { barbarianCount: 5 } } as never));
-    const two = createWorld(createConfig('classic', 'F', 4, { farmMultiplier: 2, bots: { count: 0 }, map: { barbarianCount: 5 } } as never));
+    const one = createWorld(createConfig('classic', 'F', 4, { worldSpeed: 1, bots: { count: 0 }, map: { barbarianCount: 5 } } as never));
+    const two = createWorld(createConfig('classic', 'F', 4, { worldSpeed: 1, farmMultiplier: 2, bots: { count: 0 }, map: { barbarianCount: 5 } } as never));
     const a = playerVillage(one)!, b = playerVillage(two)!;
     a.buildings.farm = 30; b.buildings.farm = 30;
     expect(popMax(one.config, a)).toBe(24000);
@@ -427,7 +427,7 @@ describe('dismissing troops', () => {
     const { createConfig } = await import('../shared/config');
     const { createWorld, playerVillage } = await import('./state');
     const { dismissUnits, currentResources } = await import('./village');
-    const s = createWorld(createConfig('classic', 'D', 3, { bots: { count: 0 }, map: { barbarianCount: 5 } } as never));
+    const s = createWorld(createConfig('classic', 'D', 3, { worldSpeed: 1, bots: { count: 0 }, map: { barbarianCount: 5 } } as never));
     const v = playerVillage(s)!;
     v.units.axe = 100;
     const res = currentResources(s.config, v, s.time);

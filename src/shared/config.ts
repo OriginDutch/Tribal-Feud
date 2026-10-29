@@ -330,7 +330,7 @@ const BASE: PresetValues = {
 
 /** Preset contents are placeholders until the presets are designed. */
 export const PRESETS: Record<Exclude<PresetId, 'custom'>, PresetValues> = {
-  classic: { ...BASE },
+  classic: { ...BASE, worldSpeed: 20 },
   speed: { ...BASE, worldSpeed: 5, unitSpeed: 2 },
   hardcore: {
     ...BASE,

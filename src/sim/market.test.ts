@@ -8,7 +8,7 @@ import { currentResources, type Village } from './village';
 import { distance } from './movement';
 
 function world(bots = 2) {
-  const s = createWorld(createConfig('classic', 'Markt', 61, { bots: { count: bots } }));
+  const s = createWorld(createConfig('classic', 'Markt', 61, { worldSpeed: 1, bots: { count: bots } }));
   setPaused(s, false);
   const v = playerVillage(s);
   if (!v) throw new Error('no village');

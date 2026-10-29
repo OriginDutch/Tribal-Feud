@@ -13,7 +13,7 @@ function run(s: WorldState, ms: number): void {
 }
 
 function setup(seed: number) {
-  const s = createWorld(createConfig('classic', 'S', seed, { bots: { tiers: { pro: 1, mid: 0 }, count: 1 }, unitSpeed: 20, conquest: { protectionDays: 0 } } as never));
+  const s = createWorld(createConfig('classic', 'S', seed, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: 1 }, unitSpeed: 20, conquest: { protectionDays: 0 } } as never));
   const bot = s.players.find((p) => p.isBot)!;
   const v = villagesOf(s, bot.id)[0]!;
   const human = playerVillage(s)!;

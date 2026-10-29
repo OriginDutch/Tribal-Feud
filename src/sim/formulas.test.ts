@@ -13,7 +13,7 @@ import {
 } from './formulas';
 
 // productionMultiplier 1 = plain TW numbers, so the official tables apply
-const config = createConfig('classic', 'x', 1, { productionMultiplier: 1 });
+const config = createConfig('classic', 'x', 1, { worldSpeed: 1, productionMultiplier: 1 });
 const B = config.buildings;
 
 // Expected values are copied from the official Tribal Wars tables (see design doc sources).
@@ -71,7 +71,7 @@ describe('formulas match the official TW tables', () => {
   });
 
   it('separate multipliers only touch their own part', () => {
-    const c = createConfig('classic', 'x', 1, { productionMultiplier: 10, buildSpeed: 4, recruitSpeed: 2 });
+    const c = createConfig('classic', 'x', 1, { worldSpeed: 1, productionMultiplier: 10, buildSpeed: 4, recruitSpeed: 2 });
     expect(Math.round(productionPerHour(c, 1))).toBe(300);
     expect(buildTimeMs(c, B.main, 5, 1)).toBe(Math.round(buildTimeMs(config, B.main, 5, 1) / 4));
     expect(recruitTimeMs(c, config.units.spear, 1)).toBe(Math.round(recruitTimeMs(config, config.units.spear, 1) / 2));

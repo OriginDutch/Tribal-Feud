@@ -9,7 +9,7 @@ import { advance, setPaused } from './simulation';
 import { BARBARIAN, HUMAN_ID, createWorld, villagesOf, type WorldState } from './state';
 
 function world(botCount = 30) {
-  const s = createWorld(createConfig('classic', 'Bots', 11, { bots: { tiers: { pro: 1, mid: 0 }, count: botCount } }));
+  const s = createWorld(createConfig('classic', 'Bots', 11, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: botCount } }));
   setPaused(s, false);
   return s;
 }
@@ -31,7 +31,7 @@ describe('bots', () => {
       expect(p.bot?.activity).toBeLessThanOrEqual(1);
     }
     // all archetypes show up in a big enough world
-    const big = createWorld(createConfig('classic', 'Bots', 11));
+    const big = createWorld(createConfig('classic', 'Bots', 11, { worldSpeed: 1 }));
     expect(new Set(big.players.map((p) => p.bot?.archetype).filter(Boolean)).size).toBe(ARCHETYPES.length);
   });
 
@@ -76,7 +76,7 @@ describe('bots', () => {
   });
 
   it('200 bots stay cheap: a game day takes well under 3 seconds to simulate', () => {
-    const s = createWorld(createConfig('classic', 'Perf', 2, { bots: { count: 200 }, map: { barbarianCount: 3000 } } as never));
+    const s = createWorld(createConfig('classic', 'Perf', 2, { worldSpeed: 1, bots: { count: 200 }, map: { barbarianCount: 3000 } } as never));
     setPaused(s, false);
     runDays(s, 1);
     const t = performance.now();
@@ -85,8 +85,8 @@ describe('bots', () => {
   });
 
   it('take turns more often when build or recruit speed is higher', () => {
-    const slow = createWorld(createConfig('classic', 'Bots', 11, { bots: { tiers: { pro: 1, mid: 0 }, count: 20 } }));
-    const fast = createWorld(createConfig('classic', 'Bots', 11, { bots: { tiers: { pro: 1, mid: 0 }, count: 20 }, buildSpeed: 20 }));
+    const slow = createWorld(createConfig('classic', 'Bots', 11, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: 20 } }));
+    const fast = createWorld(createConfig('classic', 'Bots', 11, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: 20 }, buildSpeed: 20 }));
     const first = (s: WorldState) => Math.max(...s.players.filter((p) => p.bot).map((p) => p.bot?.nextTurn ?? 0));
     expect(first(fast)).toBeLessThanOrEqual(first(slow) / 19);
   });

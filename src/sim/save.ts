@@ -15,7 +15,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 17;
+export const SAVE_VERSION = 18;
 
 /** Barbarian growth of worlds made before 28 October 2026: keep it as it was. */
 const OLD_BARB_GROWTH = { capMode: 'fixed', speedScaling: 'linear', startRelative: undefined } as const;
@@ -185,6 +185,15 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
   16: (data) => {
     nameAllBotVillages(data.state);
     return { ...data, version: 17 };
+  },
+  // v17 bot armies were mixed in every village: specialised villages, no handfuls, graded by skill
+  // and difficulty (and on easy the pause after a conquest that keeps its old pace).
+  17: (data) => {
+    const b = data.state.config.bots;
+    b.villageRoles ??= true;
+    b.strikeMinShare ??= 0.5;
+    b.armyGrades ??= true;
+    return { ...data, version: 18 };
   },
 };
 

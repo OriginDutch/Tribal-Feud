@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createConfig, validateConfig } from './config';
+import { PRESETS, createConfig, validateConfig } from './config';
 
 describe('WorldConfig', () => {
   it('presets are valid', () => {
@@ -18,5 +18,11 @@ describe('WorldConfig', () => {
     const c = createConfig('classic', 'x', 1, { churches: true, research: 'levels10' });
     // research levels and churches are supported now
     expect(validateConfig(c)).toHaveLength(0);
+  });
+});
+
+describe('default world speed', () => {
+  it('classic starts at speed 20', () => {
+    expect(PRESETS.classic.worldSpeed).toBe(20);
   });
 });

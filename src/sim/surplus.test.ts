@@ -10,7 +10,7 @@ import { BARBARIAN, HUMAN_ID, createWorld, invalidateOwners, playerVillage, type
 import { currentResources, type Village } from './village';
 
 function setup() {
-  const s = createWorld(createConfig('classic', 'Overschot', 71, { bots: { count: 0 } }));
+  const s = createWorld(createConfig('classic', 'Overschot', 71, { worldSpeed: 1, bots: { count: 0 } }));
   setPaused(s, false);
   const rich = playerVillage(s)!;
   Object.assign(rich.buildings, { main: 20, storage: 20, market: 10, wood: 25, stone: 25, iron: 25, farm: 20 });
