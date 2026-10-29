@@ -197,9 +197,10 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
   },
 };
 
-export function toSaveData(state: WorldState, now: number): SaveData {
-  // structuredClone so later mutations of the live state never leak into a stored save
-  return { version: SAVE_VERSION, savedAt: now, state: structuredClone(state) };
+export function toSaveData(state: WorldState, now: number, clone = true): SaveData {
+  // structuredClone so later mutations of the live state never leak into a stored save; skip it
+  // only when the save is serialized right away (putSave turns it into a string before any await)
+  return { version: SAVE_VERSION, savedAt: now, state: clone ? structuredClone(state) : state };
 }
 
 export function fromSaveData(raw: unknown): WorldState {

@@ -109,7 +109,7 @@ async function backup(): Promise<void> {
   if (!state) return;
   const prefix = `${BACKUP_PREFIX}${worldKey(state)}:`;
   const slot = nextBackupSlot(await listSaves(), prefix);
-  await putSave(slot, toSaveData(state, Date.now()));
+  await putSave(slot, toSaveData(state, Date.now(), false));
   runningSinceBackup = 0;
 }
 
@@ -639,7 +639,7 @@ async function postSaves(): Promise<void> {
 
 async function save(slot: string, quiet = false): Promise<void> {
   if (!state) return;
-  await putSave(slot, toSaveData(state, Date.now()));
+  await putSave(slot, toSaveData(state, Date.now(), false));
   runningSinceAutosave = 0;
   if (!quiet) notice(`Opgeslagen in "${slot}".`);
   await postSaves();

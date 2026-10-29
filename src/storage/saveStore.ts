@@ -1,15 +1,21 @@
 /**
  * IndexedDB save slots. Works in the worker and on the main thread.
- * One object store, one record per slot: { slot, meta fields, data }.
+ *
+ * Two object stores: 'saves' holds { slot, meta fields, data } per slot, 'meta' only the meta fields.
+ * Listing reads 'meta', so it never pulls every full world out of the database (with an autosave,
+ * five backups and a few manual saves of a big world that is tens of MB, each minute).
+ * The world is stored as a JSON string: copying one string into IndexedDB is a lot cheaper than
+ * a structured clone of the whole object tree. Older records hold the object itself; both load.
  */
 import type { SaveData, SaveMeta } from '../sim/save';
 
 const DB_NAME = 'tribal-feud';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'saves';
+const META = 'meta';
 
 interface SaveRecord extends SaveMeta {
-  data: SaveData;
+  data: SaveData | string;
 }
 
 function req<T>(r: IDBRequest<T>): Promise<T> {
@@ -19,6 +25,8 @@ function req<T>(r: IDBRequest<T>): Promise<T> {
   });
 }
 
+const metaOf = ({ slot, worldName, gameTime, savedAt, version }: SaveMeta): SaveMeta => ({ slot, worldName, gameTime, savedAt, version });
+
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 function openDb(): Promise<IDBDatabase> {
@@ -27,6 +35,17 @@ function openDb(): Promise<IDBDatabase> {
     open.onupgradeneeded = () => {
       const db = open.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'slot' });
+      if (!db.objectStoreNames.contains(META)) {
+        // first time with a meta store: fill it from the saves that already exist (one by one)
+        const meta = db.createObjectStore(META, { keyPath: 'slot' });
+        const saves = open.transaction!.objectStore(STORE);
+        saves.openCursor().onsuccess = (e) => {
+          const cursor = (e.target as IDBRequest<IDBCursorWithValue | null>).result;
+          if (!cursor) return;
+          meta.put(metaOf(cursor.value as SaveRecord));
+          cursor.continue();
+        };
+      }
     };
     open.onsuccess = () => resolve(open.result);
     open.onerror = () => {
@@ -37,12 +56,22 @@ function openDb(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-async function store(mode: IDBTransactionMode): Promise<IDBObjectStore> {
+async function tx(mode: IDBTransactionMode): Promise<IDBTransaction> {
   const db = await openDb();
-  return db.transaction(STORE, mode).objectStore(STORE);
+  return db.transaction([STORE, META], mode);
+}
+
+function done(t: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error);
+  });
 }
 
 export async function putSave(slot: string, data: SaveData): Promise<SaveMeta> {
+  // stringify right away, before any await: later changes to the live world never end up in this save
+  const json = JSON.stringify(data);
   const meta: SaveMeta = {
     slot,
     worldName: data.state.config.name,
@@ -50,23 +79,30 @@ export async function putSave(slot: string, data: SaveData): Promise<SaveMeta> {
     savedAt: data.savedAt,
     version: data.version,
   };
-  const record: SaveRecord = { ...meta, data };
-  await req((await store('readwrite')).put(record));
+  const t = await tx('readwrite');
+  const record: SaveRecord = { ...meta, data: json };
+  t.objectStore(STORE).put(record);
+  t.objectStore(META).put(meta);
+  await done(t);
   return meta;
 }
 
 export async function getSave(slot: string): Promise<SaveData | undefined> {
-  const record = (await req((await store('readonly')).get(slot))) as SaveRecord | undefined;
-  return record?.data;
+  const t = await tx('readonly');
+  const record = (await req(t.objectStore(STORE).get(slot))) as SaveRecord | undefined;
+  if (!record) return undefined;
+  return typeof record.data === 'string' ? (JSON.parse(record.data) as SaveData) : record.data;
 }
 
 export async function listSaves(): Promise<SaveMeta[]> {
-  const records = (await req((await store('readonly')).getAll())) as SaveRecord[];
-  return records
-    .map(({ slot, worldName, gameTime, savedAt, version }) => ({ slot, worldName, gameTime, savedAt, version }))
-    .sort((a, b) => b.savedAt - a.savedAt);
+  const t = await tx('readonly');
+  const records = (await req(t.objectStore(META).getAll())) as SaveMeta[];
+  return records.map(metaOf).sort((a, b) => b.savedAt - a.savedAt);
 }
 
 export async function deleteSave(slot: string): Promise<void> {
-  await req((await store('readwrite')).delete(slot));
+  const t = await tx('readwrite');
+  t.objectStore(STORE).delete(slot);
+  t.objectStore(META).delete(slot);
+  await done(t);
 }
