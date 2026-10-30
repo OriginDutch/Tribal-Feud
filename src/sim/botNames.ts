@@ -25,7 +25,9 @@ function styleOf(state: WorldState, p: Player): Style {
 
 const pad = (n: number, w: number) => String(n).padStart(w, '0');
 const pick = <T>(list: readonly T[], h: number): T => list[Math.floor(h * list.length) % list.length]!;
+/** The name a bot uses in its village names (gamertags have no spaces; old names did). */
 const firstName = (p: Player) => p.name.split(' ')[0] ?? p.name;
+const short = (p: Player) => (firstName(p).replace(/[^a-z]/gi, '').slice(0, 4) || 'DORP').toUpperCase();
 
 /** What a village is for, from its troops: offense, defense, or nothing clear yet. */
 function role(v: Village): 'OFF' | 'DEF' | null {
@@ -48,17 +50,17 @@ export function botVillageName(state: WorldState, p: Player, v: Village, n: numb
       return `K${Math.floor(v.y / 100)}${Math.floor(v.x / 100)} ${pad(n, 2)}`;
     case 'tag': {
       const t = p.tribe !== undefined ? state.tribes?.[p.tribe] : undefined;
-      return `${t ? `[${t.tag}]` : firstName(p).slice(0, 4).toUpperCase()} ${pad(n, 3)}`;
+      return `${t ? `[${t.tag}]` : short(p)} ${pad(n, 3)}`;
     }
     case 'theme':
       return `${pick(PRE, h)}${pick(POST, hashFloat(state.config.seed, p.id, v.id, 41))}`;
     case 'firstnum':
-      return n === 1 ? `${firstName(p)}s dorp` : `${firstName(p)} ${n}`;
+      return n === 1 ? `${firstName(p)}'s dorp` : `${firstName(p)} ${n}`;
     case 'lazy': {
       // half the time they don't bother at all
       if (h < 0.5) return null;
       if (h < 0.7) return `dorp ${n}`;
-      if (h < 0.85) return `${firstName(p)}s dorp ${n}`;
+      if (h < 0.85) return `${firstName(p)}'s dorp ${n}`;
       return pick(LAZY, hashFloat(state.config.seed, p.id, v.id, 43));
     }
   }
@@ -94,4 +96,45 @@ export function refreshRoleName(state: WorldState, p: Player, v: Village): void 
   if (styleOf(state, p) !== 'role' || !/^\d{3}$/.test(v.name)) return;
   const r = role(v);
   if (r) v.name = `${v.name} ${r}`;
+}
+
+/** New bot names: start villages ("Old's dorp") follow the new name before the bots name them. */
+export function renameStartVillages(state: WorldState, old: Map<number, string>): void {
+  for (const v of Object.values(state.villages)) {
+    const was = old.get(v.owner);
+    const p = state.players[v.owner];
+    if (was && p && (v.name === `${was}s dorp` || v.name === `${was}'s dorp`)) v.name = `${p.name}'s dorp`;
+  }
+}
+
+/**
+ * After renaming the bots of an existing world: village names made from a bot's old name or its
+ * tribe's old tag follow the new one ("Gorwins dorp 3" → "lars77's dorp 3", "[WOLF] 004" → "[~BS~] 004").
+ */
+export function renameNamedVillages(state: WorldState, oldPlayers: Map<number, string>, oldTags: Map<number, string>): void {
+  // old first name → new name, for every renamed bot (a village may carry the name of an earlier owner)
+  const renamed = new Map<string, string>();
+  for (const [id, was] of oldPlayers) {
+    const p = state.players[id];
+    const first = was.split(' ')[0] ?? was;
+    if (p && !renamed.has(first)) renamed.set(first, firstName(p));
+    if (p && !renamed.has(was)) renamed.set(was, firstName(p));
+  }
+  for (const v of Object.values(state.villages)) {
+    const p = state.players[v.owner];
+    let name = v.name;
+    const dorp = /^(.*?)'?s dorp( \d+)?$/.exec(name);
+    const num = /^(.+) (\d+)$/.exec(name);
+    if (dorp && renamed.has(dorp[1]!)) name = `${renamed.get(dorp[1]!)}'s dorp${dorp[2] ?? ''}`;
+    else if (num && renamed.has(num[1]!)) name = `${renamed.get(num[1]!)} ${num[2]}`;
+    else if (p?.bot && oldPlayers.has(p.id)) {
+      const was = oldPlayers.get(p.id)!;
+      const oldShort = (was.split(' ')[0] ?? was).slice(0, 4).toUpperCase();
+      const t = /^\[(.+)\] (\d{3})$/.exec(name);
+      const tribe = p.tribe !== undefined ? state.tribes?.[p.tribe] : undefined;
+      if (/^[A-Z]{1,4} \d{3}$/.test(name) && name.split(' ')[0] === oldShort) name = `${short(p)} ${name.split(' ')[1]}`;
+      else if (t && tribe && oldTags.get(tribe.id) === t[1]) name = `[${tribe.tag}] ${t[2]}`;
+    }
+    v.name = name.slice(0, 32);
+  }
 }

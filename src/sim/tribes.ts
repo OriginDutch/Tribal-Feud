@@ -8,6 +8,7 @@
  *
  * Runs on its own slow clock ('diplomacy' event), deterministic through the world rng.
  */
+import { newTribeName } from './names/apply';
 import { cededAway, treatiesTick } from './peace';
 import { huntsOutlaw, isOutlaw, mayTalk, outlawsTick, startTalks, talksOfTribes } from './talks';
 import { reparationsTick } from './reparations';
@@ -322,20 +323,8 @@ const NOUN: [string, string][] = [
   ['Broeders', 'BROER'], ['Wachters', 'WACHT'], ['Jagers', 'JAGER'], ['Zonen', 'ZOON'],
 ];
 function tribeName(state: WorldState): [string, string] {
-  const all = Object.values(state.tribes ?? {});
-  const tags = new Set(all.map((t) => t.tag)), names = new Set(all.map((t) => t.name));
-  const free = NAMES.filter(([n, tag]) => !tags.has(tag) && !names.has(n));
-  if (free.length) return free[Math.floor(nextFloat(state.rng) * free.length)]!;
-  for (let tries = 0; tries < 50; tries++) {
-    const [a, at] = ADJ[Math.floor(nextFloat(state.rng) * ADJ.length)]!;
-    const [n, nt] = NOUN[Math.floor(nextFloat(state.rng) * NOUN.length)]!;
-    const name = `De ${a} ${n}`, tag = (at + nt).slice(0, 6);
-    if (!names.has(name) && !tags.has(tag)) return [name, tag];
-  }
-  // 16 x 20 combinations taken: number them
-  let i = 2;
-  while (tags.has(`STAM${i}`)) i++;
-  return [`Stam ${i}`, `STAM${i}`];
+  // one draw from the world's random numbers, as before: the rest of the world stays the same
+  return newTribeName(state, Math.floor(nextFloat(state.rng) * 2 ** 31));
 }
 
 // --- the diplomacy turn -------------------------------------------------------
