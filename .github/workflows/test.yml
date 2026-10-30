@@ -75,6 +75,21 @@ jobs:
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
+      # the security rules first: a new game never talks to old rules (same file the cloud test ran against)
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - name: Deploy the Firestore security rules
+        if: steps.key.outputs.ready == 'true'
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TRIBAL_FEUD }}
+        run: |
+          npm ci
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json" npx firebase deploy --only firestore:rules --project tribal-feud --non-interactive
+          rm "$RUNNER_TEMP/key.json"
       - name: The tested build
         if: steps.key.outputs.ready == 'true'
         uses: actions/download-artifact@v4

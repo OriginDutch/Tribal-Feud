@@ -12,7 +12,12 @@ export interface FirebaseConfig {
 }
 
 /** The live project. Not a secret: every Firebase web app ships this; the security rules guard the data. */
-const LIVE: FirebaseConfig | null = null;
+const LIVE: FirebaseConfig | null = {
+  apiKey: 'AIzaSyBoqSA0Z_-fi16b6_Qmupln_cUZ3vpHQQE',
+  authDomain: 'tribal-feud.firebaseapp.com',
+  projectId: 'tribal-feud',
+  appId: '1:1081731420188:web:7cabfd688fd6cf8b91cfd9',
+};
 
 export const EMULATOR = import.meta.env.VITE_FB_EMULATOR === '1';
 const EMU_HOST = (import.meta.env.VITE_FB_EMULATOR_HOST as string | undefined) ?? '127.0.0.1';
@@ -24,7 +29,7 @@ export const FIREBASE: FirebaseConfig | null = EMULATOR
   : LIVE;
 
 /** This account sees the list of new accounts (only with a confirmed address). Also in firestore.rules. */
-export const ADMIN_EMAIL = 'admin@tribal-feud.test';
+export const ADMIN_EMAIL = 'marcel_19-95@hotmail.com';
 
 export const isAdmin = (email: string | null, verified: boolean) => !!email && verified && email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 

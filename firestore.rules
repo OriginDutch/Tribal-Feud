@@ -7,7 +7,7 @@ service cloud.firestore {
     function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
     function isAdmin() {
       return signedIn() && request.auth.token.email_verified == true
-        && request.auth.token.email.lower() == 'admin@tribal-feud.test';
+        && request.auth.token.email.lower() == 'marcel_19-95@hotmail.com';
     }
 
     match /users/{uid} {

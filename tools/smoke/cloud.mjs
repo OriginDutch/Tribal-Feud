@@ -14,7 +14,7 @@ const URL = `http://localhost:${PORT}/`;
 const PROJECT = 'demo-tribal-feud';
 const AUTH = 'http://127.0.0.1:9099';
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`;
-const ADMIN = 'admin@tribal-feud.test';
+const ADMIN = 'marcel_19-95@hotmail.com';
 const RULES = process.env.RULES === '1';
 
 const server = spawn('npx', ['vite', 'preview', '--outDir', 'dist-emu', '--port', String(PORT), '--strictPort'], { stdio: 'ignore', shell: process.platform === 'win32' });
