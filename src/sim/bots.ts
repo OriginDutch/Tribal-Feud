@@ -491,7 +491,7 @@ export function abandonAndRestart(state: WorldState, player: Player): Village {
 
   // a gap between other players at the outer ring, with a few barbarians around it
   const [x, y] = restartSpot(state);
-  const fresh = createVillage(config, nextId(state), player.id, `${player.name}s dorp`, x, y, state.time);
+  const fresh = createVillage(config, nextId(state), player.id, `${player.name}'s dorp`, x, y, state.time);
   state.villages[fresh.id] = fresh;
   player.joinedAt = state.time;
   player.home = fresh.id;

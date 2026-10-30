@@ -1,4 +1,5 @@
-import { nameAllBotVillages } from './botNames';
+import { nameAllBotVillages, renameStartVillages } from './botNames';
+import { nameBots } from './names/apply';
 import type { BuildTemplate, NobleTemplate, TroopTemplate } from './manager';
 import type { VillageGroup } from './groups';
 import type { SurplusSettings } from './surplus';
@@ -383,6 +384,7 @@ export function createWorld(config: WorldConfig): WorldState {
   state.players[HUMAN_ID]!.home = village.id;
   generateMap(state);
   initBots(state);
+  renameStartVillages(state, nameBots(state));
   nameAllBotVillages(state);
   initDiplomacy(state);
   checkQuests(state);

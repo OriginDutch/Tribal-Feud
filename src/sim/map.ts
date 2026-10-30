@@ -13,6 +13,7 @@ const NAME_A = ['Ald', 'Bran', 'Cor', 'Dirk', 'Ed', 'Fal', 'Gor', 'Hen', 'Ise', 
 const NAME_B = ['ric', 'win', 'mund', 'bert', 'wald', 'helm', 'fried', 'mar', 'old', 'hard', 'win', 'gar', 'dan', 'ulf', 'mer', 'ard'];
 const TITLES = ['', '', '', 'de Rode', 'de Stille', 'van het Woud', 'IJzerhand', 'de Jonge', 'de Oude', 'Bijlslag', 'de Wolf', 'van de Heide'];
 
+/** A placeholder until the bot knows its tier (see nameBots); drawn here so the world stays the same. */
 function botName(state: WorldState): string {
   const a = NAME_A[nextInt(state.rng, 0, NAME_A.length - 1)] ?? 'Ald';
   const b = NAME_B[nextInt(state.rng, 0, NAME_B.length - 1)] ?? 'ric';
@@ -67,7 +68,7 @@ export function generateMap(state: WorldState): void {
     state.players.push({ id, name, isBot: true });
     const [x, y] = freeSpot(radius * 0.9, config.map.minPlayerDistance);
     playerSpots.push([x, y]);
-    const v = createVillage(config, nextId(state), id, `${name}s dorp`, x, y, state.time);
+    const v = createVillage(config, nextId(state), id, `${name}'s dorp`, x, y, state.time);
     state.villages[v.id] = v;
     state.players[id]!.home = v.id;
   }

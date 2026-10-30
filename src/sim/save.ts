@@ -1,4 +1,5 @@
-import { nameAllBotVillages } from './botNames';
+import { nameAllBotVillages, renameNamedVillages } from './botNames';
+import { nameBots, newTribeName } from './names/apply';
 import { assignTiers } from './bots';
 import { rescheduleBotRecruits } from './village';
 import { initDiplomacy } from './tribes';
@@ -15,7 +16,7 @@ import { createVillage } from './village';
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
  * and add a migration from the previous version to MIGRATIONS.
  */
-export const SAVE_VERSION = 19;
+export const SAVE_VERSION = 20;
 
 /** Barbarian growth of worlds made before 28 October 2026: keep it as it was. */
 const OLD_BARB_GROWTH = { capMode: 'fixed', speedScaling: 'linear', startRelative: undefined } as const;
@@ -203,6 +204,20 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
     if (st.treaties) st.treaties = st.treaties.filter((t) => t.status === 'signed');
     for (const m of st.inbox ?? []) if (m.kind === 'treaty' && m.status === 'open') m.status = 'expired';
     return { ...data, version: 19 };
+  },
+  // v19 bots had made-up medieval names from a short list: now gamertags by tier, tribes as players
+  // name them; village names built from those follow. Tribes with you in them keep their name.
+  19: (data) => {
+    const st = data.state;
+    const oldPlayers = nameBots(st);
+    const oldTags = new Map<number, string>();
+    for (const t of Object.values(st.tribes ?? {})) {
+      if (t.leader === HUMAN_ID || t.members.includes(HUMAN_ID)) continue;
+      oldTags.set(t.id, t.tag);
+      [t.name, t.tag] = newTribeName(st, 7000 + t.id);
+    }
+    renameNamedVillages(st, oldPlayers, oldTags);
+    return { ...data, version: 20 };
   },
 };
 
