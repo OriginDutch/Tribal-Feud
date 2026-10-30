@@ -32,6 +32,8 @@ export interface SaveMeta {
   gameTime: number;
   savedAt: number;
   version: number;
+  /** Which world (its seed); saves from before 30 October 2026 lack it (see worldKeyOf). */
+  key?: string;
 }
 
 /** MIGRATIONS[n] upgrades a save from version n to n + 1. */

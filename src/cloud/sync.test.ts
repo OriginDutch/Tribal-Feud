@@ -129,6 +129,17 @@ describe('cloud sync', () => {
     expect(s.docs.size).toBe(0);
   });
 
+  it('a world switched off stays out of automatic saves, but the player can still push it', async () => {
+    const s = setup();
+    await s.sync.setUser(user);
+    s.sync.skip.add('1');
+    await s.sync.offer(world('1', 100), 'auto');
+    await s.sync.offer(world('1', 110), 'now');
+    expect(s.commits()).toBe(0);
+    await s.sync.offer(world('1', 120), 'push');
+    expect(s.commits()).toBe(1);
+  });
+
   it('signed out: nothing happens', async () => {
     const s = setup();
     await s.sync.offer(world('1', 1), 'now');

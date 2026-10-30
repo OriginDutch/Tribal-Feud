@@ -32,7 +32,8 @@ try {
 
   // a world with two villages, so the tabs can differ
   const A = await open();
-  await A.click('button.primary:has-text("Nieuwe wereld")');
+  await A.click('.home-new-top');
+  await A.click('.home-panel-modal button.primary:has-text("Nieuwe wereld")');
   await A.waitForSelector('nav.rail', { timeout: 60_000 });
   await A.keyboard.press('Digit4');
 
@@ -82,7 +83,8 @@ try {
   await solo.addInitScript(() => { delete window.SharedWorker; });
   const S1 = await solo.newPage();
   await S1.goto(URL);
-  await S1.click('button.primary:has-text("Nieuwe wereld")');
+  await S1.click('.home-new-top');
+  await S1.click('.home-panel-modal button.primary:has-text("Nieuwe wereld")');
   await S1.waitForSelector('nav.rail', { timeout: 60_000 });
   const S2 = await solo.newPage();
   await S2.goto(URL);

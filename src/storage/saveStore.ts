@@ -25,7 +25,7 @@ function req<T>(r: IDBRequest<T>): Promise<T> {
   });
 }
 
-const metaOf = ({ slot, worldName, gameTime, savedAt, version }: SaveMeta): SaveMeta => ({ slot, worldName, gameTime, savedAt, version });
+const metaOf = ({ slot, worldName, gameTime, savedAt, version, key }: SaveMeta): SaveMeta => ({ slot, worldName, gameTime, savedAt, version, ...(key !== undefined ? { key } : {}) });
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -78,6 +78,8 @@ export async function putSave(slot: string, data: SaveData, json = JSON.stringif
     savedAt: data.savedAt,
     version: data.version,
   };
+  const seed = (data.state.config as { seed?: unknown } | undefined)?.seed;
+  if (seed !== undefined) meta.key = String(seed);
   const t = await tx('readwrite');
   const record: SaveRecord = { ...meta, data: json };
   t.objectStore(STORE).put(record);

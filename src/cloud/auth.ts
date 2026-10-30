@@ -19,6 +19,13 @@ export interface Account {
 /** null = signed out; undefined = not known yet (or no accounts in this build) */
 export const account = signal<Account | null | undefined>(undefined);
 export const accountOpen = signal(false);
+/** Which form the account window opens with. */
+export const accountMode = signal<'in' | 'up'>('in');
+
+export function openAccount(mode: 'in' | 'up' = 'in'): void {
+  accountMode.value = mode;
+  accountOpen.value = true;
+}
 export const cloudEnabled = FIREBASE !== null;
 
 let authPromise: Promise<{ auth: Auth; mod: typeof import('firebase/auth') }> | null = null;

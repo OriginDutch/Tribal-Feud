@@ -42,20 +42,39 @@ try {
     p.on('console', (m) => { if (m.type() === 'error' && !/the server responded with a status of (400|403|404|409)/.test(m.text())) problems.push(`console error: ${m.text()}`); });
     p.on('dialog', (d) => d.accept());
     await p.goto(URL);
-    await p.waitForSelector('button.account-btn', { timeout: 20_000 });
+    await p.waitForSelector('.home', { timeout: 20_000 });
     return p;
   };
+  const newWorld = async (p, name) => {
+    await p.click('.home-new-top');
+    if (name) await p.fill('.home-panel-modal input >> nth=0', name);
+    await p.click('.home-panel-modal button.primary:has-text("Nieuwe wereld")');
+    await p.waitForSelector('nav.rail', { timeout: 60_000 });
+  };
+  const toStart = async (p) => {
+    await p.click('button.crest');
+    await p.waitForSelector('.home', { timeout: 20_000 });
+  };
+  const row = (p, name) => p.locator(`.world-row:has(.world-open strong:text-is("${name}"))`);
+  const menu = async (p, name, item) => {
+    await row(p, name).locator('.world-more').click();
+    await p.click(`.row-menu button:has-text("${item}")`);
+  };
   const account = async (p, mode, email, password) => {
-    await p.click('button.account-btn');
-    if (mode === 'up') await p.click('.account-form .seg button:has-text("Account maken")');
+    if (await p.locator('.home-auth').count()) await p.click(mode === 'up' ? '.home-auth button.primary' : '.home-auth button.ghost');
+    else {
+      await p.click('button.account-btn');
+      if (mode === 'up') await p.click('.account-form .seg button:has-text("Account maken")');
+    }
     await p.fill('.account-form input[name=email]', email);
     await p.fill('.account-form input[name=password]', password);
     await p.click(`.account-form button.primary`);
     await p.waitForSelector('.account-form:has-text("Ingelogd als")', { timeout: 20_000 });
     await p.keyboard.press('Escape');
   };
-  const cloudState = (p) => p.locator('button.account-btn').getAttribute('class');
-  const cloudAt = (p) => p.locator('button.account-btn').getAttribute('data-cloud-at');
+  const cloudBtn = (p) => p.locator('button.account-btn, button.home-account').first();
+  const cloudState = (p) => cloudBtn(p).getAttribute('class');
+  const cloudAt = (p) => cloudBtn(p).getAttribute('data-cloud-at');
   /** Waits for this state; with `after` set, also for an upload newer than that one. */
   const waitCloud = async (p, state, after = null, ms = 20_000) => {
     const end = Date.now() + ms;
@@ -69,8 +88,7 @@ try {
 
   // device A: a new world and an account; the save button puts it in the cloud
   const A = await device();
-  await A.click('button.primary:has-text("Nieuwe wereld")');
-  await A.waitForSelector('nav.rail', { timeout: 60_000 });
+  await newWorld(A, 'Gedeeld');
   await account(A, 'up', 'speler@test.nl', 'wachtwoord1');
   expect('account made, signed in', (await A.locator('button.account-btn').getAttribute('aria-label')) === 'Account en cloud');
   await A.locator('.speed-seg button').last().click();
@@ -85,8 +103,7 @@ try {
   // device B: same account, the world comes from the cloud
   const B = await device();
   await account(B, 'in', 'speler@test.nl', 'wachtwoord1');
-  await B.waitForSelector('.cloud-saves li:has-text("☁")', { timeout: 20_000 });
-  await B.locator('.cloud-saves li:has-text("☁") button:has-text("Laden")').first().click();
+  await row(B, 'Gedeeld').locator('.world-play:has-text("Downloaden")').click({ timeout: 20_000 });
   await B.waitForSelector('nav.rail', { timeout: 60_000 });
   const timeB = await clock(B);
   expect('the other device loads the cloud world', Math.abs(timeB - timeA) < 600, `A ${timeA}, B ${timeB}`);
@@ -100,23 +117,43 @@ try {
   expect('B uploads its progress on pause', await waitCloud(B, 'ok', b0));
   await A.locator('button.save-btn').click();
   expect('A, further behind, gets a conflict and overwrites nothing', await waitCloud(A, 'conflict'));
+  await toStart(A);
+  expect('the start screen says the cloud is further along', (await row(A, 'Gedeeld').locator('.ws-warn').count()) === 1);
   const a1 = await cloudAt(A);
-  await A.goto(`${URL}#debug`);
-  await A.locator('.cloud-saves button:has-text("Cloud overschrijven")').click();
+  await menu(A, 'Gedeeld', 'Cloud overschrijven');
   expect('…until A chooses to overwrite the cloud', await waitCloud(A, 'ok', a1));
 
   // deleting from the cloud (on the start screen of a third, fresh profile signed in)
   const C = await device();
   await account(C, 'in', 'speler@test.nl', 'wachtwoord1');
-  await C.waitForSelector('.cloud-saves li:has-text("☁")', { timeout: 20_000 });
-  await C.locator('.cloud-saves li:has-text("☁") button:has-text("Verwijder")').first().click();
-  await C.waitForSelector('.cloud-saves li.muted', { timeout: 20_000 });
-  expect('a cloud world can be deleted', (await C.locator('.cloud-saves li:has-text("☁")').count()) === 0);
+  await row(C, 'Gedeeld').waitFor({ timeout: 20_000 });
+  await menu(C, 'Gedeeld', 'Uit de cloud halen');
+  expect('a world only in the cloud warns before it goes', (await C.locator('.home-dialog.danger:has-text("voorgoed weg")').count()) === 1);
+  await C.click('.home-dialog button:has-text("Voorgoed verwijderen")');
+  await C.waitForSelector('.home-worlds .hint:has-text("Nog geen werelden")', { timeout: 20_000 });
+  expect('a cloud world can be deleted', (await row(C, 'Gedeeld').count()) === 0);
+
+  // a full cloud: the fourth world stays local until the player picks one to replace; switched off stays off
+  const E = await device();
+  await account(E, 'up', 'vol@test.nl', 'wachtwoord1');
+  for (const n of ['Een', 'Twee', 'Drie', 'Vier']) { await newWorld(E, n); await toStart(E); }
+  await E.waitForTimeout(1500);
+  expect('three worlds go to the cloud by themselves', (await E.locator('.world-row .ws-ok').count()) === 3, String(await E.locator('.world-row .ws-ok').count()));
+  expect('the fourth stays on this device', (await row(E, 'Vier').locator('.ws-local').count()) === 1);
+  await row(E, 'Vier').locator('.cloud-switch').click();
+  await E.waitForSelector('.home-dialog:has-text("De cloud is vol")');
+  await E.click('.home-dialog li:has-text("Een") button:has-text("Vervangen")');
+  await row(E, 'Vier').locator('.ws-ok').waitFor({ timeout: 20_000 });
+  expect('replacing: the chosen one leaves the cloud, stays here', (await row(E, 'Een').locator('.ws-local').count()) === 1);
+  await row(E, 'Een').locator('.world-play').click();
+  await E.waitForSelector('nav.rail', { timeout: 60_000 });
+  await toStart(E);
+  await E.waitForTimeout(1500);
+  expect('a world switched off does not sneak back into the cloud', (await row(E, 'Een').locator('.ws-local').count()) === 1);
 
   // the admin: confirms the address, sees the accounts with a badge
   const D = await device();
-  await D.click('button.primary:has-text("Nieuwe wereld")');
-  await D.waitForSelector('nav.rail', { timeout: 60_000 });
+  await newWorld(D);
   await account(D, 'up', ADMIN, 'wachtwoord1');
   const codes = await (await fetch(`${AUTH}/emulator/v1/projects/${PROJECT}/oobCodes`)).json();
   const link = codes.oobCodes.filter((c) => c.email === ADMIN && c.requestType === 'VERIFY_EMAIL').pop()?.oobLink;
@@ -135,10 +172,10 @@ try {
   expect('…and not for anyone else', !(await B.locator('.screen-tabs a').allTextContents()).some((t) => t.startsWith('Admin')));
 
   // signing out leaves the local saves alone
-  await A.click('button.account-btn');
+  await cloudBtn(A).click();
   await A.click('.account-form button:has-text("Uitloggen")');
-  await A.waitForSelector('button.account-btn[aria-label="Inloggen"]', { timeout: 10_000 });
-  expect('signed out', true);
+  await A.waitForSelector('.home-auth', { timeout: 10_000 });
+  expect('signed out, the worlds on this device are still there', (await row(A, 'Gedeeld').count()) === 1);
 
   if (RULES) {
     const one = await signUpRest('een@test.nl', 'wachtwoord1');

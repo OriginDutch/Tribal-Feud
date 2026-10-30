@@ -30,8 +30,9 @@ try {
   page.on('console', (m) => { if (m.type() === 'error') problems.push(`console error: ${m.text()}`); });
 
   await page.goto(URL);
-  await page.waitForSelector('text=Nieuwe wereld', { timeout: 20_000 });
-  await page.click('button.primary:has-text("Nieuwe wereld")');
+  await page.waitForSelector('.home-new-top', { timeout: 20_000 });
+  await page.click('.home-new-top');
+  await page.click('.home-panel-modal button.primary:has-text("Nieuwe wereld")');
   await page.waitForSelector('nav.rail', { timeout: 60_000 });
 
   // let the world run for a while at full speed (bots, events, autosave)

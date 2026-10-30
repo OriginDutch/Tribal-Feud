@@ -25,6 +25,7 @@ import { SAVE_VERSION, fromSaveData, toSaveData, type SaveData } from './save';
 import { FIREBASE } from '../cloud/config';
 import { Firestore } from '../cloud/rest';
 import { CloudSync } from '../cloud/sync';
+import { isSafetyCopy, worldKeyOf } from '../shared/worlds';
 import { advance, schedule, scheduleRandom, setPaused, setSpeed } from './simulation';
 import { createWorld, currentVillage, playerVillage, type Player, type WorldState } from './state';
 import { storageCapacity } from './formulas';
@@ -119,6 +120,35 @@ const cloud = new CloudSync(
   (status) => post({ type: 'cloud', status }),
   (worlds) => post({ type: 'cloudWorlds', worlds }),
 );
+
+/** The newest save of a world on this device (not a backup), with its data. */
+async function newestLocal(key: string): Promise<{ slot: string; data: SaveData } | null> {
+  const metas = (await listSaves()).filter((m) => (worldKeyOf(m) === key || `slot:${m.slot}` === key) && !isSafetyCopy(m.slot));
+  const best = metas.sort((a, b) => b.savedAt - a.savedAt)[0];
+  const data = best ? await getSave(best.slot) : undefined;
+  return best && data ? { slot: best.slot, data } : null;
+}
+
+/** A world's newest local save to the cloud (the open world is saved first). */
+async function pushWorld(key: string, when: 'push' | 'force', to: Client | null): Promise<void> {
+  if (state && worldKey(state) === key) return save(autosaveSlot(state), true, to, when);
+  const local = await newestLocal(key);
+  if (!local) return notice('Die wereld staat niet op dit apparaat.', 'error', to);
+  const { data } = local;
+  await cloud.offer({ key, name: data.state.config.name, savedAt: data.savedAt, gameTime: data.state.time, version: data.version, json: JSON.stringify(data) }, when);
+}
+
+/** A cloud world onto this device as its autosave; the local autosave of it is kept as a backup first. */
+async function fetchCloudWorld(slot: string) {
+  const { world, json } = await cloud.download(slot);
+  const data = JSON.parse(json) as SaveData;
+  fromSaveData(data); // throws when it doesn't load: nothing local is touched then
+  const target = `${AUTOSAVE_SLOT}:${world.key}`;
+  const local = await getSave(target);
+  if (local) await putSave(nextBackupSlot(await listSaves(), `${BACKUP_PREFIX}${world.key}:`), local);
+  await putSave(target, data, json);
+  return world;
+}
 
 /** Writes a rolling backup: up to BACKUPS_KEPT per world, the oldest one is replaced. */
 async function backup(): Promise<void> {
@@ -730,7 +760,7 @@ async function postSaves(): Promise<void> {
 }
 
 /** Saves locally; with `cloud` set the same text also goes to the cloud (if signed in; 'auto' at most every few minutes). */
-async function save(slot: string, quiet = false, to: Client | null = null, cloudWhen: 'auto' | 'now' | 'force' | null = null): Promise<void> {
+async function save(slot: string, quiet = false, to: Client | null = null, cloudWhen: 'auto' | 'now' | 'push' | 'force' | null = null): Promise<void> {
   if (!state) return;
   const s = state;
   const data = toSaveData(s, Date.now(), false);
@@ -861,16 +891,39 @@ async function handle(cmd: Command): Promise<void> {
     case 'cloudForce':
       if (state) await save(autosaveSlot(state), true, me, 'force');
       break;
+    case 'cloudPrefs':
+      cloud.skip = new Set(cmd.off);
+      break;
+    case 'cloudPush':
+      await pushWorld(cmd.key, cmd.force ? 'force' : 'push', me);
+      break;
+    case 'cloudReplace': {
+      const local = await newestLocal(cmd.key);
+      if (!local) return notice('Die wereld staat niet op dit apparaat.', 'error', me);
+      await cloud.remove(cmd.slot);
+      await pushWorld(cmd.key, 'push', me);
+      break;
+    }
+    case 'cloudDownload': {
+      const world = await fetchCloudWorld(cmd.slot);
+      notice(`"${world.name}" staat nu ook op dit apparaat.`, 'info', me);
+      await postSaves();
+      break;
+    }
+    case 'deleteWorld': {
+      if (state && worldKey(state) === cmd.key) return notice('Deze wereld is nu open. Ga eerst terug naar het startscherm.', 'error', me);
+      for (const m of await listSaves()) if (worldKeyOf(m) === cmd.key || `slot:${m.slot}` === cmd.key) await deleteSave(m.slot);
+      await postSaves();
+      break;
+    }
+    case 'closeWorld':
+      if (state) await save(autosaveSlot(state), true, me, 'now');
+      state = null;
+      for (const c of clients) c.current = null;
+      break;
     case 'cloudLoad': {
-      const { world, json } = await cloud.download(cmd.slot);
-      const data = JSON.parse(json) as SaveData;
-      fromSaveData(data); // throws when it doesn't load: nothing local is touched then
-      const slot = `${AUTOSAVE_SLOT}:${world.key}`;
-      // the local autosave of this world is kept as a backup before the cloud copy replaces it
-      const local = await getSave(slot);
-      if (local) await putSave(nextBackupSlot(await listSaves(), `${BACKUP_PREFIX}${world.key}:`), local);
-      await putSave(slot, data, json);
-      await handle({ type: 'load', slot });
+      const world = await fetchCloudWorld(cmd.slot);
+      await handle({ type: 'load', slot: `${AUTOSAVE_SLOT}:${world.key}` });
       break;
     }
     case 'deleteSave':
@@ -1436,7 +1489,7 @@ function onCommand(c: Client, cmd: Command): void {
   // the synchronous part of the command has run: this tab's village is what it chose now
   if (state && !fromSettled) c.current = state.current ?? null;
   // a new or loaded world: every tab starts at its first village
-  if (cmd.type === 'newWorld' || cmd.type === 'load') void done.then(() => { for (const x of clients) x.current = state?.current ?? null; postSnapshot(); });
+  if (cmd.type === 'newWorld' || cmd.type === 'load' || cmd.type === 'cloudLoad' || cmd.type === 'closeWorld') void done.then(() => { for (const x of clients) x.current = state?.current ?? null; postSnapshot(); });
   from = null;
 }
 
