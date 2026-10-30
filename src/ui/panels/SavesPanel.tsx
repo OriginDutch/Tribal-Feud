@@ -85,7 +85,7 @@ export function SavesPanel() {
     <section class="panel">
       <h2>Saves</h2>
       <div class="row">
-        <button disabled={!snapshot.value} onClick={() => send({ type: 'save', slot: 'handmatig' })}>
+        <button disabled={!snapshot.value} onClick={() => send({ type: 'saveWorld' })}>
           Opslaan
         </button>
         <button title="Een save-bestand (.json) inlezen; bestaande saves blijven staan" onClick={pickFile}>

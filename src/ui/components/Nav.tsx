@@ -23,16 +23,28 @@ export function groupBadge(g: MenuGroup): Badge {
   return { n: list.reduce((s, b) => s + b.n, 0), kind: list.some((b) => b.kind === 'danger') ? 'danger' : 'good' };
 }
 
+/**
+ * A screen link: a click opens the screen here; Ctrl/Cmd/Shift-click, a middle click or "open in
+ * new tab" opens it in a new tab of the same world (the screen is in the address, see store).
+ */
+export function go(e: MouseEvent, to: Screen, after?: () => void): void {
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
+  e.preventDefault();
+  after?.();
+  screen.value = to;
+}
+
 function RailButton({ g, active }: { g: MenuGroup; active: boolean }) {
   const badge = groupBadge(g);
   const key = keyHint(`group:${g.id}`);
+  const to = g.tabs[0]!.screen;
   return (
-    <button class={`rail-item ${active ? 'active' : ''}`} aria-label={g.label} aria-current={active ? 'page' : undefined} onClick={() => { buildingsMenuOpen.value = false; screen.value = g.tabs[0]!.screen; }}>
+    <a href={`#${to}`} class={`rail-item ${active ? 'active' : ''}`} aria-label={g.label} aria-current={active ? 'page' : undefined} onClick={(e) => go(e, to, () => (buildingsMenuOpen.value = false))}>
       {key && <small class="rail-key" aria-hidden="true">{key}</small>}
       <NavIcon name={g.icon} size={20} />
       <span class="rail-label">{g.label}</span>
       {badge && <span class={`rail-badge ${badge.kind}`}>{badge.n}</span>}
-    </button>
+    </a>
   );
 }
 
@@ -60,12 +72,12 @@ function BuildingsMenu({ anchor }: { anchor: HTMLElement | null }) {
         const lvl = v.buildings.find((x) => x.id === b.building)?.level ?? 0;
         const key = keyHint(`building:${b.building}`);
         return (
-          <button key={b.screen} role="menuitem" class={`bmenu-item ${screen.value === b.screen ? 'active' : ''} ${lvl === 0 ? 'unbuilt' : ''}`}
-            onClick={() => { buildingsMenuOpen.value = false; screen.value = b.screen; }}>
+          <a key={b.screen} href={`#${b.screen}`} role="menuitem" class={`bmenu-item ${screen.value === b.screen ? 'active' : ''} ${lvl === 0 ? 'unbuilt' : ''}`}
+            onClick={(e) => go(e, b.screen, () => (buildingsMenuOpen.value = false))}>
             <NavIcon name={b.screen} size={18} />
             <span>{b.label}</span>
             <small>{key ? <kbd>{key}</kbd> : null} {lvl ? `lv ${lvl}` : 'niet gebouwd'}</small>
-          </button>
+          </a>
         );
       })}
     </div>
@@ -108,10 +120,10 @@ export function ScreenTabs() {
         const b = screenBadge(t.screen);
         const on = t.screen === screen.value;
         return (
-          <button key={t.screen} role="tab" aria-selected={on} class={on ? 'on' : ''} onClick={() => (screen.value = t.screen)}>
+          <a key={t.screen} href={`#${t.screen}`} role="tab" aria-selected={on} class={on ? 'on' : ''} onClick={(e) => go(e, t.screen)}>
             {t.label}
             {b && b.kind !== 'plain' && <span class={`tab-badge ${b.kind}`}>{b.n}</span>}
-          </button>
+          </a>
         );
       })}
     </div>

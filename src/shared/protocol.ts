@@ -31,6 +31,8 @@ export type Command =
   | { type: 'scheduleTest'; delayMs: number; autoPause: boolean }
   | { type: 'scheduleRandom' }
   | { type: 'save'; slot: string }
+  /** Saves the world in its own manual slot (one per world, overwritten each time). */
+  | { type: 'saveWorld' }
   | { type: 'load'; slot: string }
   | { type: 'deleteSave'; slot: string }
   | { type: 'listSaves' }
@@ -574,6 +576,8 @@ export const AUTOSAVE_SLOT = 'autosave';
 /** Rolling backups per world (the last BACKUPS_KEPT), and the original of a save before an update migrated it. */
 export const BACKUP_PREFIX = 'backup:';
 export const UPDATE_PREFIX = 'update:';
+/** The manual save of a world: one per world. */
+export const MANUAL_PREFIX = 'handmatig:';
 export const BACKUPS_KEPT = 5;
 
 /** The slot for the next rolling backup: a free number up to `kept`, else the oldest one. */
@@ -587,6 +591,7 @@ export function nextBackupSlot(existing: { slot: string; savedAt: number }[], pr
 /** How a slot is shown: autosaves, backups and pre-update copies get a readable name. */
 export function slotLabel(slot: string, version?: number): string {
   if (slot === AUTOSAVE_SLOT || slot.startsWith(`${AUTOSAVE_SLOT}:`)) return 'Autosave';
+  if (slot.startsWith(MANUAL_PREFIX)) return 'Handmatig';
   if (slot.startsWith(BACKUP_PREFIX)) return `Backup ${slot.split(':')[2] ?? ''}`.trim();
   if (slot.startsWith(UPDATE_PREFIX)) return `Voor update (v${version ?? slot.split(':v')[1] ?? '?'})`;
   return slot;

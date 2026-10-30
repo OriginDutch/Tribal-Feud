@@ -17,7 +17,7 @@ import { dutyOf } from './duties';
 import type { TalksView } from '../shared/protocol';
 import { farmCUnits } from './intel';
 import { createConfig, validateConfig } from '../shared/config';
-import { AUTOSAVE_SLOT, BACKUP_PREFIX, UPDATE_PREFIX, nextBackupSlot, type Command, type Snapshot, type WorkerMessage } from '../shared/protocol';
+import { AUTOSAVE_SLOT, BACKUP_PREFIX, MANUAL_PREFIX, UPDATE_PREFIX, nextBackupSlot, type Command, type Snapshot, type WorkerMessage } from '../shared/protocol';
 import { DAY, SECOND } from '../shared/time';
 import { deleteSave, getSave, listSaves, putSave } from '../storage/saveStore';
 import { randomSeed } from './rng';
@@ -810,6 +810,10 @@ async function handle(cmd: Command): Promise<void> {
       break;
     case 'save':
       await save(cmd.slot, false, me);
+      break;
+    case 'saveWorld':
+      if (state) await save(`${MANUAL_PREFIX}${worldKey(state)}`, true, me);
+      notice('Wereld opgeslagen.', 'info', me);
       break;
     case 'load': {
       const data = await getSave(cmd.slot);
