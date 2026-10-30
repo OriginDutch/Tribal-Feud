@@ -55,9 +55,14 @@ try {
     await p.keyboard.press('Escape');
   };
   const cloudState = (p) => p.locator('button.account-btn').getAttribute('class');
-  const waitCloud = async (p, state, ms = 20_000) => {
+  const cloudAt = (p) => p.locator('button.account-btn').getAttribute('data-cloud-at');
+  /** Waits for this state; with `after` set, also for an upload newer than that one. */
+  const waitCloud = async (p, state, after = null, ms = 20_000) => {
     const end = Date.now() + ms;
-    while (Date.now() < end) { if ((await cloudState(p))?.includes(`cloud-${state}`)) return true; await p.waitForTimeout(200); }
+    while (Date.now() < end) {
+      if ((await cloudState(p))?.includes(`cloud-${state}`) && (after === null || (await cloudAt(p)) !== after)) return true;
+      await p.waitForTimeout(200);
+    }
     return false;
   };
   const clock = async (p) => secs(await p.locator('.clock-time').first().textContent());
@@ -72,8 +77,9 @@ try {
   await A.locator('button.play[aria-label="Start"]').click();
   await A.waitForTimeout(2500);
   await A.locator('button.play[aria-label="Pauze"]').click();
+  const a0 = await cloudAt(A);
   await A.locator('button.save-btn').click();
-  expect('the save button uploads (cloud ok)', await waitCloud(A, 'ok'));
+  expect('the save button uploads (cloud ok)', await waitCloud(A, 'ok', a0));
   const timeA = await clock(A);
 
   // device B: same account, the world comes from the cloud
@@ -89,10 +95,15 @@ try {
   await B.locator('.speed-seg button').last().click();
   await B.locator('button.play[aria-label="Start"]').click();
   await B.waitForTimeout(4000);
+  const b0 = await cloudAt(B);
   await B.locator('button.play[aria-label="Pauze"]').click();
-  expect('B uploads its progress on pause', await waitCloud(B, 'ok'));
+  expect('B uploads its progress on pause', await waitCloud(B, 'ok', b0));
   await A.locator('button.save-btn').click();
   expect('A, further behind, gets a conflict and overwrites nothing', await waitCloud(A, 'conflict'));
+  const a1 = await cloudAt(A);
+  await A.goto(`${URL}#debug`);
+  await A.locator('.cloud-saves button:has-text("Cloud overschrijven")').click();
+  expect('…until A chooses to overwrite the cloud', await waitCloud(A, 'ok', a1));
 
   // deleting from the cloud (on the start screen of a third, fresh profile signed in)
   const C = await device();

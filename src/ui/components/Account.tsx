@@ -30,7 +30,7 @@ export function AccountButton() {
   const s = cloudStatus.value;
   const warn = s.state === 'error' || s.state === 'full' || s.state === 'conflict';
   return (
-    <button class={`account-btn ${a ? `cloud-${s.state}` : ''}`} onClick={() => (accountOpen.value = true)} title={a ? `${a.email} · ${cloudLine(s)}` : 'Inloggen voor saves in de cloud'} aria-label={a ? 'Account en cloud' : 'Inloggen'}>
+    <button class={`account-btn ${a ? `cloud-${s.state}` : ''}`} data-cloud-at={s.at ?? ''} onClick={() => (accountOpen.value = true)} title={a ? `${a.email} · ${cloudLine(s)}` : 'Inloggen voor saves in de cloud'} aria-label={a ? 'Account en cloud' : 'Inloggen'}>
       {a ? (
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">
           <path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 9.5 4.25 4.25 0 0 0 7 18z" />

@@ -34,6 +34,11 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      - name: Emulator download cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ hashFiles('package-lock.json') }}
       - name: Accounts and cloud saves (Firebase emulators, with the real security rules)
         # the log of a failure also goes into an annotation (readable without the full job log)
         shell: bash
