@@ -1,6 +1,6 @@
 import { SPEEDS, formatGameTime } from '../../shared/time';
 import { num } from '../format';
-import { paletteOpen, send, snapshot, togglePause } from '../store';
+import { confirmAllTabs, paletteOpen, send, snapshot, togglePause } from '../store';
 import { NavIcon } from './NavIcon';
 import { VillageSwitcher } from './VillageSwitcher';
 import { AccountButton } from './Account';
@@ -58,12 +58,18 @@ export function TopBar() {
   const hasVillage = s?.village != null;
   return (
     <header class="topbar">
-      <div class="crest" title={s ? `Tribal Feud · ${s.worldName}` : 'Tribal Feud'}>
+      <button
+        type="button"
+        class="crest"
+        title="Naar het startscherm"
+        aria-label="Naar het startscherm"
+        onClick={() => { if (confirmAllTabs('Terug naar het startscherm')) send({ type: 'closeWorld' }); }}
+      >
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 2 L20 6 V12 C20 17 16 20.5 12 22 C8 20.5 4 17 4 12 V6 Z" fill="none" stroke="currentColor" stroke-width="1.8" />
           <path d="M8 11 L12 7 L16 11 M12 7 V17" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" />
         </svg>
-      </div>
+      </button>
       {hasVillage ? <VillageSwitcher /> : <span class="brand-name">Tribal Feud</span>}
       {hasVillage && (
         <div class="res-tiles">

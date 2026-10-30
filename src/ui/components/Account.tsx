@@ -3,7 +3,7 @@
  * the cloud is up to date, sign out. Only there when this build has accounts.
  */
 import { useEffect, useState } from 'preact/hooks';
-import { account, accountOpen, authError, cloudEnabled, reloadUser, resendVerification, resetPassword, signIn, signOut, signUp } from '../../cloud/auth';
+import { account, accountMode, accountOpen, authError, cloudEnabled, reloadUser, resendVerification, resetPassword, signIn, signOut, signUp } from '../../cloud/auth';
 import { MAX_WORLDS } from '../../cloud/config';
 import type { CloudStatus } from '../../cloud/sync';
 import { cloudStatus, cloudWorlds, showNotice } from '../store';
@@ -50,7 +50,7 @@ export function AccountButton() {
 }
 
 function SignInForm() {
-  const [mode, setMode] = useState<'in' | 'up' | 'reset'>('in');
+  const [mode, setMode] = useState<'in' | 'up' | 'reset'>(accountMode.value);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');

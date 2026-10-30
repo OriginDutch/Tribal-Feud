@@ -41,6 +41,18 @@ export type Command =
   | { type: 'cloudDelete'; slot: string }
   /** Upload the current world even if the cloud copy is further along. */
   | { type: 'cloudForce' }
+  /** Worlds this device keeps out of the cloud. */
+  | { type: 'cloudPrefs'; off: string[] }
+  /** Put a world's newest local save in the cloud (force: also over a copy that is further along). */
+  | { type: 'cloudPush'; key: string; force: boolean }
+  /** Cloud full: this cloud world makes room for that local one. */
+  | { type: 'cloudReplace'; slot: string; key: string }
+  /** Fetch a cloud world to this device without opening it. */
+  | { type: 'cloudDownload'; slot: string }
+  /** Every local save of a world (not the open one). */
+  | { type: 'deleteWorld'; key: string }
+  /** Save and close the open world: back to the start screen. */
+  | { type: 'closeWorld' }
   | { type: 'load'; slot: string }
   | { type: 'deleteSave'; slot: string }
   | { type: 'listSaves' }

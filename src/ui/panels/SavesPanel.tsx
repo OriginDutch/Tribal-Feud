@@ -27,7 +27,7 @@ function download(name: string, records: ExportRecord[]): void {
 
 const fileSafe = (s: string) => s.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'save';
 
-async function exportSlots(slots: string[]): Promise<void> {
+export async function exportSlots(slots: string[]): Promise<void> {
   const records: ExportRecord[] = [];
   for (const slot of slots) {
     const data = await getSave(slot);
@@ -73,7 +73,7 @@ async function importFile(file: File): Promise<void> {
   notice.value = { text: `${records.length} save${records.length === 1 ? '' : 's'} geïmporteerd.`, level: 'info' };
 }
 
-function pickFile(): void {
+export function pickFile(): void {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.json,application/json';
@@ -84,7 +84,7 @@ function pickFile(): void {
   input.click();
 }
 
-export function SavesPanel() {
+export function SavesPanel({ cloud = true }: { cloud?: boolean } = {}) {
   const list = saves.value;
   return (
     <section class="panel">
@@ -103,7 +103,7 @@ export function SavesPanel() {
         )}
       </div>
       <SaveList list={list.filter((x) => !isSafetyCopy(x.slot))} empty="Nog geen saves." />
-      <CloudSaves />
+      {cloud && <CloudSaves />}
       {list.some((x) => isSafetyCopy(x.slot)) && (
         <details class="save-backups">
           <summary>Backups ({list.filter((x) => isSafetyCopy(x.slot)).length})</summary>

@@ -88,6 +88,8 @@ export class CloudSync {
   private last = new Map<string, number>();
   /** per world key: the cloud copy we know is ours (uploaded or loaded this session) */
   private known = new Map<string, number>();
+  /** worlds this device keeps out of the cloud (the player switched them off) */
+  skip = new Set<string>();
   private running: Promise<void> | null = null;
   private queued: { up: Upload; force: boolean } | null = null;
 
@@ -141,10 +143,12 @@ export class CloudSync {
 
   /**
    * After a local save. `auto` saves go up at most every CLOUD_EVERY_MS per world;
-   * `now` (pause, save button, hidden tab) goes up right away; `force` also overwrites a cloud copy that is further along.
+   * `now` (pause, save button, hidden tab) goes up right away; both leave out worlds switched off on this device.
+   * `push` is the player putting a world in the cloud; `force` also overwrites a cloud copy that is further along.
    */
-  offer(up: Upload, when: 'auto' | 'now' | 'force'): Promise<void> {
+  offer(up: Upload, when: 'auto' | 'now' | 'push' | 'force'): Promise<void> {
     if (!this.user) return Promise.resolve();
+    if ((when === 'auto' || when === 'now') && this.skip.has(up.key)) return Promise.resolve();
     if (when === 'auto' && this.now() - (this.last.get(up.key) ?? -Infinity) < CLOUD_EVERY_MS) return Promise.resolve();
     // one upload at a time; while one runs only the newest waiting save is kept
     this.queued = { up, force: when === 'force' || (this.queued?.force ?? false) };
@@ -175,7 +179,7 @@ export class CloudSync {
     }
     const slot = mine?.slot ?? SLOTS.find((s) => !worlds.some((w) => w.slot === s));
     if (!slot) {
-      this.set('full', `De cloud is vol (${MAX_WORLDS} werelden). Verwijder er een in Saves om "${up.name}" te bewaren.`);
+      this.set('full', `De cloud is vol (${MAX_WORLDS} werelden): "${up.name}" staat alleen op dit apparaat. Kies op het startscherm welke werelden in de cloud staan.`);
       return;
     }
     const bytes = await gzip(up.json);

@@ -125,7 +125,7 @@ export function App() {
 
   return (
     <>
-      <TopBar />
+      {hasWorld && <TopBar />}
       {/* overlays: they float over the page so nothing below them moves */}
       <div class="overlays">
         {paused && (
