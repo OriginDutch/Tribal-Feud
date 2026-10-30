@@ -24,9 +24,15 @@ export type Command =
   | { type: 'setSpeed'; speed: Speed }
   | { type: 'setPaused'; paused: boolean }
   | { type: 'setVisible'; visible: boolean }
+  /** A tab closes (shared worker: it stops getting messages). */
+  | { type: 'bye' }
+  /** A tab (re)opens: the village it showed before (kept per tab in the browser). */
+  | { type: 'hello'; village: number | null }
   | { type: 'scheduleTest'; delayMs: number; autoPause: boolean }
   | { type: 'scheduleRandom' }
   | { type: 'save'; slot: string }
+  /** Saves the world in its own manual slot (one per world, overwritten each time). */
+  | { type: 'saveWorld' }
   | { type: 'load'; slot: string }
   | { type: 'deleteSave'; slot: string }
   | { type: 'listSaves' }
@@ -425,6 +431,8 @@ export interface Snapshot {
   /** World speed settings, for display. */
   multipliers: { world: number; production: number; build: number; recruit: number; farm: number };
   log: LogEntry[];
+  /** Open tabs of the game on this world. */
+  tabs: number;
   /** The latest world news, newest first (for the ticker). */
   news: import('../sim/news').NewsItem[];
   /** Where you are (centre of your villages), for news "near me". */
@@ -560,12 +568,16 @@ export type WorkerMessage =
   | { type: 'farmAllPlan'; plan: FarmAllView }
   | { type: 'mintPlan'; rows: { id: number; name: string; x: number; y: number; coins: number }[]; keep: number }
   | { type: 'player'; player: PlayerView | null }
-  | { type: 'notice'; level: 'info' | 'error'; text: string };
+  | { type: 'notice'; level: 'info' | 'error'; text: string }
+  /** Another simulation already runs (another tab, maybe another version): this one does nothing. */
+  | { type: 'blocked' };
 
 export const AUTOSAVE_SLOT = 'autosave';
 /** Rolling backups per world (the last BACKUPS_KEPT), and the original of a save before an update migrated it. */
 export const BACKUP_PREFIX = 'backup:';
 export const UPDATE_PREFIX = 'update:';
+/** The manual save of a world: one per world. */
+export const MANUAL_PREFIX = 'handmatig:';
 export const BACKUPS_KEPT = 5;
 
 /** The slot for the next rolling backup: a free number up to `kept`, else the oldest one. */
@@ -579,6 +591,7 @@ export function nextBackupSlot(existing: { slot: string; savedAt: number }[], pr
 /** How a slot is shown: autosaves, backups and pre-update copies get a readable name. */
 export function slotLabel(slot: string, version?: number): string {
   if (slot === AUTOSAVE_SLOT || slot.startsWith(`${AUTOSAVE_SLOT}:`)) return 'Autosave';
+  if (slot.startsWith(MANUAL_PREFIX)) return 'Handmatig';
   if (slot.startsWith(BACKUP_PREFIX)) return `Backup ${slot.split(':')[2] ?? ''}`.trim();
   if (slot.startsWith(UPDATE_PREFIX)) return `Voor update (v${version ?? slot.split(':v')[1] ?? '?'})`;
   return slot;

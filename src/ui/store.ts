@@ -16,7 +16,17 @@ export const saves = signal<SaveMeta[]>([]);
 /** Set when an event auto-paused the game; cleared when the player resumes. */
 export const autoPause = signal<LogEntry | null>(null);
 export const notice = signal<{ text: string; level: 'info' | 'error' } | null>(null);
-export const screen = signal<Screen>('overview');
+const SCREENS = ['overview', 'villages', 'manager', 'main', 'barracks', 'stable', 'garage', 'statue', 'snob', 'smith', 'map', 'place', 'market', 'farm', 'reports', 'quests', 'ranking', 'tribes', 'inbox', 'support', 'player', 'debug', 'building', 'relations', 'stats', 'simulator', 'scavenge', 'news', 'settings'] as const satisfies readonly Screen[];
+export const screen = signal<Screen>(screenFromHash() ?? 'overview');
+function screenFromHash(): Screen | null {
+  const h = typeof location !== 'undefined' ? decodeURIComponent(location.hash.slice(1)) : '';
+  return (SCREENS as readonly string[]).includes(h) ? (h as Screen) : null;
+}
+// each tab shows its screen in the address: a reload or a duplicated tab opens the same screen
+if (typeof window !== 'undefined') {
+  screen.subscribe((s) => { if (location.hash.slice(1) !== s) history.replaceState(null, '', `#${s}`); });
+  window.addEventListener('hashchange', () => { const s = screenFromHash(); if (s && s !== screen.value) screen.value = s; });
+}
 /** The Ctrl+K search. */
 export const paletteOpen = signal(false);
 /** The building shown on the 'building' screen. */
@@ -145,10 +155,45 @@ export const mapFocus = signal<{ owner?: number; tribe?: number; x?: number; y?:
 /** Village selected on the map. */
 export const selectedVillage = signal<number | null>(null);
 
-const worker = new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' });
+/**
+ * The simulation. Where the browser can, one SharedWorker for all tabs of the game (one world,
+ * each tab its own screen and village); otherwise a Worker per tab.
+ */
+const port: { postMessage(cmd: Command): void; onmessage: ((e: MessageEvent<WorkerMessage>) => void) | null } = (() => {
+  if (typeof SharedWorker !== 'undefined') {
+    const w = new SharedWorker(new URL('../sim/worker.ts', import.meta.url), { type: 'module', name: 'tribal-feud' });
+    w.port.start();
+    window.addEventListener('pagehide', () => w.port.postMessage({ type: 'bye' } satisfies Command));
+    return w.port as never;
+  }
+  return new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' }) as never;
+})();
 
 export function send(cmd: Command): void {
-  worker.postMessage(cmd);
+  port.postMessage(cmd);
+}
+
+/** Another simulation runs (other tabs, maybe of an older version): this tab can't play. */
+export const blocked = signal(false);
+
+// --- per tab: its village and its screen survive a reload (sessionStorage is per tab) ---------
+const TAB_VILLAGE = 'tf-tab-village';
+let lastVillage: number | null = null;
+function rememberVillage(id: number | null): void {
+  if (id === null || id === lastVillage) return;
+  lastVillage = id;
+  try { if (id === null) sessionStorage.removeItem(TAB_VILLAGE); else sessionStorage.setItem(TAB_VILLAGE, String(id)); } catch { /* fine */ }
+}
+(() => {
+  let v: number | null = null;
+  try { const raw = sessionStorage.getItem(TAB_VILLAGE); v = raw === null ? null : Number(raw); } catch { /* fine */ }
+  send({ type: 'hello', village: v !== null && Number.isFinite(v) ? v : null });
+})();
+
+/** Asks before something that changes the world in every open tab. */
+export function confirmAllTabs(what: string): boolean {
+  const n = snapshot.value?.tabs ?? 1;
+  return n < 2 || window.confirm(`${what} verandert de wereld in alle ${n} open tabbladen. Doorgaan?`);
 }
 
 let noticeTimer: number | undefined;
@@ -158,11 +203,15 @@ export function showNotice(text: string, level: 'info' | 'error'): void {
   noticeTimer = window.setTimeout(() => (notice.value = null), level === 'error' ? 6000 : 3000);
 }
 
-worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
+port.onmessage = (e: MessageEvent<WorkerMessage>) => {
   const msg = e.data;
   switch (msg.type) {
     case 'snapshot':
       snapshot.value = msg.snapshot;
+      rememberVillage(msg.snapshot?.village?.id ?? null);
+      break;
+    case 'blocked':
+      blocked.value = true;
       break;
     case 'autoPaused':
       autoPause.value = msg.entry;
@@ -227,7 +276,7 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
   }
 };
 
-worker.onerror = (e) => showNotice(`Worker-fout: ${e.message}`, 'error');
+// worker errors show up as notices from the worker itself (a SharedWorker has no onerror on the page side)
 
 document.addEventListener('visibilitychange', () => {
   send({ type: 'setVisible', visible: document.visibilityState === 'visible' });

@@ -3,6 +3,7 @@ import { num } from '../format';
 import { paletteOpen, send, snapshot, togglePause } from '../store';
 import { NavIcon } from './NavIcon';
 import { VillageSwitcher } from './VillageSwitcher';
+import { keyLabel, keyOf } from '../keys';
 
 const RES = [
   { key: 'wood', name: 'Hout' },
@@ -99,6 +100,13 @@ export function TopBar() {
                 <rect x="14" y="4" width="5" height="16" rx="1" fill="currentColor" />
               </svg>
             )}
+          </button>
+          <button class="save-btn" onClick={() => send({ type: 'saveWorld' })} title={`Wereld opslaan (${keyLabel(keyOf('save'))})`} aria-label="Wereld opslaan">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 3h11l3 3v15H5z" />
+              <path d="M8 3v6h8V3" />
+              <rect x="8" y="13" width="8" height="6" rx="1" />
+            </svg>
           </button>
           {s.suspended && <span class="muted">tab verborgen</span>}
         </div>

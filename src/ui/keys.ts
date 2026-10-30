@@ -39,6 +39,7 @@ export const ACTIONS: KeyAction[] = [
   { id: 'prevVillage', label: 'Vorig dorp', group: 'Algemeen', def: 'KeyA', run: () => stepVillage(-1) },
   { id: 'nextVillage', label: 'Volgend dorp', group: 'Algemeen', def: 'KeyD', run: () => stepVillage(1) },
   { id: 'palette', label: 'Zoeken', group: 'Algemeen', def: 'Ctrl+KeyK', run: () => (paletteOpen.value = !paletteOpen.value) },
+  { id: 'save', label: 'Wereld opslaan', group: 'Algemeen', def: 'Ctrl+KeyS', run: () => send({ type: 'saveWorld' }) },
   { id: 'speedUp', label: 'Sneller', group: 'Algemeen', def: 'Equal', run: () => stepSpeed(1) },
   { id: 'speedDown', label: 'Langzamer', group: 'Algemeen', def: 'Minus', run: () => stepSpeed(-1) },
   ...GROUPS.map((g, i): KeyAction => ({ id: `group:${g.id}`, label: g.label, group: 'Hoofdmenu', def: `Digit${i + 1}`, run: go(g.tabs[0]!.screen) })),

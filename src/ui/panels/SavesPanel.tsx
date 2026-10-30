@@ -3,7 +3,7 @@ import type { SaveMeta } from '../../sim/save';
 import { formatGameTime } from '../../shared/time';
 import { fromSaveData, type SaveData } from '../../sim/save';
 import { getSave, listSaves, putSave } from '../../storage/saveStore';
-import { autoPause, notice, saves, send, snapshot } from '../store';
+import { autoPause, confirmAllTabs, notice, saves, send, snapshot } from '../store';
 
 /** File format: a list of { slot, data } records (the same as a raw IndexedDB dump). */
 interface ExportRecord {
@@ -85,7 +85,7 @@ export function SavesPanel() {
     <section class="panel">
       <h2>Saves</h2>
       <div class="row">
-        <button disabled={!snapshot.value} onClick={() => send({ type: 'save', slot: 'handmatig' })}>
+        <button disabled={!snapshot.value} onClick={() => send({ type: 'saveWorld' })}>
           Opslaan
         </button>
         <button title="Een save-bestand (.json) inlezen; bestaande saves blijven staan" onClick={pickFile}>
@@ -131,6 +131,7 @@ function SaveList({ list, empty }: { list: SaveMeta[]; empty: string }) {
           <div class="row">
             <button
               onClick={() => {
+                if (!confirmAllTabs('Deze save laden')) return;
                 autoPause.value = null;
                 send({ type: 'load', slot: save.slot });
               }}

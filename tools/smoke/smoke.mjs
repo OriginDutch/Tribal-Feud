@@ -47,13 +47,13 @@ try {
     if (!h2) problems.push(`screen "${what}" shows no title`);
     opened++;
   };
-  const groups = await page.locator('nav.rail button.rail-item[aria-label]:not([aria-haspopup])').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+  const groups = await page.locator('nav.rail a.rail-item[aria-label]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
   for (const label of groups) {
-    await page.locator(`nav.rail button[aria-label="${label}"]`).click();
+    await page.locator(`nav.rail a[aria-label="${label}"]`).click();
     await check(label);
-    const tabs = await page.locator('.screen-tabs button').evaluateAll((els) => els.map((e) => e.textContent));
+    const tabs = await page.locator('.screen-tabs a').evaluateAll((els) => els.map((e) => e.textContent));
     for (let i = 1; i < tabs.length; i++) {
-      await page.locator('.screen-tabs button').nth(i).click();
+      await page.locator('.screen-tabs a').nth(i).click();
       await check(`${label} › ${tabs[i]}`);
     }
   }
@@ -69,8 +69,8 @@ try {
   const items = { length: opened };
 
   // manual save shows up in the list
-  await page.locator('nav.rail button[aria-label="Instellingen"]').click();
-  await page.locator('.screen-tabs button:has-text("Log")').click();
+  await page.locator('nav.rail a[aria-label="Instellingen"]').click();
+  await page.locator('.screen-tabs a:has-text("Log")').click();
   await page.click('button:has-text("Opslaan")');
   await page.waitForSelector('ul.saves li:has-text("handmatig")', { timeout: 10_000 });
 
