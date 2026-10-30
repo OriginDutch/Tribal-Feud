@@ -284,8 +284,8 @@ export function StartScreen() {
   return (
     <div class="home">
       <picture class="home-art" aria-hidden="true">
-        <source media="(max-width: 700px)" srcset="/home/hero-tall.webp" />
-        <img src="/home/hero-wide.webp" alt="" />
+        <source media="(max-width: 700px)" srcset="/home/hero-tall-full.webp" />
+        <img src="/home/hero-wide-full.webp" alt="" />
       </picture>
       <div class="home-shade" aria-hidden="true" />
       <div class="home-inner">
