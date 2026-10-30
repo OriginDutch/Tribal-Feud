@@ -1235,6 +1235,15 @@ async function handle(cmd: Command): Promise<void> {
     case 'getMap':
       if (state) post({ type: 'map', map: mapData(state) });
       return;
+    case 'setMark': {
+      if (!state) return;
+      const marks = (state.mapMarks ??= { players: {}, tribes: {} });
+      const list = cmd.target === 'player' ? marks.players : marks.tribes;
+      if (cmd.color && /^#[0-9a-f]{6}$/i.test(cmd.color)) list[cmd.id] = cmd.color;
+      else delete list[cmd.id];
+      post({ type: 'map', map: mapData(state) });
+      return;
+    }
     case 'getRanking':
       if (state) sendRanking(state);
       return;

@@ -160,8 +160,12 @@ function keep(tier: number): string {
   return s;
 }
 
-/** One village on its field. `ring`: the owner's colour around it, for players. */
+/** Barbarians: weathered grey roofs and no banner, so players' villages stand out. */
+const BARB = { roofs: ['#8f8b84', '#7b7770', '#9d988f', '#a9a49a'], thatch: '#a39e94', dirt: '#857f75' };
+
+/** One village on its field. `ring`: the owner's colour around it, for players (barbarians: none, and grey). */
 export function village(tier: number, color: string, seed: number, ring: boolean): string {
+  const barb = !ring;
   const R = rng(seed * 97 + tier * 13);
   const rx = [16, 20, 23, 25, 26, 27][tier] ?? 16;
   const ry = rx * 0.62;
@@ -170,7 +174,7 @@ export function village(tier: number, color: string, seed: number, ring: boolean
     const r = Math.min(30, rx + 3.5);
     s += `<ellipse cx="${CX}" cy="${CY}" rx="${r}" ry="${r * 0.62}" fill="none" stroke="${color}" stroke-width="3.4"/>`;
   }
-  s += `<ellipse cx="${CX}" cy="${CY}" rx="${rx}" ry="${ry}" fill="${P.dirt}" opacity="0.55"/>`;
+  s += `<ellipse cx="${CX}" cy="${CY}" rx="${rx}" ry="${ry}" fill="${barb ? BARB.dirt : P.dirt}" opacity="0.55"/>`;
   const wallKind = tier >= 4 ? 'stone' : tier >= 2 ? 'palisade' : null;
   const wrx = rx - 1.5;
   const wry = ry - 1;
@@ -187,12 +191,13 @@ export function village(tier: number, color: string, seed: number, ring: boolean
     if (spots.some(([px, py]) => Math.abs(px - x) < 7.5 && Math.abs(py - y) < 6)) continue;
     spots.push([x, y]);
   }
-  const roofs = [P.roofA, P.roofB, P.roofC, P.thatch];
+  const roofs = barb ? BARB.roofs : [P.roofA, P.roofB, P.roofC, P.thatch];
+  const thatch = barb ? BARB.thatch : P.thatch;
   const items = spots.map(([x, y]) => ({
     y,
-    svg: house(x, y, 6, tier === 0 ? P.thatch : roofs[Math.floor(R() * (tier >= 3 ? 3 : 4))]!, false),
+    svg: house(x, y, 6, tier === 0 ? thatch : roofs[Math.floor(R() * (tier >= 3 ? 3 : 4))]!, false),
   }));
-  if (tier === 3) items.push({ y: CY + 1, svg: house(CX, CY + 1, 10, P.roofB, true) });
+  if (tier === 3) items.push({ y: CY + 1, svg: house(CX, CY + 1, 10, roofs[1]!, true) });
   if (tier >= 4) items.push({ y: CY + 1, svg: keep(tier) });
   items.sort((p, q) => p.y - q.y);
   for (const it of items) s += it.svg;
@@ -201,14 +206,14 @@ export function village(tier: number, color: string, seed: number, ring: boolean
     const spots4 = tier === 5 ? [0.7, 0.3, 0.9, 0.1] : [0.75, 0.25];
     for (const f of spots4) {
       const a = f * Math.PI;
-      s += tower(CX + Math.cos(a) * wrx, CY + Math.sin(a) * wry, tier === 5 ? 10 : 8, tier === 5 ? P.roofB : null);
+      s += tower(CX + Math.cos(a) * wrx, CY + Math.sin(a) * wry, tier === 5 ? 10 : 8, tier === 5 ? roofs[1]! : null);
     }
   }
   if (tier <= 1) s += tree(8, 16, 3.2) + tree(56, 20, 2.8);
   const first = spots[0];
   const bx = tier >= 4 || !first ? CX : first[0] + 2;
   const by = tier >= 4 ? CY + 1 - (tier === 5 ? 19 : 15) : first ? first[1] - 8 : CY - 6;
-  s += banner(bx, by, color, tier >= 4 ? 1.2 : 1);
+  if (!barb) s += banner(bx, by, color, tier >= 4 ? 1.2 : 1);
   return s;
 }
 

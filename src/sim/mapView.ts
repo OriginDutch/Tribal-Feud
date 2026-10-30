@@ -33,6 +33,7 @@ export function mapData(state: WorldState): MapData {
       if (intel.wall !== undefined) mv.wall = intel.wall;
       const estimate = estimateLoot(state, v.id);
       if (estimate !== undefined) mv.estimate = estimate;
+      if (intel.scout && v.owner >= 0 && v.owner !== HUMAN_ID) mv.scoutedAt = intel.scout.time;
     }
     const last = state.lastAttack[v.id];
     if (last) mv.last = { ...last };
@@ -41,7 +42,8 @@ export function mapData(state: WorldState): MapData {
   const churches = state.config.churches
     ? villagesOf(state, HUMAN_ID).map((v) => ({ x: v.x, y: v.y, radius: churchRadius(v) })).filter((c) => c.radius > 0)
     : undefined;
-  return { ownVillageId: own?.id ?? -1, villages, tribes: tribeViews(state), ...(churches ? { churches } : {}) };
+  const marks = { players: { ...(state.mapMarks?.players ?? {}) }, tribes: { ...(state.mapMarks?.tribes ?? {}) } };
+  return { ownVillageId: own?.id ?? -1, villages, marks, tribes: tribeViews(state), ...(churches ? { churches } : {}) };
 }
 
 /** Attacks by others on the human's villages: origin, target and arrival only, like TW. */

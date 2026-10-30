@@ -47,6 +47,7 @@ export type Command =
   | { type: 'getMap' }
   | { type: 'getReports' }
   | { type: 'getNews' }
+  | { type: 'setMark'; target: 'player' | 'tribe'; id: number; color: string | null }
   | { type: 'talksVote'; talks: number; option: number }
   | { type: 'talksPropose'; talks: number; villages: number; resources: number; help?: { target: number; space: number } }
   | { type: 'markReportsRead'; ids: number[] | 'all' }
@@ -158,11 +159,20 @@ export interface MapVillage {
   tribe?: number;
   /** Your last attack on this village. */
   last?: { time: number; result: Report['result']; loot: number; scouted?: [number, number, number] };
+  /** When you last scouted it (player villages). */
+  scoutedAt?: number;
+}
+
+/** Your own colours for players and tribes on the map. */
+export interface MapMarks {
+  players: Record<number, string>;
+  tribes: Record<number, string>;
 }
 
 export interface MapData {
   ownVillageId: number;
   villages: MapVillage[];
+  marks: MapMarks;
   tribes: TribeView[];
   /** Churches worlds: your churches and how far their faith reaches. */
   churches?: { x: number; y: number; radius: number }[];

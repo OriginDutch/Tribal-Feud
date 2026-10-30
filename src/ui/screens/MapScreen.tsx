@@ -1,6 +1,6 @@
 import { definedLetters } from '../../shared/farmTemplates';
 import { PlayerLink } from '../components/PlayerLink';
-import { OWNER_COLORS, tribeIndex, villageColor } from '../map/colors';
+import { MARK_COLORS, OWNER_COLORS, tribeIndex, villageColor } from '../map/colors';
 import { Minimap } from '../map/Minimap';
 import { BARB_TYPE_NAMES, BONUS_NAMES, type BarbType } from '../../shared/barbarianTypes';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -10,6 +10,18 @@ import { duration, num } from '../format';
 import { attackVillage, inviteCandidates, mapData, mapFocus, mapStyle, openPlayer, openSupport, openTribe, refusedInvites, showOnMap, tribeAsks, selectedVillage, send, setMapStyle, snapshot } from '../store';
 import { OVERHANG, forestAt, onSpriteLoad, tierOf, villageAt } from '../map/mapSprites';
 import { distance, travelMs } from '../units';
+
+type ArrowKind = 'incoming' | 'attack' | 'farm' | 'support' | 'return';
+const ARROW_KINDS: [ArrowKind, string][] = [['incoming', 'Inkomend'], ['attack', 'Aanvallen op spelers'], ['farm', 'Farm (op barbaren)'], ['support', 'Support'], ['return', 'Terugkeer']];
+const ARROW_DEFAULTS: Record<ArrowKind, boolean> = { incoming: true, attack: true, farm: false, support: true, return: false };
+const ARROW_COLOR: Record<ArrowKind, string> = { incoming: '#e5533f', attack: '#e2a93b', farm: 'rgba(240,215,150,0.75)', support: '#7fbf5a', return: 'rgba(220,210,190,0.7)' };
+
+/** A scout's freshness: green under a day (world speed 1), yellow under 3 days, grey under 7, then none. */
+function scoutColor(snap: { time: number; multipliers: { world: number } } | null, at: number): string | null {
+  if (!snap) return null;
+  const days = ((snap.time - at) * snap.multipliers.world) / 86_400_000;
+  return days < 1 ? '#7fdc6a' : days < 3 ? '#f2d14b' : days < 7 ? '#a8997f' : null;
+}
 
 const TYPE_LETTER: Record<BarbType, string> = { resource: 'G', military: 'M', defensive: 'V', balanced: 'B' };
 
@@ -168,14 +180,23 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
   const pretty = mapStyle.value === 'sprites';
   const draw = () => (mapStyle.value === 'sprites' ? drawSprites() : drawFlat());
 
-  /** Commands on the map: incoming attacks red, your attacks gold, support green, returns dashed grey. */
-  const [lines, setLinesState] = useState(() => {
-    try { return localStorage.getItem('tf-map-lines') !== 'off'; } catch { return true; }
+  /** Commands on the map, per kind: incoming red, attacks gold, farming (on barbarians) pale gold, support green, returns dashed grey. */
+  const [arrows, setArrowsState] = useState<Record<ArrowKind, boolean>>(() => {
+    try { return { ...ARROW_DEFAULTS, ...(JSON.parse(localStorage.getItem('tf-map-arrows') ?? '{}') as Partial<Record<ArrowKind, boolean>>) }; } catch { return ARROW_DEFAULTS; }
   });
-  const setLines = (on: boolean) => {
-    setLinesState(on);
-    try { localStorage.setItem('tf-map-lines', on ? 'on' : 'off'); } catch { /* fine */ }
+  const setArrow = (k: ArrowKind, on: boolean) => {
+    const next = { ...arrows, [k]: on };
+    setArrowsState(next);
+    try { localStorage.setItem('tf-map-arrows', JSON.stringify(next)); } catch { /* fine */ }
   };
+  const [arrowMenu, setArrowMenu] = useState(false);
+  useEffect(() => {
+    if (!arrowMenu) return;
+    const close = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('.arrow-pick')) setArrowMenu(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [arrowMenu]);
+  const lines = ARROW_KINDS.some(([k]) => arrows[k]);
   const drawLines = (ctx: CanvasRenderingContext2D, toScreen: (x: number, y: number) => readonly [number, number], zoom: number) => {
     if (!lines || !s) return;
     const arrow = (from: { x: number; y: number }, to: { x: number; y: number }, color: string, dashed = false) => {
@@ -207,9 +228,11 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
     ctx.globalAlpha = 0.85;
     for (const m of s.movements) {
       if (m.kind === 'trade' || m.kind === 'tradeReturn') continue;
-      arrow(m.from, m.to, m.kind === 'support' ? '#7fbf5a' : m.kind === 'return' ? 'rgba(220,210,190,0.7)' : '#e2a93b', m.kind === 'return');
+      const kind: ArrowKind = m.kind === 'support' ? 'support' : m.kind === 'return' ? 'return' : m.to.owner === -1 ? 'farm' : 'attack';
+      if (!arrows[kind]) continue;
+      arrow(m.from, m.to, ARROW_COLOR[kind], kind === 'return');
     }
-    for (const m of s.incoming) arrow(m.from, m.to, '#e5533f');
+    if (arrows.incoming) for (const m of s.incoming) arrow(m.from, m.to, ARROW_COLOR.incoming);
     ctx.restore();
   };
   /** Churches: where your villages have faith (soft gold circles). */
@@ -376,7 +399,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
 
     const px = zoom * dpr;
     const tribesById = tribeIndex(data?.tribes);
-    const ownerColor = (v: MapVillage) => villageColor(v, tribesById);
+    const ownerColor = (v: MapVillage) => villageColor(v, tribesById, data?.marks);
     const sel = selectedVillage.value;
     const overhang = (OVERHANG / 64) * zoom;
     const place = (img: CanvasImageSource, x: number, y: number) => {
@@ -429,6 +452,19 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(TYPE_LETTER[v.barbType], lx, ly + 0.5);
+      }
+      if (v.scoutedAt !== undefined && zoom >= 14) {
+        const c = scoutColor(snapshot.value, v.scoutedAt);
+        if (c) {
+          const r = Math.max(4, zoom * 0.13);
+          const lx = sx - zoom * 0.32, ly = sy + zoom * 0.32;
+          ctx.fillStyle = 'rgba(27,23,18,0.85)';
+          ctx.beginPath(); ctx.arc(lx, ly, r, 0, Math.PI * 2); ctx.fill();
+          // an eye: almond and pupil, in the colour of how fresh the scout is
+          ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = Math.max(1, r / 4);
+          ctx.beginPath(); ctx.ellipse(lx, ly, r * 0.7, r * 0.4, 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(lx, ly, r * 0.22, 0, Math.PI * 2); ctx.fill();
+        }
       }
       if (v.last && zoom >= 8) {
         ctx.fillStyle = v.last.result === 'loss' ? COLORS.bot : COLORS.attacked;
@@ -527,7 +563,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
     for (const v of data?.villages ?? []) {
       if (v.x < x0 || v.x > x1 || v.y < y0 || v.y > y1) continue;
       const [sx, sy] = toScreen(v.x, v.y);
-      ctx.fillStyle = villageColor(v, tribesById);
+      ctx.fillStyle = villageColor(v, tribesById, data?.marks);
       ctx.fillRect(sx - size / 2, sy - size / 2, size, size);
       if (v.bonus) {
         ctx.strokeStyle = COLORS.bonus;
@@ -565,7 +601,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
   // redraw only when what is drawn changes, not on every game update
   const sel = selectedVillage.value;
   const style = mapStyle.value;
-  useEffect(draw, [data, focusIds, sel, style, here?.id, lines, linesKey, faith]);
+  useEffect(draw, [data, focusIds, sel, style, here?.id, arrows, linesKey, faith]);
   // sprites load in the background: redraw when one is ready
   useEffect(() => {
     onSpriteLoad(() => draw());
@@ -704,14 +740,22 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
         >
           {pretty ? 'Klassieke weergave' : 'Dorpjes-weergave'}
         </button>
-        <button
-          class={`small ${lines ? 'active' : ''}`}
-          title="Rood: aanvallen op jou · goud: jouw aanvallen · groen: support · gestippeld: terugkeer"
-          onClick={() => setLines(!lines)}
-        >
-          Bevelen {lines ? 'aan' : 'uit'}
-          {s && s.incoming.length > 0 && <span class="badge">{s.incoming.length}</span>}
-        </button>
+        <span class="arrow-pick">
+          <button class={`small ${lines ? 'active' : ''}`} aria-expanded={arrowMenu} onClick={() => setArrowMenu(!arrowMenu)} title="Welke bevelen als pijl op de kaart staan">
+            Pijlen ▾
+            {s && s.incoming.length > 0 && <span class="badge">{s.incoming.length}</span>}
+          </button>
+          {arrowMenu && (
+            <span class="arrow-menu" role="group" aria-label="Pijlen op de kaart">
+              {ARROW_KINDS.map(([k, label]) => (
+                <label key={k}>
+                  <input type="checkbox" checked={arrows[k]} onChange={(e) => setArrow(k, e.currentTarget.checked)} />
+                  <i style={{ background: ARROW_COLOR[k] }} /> {label}
+                </label>
+              ))}
+            </span>
+          )}
+        </span>
         {data?.churches && (
           <button class={`small ${faith ? 'active' : ''}`} title="Waar je dorpen geloof hebben (bereik van je kerken)" onClick={() => setFaith(!faith)}>
             Geloof {faith ? 'aan' : 'uit'}
@@ -937,6 +981,8 @@ function PlayerPanel({ owner, name, tribeId, villages, selectedId, onPick }: {
           </li>
         ))}
       </ul>
+      <MarkRow label="Speler markeren" current={data?.marks.players[owner]} onPick={(c) => send({ type: 'setMark', target: 'player', id: owner, color: c })} />
+      {tribe && <MarkRow label={`[${tribe.tag}] markeren`} current={data?.marks.tribes[tribe.id]} onPick={(c) => send({ type: 'setMark', target: 'tribe', id: tribe.id, color: c })} />}
       <div class="row wrap">
         <button class="small" onClick={() => openPlayer(owner)}>
           Profiel
@@ -969,6 +1015,20 @@ function PlayerPanel({ owner, name, tribeId, villages, selectedId, onPick }: {
         )}
         {declined > 0 && <span class="refused">{declined}× afgewezen</span>}
       </div>
+    </div>
+  );
+}
+
+/** A row of colour swatches: your own colour for a player or tribe on the map (click again = off). */
+function MarkRow({ label, current, onPick }: { label: string; current?: string; onPick: (c: string | null) => void }) {
+  return (
+    <div class="mark-row" role="group" aria-label={label}>
+      <span class="muted">{label}</span>
+      {MARK_COLORS.map((c) => (
+        <button key={c} class={`mark-swatch ${current === c ? 'on' : ''}`} style={{ background: c }} aria-label={`${label}: ${c}`} aria-pressed={current === c}
+          onClick={() => onPick(current === c ? null : c)} />
+      ))}
+      {current && <button class="small link" onClick={() => onPick(null)}>weg</button>}
     </div>
   );
 }
