@@ -41,6 +41,7 @@ jobs:
           set +e
           npm run smoke:cloud 2>&1 | tee cloud.log
           code=${PIPESTATUS[0]}
+          echo "::notice title=smoke:cloud::$(grep -E '^(PASS|FAIL)' cloud.log | sed ':a;N;$!ba;s/\n/%0A/g')"
           if [ "$code" -ne 0 ]; then
             echo "::error title=smoke:cloud::$(grep -v '^npm warn' cloud.log | tail -40 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')"
           fi
