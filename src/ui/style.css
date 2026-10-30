@@ -824,3 +824,6 @@ details.hidden-templates > summary { cursor: pointer; color: var(--muted, #9a8f7
 .keys-conflict { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 2px 2px 8px; }
 .vswitch { flex: none; }
 @media (max-width: 1500px) { .search-btn span, .search-btn kbd { display: none; } .search-btn { width: auto; min-width: 0; } .vname { width: 190px; } }
+/* the map fits the window: top bar, its header and the news ticker stay in view (no page scroll) */
+.content > .screen.map-screen .map-canvas { height: calc(100vh - 184px); }
+.layout:has(.map-screen) .content { padding-bottom: 46px; }
