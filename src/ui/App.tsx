@@ -11,7 +11,7 @@ import { RelationsScreen } from './screens/RelationsScreen';
 import { StatsScreen } from './screens/StatsScreen';
 import { ScavengeScreen } from './screens/ScavengeScreen';
 import { SimulatorScreen } from './screens/SimulatorScreen';
-import { autoPause, notice, screen, snapshot } from './store';
+import { autoPause, blocked, notice, screen, snapshot } from './store';
 import { DebugScreen } from './screens/DebugScreen';
 import { MainScreen } from './screens/MainScreen';
 import { OverviewScreen } from './screens/OverviewScreen';
@@ -104,6 +104,20 @@ export function App() {
   const paused = autoPause.value;
   const n = notice.value;
   const hasWorld = snapshot.value?.village != null;
+  if (blocked.value) {
+    return (
+      <div class="blocked-screen">
+        <section class="panel">
+          <h2>Tribal Feud draait al in een ander tabblad</h2>
+          <p>
+            Er loopt nog een andere versie van het spel, waarschijnlijk een tabblad van vóór een update. Er mag er maar één tegelijk rekenen, anders
+            overschrijven ze elkaars saves. Sluit of herlaad de andere tabbladen van het spel en probeer het dan opnieuw.
+          </p>
+          <button class="primary" onClick={() => location.reload()}>Opnieuw proberen</button>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <>

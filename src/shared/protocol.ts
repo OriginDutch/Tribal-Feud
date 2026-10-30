@@ -26,6 +26,8 @@ export type Command =
   | { type: 'setVisible'; visible: boolean }
   /** A tab closes (shared worker: it stops getting messages). */
   | { type: 'bye' }
+  /** A tab (re)opens: the village it showed before (kept per tab in the browser). */
+  | { type: 'hello'; village: number | null }
   | { type: 'scheduleTest'; delayMs: number; autoPause: boolean }
   | { type: 'scheduleRandom' }
   | { type: 'save'; slot: string }
@@ -427,6 +429,8 @@ export interface Snapshot {
   /** World speed settings, for display. */
   multipliers: { world: number; production: number; build: number; recruit: number; farm: number };
   log: LogEntry[];
+  /** Open tabs of the game on this world. */
+  tabs: number;
   /** The latest world news, newest first (for the ticker). */
   news: import('../sim/news').NewsItem[];
   /** Where you are (centre of your villages), for news "near me". */
@@ -562,7 +566,9 @@ export type WorkerMessage =
   | { type: 'farmAllPlan'; plan: FarmAllView }
   | { type: 'mintPlan'; rows: { id: number; name: string; x: number; y: number; coins: number }[]; keep: number }
   | { type: 'player'; player: PlayerView | null }
-  | { type: 'notice'; level: 'info' | 'error'; text: string };
+  | { type: 'notice'; level: 'info' | 'error'; text: string }
+  /** Another simulation already runs (another tab, maybe another version): this one does nothing. */
+  | { type: 'blocked' };
 
 export const AUTOSAVE_SLOT = 'autosave';
 /** Rolling backups per world (the last BACKUPS_KEPT), and the original of a save before an update migrated it. */

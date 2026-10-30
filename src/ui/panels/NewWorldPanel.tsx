@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { useSaved } from '../useSaved';
 import { PRESETS, type BotDifficulty, type ConfigOverrides, type PresetId } from '../../shared/config';
 import type { Command } from '../../shared/protocol';
-import { autoPause, screen, send } from '../store';
+import { autoPause, confirmAllTabs, screen, send } from '../store';
 
 type Preset = Exclude<PresetId, 'custom'>;
 type Knob = 'worldSpeed' | 'unitSpeed' | 'productionMultiplier' | 'buildSpeed' | 'recruitSpeed';
@@ -94,6 +94,7 @@ export function NewWorldPanel() {
     if (winShare !== 0.75 || !winBarbs) overrides.winCondition = { villageShare: winShare, countBarbarians: winBarbs };
     const cmd: Command = { type: 'newWorld', preset, name, overrides };
     if (seed.trim() !== '') cmd.seed = Number(seed) >>> 0;
+    if (!confirmAllTabs('Een nieuwe wereld')) return;
     autoPause.value = null;
     screen.value = 'overview';
     send(cmd);
