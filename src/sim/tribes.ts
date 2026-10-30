@@ -513,11 +513,13 @@ function diplomacy(state: WorldState): void {
       // a war that drags on between equals ends in peace; a side that is badly outmatched
       // sues for peace, and a not too bloodthirsty winner takes it
       // war fatigue: a long war without a clear winner ends in a plain peace
-      const stalemate = since > 48 * HOUR && power < 2 && roll < 0.03;
+      // war fatigue grows: 3% a round at 48 h, rising to 20% a round after 4 days
+      const fatigue = Math.min(0.2, 0.03 + 0.17 * Math.max(0, since - 48 * HOUR) / (48 * HOUR));
+      const stalemate = since > 48 * HOUR && power < 2 && roll < fatigue;
       // talks underway: they decide (see talks)
       if (talksOfTribes(state, a.id, b.id)) continue;
       // a clearly beaten side sues for peace: talks, with terms (a bot leader on either side starts them)
-      const sues = since > 24 * HOUR && power >= 2 && roll < 0.1 * (1.2 - AGGRESSION[lead(strong)]);
+      const sues = since > 24 * HOUR && power >= 1.5 && roll < 0.1 * (1.2 - AGGRESSION[lead(strong)]);
       if (sues && mayTalk(state, strong, weak)) {
         startTalks(state, strong, weak);
         continue;
