@@ -39,17 +39,38 @@ try {
   await page.locator('button.play[aria-label="Start"]').click();
   await page.waitForTimeout(15_000);
 
-  // every screen in the menu opens and shows its title
-  const items = await page.locator('nav.rail button[aria-label]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
-  for (const label of items) {
-    await page.locator(`nav.rail button[aria-label="${label}"]`).click();
-    await page.waitForTimeout(400);
+  // every screen opens and shows its title: each menu group with all its tabs, and every building in the buildings menu
+  let opened = 0;
+  const check = async (what) => {
+    await page.waitForTimeout(350);
     const h2 = await page.locator('main h2, .screen h2').first().textContent().catch(() => null);
-    if (!h2) problems.push(`screen "${label}" shows no title`);
+    if (!h2) problems.push(`screen "${what}" shows no title`);
+    opened++;
+  };
+  const groups = await page.locator('nav.rail button.rail-item[aria-label]:not([aria-haspopup])').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+  for (const label of groups) {
+    await page.locator(`nav.rail button[aria-label="${label}"]`).click();
+    await check(label);
+    const tabs = await page.locator('.screen-tabs button').evaluateAll((els) => els.map((e) => e.textContent));
+    for (let i = 1; i < tabs.length; i++) {
+      await page.locator('.screen-tabs button').nth(i).click();
+      await check(`${label} › ${tabs[i]}`);
+    }
   }
+  const buildings = await (async () => {
+    await page.locator('nav.rail button[aria-label="Gebouwen"]').click();
+    return page.locator('.bmenu-item').count();
+  })();
+  for (let i = 0; i < buildings; i++) {
+    if (i > 0) await page.locator('nav.rail button[aria-label="Gebouwen"]').click();
+    await page.locator('.bmenu-item').nth(i).click();
+    await check(`gebouw ${i}`);
+  }
+  const items = { length: opened };
 
   // manual save shows up in the list
-  await page.locator('nav.rail button[aria-label^="Log"]').click();
+  await page.locator('nav.rail button[aria-label="Instellingen"]').click();
+  await page.locator('.screen-tabs button:has-text("Log")').click();
   await page.click('button:has-text("Opslaan")');
   await page.waitForSelector('ul.saves li:has-text("handmatig")', { timeout: 10_000 });
 

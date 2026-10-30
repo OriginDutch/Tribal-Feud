@@ -1,76 +1,119 @@
+import { useEffect, useRef } from 'preact/hooks';
 import { NavIcon } from './NavIcon';
 import { screen, snapshot, type Screen } from '../store';
+import { GROUPS, MENU_BUILDINGS, SETTINGS, groupOf, isMenuBuilding, type MenuGroup } from '../menu';
+import { buildingsMenuOpen, keyHint } from '../keys';
 
-type Item = { id: Screen; label: string; building?: string } | 'sep';
+type Badge = { n: number; kind: 'danger' | 'good' | 'plain' } | null;
 
-const ITEMS: Item[] = [
-  { id: 'overview', label: 'Overzicht' },
-  { id: 'villages', label: 'Dorpen' },
-  { id: 'manager', label: 'Accountmanager' },
-  { id: 'quests', label: 'Opdrachten' },
-  'sep',
-  { id: 'main', label: 'Hoofdgebouw', building: 'main' },
-  { id: 'barracks', label: 'Kazerne', building: 'barracks' },
-  { id: 'stable', label: 'Stal', building: 'stable' },
-  { id: 'garage', label: 'Werkplaats', building: 'garage' },
-  { id: 'statue', label: 'Standbeeld', building: 'statue' },
-  { id: 'snob', label: 'Adelshoeve', building: 'snob' },
-  { id: 'smith', label: 'Smederij', building: 'smith' },
-  { id: 'place', label: 'Verzamelplaats', building: 'place' },
-  { id: 'market', label: 'Marktplaats', building: 'market' },
-  'sep',
-  { id: 'map', label: 'Kaart' },
-  { id: 'farm', label: 'Farm-assistent' },
-  { id: 'scavenge', label: 'Rooftocht' },
-  { id: 'support', label: 'Support' },
-  { id: 'simulator', label: 'Simulator' },
-  { id: 'reports', label: 'Rapporten' },
-  { id: 'inbox', label: 'Inbox' },
-  { id: 'news', label: 'Nieuws' },
-  { id: 'ranking', label: 'Ranglijst' },
-  { id: 'stats', label: 'Statistiek' },
-  { id: 'tribes', label: 'Stammen' },
-  { id: 'relations', label: 'Relaties' },
-  { id: 'debug', label: 'Log & debug' },
-];
+/** Badges per screen; a group shows the sum of its tabs (danger wins over good). */
+function screenBadge(sc: Screen): Badge {
+  const s = snapshot.value!;
+  switch (sc) {
+    case 'reports': return s.unreadReports > 0 ? { n: s.unreadReports, kind: 'danger' } : null;
+    case 'inbox': return s.inboxOpen > 0 || s.inboxUnread > 0 ? { n: s.inboxOpen || s.inboxUnread, kind: s.inboxOpen ? 'good' : 'danger' } : null;
+    case 'overview': return s.incoming.length > 0 ? { n: s.incoming.length, kind: 'danger' } : null;
+    case 'quests': return s.quests.rewards.length > 0 ? { n: s.quests.rewards.length, kind: 'good' } : null;
+    default: return null;
+  }
+}
+export function groupBadge(g: MenuGroup): Badge {
+  const list = g.tabs.map((t) => screenBadge(t.screen)).filter((b): b is NonNullable<Badge> => !!b);
+  if (!list.length) return null;
+  return { n: list.reduce((s, b) => s + b.n, 0), kind: list.some((b) => b.kind === 'danger') ? 'danger' : 'good' };
+}
 
-/** The menu: a slim rail of icons, the name shows on hover (and to screen readers). */
-export function Nav() {
-  const s = snapshot.value;
-  const v = s?.village;
-  if (!s || !v) return null;
-  const level = (id: string) => v.buildings.find((b) => b.id === id)?.level ?? 0;
-  const unread = s.unreadReports;
-  const incoming = s.incoming.length;
-  const rewards = s.quests.rewards.length;
-
+function RailButton({ g, active }: { g: MenuGroup; active: boolean }) {
+  const badge = groupBadge(g);
+  const key = keyHint(`group:${g.id}`);
   return (
-    <nav class="rail" aria-label="Menu">
-      {ITEMS.map((item, i) => {
-        if (item === 'sep') return <div key={`sep-${i}`} class="rail-sep" />;
-        const lvl = item.building ? level(item.building) : null;
-        const active = screen.value === item.id;
-        const badge =
-          item.id === 'reports' && unread > 0 ? { n: unread, kind: 'danger' } : item.id === 'inbox' && (s.inboxOpen > 0 || s.inboxUnread > 0) ? { n: s.inboxOpen || s.inboxUnread, kind: s.inboxOpen ? 'good' : 'danger' } : item.id === 'overview' && incoming > 0 ? { n: incoming, kind: 'danger' } : item.id === 'quests' && rewards > 0 ? { n: rewards, kind: 'good' } : item.id === 'villages' ? { n: s.villages.length, kind: 'plain' } : null;
+    <button class={`rail-item ${active ? 'active' : ''}`} aria-label={g.label} aria-current={active ? 'page' : undefined} onClick={() => { buildingsMenuOpen.value = false; screen.value = g.tabs[0]!.screen; }}>
+      {key && <small class="rail-key" aria-hidden="true">{key}</small>}
+      <NavIcon name={g.icon} size={20} />
+      <span class="rail-label">{g.label}</span>
+      {badge && <span class={`rail-badge ${badge.kind}`}>{badge.n}</span>}
+    </button>
+  );
+}
+
+/** The buildings with a function, in a menu that opens to the right of the rail. */
+function BuildingsMenu({ anchor }: { anchor: HTMLElement | null }) {
+  const s = snapshot.value!;
+  const v = s.village!;
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || anchor?.contains(t)) return;
+      buildingsMenuOpen.value = false;
+    };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') buildingsMenuOpen.value = false; };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+  }, [anchor]);
+  const top = anchor ? Math.max(70, Math.min(anchor.getBoundingClientRect().top - 40, window.innerHeight - 470)) : 120;
+  return (
+    <div class="bmenu" ref={ref} style={{ top: `${top}px` }} role="menu" aria-label="Gebouwen">
+      <div class="bmenu-head">Gebouwen · {v.name}</div>
+      {MENU_BUILDINGS.map((b) => {
+        const lvl = v.buildings.find((x) => x.id === b.building)?.level ?? 0;
+        const key = keyHint(`building:${b.building}`);
         return (
-          <button
-            key={item.id}
-            class={`rail-item ${active ? 'active' : ''} ${lvl === 0 ? 'unbuilt' : ''}`}
-            aria-label={`${item.label}${lvl ? `, level ${lvl}` : ''}`}
-            aria-current={active ? 'page' : undefined}
-            onClick={() => (screen.value = item.id)}
-          >
-            <NavIcon name={item.id} />
-            {lvl !== null && lvl > 0 && <small class="rail-lvl">{lvl}</small>}
-            {badge && badge.kind !== 'plain' && <span class={`rail-badge ${badge.kind}`}>{badge.n}</span>}
-            {badge && badge.kind === 'plain' && <small class="rail-lvl">{badge.n}</small>}
-            <span class="rail-tip">
-              {item.label}
-              {lvl ? <em> · level {lvl}</em> : lvl === 0 ? <em> · niet gebouwd</em> : null}
-            </span>
+          <button key={b.screen} role="menuitem" class={`bmenu-item ${screen.value === b.screen ? 'active' : ''} ${lvl === 0 ? 'unbuilt' : ''}`}
+            onClick={() => { buildingsMenuOpen.value = false; screen.value = b.screen; }}>
+            <NavIcon name={b.screen} size={18} />
+            <span>{b.label}</span>
+            <small>{key ? <kbd>{key}</kbd> : null} {lvl ? `lv ${lvl}` : 'niet gebouwd'}</small>
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** The menu: main groups (tabs inside), one button for the buildings, settings at the bottom. */
+export function Nav() {
+  const s = snapshot.value;
+  const anchor = useRef<HTMLButtonElement>(null);
+  if (!s?.village) return null;
+  const current = groupOf(screen.value);
+  const inBuilding = isMenuBuilding(screen.value);
+  const open = buildingsMenuOpen.value;
+  const key = keyHint('buildings');
+  return (
+    <nav class="rail" aria-label="Menu">
+      {GROUPS.map((g) => <RailButton key={g.id} g={g} active={current?.id === g.id} />)}
+      <div class="rail-sep" />
+      <button ref={anchor} class={`rail-item ${inBuilding || open ? 'active' : ''}`} aria-label="Gebouwen" aria-haspopup="menu" aria-expanded={open}
+        onClick={() => (buildingsMenuOpen.value = !open)}>
+        {key && <small class="rail-key" aria-hidden="true">{key}</small>}
+        <NavIcon name="main" size={20} />
+        <span class="rail-label">Gebouwen</span>
+      </button>
+      <div class="rail-fill" />
+      <RailButton g={SETTINGS} active={current?.id === SETTINGS.id} />
+      {open && <BuildingsMenu anchor={anchor.current} />}
     </nav>
+  );
+}
+
+/** Tabs above a screen whose group has more than one. */
+export function ScreenTabs() {
+  const g = groupOf(screen.value);
+  if (!g || g.tabs.length < 2 || !snapshot.value) return null;
+  return (
+    <div class="screen-tabs" role="tablist" aria-label={g.label}>
+      {g.tabs.map((t) => {
+        const b = screenBadge(t.screen);
+        const on = t.screen === screen.value;
+        return (
+          <button key={t.screen} role="tab" aria-selected={on} class={on ? 'on' : ''} onClick={() => (screen.value = t.screen)}>
+            {t.label}
+            {b && b.kind !== 'plain' && <span class={`tab-badge ${b.kind}`}>{b.n}</span>}
+          </button>
+        );
+      })}
+    </div>
   );
 }

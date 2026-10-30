@@ -5,13 +5,13 @@ import { TribesScreen } from './screens/TribesScreen';
 import { useEffect } from 'preact/hooks';
 import { formatGameTime } from '../shared/time';
 import { TopBar } from './components/TopBar';
-import { Nav } from './components/Nav';
+import { Nav, ScreenTabs } from './components/Nav';
 import { EndgameModal } from './components/EndgameModal';
 import { RelationsScreen } from './screens/RelationsScreen';
 import { StatsScreen } from './screens/StatsScreen';
 import { ScavengeScreen } from './screens/ScavengeScreen';
 import { SimulatorScreen } from './screens/SimulatorScreen';
-import { autoPause, notice, screen, snapshot, togglePause } from './store';
+import { autoPause, notice, screen, snapshot } from './store';
 import { DebugScreen } from './screens/DebugScreen';
 import { MainScreen } from './screens/MainScreen';
 import { OverviewScreen } from './screens/OverviewScreen';
@@ -29,30 +29,17 @@ import { RankingScreen } from './screens/RankingScreen';
 import { VillagesScreen } from './screens/VillagesScreen';
 import { ManagerScreen } from './screens/ManagerScreen';
 import { NewsScreen } from './screens/NewsScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
+import { onShortcut } from './keys';
 import { NewsTicker } from './components/NewsTicker';
-import { stepVillage } from './components/VillageSwitcher';
 import { QuestToasts } from './components/QuestToasts';
 import { CommandPalette } from './components/CommandPalette';
 
-/** Spacebar toggles pause, except while typing in a field. */
-function useSpacebarPause(): void {
+/** All keyboard shortcuts go through one handler (see keys). */
+function useShortcuts(): void {
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      // preventDefault also stops a focused button from being "clicked" by the spacebar
-      const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
-      if (e.code === 'Space' && !typing) {
-        e.preventDefault();
-        togglePause();
-      }
-      // A / D: previous / next village, like TW
-      if (!typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (e.code === 'KeyA') stepVillage(-1);
-        if (e.code === 'KeyD') stepVillage(1);
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    document.addEventListener('keydown', onShortcut);
+    return () => document.removeEventListener('keydown', onShortcut);
   }, []);
 }
 
@@ -104,13 +91,15 @@ function CurrentScreen() {
       return <ManagerScreen />;
     case 'news':
       return <NewsScreen />;
+    case 'settings':
+      return <SettingsScreen />;
     default:
       return <RecruitScreen building={screen.value} />;
   }
 }
 
 export function App() {
-  useSpacebarPause();
+  useShortcuts();
   const paused = autoPause.value;
   const n = notice.value;
   const hasWorld = snapshot.value?.village != null;
@@ -131,6 +120,7 @@ export function App() {
         <div class="layout">
           <Nav />
           <main class="content">
+            <ScreenTabs />
             <CurrentScreen />
           </main>
           <aside class="toast-col" aria-label="Meldingen">

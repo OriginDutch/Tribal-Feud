@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { num } from '../format';
 import { groupFilter, groupVillages, send, snapshot } from '../store';
+import { keyLabel, keyOf } from '../keys';
 
 const NAME_MAX = 32;
 
@@ -51,11 +52,9 @@ export function VillageSwitcher() {
 
   return (
     <div class="vswitch">
-      {many && (
-        <button class="vstep" title="Vorig dorp (A)" aria-label="Vorig dorp" onClick={() => stepVillage(-1)}>
-          ‹
-        </button>
-      )}
+      <button class="vstep" title={`Vorig dorp (${keyLabel(keyOf('prevVillage'))})`} aria-label="Vorig dorp" disabled={!many} onClick={() => stepVillage(-1)}>
+        ‹
+      </button>
       <div class="vname">
         <div class="vname-top">
           <b>{v.name}</b>
@@ -64,7 +63,7 @@ export function VillageSwitcher() {
           </button>
         </div>
         <span>
-          {v.x}|{v.y} · {num(v.points)} p
+          {v.x}|{v.y} · {num(v.points)} p{many ? ` · ${s.villages.findIndex((x) => x.id === v.id) + 1}/${s.villages.length}` : ''}
           {(() => {
             const g = s.groups.find((x) => x.id === groupFilter.value);
             return g ? <span class="group-chip filter" style={{ '--gc': g.color }} title="Groepsfilter actief: A/D en de dorpenlijst volgen deze groep">groep: {g.name}</span> : null;
@@ -89,11 +88,9 @@ export function VillageSwitcher() {
           </select>
         )}
       </div>
-      {many && (
-        <button class="vstep" title="Volgend dorp (D)" aria-label="Volgend dorp" onClick={() => stepVillage(1)}>
-          ›
-        </button>
-      )}
+      <button class="vstep" title={`Volgend dorp (${keyLabel(keyOf('nextVillage'))})`} aria-label="Volgend dorp" disabled={!many} onClick={() => stepVillage(1)}>
+        ›
+      </button>
     </div>
   );
 }

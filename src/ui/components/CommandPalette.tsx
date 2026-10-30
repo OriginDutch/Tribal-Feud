@@ -24,6 +24,12 @@ const SCREENS: { id: Screen; label: string; icon: string }[] = [
   { id: 'inbox', label: 'Inbox', icon: 'inbox' },
   { id: 'support', label: 'Support plannen', icon: 'support' },
   { id: 'debug', label: 'Log & debug', icon: 'debug' },
+  { id: 'scavenge', label: 'Rooftocht', icon: 'scavenge' },
+  { id: 'simulator', label: 'Simulator', icon: 'simulator' },
+  { id: 'relations', label: 'Relaties', icon: 'relations' },
+  { id: 'news', label: 'Nieuws', icon: 'news' },
+  { id: 'stats', label: 'Statistiek', icon: 'stats' },
+  { id: 'settings', label: 'Instellingen · sneltoetsen', icon: 'gear' },
 ];
 
 /** Lower-case, no accents, for matching. */
@@ -40,17 +46,7 @@ export function CommandPalette() {
   const [sel, setSel] = useState(0);
   const input = useRef<HTMLInputElement>(null);
 
-  // Ctrl/Cmd+K anywhere opens it
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        paletteOpen.value = !paletteOpen.value;
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  // opened with its shortcut (Ctrl+K by default, see keys)
   useEffect(() => {
     if (!open) return;
     setQ('');
