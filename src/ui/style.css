@@ -874,3 +874,31 @@ a.rail-item.active { color: var(--accent); }
 a.bmenu-item { color: var(--text); }
 a.bmenu-item:hover { background: var(--panel-2); }
 a.bmenu-item.active { color: var(--accent); }
+
+/* ---- account and cloud ---- */
+.account-btn { height: 30px; padding: 0 9px; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; color: var(--muted); background: var(--panel-2); border: 1px solid var(--border); font-size: 13px; margin-left: 8px; flex: none; }
+.account-btn:hover { color: var(--accent); border-color: var(--accent-line); }
+.account-btn.cloud-ok { color: var(--good); }
+.account-btn.cloud-busy { color: var(--accent); }
+.account-btn.cloud-error, .account-btn.cloud-full, .account-btn.cloud-conflict { color: var(--danger); border-color: rgba(210, 96, 74, 0.45); }
+.account-modal { width: min(440px, 100%); }
+.account-form { display: flex; flex-direction: column; gap: 10px; }
+.account-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.account-form input { font-size: 14px; }
+.account-form p { margin: 0; }
+.seg { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); align-self: flex-start; }
+.seg button { border: 0; border-radius: 0; background: transparent; color: var(--muted); padding: 6px 12px; min-width: 0; }
+.seg button.on { background: var(--accent-soft); color: var(--accent); }
+.form-error { color: var(--danger); font-size: 13px; }
+.callout { border: 1px solid var(--accent-line); background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
+.callout.bad { border-color: rgba(210, 96, 74, 0.45); background: rgba(210, 96, 74, 0.1); }
+.tag { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 11px; background: var(--accent-soft); color: var(--accent); vertical-align: 1px; }
+.cloud-line.cloud-ok { color: var(--good); }
+.cloud-line.cloud-error, .cloud-line.cloud-full, .cloud-line.cloud-conflict { color: var(--danger); }
+.cloud-saves { margin-top: 14px; }
+.cloud-saves h3 { margin: 0 0 6px; font-size: 15px; }
+.nav-badge { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 10px; display: inline-grid; place-items: center; margin-left: 6px; }
+.account-form button.link { font-size: 13px; color: var(--muted); }
+.account-form button.link:hover { color: var(--accent); }
+.brand-name + .account-btn { margin-left: auto; }
+.verify-line { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }

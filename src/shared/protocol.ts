@@ -10,6 +10,7 @@ import type { BotRequest } from '../sim/state';
 import type { VillageGroup } from '../sim/groups';
 import type { BuildTemplate, NobleTemplate, TroopTemplate, VillageManager } from '../sim/manager';
 import type { SaveMeta } from '../sim/save';
+import type { CloudStatus, CloudUser, CloudWorld } from '../cloud/sync';
 import type { VillageView } from '../sim/view';
 import type { BuildingId, UnitCounts, UnitId } from './gameData';
 import type { Report } from '../sim/movement';
@@ -33,6 +34,13 @@ export type Command =
   | { type: 'save'; slot: string }
   /** Saves the world in its own manual slot (one per world, overwritten each time). */
   | { type: 'saveWorld' }
+  /** A tab signed in or out, or has a fresh token (tokens last an hour; the tab renews them). */
+  | { type: 'auth'; user: CloudUser | null }
+  | { type: 'cloudRefresh' }
+  | { type: 'cloudLoad'; slot: string }
+  | { type: 'cloudDelete'; slot: string }
+  /** Upload the current world even if the cloud copy is further along. */
+  | { type: 'cloudForce' }
   | { type: 'load'; slot: string }
   | { type: 'deleteSave'; slot: string }
   | { type: 'listSaves' }
@@ -553,6 +561,8 @@ export type WorkerMessage =
   | { type: 'snapshot'; snapshot: Snapshot | null }
   | { type: 'autoPaused'; entry: LogEntry }
   | { type: 'saves'; saves: SaveMeta[] }
+  | { type: 'cloud'; status: CloudStatus }
+  | { type: 'cloudWorlds'; worlds: CloudWorld[] }
   | { type: 'map'; map: MapData }
   | { type: 'reports'; reports: Report[] }
   | { type: 'news'; news: import('../sim/news').NewsItem[] }

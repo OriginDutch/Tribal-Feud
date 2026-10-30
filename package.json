@@ -17,6 +17,8 @@
     "stats": "npx --yes esbuild tools/bench/stats.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/stats.mjs --log-level=error && node node_modules/.cache/stats.mjs",
     "smoke": "node tools/smoke/smoke.mjs && node tools/smoke/tabs.mjs",
     "smoke:tabs": "node tools/smoke/tabs.mjs",
+    "build:emu": "VITE_FB_EMULATOR=1 vite build --outDir dist-emu",
+    "smoke:cloud": "npm run build:emu && firebase emulators:exec --only auth,firestore --project demo-tribal-feud \"RULES=1 node tools/smoke/cloud.mjs\"",
     "realism": "npx --yes esbuild tools/bench/realism.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/realism.mjs --log-level=error && node node_modules/.cache/realism.mjs",
     "pace": "npx --yes esbuild tools/bench/pace.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/pace.mjs --log-level=error && node node_modules/.cache/pace.mjs",
     "curve": "npx --yes esbuild tools/bench/curve.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/curve.mjs --log-level=error && node node_modules/.cache/curve.mjs",
@@ -30,6 +32,7 @@
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",
     "fake-indexeddb": "^6.2.6",
+    "firebase-tools": "^15.34.2",
     "playwright": "^1.63.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
@@ -39,6 +42,7 @@
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource/cinzel": "^5.3.0",
     "@preact/signals": "^2.11.3",
+    "firebase": "^13.1.0",
     "preact": "^11.0.2"
   }
 }

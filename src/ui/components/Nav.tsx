@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { NavIcon } from './NavIcon';
 import { screen, snapshot, type Screen } from '../store';
-import { GROUPS, MENU_BUILDINGS, SETTINGS, groupOf, isMenuBuilding, type MenuGroup } from '../menu';
+import { GROUPS, MENU_BUILDINGS, SETTINGS, groupOf, isMenuBuilding, visibleTabs, type MenuGroup } from '../menu';
+import { account } from '../../cloud/auth';
+import { newAccounts } from '../../cloud/admin';
 import { buildingsMenuOpen, keyHint } from '../keys';
 
 type Badge = { n: number; kind: 'danger' | 'good' | 'plain' } | null;
@@ -14,6 +16,7 @@ function screenBadge(sc: Screen): Badge {
     case 'inbox': return s.inboxOpen > 0 || s.inboxUnread > 0 ? { n: s.inboxOpen || s.inboxUnread, kind: s.inboxOpen ? 'good' : 'danger' } : null;
     case 'overview': return s.incoming.length > 0 ? { n: s.incoming.length, kind: 'danger' } : null;
     case 'quests': return s.quests.rewards.length > 0 ? { n: s.quests.rewards.length, kind: 'good' } : null;
+    case 'admin': return account.value?.admin && newAccounts.value > 0 ? { n: newAccounts.value, kind: 'danger' } : null;
     default: return null;
   }
 }
@@ -113,10 +116,11 @@ export function Nav() {
 /** Tabs above a screen whose group has more than one. */
 export function ScreenTabs() {
   const g = groupOf(screen.value);
-  if (!g || g.tabs.length < 2 || !snapshot.value) return null;
+  const tabs = g ? visibleTabs(g, account.value?.admin ?? false) : [];
+  if (!g || tabs.length < 2 || !snapshot.value) return null;
   return (
     <div class="screen-tabs" role="tablist" aria-label={g.label}>
-      {g.tabs.map((t) => {
+      {tabs.map((t) => {
         const b = screenBadge(t.screen);
         const on = t.screen === screen.value;
         return (

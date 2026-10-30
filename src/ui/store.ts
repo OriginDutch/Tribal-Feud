@@ -9,14 +9,17 @@ import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'support' | 'player' | 'debug' | 'building' | 'relations' | 'stats' | 'simulator' | 'scavenge' | 'news' | 'settings';
+export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'support' | 'player' | 'debug' | 'building' | 'relations' | 'stats' | 'simulator' | 'scavenge' | 'news' | 'settings' | 'admin';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);
+/** Cloud saves as the worker sees them (upload state, the worlds in the cloud). */
+export const cloudStatus = signal<import('../cloud/sync').CloudStatus>({ email: null, state: 'off', at: null });
+export const cloudWorlds = signal<import('../cloud/sync').CloudWorld[]>([]);
 /** Set when an event auto-paused the game; cleared when the player resumes. */
 export const autoPause = signal<LogEntry | null>(null);
 export const notice = signal<{ text: string; level: 'info' | 'error' } | null>(null);
-const SCREENS = ['overview', 'villages', 'manager', 'main', 'barracks', 'stable', 'garage', 'statue', 'snob', 'smith', 'map', 'place', 'market', 'farm', 'reports', 'quests', 'ranking', 'tribes', 'inbox', 'support', 'player', 'debug', 'building', 'relations', 'stats', 'simulator', 'scavenge', 'news', 'settings'] as const satisfies readonly Screen[];
+const SCREENS = ['overview', 'villages', 'manager', 'main', 'barracks', 'stable', 'garage', 'statue', 'snob', 'smith', 'map', 'place', 'market', 'farm', 'reports', 'quests', 'ranking', 'tribes', 'inbox', 'support', 'player', 'debug', 'building', 'relations', 'stats', 'simulator', 'scavenge', 'news', 'settings', 'admin'] as const satisfies readonly Screen[];
 export const screen = signal<Screen>(screenFromHash() ?? 'overview');
 function screenFromHash(): Screen | null {
   const h = typeof location !== 'undefined' ? decodeURIComponent(location.hash.slice(1)) : '';
@@ -218,6 +221,12 @@ port.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'saves':
       saves.value = msg.saves;
+      break;
+    case 'cloud':
+      cloudStatus.value = msg.status;
+      break;
+    case 'cloudWorlds':
+      cloudWorlds.value = msg.worlds;
       break;
     case 'map':
       mapData.value = msg.map;

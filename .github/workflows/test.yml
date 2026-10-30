@@ -29,6 +29,28 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Smoke test (the built game in a real browser)
         run: npm run smoke
+      - name: Java for the Firestore emulator
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Emulator download cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ hashFiles('package-lock.json') }}
+      - name: Accounts and cloud saves (Firebase emulators, with the real security rules)
+        # the log of a failure also goes into an annotation (readable without the full job log)
+        shell: bash
+        run: |
+          set +e
+          npm run smoke:cloud 2>&1 | tee cloud.log
+          code=${PIPESTATUS[0]}
+          echo "::notice title=smoke:cloud::$(grep -E '^(PASS|FAIL)' cloud.log | sed ':a;N;$!ba;s/\n/%0A/g')"
+          if [ "$code" -ne 0 ]; then
+            echo "::error title=smoke:cloud::$(grep -v '^npm warn' cloud.log | tail -40 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')"
+          fi
+          exit $code
       - name: Keep the tested build
         uses: actions/upload-artifact@v4
         with:
@@ -53,6 +75,21 @@ jobs:
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
+      # the security rules first: a new game never talks to old rules (same file the cloud test ran against)
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - name: Deploy the Firestore security rules
+        if: steps.key.outputs.ready == 'true'
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TRIBAL_FEUD }}
+        run: |
+          npm ci
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json" npx firebase deploy --only firestore:rules --project tribal-feud --non-interactive
+          rm "$RUNNER_TEMP/key.json"
       - name: The tested build
         if: steps.key.outputs.ready == 'true'
         uses: actions/download-artifact@v4

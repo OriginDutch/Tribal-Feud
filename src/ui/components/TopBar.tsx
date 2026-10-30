@@ -3,6 +3,7 @@ import { num } from '../format';
 import { paletteOpen, send, snapshot, togglePause } from '../store';
 import { NavIcon } from './NavIcon';
 import { VillageSwitcher } from './VillageSwitcher';
+import { AccountButton } from './Account';
 import { keyLabel, keyOf } from '../keys';
 
 const RES = [
@@ -111,6 +112,7 @@ export function TopBar() {
           {s.suspended && <span class="muted">tab verborgen</span>}
         </div>
       )}
+      <AccountButton />
     </header>
   );
 }

@@ -28,7 +28,7 @@ export const SETTINGS: MenuGroup = {
   id: 'instellingen',
   label: 'Instellingen',
   icon: 'gear',
-  tabs: [{ screen: 'settings', label: 'Sneltoetsen' }, { screen: 'debug', label: 'Log & debug' }],
+  tabs: [{ screen: 'settings', label: 'Sneltoetsen' }, { screen: 'debug', label: 'Log & debug' }, { screen: 'admin', label: 'Admin' }],
 };
 
 /** Buildings you do something in (static ones like mines or the wall open from the village). */
@@ -43,6 +43,11 @@ export const MENU_BUILDINGS: { screen: Screen; label: string; building: string }
   { screen: 'place', label: 'Verzamelplaats', building: 'place' },
   { screen: 'market', label: 'Marktplaats', building: 'market' },
 ];
+
+/** Tabs this player sees (the admin tab only for the admin). */
+export function visibleTabs(g: MenuGroup, admin: boolean): MenuGroup['tabs'] {
+  return admin ? g.tabs : g.tabs.filter((t) => t.screen !== 'admin');
+}
 
 /** The group a screen belongs to (buildings and the player profile have none). */
 export function groupOf(screen: Screen): MenuGroup | undefined {

@@ -30,6 +30,8 @@ import { VillagesScreen } from './screens/VillagesScreen';
 import { ManagerScreen } from './screens/ManagerScreen';
 import { NewsScreen } from './screens/NewsScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { AdminScreen } from './screens/AdminScreen';
+import { AccountModal } from './components/Account';
 import { onShortcut } from './keys';
 import { NewsTicker } from './components/NewsTicker';
 import { ReportPopup } from './components/ReportPopup';
@@ -94,6 +96,8 @@ function CurrentScreen() {
       return <NewsScreen />;
     case 'settings':
       return <SettingsScreen />;
+    case 'admin':
+      return <AdminScreen />;
     default:
       return <RecruitScreen building={screen.value} />;
   }
@@ -131,6 +135,7 @@ export function App() {
         )}
         {n && <div class={`notice ${n.level}`}>{n.text}</div>}
       </div>
+      <AccountModal />
       {hasWorld ? (
         <div class="layout">
           <Nav />

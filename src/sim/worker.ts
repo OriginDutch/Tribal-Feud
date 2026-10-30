@@ -21,7 +21,10 @@ import { AUTOSAVE_SLOT, BACKUP_PREFIX, MANUAL_PREFIX, UPDATE_PREFIX, nextBackupS
 import { DAY, SECOND } from '../shared/time';
 import { deleteSave, getSave, listSaves, putSave } from '../storage/saveStore';
 import { randomSeed } from './rng';
-import { SAVE_VERSION, fromSaveData, toSaveData } from './save';
+import { SAVE_VERSION, fromSaveData, toSaveData, type SaveData } from './save';
+import { FIREBASE } from '../cloud/config';
+import { Firestore } from '../cloud/rest';
+import { CloudSync } from '../cloud/sync';
 import { advance, schedule, scheduleRandom, setPaused, setSpeed } from './simulation';
 import { createWorld, currentVillage, playerVillage, type Player, type WorldState } from './state';
 import { storageCapacity } from './formulas';
@@ -110,6 +113,13 @@ let runningSinceBackup = 0;
 const worldKey = (s: WorldState) => String(s.config.seed);
 const autosaveSlot = (s: WorldState) => `${AUTOSAVE_SLOT}:${worldKey(s)}`;
 
+/** Cloud saves (only once a tab has signed in). */
+const cloud = new CloudSync(
+  (u) => new Firestore(FIREBASE?.projectId ?? '', async () => cloud.user?.token ?? u.token),
+  (status) => post({ type: 'cloud', status }),
+  (worlds) => post({ type: 'cloudWorlds', worlds }),
+);
+
 /** Writes a rolling backup: up to BACKUPS_KEPT per world, the oldest one is replaced. */
 async function backup(): Promise<void> {
   if (!state) return;
@@ -135,7 +145,7 @@ let from: Client | null = null;
 /** The tab's village was already taken over from the command (by a snapshot during it). */
 let fromSettled = false;
 /** Messages every tab needs, whoever caused them. */
-const BROADCAST = new Set<WorkerMessage['type']>(['saves', 'autoPaused']);
+const BROADCAST = new Set<WorkerMessage['type']>(['saves', 'autoPaused', 'cloud', 'cloudWorlds']);
 
 function post(msg: WorkerMessage): void {
   if (from && !BROADCAST.has(msg.type)) { from.port.postMessage(msg); return; }
@@ -719,18 +729,23 @@ async function postSaves(): Promise<void> {
   post({ type: 'saves', saves: await listSaves() });
 }
 
-async function save(slot: string, quiet = false, to: Client | null = null): Promise<void> {
+/** Saves locally; with `cloud` set the same text also goes to the cloud (if signed in; 'auto' at most every few minutes). */
+async function save(slot: string, quiet = false, to: Client | null = null, cloudWhen: 'auto' | 'now' | 'force' | null = null): Promise<void> {
   if (!state) return;
-  await putSave(slot, toSaveData(state, Date.now(), false));
+  const s = state;
+  const data = toSaveData(s, Date.now(), false);
+  const json = JSON.stringify(data);
+  await putSave(slot, data, json);
   runningSinceAutosave = 0;
   if (!quiet) notice(`Opgeslagen in "${slot}".`, 'info', to);
   await postSaves();
+  if (cloudWhen) void cloud.offer({ key: worldKey(s), name: s.config.name, savedAt: data.savedAt, gameTime: s.time, version: data.version, json }, cloudWhen);
 }
 
-function autosave(): void {
+function autosave(cloudWhen: 'auto' | 'now' = 'auto'): void {
   if (!state) return;
   const due = runningSinceBackup >= BACKUP_EVERY_MS;
-  save(autosaveSlot(state), true)
+  save(autosaveSlot(state), true, null, cloudWhen)
     .then(() => (due ? backup().then(postSaves) : undefined))
     .catch((e: unknown) => notice(`Autosave mislukt: ${String(e)}`, 'error'));
 }
@@ -778,7 +793,7 @@ async function handle(cmd: Command): Promise<void> {
     case 'setPaused':
       if (state) {
         setPaused(state, cmd.paused);
-        if (cmd.paused) autosave();
+        if (cmd.paused) autosave('now');
       }
       break;
     case 'setVisible': {
@@ -786,7 +801,7 @@ async function handle(cmd: Command): Promise<void> {
       const was = suspended;
       // the world stands still only when no tab shows it
       suspended = ![...clients].some((c) => c.visible);
-      if (suspended && !was && state && !state.paused) autosave();
+      if (suspended && !was && state && !state.paused) autosave('now');
       break;
     }
     case 'hello':
@@ -812,8 +827,8 @@ async function handle(cmd: Command): Promise<void> {
       await save(cmd.slot, false, me);
       break;
     case 'saveWorld':
-      if (state) await save(`${MANUAL_PREFIX}${worldKey(state)}`, true, me);
-      notice('Wereld opgeslagen.', 'info', me);
+      if (state) await save(`${MANUAL_PREFIX}${worldKey(state)}`, true, me, 'now');
+      notice(cloud.user ? 'Wereld opgeslagen (ook naar de cloud).' : 'Wereld opgeslagen.', 'info', me);
       break;
     case 'load': {
       const data = await getSave(cmd.slot);
@@ -832,6 +847,30 @@ async function handle(cmd: Command): Promise<void> {
       // always resume paused, so nothing happens before the player looks
       state.paused = true;
       notice(`"${state.config.name}" geladen.`, 'info', me);
+      break;
+    }
+    case 'auth':
+      await cloud.setUser(cmd.user);
+      break;
+    case 'cloudRefresh':
+      await cloud.refresh();
+      break;
+    case 'cloudDelete':
+      await cloud.remove(cmd.slot);
+      break;
+    case 'cloudForce':
+      if (state) await save(autosaveSlot(state), true, me, 'force');
+      break;
+    case 'cloudLoad': {
+      const { world, json } = await cloud.download(cmd.slot);
+      const data = JSON.parse(json) as SaveData;
+      fromSaveData(data); // throws when it doesn't load: nothing local is touched then
+      const slot = `${AUTOSAVE_SLOT}:${world.key}`;
+      // the local autosave of this world is kept as a backup before the cloud copy replaces it
+      const local = await getSave(slot);
+      if (local) await putSave(nextBackupSlot(await listSaves(), `${BACKUP_PREFIX}${world.key}:`), local);
+      await putSave(slot, data, json);
+      await handle({ type: 'load', slot });
       break;
     }
     case 'deleteSave':
@@ -1409,6 +1448,8 @@ function connect(port: Client['port']): Client {
     if (blocked) { port.postMessage({ type: 'blocked' }); return; }
     asClient(c, () => port.postMessage({ type: 'snapshot', snapshot: snapshot() }));
     listSaves().then((saves) => port.postMessage({ type: 'saves', saves })).catch(() => undefined);
+    port.postMessage({ type: 'cloud', status: cloud.status });
+    port.postMessage({ type: 'cloudWorlds', worlds: cloud.worlds });
   });
   return c;
 }
