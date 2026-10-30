@@ -133,7 +133,7 @@ export function MainScreen() {
               <select value={tear} onChange={(e) => setTear(e.currentTarget.value as BuildingId | '')}>
                 <option value="">Kies een gebouw…</option>
                 {tearable.map((b) => (
-                  <option key={b.id} value={b.id}>
+                  <option key={b.id} value={String(b.id)}>
                     {b.name} {b.planned} → {b.demolish?.level}
                   </option>
                 ))}

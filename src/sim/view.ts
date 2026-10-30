@@ -72,6 +72,8 @@ export interface UnitView {
   building: RecruitBuilding;
   enabled: boolean;
   home: number;
+  /** Away from home: on the move, scavenging or standing elsewhere as support (what's where). */
+  away: { total: number; moving: number; scavenging: number; support: number };
   cost: Res;
   pop: number;
   stats: { attack: number; defense: number; defenseCavalry: number; defenseArcher: number; speed: number; carry: number };
@@ -211,14 +213,28 @@ export function villageView(state: WorldState, v: Village): VillageView {
     };
   });
 
+  // what is outside, split: scavenging and support are known, the rest is on the move
+  const scavAway: UnitCounts = {};
+  for (const r of v.scav?.runs ?? []) for (const [u, n] of Object.entries(r.units) as [UnitId, number][]) scavAway[u] = (scavAway[u] ?? 0) + n;
+  const supportAway: UnitCounts = {};
+  if (UNIT_IDS.some((u) => v.outside[u] > 0)) {
+    for (const host of Object.values(state.villages)) {
+      const units = host.support?.[v.id];
+      if (units) for (const [u, n] of Object.entries(units) as [UnitId, number][]) supportAway[u] = (supportAway[u] ?? 0) + n;
+    }
+  }
   const units: UnitView[] = UNIT_IDS.map((u) => {
     const def = config.units[u];
+    const total = Math.max(0, v.outside[u]);
+    const scavenging = Math.min(total, scavAway[u] ?? 0);
+    const support = Math.min(total - scavenging, supportAway[u] ?? 0);
     return {
       id: u,
       name: def.name,
       building: def.building,
       enabled: isUnitEnabled(config, u),
       home: v.units[u],
+      away: { total, scavenging, support, moving: total - scavenging - support },
       cost: def.cost,
       pop: def.pop,
       stats: {

@@ -34,6 +34,8 @@ export type Command =
   | { type: 'save'; slot: string }
   /** Saves the world in its own manual slot (one per world, overwritten each time). */
   | { type: 'saveWorld' }
+  /** Battle rules of the running world (only the ones that can safely change halfway). */
+  | { type: 'setRules'; morale?: 'off' | 'points' | 'pointsTime'; luck?: boolean; nightBonus?: boolean }
   /** A tab signed in or out, or has a fresh token (tokens last an hour; the tab renews them). */
   | { type: 'auth'; user: CloudUser | null }
   | { type: 'cloudRefresh' }
@@ -498,6 +500,8 @@ export interface Snapshot {
   surplus: { keep: number; auto: boolean };
   /** Rooftochten on in this world. */
   scavenging: boolean;
+  /** Battle rules that may change while playing. */
+  rules: { morale: 'off' | 'points' | 'pointsTime'; luck: boolean; nightBonus: boolean };
   /** Domination endgame. */
   endgame: EndgameView;
   /** Flags worlds: your free flags per kind and level (index 0 = level 1), and progress to the next. */

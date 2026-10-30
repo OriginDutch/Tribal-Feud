@@ -77,7 +77,7 @@ export function ManagerScreen() {
           <select value={template} onChange={(e) => setTemplate(e.currentTarget.value)}>
             <option value="">Geen (zelf bouwen)</option>
             {pickable(s.templates, template).map((t) => (
-              <option key={t.id} value={t.id}>
+              <option key={t.id} value={String(t.id)}>
                 {t.name}
               </option>
             ))}
@@ -94,7 +94,7 @@ export function ManagerScreen() {
           <select value={troopTemplate} onChange={(e) => setTroopTemplate(e.currentTarget.value)}>
             <option value="">Eigen aantallen voor dit dorp</option>
             {pickable(s.troopTemplates, troopTemplate).map((t) => (
-              <option key={t.id} value={t.id}>
+              <option key={t.id} value={String(t.id)}>
                 {t.name}
               </option>
             ))}
@@ -142,7 +142,7 @@ export function ManagerScreen() {
             Vlag
             <select value={flag} onChange={(e) => setFlag(e.currentTarget.value)}>
               <option value="">Zelf kiezen</option>
-              {FLAG_TYPES.map((f) => <option key={f} value={f}>{FLAG_NAMES[f]} (beste losse)</option>)}
+              {FLAG_TYPES.map((f) => <option key={f} value={String(f)}>{FLAG_NAMES[f]} (beste losse)</option>)}
             </select>
           </label>
         )}
@@ -343,7 +343,7 @@ function BuildTemplates({ templates, use }: { templates: BuildTemplate[]; use: R
                       }}
                     >
                       {BUILDING_IDS.map((id) => (
-                        <option key={id} value={id}>
+                        <option key={id} value={String(id)}>
                           {names[id] ?? id}
                         </option>
                       ))}
@@ -611,7 +611,7 @@ function NobleTemplates({ templates }: { templates: NobleTemplate[] }) {
               <select value={editing.catapultTarget} onChange={(e) => setEditing({ ...editing, catapultTarget: e.currentTarget.value as BuildingId | '' })}>
                 <option value="">geen</option>
                 {CATAPULT_TARGETS.map((b) => (
-                  <option key={b} value={b}>
+                  <option key={b} value={String(b)}>
                     {names[b] ?? b}
                   </option>
                 ))}

@@ -129,9 +129,9 @@ export function SupportScreen() {
         <div class="support-controls">
           <label>
             Naar
-            <select value={target ?? ''} onChange={(e) => { setTarget(Number(e.currentTarget.value)); setAmounts({}); }}>
+            <select value={String(target ?? '')} onChange={(e) => { setTarget(Number(e.currentTarget.value)); setAmounts({}); }}>
               {s.villages.map((v) => (
-                <option key={v.id} value={v.id}>
+                <option key={v.id} value={String(v.id)}>
                   {v.name} ({v.x}|{v.y})
                 </option>
               ))}
@@ -151,7 +151,7 @@ export function SupportScreen() {
               >
                 <option value="">Alle dorpen</option>
                 {s.groups.map((g) => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
+                  <option key={g.id} value={String(g.id)}>{g.name}</option>
                 ))}
               </select>
             </label>

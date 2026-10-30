@@ -322,6 +322,7 @@ function snapshot(): Snapshot | null {
     surplus: state.surplus ?? DEFAULT_SURPLUS,
     difficulty: state.config.bots.difficulty,
     scavenging: state.config.scavenging !== false,
+    rules: { morale: state.config.morale, luck: state.config.luck, nightBonus: state.config.nightBonus },
     endgame: endgameView(state),
     ...(state.config.paladin === 'items' ? { items: itemsView(state) } : {}),
     ...(state.config.flags ? { flags: flagsView(state) } : {}),
@@ -1318,6 +1319,16 @@ async function handle(cmd: Command): Promise<void> {
       state.config.buildSpeed = build;
       state.config.recruitSpeed = recruit;
       addLog(state, { time: state.time, text: `Bouwsnelheid ×${build}, rekruteersnelheid ×${recruit}. Wat al in een wachtrij staat houdt zijn tijd.` });
+      break;
+    }
+    case 'setRules': {
+      if (!state) return;
+      const c = state.config;
+      const said: string[] = [];
+      if (cmd.morale && cmd.morale !== c.morale) { c.morale = cmd.morale; said.push(`moraal ${{ off: 'uit', points: 'op punten', pointsTime: 'op punten en tijd' }[cmd.morale]}`); }
+      if (cmd.luck !== undefined && cmd.luck !== c.luck) { c.luck = cmd.luck; said.push(`geluk ${cmd.luck ? 'aan' : 'uit'}`); }
+      if (cmd.nightBonus !== undefined && cmd.nightBonus !== c.nightBonus) { c.nightBonus = cmd.nightBonus; said.push(`nachtbonus ${cmd.nightBonus ? 'aan' : 'uit'}`); }
+      if (said.length) addLog(state, { time: state.time, text: `Wereldregels: ${said.join(', ')}. Geldt voor gevechten vanaf nu, ook voor de bots.` });
       break;
     }
     case 'setScavenging':

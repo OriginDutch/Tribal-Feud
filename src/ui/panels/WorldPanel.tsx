@@ -13,6 +13,8 @@ export function WorldPanel() {
   return (
     <section class="panel">
       <h2>Deze wereld</h2>
+      <p class="hint">Alleen instellingen die veilig halverwege kunnen veranderen. Wereldsnelheid, kaart en dergelijke liggen vast bij het maken van de wereld.</p>
+      <h3 class="world-sub">Bots en tempo</h3>
       <label>
         Bots
         <select value={s.difficulty} onChange={(e) => send({ type: 'setDifficulty', difficulty: e.currentTarget.value as 'easy' | 'normal' | 'hard' })}>
@@ -25,6 +27,24 @@ export function WorldPanel() {
       <SpeedPicker label="Bouwsnelheid" value={s.multipliers.build} onPick={(build) => send({ type: 'setSpeeds', build, recruit: s.multipliers.recruit })} />
       <SpeedPicker label="Rekruteersnelheid" value={s.multipliers.recruit} onPick={(recruit) => send({ type: 'setSpeeds', build: s.multipliers.build, recruit })} />
       <p class="hint">Bovenop de wereldsnelheid (×{s.multipliers.world}). Geldt voor iedereen, ook de bots. Wat al in een wachtrij staat houdt zijn oude tijd.</p>
+      <h3 class="world-sub">Gevechten</h3>
+      <label>
+        Moraal
+        <select value={s.rules.morale} onChange={(e) => send({ type: 'setRules', morale: e.currentTarget.value as 'off' | 'points' | 'pointsTime' })}>
+          <option value="off">Uit (altijd 100%)</option>
+          <option value="points">Op punten (TW)</option>
+          <option value="pointsTime">Op punten en tijd</option>
+        </select>
+      </label>
+      <p class="hint">Moraal verzwakt een aanval op een speler die veel kleiner is dan de aanvaller. Barbarendorpen hebben nooit moraal.</p>
+      <label class="row">
+        <input type="checkbox" checked={s.rules.luck} onChange={(e) => send({ type: 'setRules', luck: e.currentTarget.checked })} /> Geluk (aanvallen tot 25% sterker of zwakker)
+      </label>
+      <label class="row">
+        <input type="checkbox" checked={s.rules.nightBonus} onChange={(e) => send({ type: 'setRules', nightBonus: e.currentTarget.checked })} /> Nachtbonus (verdediging ×2 tussen 0 en 8 uur)
+      </label>
+      <p class="hint">Geldt voor gevechten vanaf nu, voor iedereen. Aanvallen die al onderweg zijn, rekenen bij aankomst met de nieuwe regels.</p>
+      <h3 class="world-sub">Overig</h3>
       <label class="row" title="Lopende rooftochten komen gewoon nog terug.">
         <input type="checkbox" checked={s.scavenging} onChange={(e) => send({ type: 'setScavenging', on: e.currentTarget.checked })} /> Rooftochten (ook voor bots)
       </label>

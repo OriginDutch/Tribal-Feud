@@ -143,8 +143,8 @@ function AskResources() {
         </p>
       ) : (
         <div class="row wrap">
-          <select value={village} onChange={(e) => setVillage(Number(e.currentTarget.value))}>
-            {s.villages.map((v) => <option key={v.id} value={v.id}>{v.name} ({v.x}|{v.y})</option>)}
+          <select value={String(village)} onChange={(e) => setVillage(Number(e.currentTarget.value))}>
+            {s.villages.map((v) => <option key={v.id} value={String(v.id)}>{v.name} ({v.x}|{v.y})</option>)}
           </select>
           {['Hout', 'Leem', 'IJzer'].map((label, i) => (
             <label key={label} class="row">

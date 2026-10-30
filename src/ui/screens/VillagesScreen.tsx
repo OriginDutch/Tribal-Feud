@@ -246,13 +246,13 @@ function GroupManager({ groups }: { groups: VillageGroup[] }) {
                 <td>
                   <select value={d.template ?? ''} onChange={(e) => { const val = e.currentTarget.value; const { template: _t, ...rest } = d; void _t; setDrafts((x) => ({ ...x, [g.id]: val ? { ...rest, template: val } : rest })); }}>
                     <option value="">—</option>
-                    {pickable(s.templates, d.template).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    {pickable(s.templates, d.template).map((t) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
                   </select>
                 </td>
                 <td>
                   <select value={d.troopTemplate ?? ''} onChange={(e) => { const val = e.currentTarget.value; const { troopTemplate: _t, ...rest } = d; void _t; setDrafts((x) => ({ ...x, [g.id]: val ? { ...rest, troopTemplate: val } : rest })); }}>
                     <option value="">—</option>
-                    {pickable(s.troopTemplates, d.troopTemplate).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    {pickable(s.troopTemplates, d.troopTemplate).map((t) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
                   </select>
                 </td>
                 <td class="right nowrap">

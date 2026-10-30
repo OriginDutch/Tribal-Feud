@@ -32,6 +32,7 @@ import { NewsScreen } from './screens/NewsScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { AdminScreen } from './screens/AdminScreen';
 import { SoundScreen } from './screens/SoundScreen';
+import { WorldPanel } from './panels/WorldPanel';
 import { AccountModal } from './components/Account';
 import { onShortcut } from './keys';
 import { NewsTicker } from './components/NewsTicker';
@@ -101,6 +102,8 @@ function CurrentScreen() {
       return <AdminScreen />;
     case 'sound':
       return <SoundScreen />;
+    case 'rules':
+      return <main class="grid rules-grid"><WorldPanel /></main>;
     default:
       return <RecruitScreen building={screen.value} />;
   }

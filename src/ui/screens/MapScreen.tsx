@@ -801,7 +801,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
             onChange={(e) => runSearch(e.currentTarget.value)}
           />
           <datalist id="map-search-list">
-            {suggestions.map((n) => <option key={n} value={n} />)}
+            {suggestions.map((n) => <option key={n} value={String(n)} />)}
           </datalist>
           {searchError && <span class="error">{searchError}</span>}
         </form>
