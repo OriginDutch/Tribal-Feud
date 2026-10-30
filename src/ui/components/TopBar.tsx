@@ -4,6 +4,7 @@ import { confirmAllTabs, paletteOpen, send, snapshot, togglePause } from '../sto
 import { NavIcon } from './NavIcon';
 import { VillageSwitcher } from './VillageSwitcher';
 import { AccountButton } from './Account';
+import { MusicButton } from '../music/MusicButton';
 import { keyLabel, keyOf } from '../keys';
 
 const RES = [
@@ -118,6 +119,7 @@ export function TopBar() {
           {s.suspended && <span class="muted">tab verborgen</span>}
         </div>
       )}
+      <MusicButton />
       <AccountButton />
     </header>
   );

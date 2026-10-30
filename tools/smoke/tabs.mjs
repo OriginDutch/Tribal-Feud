@@ -38,13 +38,35 @@ try {
   await A.keyboard.press('Digit4');
 
   // a menu link opened in a new tab lands in the same world, on that screen
-  const [B] = await Promise.all([ctx.waitForEvent('page'), A.locator('nav.rail a[aria-label="Kaart"]').click({ modifiers: ['ControlOrMeta'] })]);
+  await A.waitForFunction(() => location.hash === '#farm');
+  // ctrl-click a menu link; once more if the first click went nowhere (a slow first paint)
+  const openMap = () => Promise.all([ctx.waitForEvent('page', { timeout: 15_000 }), A.locator('nav.rail a[aria-label="Kaart"]').click({ modifiers: ['ControlOrMeta'] })]);
+  const [B] = await openMap().catch(() => openMap());
   B.on('pageerror', (e) => problems.push(`page error: ${e.message}`));
   await B.waitForSelector('nav.rail', { timeout: 20_000 });
   expect('a link opened in a new tab shows the world on that screen', B.url().endsWith('#map') && A.url().endsWith('#farm'), `${A.url()} / ${B.url()}`);
   expect('each tab is titled after its screen', (await A.title()) === 'Farm-assistent · Tribal Feud' && (await B.title()) === 'Kaart · Tribal Feud', `${await A.title()} / ${await B.title()}`);
   expect('the favicon is there', (await fetch(`${URL}favicon.svg`)).ok && (await fetch(`${URL}favicon-32.png`)).ok);
   expect('both tabs show the same village to start', (await name(A)) === (await name(B)));
+
+  // music: a theme first, and only the tab you look at plays
+  const music = async (p) => ({ track: await p.locator('.music-btn').first().getAttribute('data-track'), playing: await p.locator('.music-btn').first().getAttribute('data-playing') });
+  await A.bringToFront();
+  await A.mouse.click(5, 300);
+  await A.waitForTimeout(1500);
+  const mA = await music(A);
+  expect('the music opens with a theme', /^menu-[12]$/.test(mA.track ?? ''), JSON.stringify(mA));
+  expect('the music plays in the tab you look at', mA.playing === 'yes', JSON.stringify(mA));
+  expect('the music files are there', (await fetch(`${URL}music/menu-1.webm`)).ok && (await fetch(`${URL}music/morning-2.m4a`)).ok);
+  await B.bringToFront();
+  await B.mouse.click(5, 300);
+  await B.waitForTimeout(1500);
+  const [a2, b2] = [await music(A), await music(B)];
+  expect('switching tabs: the new tab carries on with the same track, the other goes quiet', b2.playing === 'yes' && a2.playing === 'no' && b2.track === mA.track, `${JSON.stringify(a2)} ${JSON.stringify(b2)}`);
+  await B.locator('.music-btn').first().click();
+  await B.waitForTimeout(1500);
+  expect('the speaker button mutes', (await music(B)).playing === 'no');
+  await B.locator('.music-btn').first().click();
 
   // one clock: run in A, B follows; quick switching
   await A.bringToFront();

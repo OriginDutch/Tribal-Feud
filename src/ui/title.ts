@@ -3,7 +3,7 @@ import { effect } from '@preact/signals';
 import { GROUPS, MENU_BUILDINGS, SETTINGS } from './menu';
 import { screen, snapshot, type Screen } from './store';
 
-const OTHER: Partial<Record<Screen, string>> = { player: 'Speler', building: 'Gebouw', admin: 'Admin' };
+const OTHER: Partial<Record<Screen, string>> = { player: 'Speler', building: 'Gebouw', admin: 'Admin', sound: 'Geluid' };
 
 export function screenLabel(s: Screen): string {
   for (const g of [...GROUPS, SETTINGS]) {
