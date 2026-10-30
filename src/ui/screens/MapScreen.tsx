@@ -751,7 +751,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
     <div class="screen map-screen">
       <div class="map-head">
         <h2>Kaart</h2>
-        <span class="muted">
+        <span class="muted map-hoverinfo">
           {hover ? `${hover.x}|${hover.y} · ${continent(hover.x, hover.y)}` : ''}
           {hovered ? ` · ${hovered.name} (${num(hovered.points)} p)` : ''}
         </span>

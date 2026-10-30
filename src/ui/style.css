@@ -859,3 +859,6 @@ details.hidden-templates > summary { cursor: pointer; color: var(--muted, #9a8f7
 .report-search { width: 260px; max-width: 100%; }
 .news-players { display: inline-flex; gap: 8px; margin-left: 10px; font-size: 12px; }
 .news-players .player-link { color: var(--muted); }
+.map-hoverinfo { width: 290px; flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.vname-top b { flex: 1 1 auto; min-width: 0; }
+.ov-title .ov-name { display: inline-block; width: 340px; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }

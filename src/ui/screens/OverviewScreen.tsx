@@ -20,8 +20,8 @@ export function OverviewScreen() {
 
   return (
     <div class="screen wide">
-      <h2>
-        {v.name} <span class="muted"><Coords x={v.x} y={v.y} /> · {num(v.points)} punten</span>
+      <h2 class="ov-title">
+        <span class="ov-name">{v.name}</span> <span class="muted"><Coords x={v.x} y={v.y} /> · {num(v.points)} punten</span>
       </h2>
       <IncomingPanel />
       {v.loyalty < 100 && <p class="warn">Toestemming van dit dorp: {v.loyalty}</p>}
