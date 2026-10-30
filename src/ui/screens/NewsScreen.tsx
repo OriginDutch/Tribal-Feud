@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { NEWS_GROUP, NEWS_ICON, type NewsItem } from '../../sim/news';
 import { formatGameTime } from '../../shared/time';
-import { newsList, send, snapshot } from '../store';
+import { newsList, ranking, send, snapshot } from '../store';
+import { PlayerLink } from '../components/PlayerLink';
 import { newsStyle, setNewsStyle } from '../newsStyle';
 import { useSaved } from '../useSaved';
 
@@ -20,6 +21,7 @@ const PAGE = 100;
 export function NewsScreen() {
   useEffect(() => {
     send({ type: 'getNews' });
+    send({ type: 'getRanking' });
     const poll = window.setInterval(() => send({ type: 'getNews' }), 5000);
     return () => window.clearInterval(poll);
   }, []);
@@ -40,6 +42,7 @@ export function NewsScreen() {
     }
   };
   const list = newsList.value.filter(keep);
+  const names = new Map(ranking.value.map((r) => [r.id, r.name]));
 
   return (
     <div class="screen news-screen">
@@ -69,7 +72,17 @@ export function NewsScreen() {
           {list.slice(0, shown).map((n) => (
             <li key={n.id} class={`news-item kind-${n.kind} ${myTribe !== null && n.tribes?.includes(myTribe) ? 'mine' : ''}`}>
               <span class="news-icon" aria-hidden="true">{NEWS_ICON[n.kind]}</span>
-              <span class="news-text">{style === 'dry' ? n.dry : n.head}</span>
+              <span class="news-text">
+                {style === 'dry' ? n.dry : n.head}
+                {n.players?.length ? (
+                  <span class="news-players">
+                    {n.players.map((pid) => {
+                      const p = names.get(pid);
+                      return p ? <PlayerLink key={pid} id={pid} name={p} /> : null;
+                    })}
+                  </span>
+                ) : null}
+              </span>
               <span class="news-meta">
                 {formatGameTime(n.time)}
                 {n.x !== undefined && n.y !== undefined ? ` · ${n.x}|${n.y}` : ''}

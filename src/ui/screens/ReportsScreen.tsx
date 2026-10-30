@@ -8,7 +8,7 @@ import { BUILDING_IDS, UNIT_IDS, type UnitCounts } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
 import type { Report } from '../../sim/movement';
 import { num } from '../format';
-import { attackVillage, reports, screen, send, simPrefill, snapshot } from '../store';
+import { attackVillage, ranking, reports, screen, send, simPrefill, snapshot, tribes } from '../store';
 import { FLAG_NAMES, type FlagType } from '../../shared/flags';
 import { UnitIcon } from '../units/UnitIcon';
 
@@ -280,20 +280,49 @@ export function ReportDetail({ r }: { r: Report }) {
   );
 }
 
+/**
+ * Search in reports: "501|497" (or "501 497") = that village on either side, "[TAG]" = a member of
+ * that tribe on either side, anything else = part of a player's or village's name.
+ */
+function matcher(q: string): (r: Report) => boolean {
+  const t = q.trim();
+  if (!t) return () => true;
+  const xy = /^(\d{1,4})\s*[|,/ ]\s*(\d{1,4})$/.exec(t);
+  if (xy) {
+    const x = Number(xy[1]), y = Number(xy[2]);
+    return (r) => (r.attacker.x === x && r.attacker.y === y) || (r.defender.x === x && r.defender.y === y);
+  }
+  const tag = /^\[(.+)\]$/.exec(t);
+  if (tag) {
+    const tr = tribes.value.find((x) => x.tag.toLowerCase() === tag[1]!.toLowerCase());
+    if (!tr) return () => false;
+    const members = new Set(ranking.value.filter((p) => p.tribe === tr.id).map((p) => p.id));
+    const names = new Set(ranking.value.filter((p) => p.tribe === tr.id).map((p) => p.name));
+    const inTribe = (v: Report['attacker']) => (v.owner !== undefined ? members.has(v.owner) : names.has(v.ownerName));
+    return (r) => inTribe(r.attacker) || inTribe(r.defender);
+  }
+  const n = t.toLowerCase();
+  return (r) => [r.attacker.ownerName, r.defender.ownerName, r.attacker.name, r.defender.name].some((x) => x.toLowerCase().includes(n));
+}
+
 export function ReportsScreen() {
   const list = reports.value;
   const [open, setOpen] = useState<number | null>(null);
   const [filter, setFilter] = useSaved<Filter>('reports-filter', 'all');
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [hideAuto, setHideAuto] = useSaved('reports-hide-auto', true);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     send({ type: 'getReports' });
   }, [snapshot.value?.unreadReports]);
+  // for searching on [TAG]: who is in which tribe
+  useEffect(() => { send({ type: 'getRanking' }); }, []);
 
+  const match = matcher(query);
   // auto-farm reports: their own filter; elsewhere hidden if you want
   const shown = [...list].reverse().filter((r) =>
-    filter === 'auto' ? !!r.auto : (!r.auto || !hideAuto) && (filter === 'all' || kindOf(r) === filter),
+    (filter === 'auto' ? !!r.auto : (!r.auto || !hideAuto) && (filter === 'all' || kindOf(r) === filter)) && match(r),
   );
   const autoCount = list.filter((r) => r.auto).length;
   const pickedShown = shown.filter((r) => picked.has(r.id));
@@ -337,6 +366,8 @@ export function ReportsScreen() {
               {f.label}
             </button>
           ))}
+          <input class="report-search" type="search" placeholder="Speler, dorp, [STAM] of 501|497" value={query} aria-label="Rapporten zoeken"
+            onInput={(e) => setQuery(e.currentTarget.value)} />
           <span style={{ flex: 1 }} />
           <label class="inline-check" title="Rapporten van automatisch farmen alleen tonen onder Auto-farm">
             <input type="checkbox" checked={hideAuto} onChange={(e) => setHideAuto(e.currentTarget.checked)} /> auto-farm verbergen

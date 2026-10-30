@@ -853,3 +853,9 @@ details.hidden-templates > summary { cursor: pointer; color: var(--muted, #9a8f7
 .map-hovercard .muted { font-size: 12px; }
 .map-canvas-wrap { position: relative; min-width: 0; }
 .hc-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: 0; }
+.player-card { position: fixed; z-index: 90; pointer-events: none; width: 250px; padding: 10px 12px; background: rgba(28, 24, 19, 0.97); border-radius: 12px; box-shadow: inset 0 0 0 1px var(--border-2), 0 12px 28px rgba(0, 0, 0, 0.5); font-size: 12.5px; display: flex; flex-direction: column; gap: 3px; text-align: left; font-weight: 400; }
+.player-card strong { font-size: 14px; }
+.player-card .tribe-tag { color: var(--tc, var(--muted)); font-weight: 600; }
+.report-search { width: 260px; max-width: 100%; }
+.news-players { display: inline-flex; gap: 8px; margin-left: 10px; font-size: 12px; }
+.news-players .player-link { color: var(--muted); }
