@@ -1013,3 +1013,12 @@ button.world-open:hover strong { color: var(--accent); }
   .ws { font-size: 12px; }
 }
 .world-open .ws { font-weight: 400; }
+/* ---- music ---- */
+.music-btn { width: 32px; height: 30px; padding: 0; display: grid; place-items: center; flex: none; margin-left: 8px; border-radius: 8px; color: var(--muted); background: var(--panel-2); border: 1px solid var(--border); }
+.music-btn:hover { color: var(--accent); border-color: var(--accent-line); }
+.music-btn[aria-pressed="true"] { color: var(--text); }
+.home-head { gap: 10px; }
+.music-btn.home-music { width: 40px; height: 40px; margin: 0; border-radius: 999px; border: 0; background: rgba(20,17,13,0.6); box-shadow: inset 0 0 0 1px rgba(236,220,190,0.2); color: var(--text); }
+.sound-panel { display: flex; flex-direction: column; gap: 14px; max-width: 520px; }
+.sound-volume { display: grid; grid-template-columns: 70px 1fr 44px; gap: 12px; align-items: center; }
+@media (max-width: 700px) { .music-btn.home-music { width: 44px; height: 44px; } }

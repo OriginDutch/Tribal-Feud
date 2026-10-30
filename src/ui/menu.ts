@@ -28,7 +28,7 @@ export const SETTINGS: MenuGroup = {
   id: 'instellingen',
   label: 'Instellingen',
   icon: 'gear',
-  tabs: [{ screen: 'settings', label: 'Sneltoetsen' }, { screen: 'debug', label: 'Log & debug' }, { screen: 'admin', label: 'Admin' }],
+  tabs: [{ screen: 'settings', label: 'Sneltoetsen' }, { screen: 'sound', label: 'Geluid' }, { screen: 'debug', label: 'Log & debug' }, { screen: 'admin', label: 'Admin' }],
 };
 
 /** Buildings you do something in (static ones like mines or the wall open from the village). */

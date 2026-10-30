@@ -8,6 +8,7 @@ import { MAX_WORLDS } from '../../cloud/config';
 import { formatGameTime } from '../../shared/time';
 import { worldsOverview, type WorldRow } from '../../shared/worlds';
 import { cloudLine } from '../components/Account';
+import { MusicButton } from '../music/MusicButton';
 import { cloudOff, setCloudOff } from '../cloudPrefs';
 import { NewWorldPanel } from '../panels/NewWorldPanel';
 import { SavesPanel, exportSlots } from '../panels/SavesPanel';
@@ -290,6 +291,7 @@ export function StartScreen() {
       <div class="home-shade" aria-hidden="true" />
       <div class="home-inner">
         <header class="home-head">
+          <MusicButton class="home-music" />
           {signedIn && (
             <button type="button" class={`home-account cloud-${cloudStatus.value.state}`} data-cloud-at={cloudStatus.value.at ?? ''} onClick={() => openAccount('in')} title={cloudLine(cloudStatus.value)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">

@@ -6,6 +6,7 @@
 import { signal } from '@preact/signals';
 import { SPEEDS, type Speed } from '../shared/time';
 import { GROUPS, MENU_BUILDINGS, SETTINGS } from './menu';
+import { toggleMute } from './music/player';
 import { openBuilding, paletteOpen, send, screen, snapshot, togglePause, type Screen } from './store';
 import type { BuildingId } from '../shared/gameData';
 import { stepVillage } from './components/VillageSwitcher';
@@ -40,6 +41,7 @@ export const ACTIONS: KeyAction[] = [
   { id: 'nextVillage', label: 'Volgend dorp', group: 'Algemeen', def: 'KeyD', run: () => stepVillage(1) },
   { id: 'palette', label: 'Zoeken', group: 'Algemeen', def: 'Ctrl+KeyK', run: () => (paletteOpen.value = !paletteOpen.value) },
   { id: 'save', label: 'Wereld opslaan', group: 'Algemeen', def: 'Ctrl+KeyS', run: () => send({ type: 'saveWorld' }) },
+  { id: 'mute', label: 'Muziek aan / uit', group: 'Algemeen', def: 'KeyM', run: () => toggleMute() },
   { id: 'speedUp', label: 'Sneller', group: 'Algemeen', def: 'Equal', run: () => stepSpeed(1) },
   { id: 'speedDown', label: 'Langzamer', group: 'Algemeen', def: 'Minus', run: () => stepSpeed(-1) },
   ...GROUPS.map((g, i): KeyAction => ({ id: `group:${g.id}`, label: g.label, group: 'Hoofdmenu', def: `Digit${i + 1}`, run: go(g.tabs[0]!.screen) })),
