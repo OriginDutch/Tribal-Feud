@@ -120,7 +120,7 @@ function OneVillage({ view, villageId, now }: { view: ScavView; villageId: numbe
           <input type="checkbox" checked={v.repeat} onChange={(e) => send({ type: 'setScavRepeat', villages: [v.id], repeat: e.currentTarget.checked })} /> Automatisch herhalen
         </label>
         <select value={tplId} onChange={(e) => setTplId(e.currentTarget.value)}>
-          {view.templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          {view.templates.map((t) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
         </select>
         <button class="small" onClick={fill}>Verdelen</button>
         <Confirm label="Alles versturen" disabled={!sendable} onConfirm={() => go(LEVELS)} />
@@ -244,7 +244,7 @@ function Mass({ view, now }: { view: ScavView; now: number }) {
         <div class="row wrap">
           <h3 style={{ margin: 0 }}>Sjabloon</h3>
           <select value={tpl.id} onChange={(e) => { setTplId(e.currentTarget.value); setDraft(null); }}>
-            {view.templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {view.templates.map((t) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
           </select>
           {draft && <span class="muted">(aangepast)</span>}
           <span style={{ flex: 1 }} />
@@ -279,7 +279,7 @@ function Mass({ view, now }: { view: ScavView; now: number }) {
         <div class="row wrap">
           <select value={group} onChange={(e) => { setGroup(e.currentTarget.value); setPicked(null); }}>
             <option value="">Alle dorpen</option>
-            {s.groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            {s.groups.map((g) => <option key={g.id} value={String(g.id)}>{g.name}</option>)}
           </select>
           <button class="small" onClick={() => setPicked(null)}>Alles</button>
           <button class="small" onClick={() => setPicked(new Set())}>Niets</button>

@@ -5,6 +5,7 @@ import { NavIcon } from './NavIcon';
 import { VillageSwitcher } from './VillageSwitcher';
 import { AccountButton } from './Account';
 import { MusicButton } from '../music/MusicButton';
+import { ResIcon } from './ResIcon';
 import { keyLabel, keyOf } from '../keys';
 
 const RES = [
@@ -24,7 +25,7 @@ function ResTile({ i }: { i: 0 | 1 | 2 }) {
   return (
     <div class={`res-tile ${full ? 'full' : ''}`} title={`${r.name}: ${num(amount)} van ${num(v.storage)} · +${num(v.rates[i] ?? 0)} per uur`}>
       <div class="res-v">
-        <i class={`swatch ${r.key}`} />
+        <ResIcon kind={r.key} size={22} />
         {num(amount)}
       </div>
       <small>{full ? 'opslag vol' : `+${num(v.rates[i] ?? 0)} / u`}</small>
@@ -43,7 +44,7 @@ function PopTile() {
   return (
     <div class={`res-tile ${full ? 'full' : ''}`} title={`Boerderij: ${num(v.pop.used)} van ${num(v.pop.max)} inwoners aan het werk`}>
       <div class="res-v">
-        <NavIcon name="overview" size={13} />
+        <ResIcon kind="pop" size={18} />
         {num(v.pop.used)}
       </div>
       <small>{full ? 'boerderij vol' : `/ ${num(v.pop.max)}`}</small>

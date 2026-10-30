@@ -15,6 +15,7 @@ import { CancelButton } from '../components/CancelButton';
 import { DismissTroops } from '../components/DismissTroops';
 import { Confirm } from '../components/Confirm';
 import { SupportReturn } from '../components/SupportReturn';
+import type { MovementView } from '../../shared/protocol';
 
 /** Units offered as escort for noblemen 2..N, best attack first. */
 const ESCORT_UNITS: UnitId[] = ['axe', 'light', 'marcher', 'heavy', 'sword', 'spear'];
@@ -230,7 +231,7 @@ export function PlaceScreen() {
                     .map((o) => ({ o, d: distance(v, o) }))
                     .sort((p, q) => p.d - q.d)
                     .map(({ o, d }) => (
-                      <option key={o.id} value={o.id}>{o.name} ({o.x}|{o.y}) · {d.toFixed(1)} velden</option>
+                      <option key={o.id} value={String(o.id)}>{o.name} ({o.x}|{o.y}) · {d.toFixed(1)} velden</option>
                     ))}
                 </select>
               </label>
@@ -240,7 +241,7 @@ export function PlaceScreen() {
                 Katapulten op
                 <select value={catTarget} onChange={(e) => setCatTarget(e.currentTarget.value as BuildingId)}>
                   {CATAPULT_TARGETS.map((b) => (
-                    <option key={b} value={b}>
+                    <option key={b} value={String(b)}>
                       {v.buildings.find((x) => x.id === b)?.name}
                     </option>
                   ))}
@@ -277,7 +278,7 @@ export function PlaceScreen() {
                 <select value={s.nobleTemplates.some((t) => t.id === trainTpl) ? trainTpl : ''} onChange={(e) => applyTemplate(e.currentTarget.value)}>
                   <option value="">kies…</option>
                   {pickable(s.nobleTemplates, trainTpl).map((t) => (
-                    <option key={t.id} value={t.id}>
+                    <option key={t.id} value={String(t.id)}>
                       {t.name} ({t.escorts.length + (t.clearFirst ? 0 : 1)} edels{t.clearFirst ? ' + clear' : ''})
                     </option>
                   ))}
@@ -409,52 +410,7 @@ export function PlaceScreen() {
         </section>
       )}
 
-      <section class="panel">
-        <h3>Onderweg</h3>
-        {s.movements.length === 0 ? (
-          <p class="muted">Geen troepen onderweg.</p>
-        ) : (
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Opdracht</th>
-                <th>Troepen</th>
-                <th>Aankomst</th>
-                <th class="right">Nog</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {s.movements.map((m) => (
-                <tr key={m.id}>
-                  <td>
-                    {m.kind === 'attack' ? (
-                      <>
-                        <span class="tag-attack">Aanval</span> op {m.to.name} <Coords x={m.to.x} y={m.to.y} /><Owner o={m.to} />
-                      </>
-                    ) : m.kind === 'support' ? (
-                      <>
-                        <span class="tag-support">Steun</span> naar {m.to.name} <Coords x={m.to.x} y={m.to.y} /><Owner o={m.to} />
-                      </>
-                    ) : (
-                      <>
-                        <span class="tag-return">Terug</span> van {m.from.name} <Coords x={m.from.x} y={m.from.y} /><Owner o={m.from} />
-                        {m.loot && <span class="muted"> · buit {num(m.loot[0] + m.loot[1] + m.loot[2])}</span>}
-                      </>
-                    )}
-                  </td>
-                  <td class="muted">{unitsText(m.units)}</td>
-                  <td class="mono muted">{formatGameTime(m.arrives)}</td>
-                  <td class="right mono">{duration(m.arrives - s.time)}</td>
-                  <td class="right">
-                    <CancelButton until={m.cancelUntil} now={s.time} id={m.id} train={m.train} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+      <Movements />
 
       <section class="panel">
         <div class="row">
@@ -520,4 +476,114 @@ export function PlaceScreen() {
 function Owner({ o }: { o: { owner?: number; ownerName?: string } }) {
   if (o.owner === undefined || o.owner < 0 || o.owner === 0) return null;
   return <span class="muted"> · <PlayerLink id={o.owner} name={o.ownerName ?? '?'} /></span>;
+}
+
+type MoveFilter = 'all' | 'attack' | 'farm' | 'support' | 'return';
+const FILTERS: { id: MoveFilter; label: string }[] = [
+  { id: 'all', label: 'Alles' },
+  { id: 'attack', label: 'Aanvallen' },
+  { id: 'farm', label: 'Farm' },
+  { id: 'support', label: 'Steun' },
+  { id: 'return', label: 'Terugkerend' },
+];
+const PAGE = 50;
+
+/** Farm runs: to and from barbarian villages. They come in hundreds, so they fold into one line. */
+const isFarm = (m: MovementView) => (m.kind === 'attack' && m.to.owner === -1) || (m.kind === 'return' && m.from.owner === -1);
+function kindOf(m: MovementView): Exclude<MoveFilter, 'all'> {
+  if (isFarm(m)) return 'farm';
+  if (m.kind === 'attack') return 'attack';
+  if (m.kind === 'support') return 'support';
+  return 'return';
+}
+
+/** Troops on the move from this village: filters, farm runs folded, at most a page at a time. */
+function Movements() {
+  const s = snapshot.value!;
+  const [filter, setFilter] = useState<MoveFilter>('all');
+  const [shown, setShown] = useState(PAGE);
+  const all = s.movements;
+  const count = (f: MoveFilter) => (f === 'all' ? all.length : all.filter((m) => kindOf(m) === f).length);
+  const farm = all.filter(isFarm);
+  const list = filter === 'all' ? all.filter((m) => !isFarm(m)) : all.filter((m) => kindOf(m) === filter);
+  const pick = (f: MoveFilter) => { setFilter(f); setShown(PAGE); };
+  const farmOut = farm.filter((m) => m.kind === 'attack').length;
+  const firstBack = farm.filter((m) => m.kind === 'return').reduce((t, m) => Math.min(t, m.arrives), Infinity);
+  return (
+    <section class="panel">
+      <div class="row moves-head">
+        <h3>Onderweg</h3>
+        <div class="seg moves-filter" role="tablist" aria-label="Soort beweging">
+          {FILTERS.map((f) => {
+            const n = count(f.id);
+            return (
+              <button key={f.id} type="button" role="tab" aria-selected={filter === f.id} class={filter === f.id ? 'on' : ''} disabled={f.id !== 'all' && n === 0} onClick={() => pick(f.id)}>
+                {f.label} <span class="muted">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {all.length === 0 ? (
+        <p class="muted">Geen troepen onderweg.</p>
+      ) : (
+        <>
+          {filter === 'all' && farm.length > 0 && (
+            <button type="button" class="farm-fold" onClick={() => pick('farm')}>
+              <span>
+                <strong>{num(farm.length)} farmruns</strong> <span class="muted">· {num(farmOut)} op weg naar barbaren · {num(farm.length - farmOut)} terug</span>
+              </span>
+              <span class="muted">{Number.isFinite(firstBack) ? `eerste terug over ${duration(firstBack - s.time)}` : ''} · tonen ›</span>
+            </button>
+          )}
+          {list.length > 0 && (
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Opdracht</th>
+                  <th>Troepen</th>
+                  <th>Aankomst</th>
+                  <th class="right">Nog</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {list.slice(0, shown).map((m) => (
+                  <tr key={m.id}>
+                    <td>
+                      {m.kind === 'attack' ? (
+                        <>
+                          <span class="tag-attack">Aanval</span> op {m.to.name} <Coords x={m.to.x} y={m.to.y} /><Owner o={m.to} />
+                        </>
+                      ) : m.kind === 'support' ? (
+                        <>
+                          <span class="tag-support">Steun</span> naar {m.to.name} <Coords x={m.to.x} y={m.to.y} /><Owner o={m.to} />
+                        </>
+                      ) : (
+                        <>
+                          <span class="tag-return">Terug</span> van {m.from.name} <Coords x={m.from.x} y={m.from.y} /><Owner o={m.from} />
+                          {m.loot && <span class="muted"> · buit {num(m.loot[0] + m.loot[1] + m.loot[2])}</span>}
+                        </>
+                      )}
+                    </td>
+                    <td class="muted">{unitsText(m.units)}</td>
+                    <td class="mono muted">{formatGameTime(m.arrives)}</td>
+                    <td class="right mono">{duration(m.arrives - s.time)}</td>
+                    <td class="right">
+                      <CancelButton until={m.cancelUntil} now={s.time} id={m.id} train={m.train} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {list.length > shown && (
+            <button type="button" class="small more-moves" onClick={() => setShown(shown + PAGE)}>
+              Meer tonen ({num(Math.min(PAGE, list.length - shown))} van {num(list.length - shown)})
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  );
 }

@@ -1,6 +1,7 @@
 /**
- * Background music. Plays only in the tab you are looking at; other tabs of the game stay quiet
- * and the one you switch to carries on where the music was. Tracks cross-fade. Browsers allow
+ * Background music. One tab of the game plays: the one you looked at last. It keeps playing when
+ * you switch away from the game; switch to another tab of the game and that one carries on where
+ * the music was, with a short cross-fade. Tracks cross-fade. Browsers allow
  * sound only after the first click or key press, so music starts then at the latest.
  */
 import { signal } from '@preact/signals';
@@ -34,6 +35,8 @@ export const playingHere = signal(false);
 interface Shared {
   track: Track;
   time: number;
+  /** the music was running at `at` (so it has moved on since) */
+  playing?: boolean;
   playlist: Playlist;
   at: number;
 }
@@ -58,10 +61,12 @@ let fadeTimer: number | undefined;
 let lastPaused = 0;
 
 const target = () => (musicSettings.value.muted ? 0 : musicSettings.value.volume);
-const mayPlay = () => unlocked && document.visibilityState === 'visible' && !musicSettings.value.muted;
+const mayPlay = () => unlocked && active && !musicSettings.value.muted;
+/** This tab is the one that plays (the last one you looked at). */
+let active = true;
 
 function state(): Shared | null {
-  return current && playlist ? { track: current.track, time: current.el.currentTime, playlist, at: Date.now() } : null;
+  return current && playlist ? { track: current.track, time: current.el.currentTime, playing: !current.el.paused, playlist, at: Date.now() } : null;
 }
 
 function broadcast(type: 'state' | 'take'): void {
@@ -124,12 +129,15 @@ function crossfade(): void {
   broadcast('state');
 }
 
+/** Where the shared music is now: it kept running since the other tab told us. */
+const sharedTime = (x: Shared) => x.time + (x.playing ? (Date.now() - x.at) / 1000 : 0);
+
 function start(): void {
   if (current) return resume();
   // another tab already plays: carry on with its music
   if (shared && Date.now() - shared.at < 60_000) {
     playlist = shared.playlist;
-    begin(shared.track, shared.time);
+    begin(shared.track, sharedTime(shared));
   } else {
     const s = startPlaylist();
     playlist = s.playlist;
@@ -141,11 +149,11 @@ function start(): void {
 function resume(): void {
   if (!current) return start();
   // the music moved on in another tab meanwhile
-  if (shared && shared.at > lastPaused && (shared.track !== current.track || Math.abs(shared.time - current.el.currentTime) > 2)) {
+  if (shared && shared.at > lastPaused && (shared.track !== current.track || Math.abs(sharedTime(shared) - current.el.currentTime) > 2)) {
     current.el.pause();
     current.el.src = '';
     playlist = shared.playlist;
-    begin(shared.track, shared.time);
+    begin(shared.track, sharedTime(shared));
   } else {
     current.el.play().catch(() => undefined);
     ramp();
@@ -153,25 +161,45 @@ function resume(): void {
   broadcast('take');
 }
 
-function pause(): void {
-  if (!current) return;
-  current.el.pause();
+/** Fade out over `ms`, then stop. Never an abrupt cut. */
+let quieting: number | undefined;
+function pause(ms = 800): void {
+  if (!current || current.el.paused) return;
+  const el = current.el;
   if (fading) { fading.pause(); fading.src = ''; fading = null; }
-  lastPaused = Date.now();
-  broadcast('state');
+  window.clearInterval(fadeTimer);
+  window.clearInterval(quieting);
+  const step = el.volume / Math.max(1, ms / 50);
+  quieting = window.setInterval(() => {
+    if (mayPlay() && el === current?.el) { window.clearInterval(quieting); ramp(); return; } // wanted again meanwhile
+    if (el.volume > step) { el.volume -= step; return; }
+    window.clearInterval(quieting);
+    el.pause();
+    lastPaused = Date.now();
+    broadcast('state');
+  }, 50);
 }
 
 function update(): void {
   if (mayPlay()) {
+    window.clearInterval(quieting);
     if (!current || current.el.paused) start();
     else ramp();
-  } else if (musicSettings.value.muted && current && !current.el.paused) {
-    ramp();
-    window.setTimeout(() => { if (musicSettings.value.muted) pause(); }, FADE_MS / 4);
-  } else pause();
+  } else pause(musicSettings.value.muted ? 600 : 800);
+}
+
+/** You look at this tab (or clicked in it): the music moves here. */
+function take(): void {
+  if (!unlocked || musicSettings.value.muted) return;
+  if (!active || !current || current.el.paused) {
+    active = true;
+    update();
+  }
+  broadcast('take');
 }
 
 export function setMusic(change: Partial<Settings>): void {
+  if (change.muted === false) active = true;
   musicSettings.value = { ...musicSettings.value, ...change };
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(musicSettings.value));
@@ -189,26 +217,30 @@ export function initMusic(): void {
     channel.onmessage = (e: MessageEvent<{ type: 'state' | 'take' | 'ask'; state: Shared | null }>) => {
       if (e.data.type === 'ask') { if (current) broadcast('state'); return; }
       if (e.data.state && (!shared || e.data.state.at >= shared.at)) shared = e.data.state;
-      // another tab took over: this one stays quiet
-      if (e.data.type === 'take' && current && !current.el.paused) pause();
+      // another tab took over: this one fades out
+      if (e.data.type === 'take') { active = false; pause(); }
     };
     channel.postMessage({ type: 'ask', state: null });
   } catch {
     /* no BroadcastChannel: every tab plays on its own */
   }
   const unlock = () => {
-    if (unlocked) return;
-    unlocked = true;
-    update();
+    if (!unlocked) { unlocked = true; active = true; update(); broadcast('take'); return; }
+    if (!active) take();
   };
   for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, unlock, { capture: true });
-  document.addEventListener('visibilitychange', update);
-  window.addEventListener('focus', () => { if (current && !current.el.paused) broadcast('take'); });
+  // looking at a tab moves the music there; looking away keeps it playing
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') take(); });
+  window.addEventListener('focus', take);
   // settings changed in another tab
   window.addEventListener('storage', (e) => {
     if (e.key !== SETTINGS_KEY) return;
+    const wasMuted = musicSettings.value.muted;
     musicSettings.value = loadSettings();
-    update();
+    // muted elsewhere: quiet here too; unmuted elsewhere: that tab plays, not this one; volume: follow it
+    if (musicSettings.value.muted) update();
+    else if (wasMuted) active = false;
+    else if (current && !current.el.paused) ramp();
   });
   // a playing tab tells the others where it is now and then, so a switch carries on in step
   window.setInterval(() => { if (current && !current.el.paused) broadcast('state'); }, 2000);

@@ -95,10 +95,10 @@ function Talks({ t }: { t: TalksView }) {
               </label>
               <label>
                 hulp tegen{' '}
-                <select value={helpTarget ?? ''} onChange={(e) => setHelpTarget(e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}>
+                <select value={String(helpTarget ?? '')} onChange={(e) => setHelpTarget(e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}>
                   <option value="">geen</option>
                   {t.helpTargets.map((x) => (
-                    <option key={x.id} value={x.id}>[{x.tag}]{x.war ? ' (oorlog)' : ''}</option>
+                    <option key={x.id} value={String(x.id)}>[{x.tag}]{x.war ? ' (oorlog)' : ''}</option>
                   ))}
                 </select>
               </label>

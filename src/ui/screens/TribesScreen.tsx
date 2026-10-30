@@ -166,10 +166,10 @@ function WarFront() {
             edeltrein achteraan als ze het samen echt aankunnen. Zonder keuze pakken ze zelf het dichtstbijzijnde dorp van elke vijand.
           </p>
           <div class="row wrap order-form">
-            <select value={enemy ?? ''} onChange={(e) => setFront(e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}>
+            <select value={String(enemy ?? '')} onChange={(e) => setFront(e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}>
               <option value="">Bots kiezen zelf</option>
               {w.enemies.map((e) => (
-                <option key={e.id} value={e.id}>
+                <option key={e.id} value={String(e.id)}>
                   [{e.tag}] {e.name}
                 </option>
               ))}
@@ -276,7 +276,7 @@ function TribeOrders() {
           <option value="focus">Focus op: speler</option>
         </select>
         <input list="order-players" placeholder={kind === 'attack' ? '501|497' : 'naam van de speler'} value={target} onInput={(e) => setTarget(e.currentTarget.value)} />
-        <datalist id="order-players">{kind !== 'attack' && players.map((p) => <option key={p.id} value={p.name} />)}</datalist>
+        <datalist id="order-players">{kind !== 'attack' && players.map((p) => <option key={p.id} value={String(p.name)} />)}</datalist>
         <button class="small primary" type="submit" disabled={!target.trim()}>
           {leader ? 'Order geven' : 'Voorstellen'}
         </button>

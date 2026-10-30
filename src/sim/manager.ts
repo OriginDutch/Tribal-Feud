@@ -139,13 +139,15 @@ export function manageVillage(state: WorldState, v: Village, m: VillageManager):
 
 /** Jobs per recruit building the manager keeps queued. */
 const TROOP_JOBS = 4;
+/** Most troops in one job: big orders when there are resources for them. */
+const MAX_BATCH = 100;
 
 /**
  * Grows the village towards its troop target. Units from the same building grow together: the
  * budget is split over the buildings by what is still missing, and inside a building the unit
- * that is furthest behind (owned / wanted) gets the next job. Jobs are small (a few manager
- * checks of recruiting), so the queue alternates spear, sword, spear... instead of first all
- * spears and then all swords.
+ * that is furthest behind (owned / wanted) gets the next job. A job is as big as the resources
+ * allow, up to MAX_BATCH, so the queue alternates in chunks (spear, sword, spear...) instead of
+ * first all spears and then all swords.
  */
 function keepTroops(state: WorldState, v: Village, target: UnitCounts, share: number, reserve: Res): void {
   const { config } = state;
@@ -173,7 +175,6 @@ function keepTroops(state: WorldState, v: Village, target: UnitCounts, share: nu
   const missingCost = (u: UnitId) => Math.max(0, (target[u] ?? 0) - owned(u)) * config.units[u].cost.reduce((a, b) => a + b, 0);
   const weights = new Map([...byBuilding].map(([b, us]) => [b, us.reduce((t, u) => t + missingCost(u), 0)]));
   const total = [...weights.values()].reduce((a, b) => a + b, 0);
-  const batchMs = 4 * checkInterval(state);
   for (const [b, units] of byBuilding) {
     const part = (weights.get(b) ?? 0) / Math.max(1, total);
     const left: Res = budget.map((r) => r * part) as Res;
@@ -186,9 +187,8 @@ function keepTroops(state: WorldState, v: Village, target: UnitCounts, share: nu
         .find((u) => config.units[u].cost.every((c, i) => left[i as 0 | 1 | 2] >= c));
       if (!next) break;
       const def = config.units[next];
-      const per = Math.max(1, recruitTimeMs(config, def, v.buildings[def.building]));
       const affordable = Math.floor(Math.min(...[0, 1, 2].map((i) => left[i as 0 | 1 | 2] / Math.max(1, def.cost[i as 0 | 1 | 2]))));
-      const n = Math.min((target[next] ?? 0) - owned(next), affordable, maxRecruitable(state, v, next), Math.max(1, Math.floor(batchMs / per)));
+      const n = Math.min((target[next] ?? 0) - owned(next), affordable, maxRecruitable(state, v, next), MAX_BATCH);
       if (n < 1 || recruit(state, v.id, next, n) !== null) break;
       for (const i of [0, 1, 2] as const) left[i] -= def.cost[i] * n;
     }

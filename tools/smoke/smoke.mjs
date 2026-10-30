@@ -29,6 +29,17 @@ try {
   page.on('pageerror', (e) => problems.push(`page error: ${e.message}`));
   page.on('console', (m) => { if (m.type() === 'error') problems.push(`console error: ${m.text()}`); });
 
+  // count pointless resets of a dropdown option to the value it already has: each one closes an
+  // open dropdown (Preact does that when an option's value is a number instead of a string)
+  await page.addInitScript(() => {
+    const d = Object.getOwnPropertyDescriptor(HTMLOptionElement.prototype, 'value');
+    window.__optionResets = 0;
+    Object.defineProperty(HTMLOptionElement.prototype, 'value', {
+      get() { return d.get.call(this); },
+      set(v) { if (this.isConnected && String(v) === d.get.call(this)) window.__optionResets++; d.set.call(this, v); },
+      configurable: true,
+    });
+  });
   await page.goto(URL);
   await page.waitForSelector('.home-new-top', { timeout: 20_000 });
   await page.click('.home-new-top');
@@ -44,6 +55,10 @@ try {
   let opened = 0;
   const check = async (what) => {
     await page.waitForTimeout(350);
+    await page.evaluate(() => (window.__optionResets = 0));
+    await page.waitForTimeout(700);
+    const resets = await page.evaluate(() => window.__optionResets);
+    if (resets > 0) problems.push(`screen "${what}": dropdown options reset ${resets}× in 0.7 s (an open dropdown would close)`);
     const h2 = await page.locator('main h2, .screen h2').first().textContent().catch(() => null);
     if (!h2) problems.push(`screen "${what}" shows no title`);
     opened++;

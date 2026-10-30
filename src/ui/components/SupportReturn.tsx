@@ -48,7 +48,7 @@ export function SupportReturn({ village, onClose }: { village?: number; onClose?
           Dorpen
           <select value={scope} onChange={(e) => setScope(e.currentTarget.value)}>
             <option value="all">Alle dorpen</option>
-            {s.groups.map((g) => <option key={g.id} value={g.id}>Groep {g.name}</option>)}
+            {s.groups.map((g) => <option key={g.id} value={String(g.id)}>Groep {g.name}</option>)}
             {here !== undefined && <option value="village">Alleen {s.villages.find((v) => v.id === here)?.name ?? 'dit dorp'}</option>}
           </select>
         </label>

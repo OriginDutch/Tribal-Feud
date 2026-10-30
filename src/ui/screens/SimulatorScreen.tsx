@@ -98,7 +98,7 @@ export function SimulatorScreen() {
             <label>
               Katapulten op
               <select value={cat} onChange={(e) => setCat(e.currentTarget.value as BuildingId)}>
-                {CATAPULT_TARGETS.map((b) => <option key={b} value={b}>{DEFAULT_BUILDINGS[b].name}</option>)}
+                {CATAPULT_TARGETS.map((b) => <option key={b} value={String(b)}>{DEFAULT_BUILDINGS[b].name}</option>)}
               </select>
               level <input type="number" min={0} max={30} value={catLevel} onInput={(e) => setCatLevel(e.currentTarget.value)} />
             </label>
@@ -106,8 +106,8 @@ export function SimulatorScreen() {
           <h3>Bonussen</h3>
           <label title="Geloof (50 = zonder kerk), vlag aanvalskracht (bv. 104)">Aanvaller kracht % <input type="number" min={1} value={attPct} onInput={(e) => setAttPct(e.currentTarget.value)} /></label>
           <label title="Geloof, vlag verdedigingskracht, nachtbonus (200)">Verdediger kracht % <input type="number" min={1} value={defPct} onInput={(e) => setDefPct(e.currentTarget.value)} /></label>
-          <label>Item aanvaller <select value={attItem} onChange={(e) => setAttItem(e.currentTarget.value)}>{ITEM_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
-          <label>Item verdediger <select value={defItem} onChange={(e) => setDefItem(e.currentTarget.value)}>{ITEM_OPTIONS.filter(([v]) => v !== 'morningstar').map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+          <label>Item aanvaller <select value={attItem} onChange={(e) => setAttItem(e.currentTarget.value)}>{ITEM_OPTIONS.map(([v, l]) => <option key={v} value={String(v)}>{l}</option>)}</select></label>
+          <label>Item verdediger <select value={defItem} onChange={(e) => setDefItem(e.currentTarget.value)}>{ITEM_OPTIONS.filter(([v]) => v !== 'morningstar').map(([v, l]) => <option key={v} value={String(v)}>{l}</option>)}</select></label>
           {levelsWorld && <label class="row"><input type="checkbox" checked={tech} onChange={(e) => setTech(e.currentTarget.checked)} /> Researchlevels van dit dorp voor de aanvaller</label>}
           {r && (
             <div class={`sim-result ${r.attackerWon ? 'good' : 'bad'}`}>

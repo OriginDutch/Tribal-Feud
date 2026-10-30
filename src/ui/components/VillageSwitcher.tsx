@@ -62,11 +62,20 @@ export function VillageSwitcher() {
             ✎
           </button>
         </div>
-        <span>
-          {v.x}|{v.y} · {num(v.points)} p{many ? ` · ${s.villages.findIndex((x) => x.id === v.id) + 1}/${s.villages.length}` : ''}
+        <span class="vname-sub">
+          <span class="vname-info">
+            {v.x}|{v.y} · {num(v.points)} p{many ? ` · ${s.villages.findIndex((x) => x.id === v.id) + 1}/${s.villages.length}` : ''}
+          </span>
           {(() => {
             const g = s.groups.find((x) => x.id === groupFilter.value);
-            return g ? <span class="group-chip filter" style={{ '--gc': g.color }} title="Groepsfilter actief: A/D en de dorpenlijst volgen deze groep">groep: {g.name}</span> : null;
+            return g ? (
+              <span class="group-chip filter" style={{ '--gc': g.color }} title={`Groepsfilter: ${g.name}. A/D en de dorpenlijst volgen deze groep`}>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M3 4h18l-7 8.5V20l-4-2v-5.5z" />
+                </svg>
+                {g.name}
+              </span>
+            ) : null;
           })()}
         </span>
         {many && (
