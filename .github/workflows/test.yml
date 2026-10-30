@@ -30,12 +30,21 @@ jobs:
       - name: Smoke test (the built game in a real browser)
         run: npm run smoke
       - name: Java for the Firestore emulator
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
       - name: Accounts and cloud saves (Firebase emulators, with the real security rules)
-        run: npm run smoke:cloud
+        # the log of a failure also goes into an annotation (readable without the full job log)
+        shell: bash
+        run: |
+          set +e
+          npm run smoke:cloud 2>&1 | tee cloud.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ]; then
+            echo "::error title=smoke:cloud::$(grep -v '^npm warn' cloud.log | tail -40 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')"
+          fi
+          exit $code
       - name: Keep the tested build
         uses: actions/upload-artifact@v4
         with:
