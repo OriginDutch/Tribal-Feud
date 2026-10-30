@@ -69,9 +69,8 @@ function done(t: IDBTransaction): Promise<void> {
   });
 }
 
-export async function putSave(slot: string, data: SaveData): Promise<SaveMeta> {
-  // stringify right away, before any await: later changes to the live world never end up in this save
-  const json = JSON.stringify(data);
+export async function putSave(slot: string, data: SaveData, json = JSON.stringify(data)): Promise<SaveMeta> {
+  // stringified right away, before any await: later changes to the live world never end up in this save
   const meta: SaveMeta = {
     slot,
     worldName: data.state.config.name,

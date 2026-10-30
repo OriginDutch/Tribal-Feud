@@ -3,7 +3,12 @@ import type { SaveMeta } from '../../sim/save';
 import { formatGameTime } from '../../shared/time';
 import { fromSaveData, type SaveData } from '../../sim/save';
 import { getSave, listSaves, putSave } from '../../storage/saveStore';
-import { autoPause, confirmAllTabs, notice, saves, send, snapshot } from '../store';
+import { AUTOSAVE_SLOT } from '../../shared/protocol';
+import { account, accountOpen, cloudEnabled } from '../../cloud/auth';
+import { MAX_WORLDS } from '../../cloud/config';
+import type { CloudWorld } from '../../cloud/sync';
+import { cloudLine } from '../components/Account';
+import { autoPause, cloudStatus, cloudWorlds, confirmAllTabs, notice, saves, send, snapshot } from '../store';
 
 /** File format: a list of { slot, data } records (the same as a raw IndexedDB dump). */
 interface ExportRecord {
@@ -98,6 +103,7 @@ export function SavesPanel() {
         )}
       </div>
       <SaveList list={list.filter((x) => !isSafetyCopy(x.slot))} empty="Nog geen saves." />
+      <CloudSaves />
       {list.some((x) => isSafetyCopy(x.slot)) && (
         <details class="save-backups">
           <summary>Backups ({list.filter((x) => isSafetyCopy(x.slot)).length})</summary>
@@ -148,5 +154,84 @@ function SaveList({ list, empty }: { list: SaveMeta[]; empty: string }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** The worlds in the cloud (signed in), or a nudge to sign in. */
+function CloudSaves() {
+  if (!cloudEnabled) return null;
+  const a = account.value;
+  if (a === undefined) return null;
+  if (!a) {
+    return (
+      <div class="cloud-saves">
+        <h3>Cloud</h3>
+        <p class="hint">
+          Met een account gaan je werelden ook naar de cloud.{' '}
+          <button class="link" onClick={() => (accountOpen.value = true)}>Inloggen of account maken</button>
+        </p>
+      </div>
+    );
+  }
+  const s = cloudStatus.value;
+  const worlds = cloudWorlds.value;
+  const local = saves.value;
+  return (
+    <div class="cloud-saves">
+      <h3>
+        Cloud <span class="muted">({worlds.length}/{MAX_WORLDS})</span>
+      </h3>
+      <p class={`hint cloud-line cloud-${s.state}`}>{cloudLine(s)}</p>
+      {s.state === 'conflict' && (
+        <div class="callout bad">
+          Laad de cloudversie hieronder als je daar verder wilt, of overschrijf de cloud met de wereld die nu open is.
+          <div class="row">
+            <button class="small danger" onClick={() => { if (window.confirm('De cloudversie overschrijven met de wereld die nu open is? De cloudversie is dan weg.')) send({ type: 'cloudForce' }); }}>
+              Cloud overschrijven
+            </button>
+          </div>
+        </div>
+      )}
+      <ul class="saves">
+        {worlds.length === 0 && <li class="muted">Nog niets in de cloud. Je wereld gaat er vanzelf heen bij pauze, de saveknop en elke 5 minuten spelen.</li>}
+        {worlds.map((w) => (
+          <CloudRow key={w.slot} w={w} localNewer={localNewer(w, local)} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** The local autosave of the same world, if it is newer than the cloud copy. */
+function localNewer(w: CloudWorld, local: SaveMeta[]): SaveMeta | undefined {
+  const mine = local.find((x) => x.slot === `${AUTOSAVE_SLOT}:${w.key}`);
+  return mine && mine.gameTime > w.gameTime ? mine : undefined;
+}
+
+function CloudRow({ w, localNewer: newer }: { w: CloudWorld; localNewer: SaveMeta | undefined }) {
+  return (
+    <li>
+      <div class="meta">
+        <strong>☁ {w.name}</strong>
+        <span class="muted">
+          {formatGameTime(w.gameTime)} · {new Date(w.savedAt).toLocaleString('nl-NL')} · {(w.size / 1e6).toFixed(1)} MB
+        </span>
+      </div>
+      <div class="row">
+        <button
+          onClick={() => {
+            if (newer && !window.confirm(`Op deze computer is "${w.name}" verder (${formatGameTime(newer.gameTime)}) dan in de cloud (${formatGameTime(w.gameTime)}). Toch de cloudversie laden? De versie van deze computer blijft als backup bewaard.`)) return;
+            if (!confirmAllTabs('Deze save laden')) return;
+            autoPause.value = null;
+            send({ type: 'cloudLoad', slot: w.slot });
+          }}
+        >
+          Laden
+        </button>
+        <button class="danger" onClick={() => { if (window.confirm(`"${w.name}" uit de cloud verwijderen? Saves op deze computer blijven staan.`)) send({ type: 'cloudDelete', slot: w.slot }); }}>
+          Verwijder
+        </button>
+      </div>
+    </li>
   );
 }

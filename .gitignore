@@ -4,3 +4,4 @@ dist/
 .DS_Store
 .vite/
 tools/art/node_modules
+dist-emu

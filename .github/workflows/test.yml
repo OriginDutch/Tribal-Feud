@@ -29,6 +29,13 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Smoke test (the built game in a real browser)
         run: npm run smoke
+      - name: Java for the Firestore emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Accounts and cloud saves (Firebase emulators, with the real security rules)
+        run: npm run smoke:cloud
       - name: Keep the tested build
         uses: actions/upload-artifact@v4
         with:
