@@ -118,8 +118,37 @@ async function backup(): Promise<void> {
   runningSinceBackup = 0;
 }
 
+/**
+ * Tabs ("clients"). As a SharedWorker every tab of the game talks to this one simulation through
+ * its own port; each tab keeps its own selected village. As a plain Worker there is one client.
+ */
+interface Client {
+  port: { postMessage(message: WorkerMessage): void };
+  /** The village this tab shows. */
+  current: number | null;
+  visible: boolean;
+}
+const clients = new Set<Client>();
+/** The tab whose command is being handled: answers go there. */
+let from: Client | null = null;
+/** The tab's village was already taken over from the command (by a snapshot during it). */
+let fromSettled = false;
+/** Messages every tab needs, whoever caused them. */
+const BROADCAST = new Set<WorkerMessage['type']>(['saves', 'autoPaused']);
+
 function post(msg: WorkerMessage): void {
-  ctx.postMessage(msg);
+  if (from && !BROADCAST.has(msg.type)) { from.port.postMessage(msg); return; }
+  for (const c of clients) c.port.postMessage(msg);
+}
+
+/** Runs `f` with this tab's village as the current one, and remembers what it is after. */
+function asClient<T>(c: Client, f: () => T): T {
+  if (state && c.current !== null && state.villages[c.current]?.owner === HUMAN_ID) state.current = c.current;
+  try {
+    return f();
+  } finally {
+    if (state) c.current = state.current ?? null;
+  }
 }
 
 function notice(text: string, level: 'info' | 'error' = 'info'): void {
@@ -676,7 +705,10 @@ function questsView(s: WorldState): QuestsView {
 }
 
 function postSnapshot(): void {
-  post({ type: 'snapshot', snapshot: snapshot() });
+  // inside a command: what the command did to the current village is that tab's choice
+  if (from && state) { from.current = state.current ?? null; fromSettled = true; }
+  // a hidden tab gets no snapshots (it gets a fresh one when it shows again)
+  for (const c of clients) if (c.visible || c === from) asClient(c, () => c.port.postMessage({ type: 'snapshot', snapshot: snapshot() }));
 }
 
 async function postSaves(): Promise<void> {
@@ -743,9 +775,17 @@ async function handle(cmd: Command): Promise<void> {
         if (cmd.paused) autosave();
       }
       break;
-    case 'setVisible':
-      suspended = !cmd.visible;
-      if (suspended && state && !state.paused) autosave();
+    case 'setVisible': {
+      if (from) from.visible = cmd.visible;
+      const was = suspended;
+      // the world stands still only when no tab shows it
+      suspended = ![...clients].some((c) => c.visible);
+      if (suspended && !was && state && !state.paused) autosave();
+      break;
+    }
+    case 'bye':
+      if (from) clients.delete(from);
+      suspended = ![...clients].some((c) => c.visible);
       break;
     case 'scheduleTest':
       if (state) {
@@ -1333,12 +1373,39 @@ function villageAction(s: WorldState, cmd: VillageCommand): string | null {
   }
 }
 
-ctx.onmessage = (e: MessageEvent<Command>) => {
-  handle(e.data).catch((err: unknown) => {
-    notice(err instanceof Error ? err.message : String(err), 'error');
-  });
-};
+function onCommand(c: Client, cmd: Command): void {
+  from = c;
+  fromSettled = false;
+  if (state && c.current !== null && state.villages[c.current]?.owner === HUMAN_ID) state.current = c.current;
+  const done = handle(cmd)
+    .catch((err: unknown) => notice(err instanceof Error ? err.message : String(err), 'error'));
+  // the synchronous part of the command has run: this tab's village is what it chose now
+  if (state && !fromSettled) c.current = state.current ?? null;
+  // a new or loaded world: every tab starts at its first village
+  if (cmd.type === 'newWorld' || cmd.type === 'load') void done.then(() => { for (const x of clients) x.current = state?.current ?? null; postSnapshot(); });
+  from = null;
+}
+
+function connect(port: Client['port']): Client {
+  const c: Client = { port, current: state?.current ?? null, visible: true };
+  clients.add(c);
+  suspended = false;
+  asClient(c, () => port.postMessage({ type: 'snapshot', snapshot: snapshot() }));
+  listSaves().then((saves) => port.postMessage({ type: 'saves', saves })).catch(() => undefined);
+  return c;
+}
+
+const shared = 'onconnect' in self;
+if (shared) {
+  (self as unknown as { onconnect: (e: MessageEvent) => void }).onconnect = (e: MessageEvent) => {
+    const port = e.ports[0]! as unknown as MessagePort;
+    const c = connect(port as unknown as Client['port']);
+    port.onmessage = (ev: MessageEvent<Command>) => onCommand(c, ev.data);
+    port.start();
+  };
+} else {
+  const c = connect(ctx);
+  ctx.onmessage = (e: MessageEvent<Command>) => onCommand(c, e.data);
+}
 
 setInterval(tick, TICK_MS);
-postSnapshot();
-postSaves().catch((err: unknown) => notice(`Saves laden mislukt: ${String(err)}`, 'error'));

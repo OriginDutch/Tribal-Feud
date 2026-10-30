@@ -145,10 +145,22 @@ export const mapFocus = signal<{ owner?: number; tribe?: number; x?: number; y?:
 /** Village selected on the map. */
 export const selectedVillage = signal<number | null>(null);
 
-const worker = new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' });
+/**
+ * The simulation. Where the browser can, one SharedWorker for all tabs of the game (one world,
+ * each tab its own screen and village); otherwise a Worker per tab.
+ */
+const port: { postMessage(cmd: Command): void; onmessage: ((e: MessageEvent<WorkerMessage>) => void) | null } = (() => {
+  if (typeof SharedWorker !== 'undefined') {
+    const w = new SharedWorker(new URL('../sim/worker.ts', import.meta.url), { type: 'module', name: 'tribal-feud' });
+    w.port.start();
+    window.addEventListener('pagehide', () => w.port.postMessage({ type: 'bye' } satisfies Command));
+    return w.port as never;
+  }
+  return new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' }) as never;
+})();
 
 export function send(cmd: Command): void {
-  worker.postMessage(cmd);
+  port.postMessage(cmd);
 }
 
 let noticeTimer: number | undefined;
@@ -158,7 +170,7 @@ export function showNotice(text: string, level: 'info' | 'error'): void {
   noticeTimer = window.setTimeout(() => (notice.value = null), level === 'error' ? 6000 : 3000);
 }
 
-worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
+port.onmessage = (e: MessageEvent<WorkerMessage>) => {
   const msg = e.data;
   switch (msg.type) {
     case 'snapshot':
@@ -227,7 +239,7 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
   }
 };
 
-worker.onerror = (e) => showNotice(`Worker-fout: ${e.message}`, 'error');
+// worker errors show up as notices from the worker itself (a SharedWorker has no onerror on the page side)
 
 document.addEventListener('visibilitychange', () => {
   send({ type: 'setVisible', visible: document.visibilityState === 'visible' });

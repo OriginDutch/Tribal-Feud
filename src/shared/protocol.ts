@@ -24,6 +24,8 @@ export type Command =
   | { type: 'setSpeed'; speed: Speed }
   | { type: 'setPaused'; paused: boolean }
   | { type: 'setVisible'; visible: boolean }
+  /** A tab closes (shared worker: it stops getting messages). */
+  | { type: 'bye' }
   | { type: 'scheduleTest'; delayMs: number; autoPause: boolean }
   | { type: 'scheduleRandom' }
   | { type: 'save'; slot: string }
