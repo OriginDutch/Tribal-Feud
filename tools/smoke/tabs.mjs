@@ -42,6 +42,8 @@ try {
   B.on('pageerror', (e) => problems.push(`page error: ${e.message}`));
   await B.waitForSelector('nav.rail', { timeout: 20_000 });
   expect('a link opened in a new tab shows the world on that screen', B.url().endsWith('#map') && A.url().endsWith('#farm'), `${A.url()} / ${B.url()}`);
+  expect('each tab is titled after its screen', (await A.title()) === 'Farm-assistent · Tribal Feud' && (await B.title()) === 'Kaart · Tribal Feud', `${await A.title()} / ${await B.title()}`);
+  expect('the favicon is there', (await fetch(`${URL}favicon.svg`)).ok && (await fetch(`${URL}favicon-32.png`)).ok);
   expect('both tabs show the same village to start', (await name(A)) === (await name(B)));
 
   // one clock: run in A, B follows; quick switching
