@@ -46,6 +46,10 @@ export function openBuilding(id: BuildingId): void {
 export const mapData = signal<MapData | null>(null);
 export const reports = signal<Report[]>([]);
 export const newsList = signal<import('../sim/news').NewsItem[]>([]);
+/** The village shown in detail (map panel, player profile). */
+export const villageInfo = signal<import('../shared/protocol').VillageInfo | null>(null);
+/** A report shown over everything (from the map or a profile). */
+export const reportPopup = signal<Report | null>(null);
 export const ranking = signal<RankingRow[]>([]);
 export const tribes = signal<TribeView[]>([]);
 /** Tribe opened on the tribe screen. */
@@ -174,6 +178,9 @@ worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'news':
       newsList.value = msg.news;
+      break;
+    case 'village':
+      villageInfo.value = msg.info;
       break;
     case 'ranking':
       ranking.value = msg.ranking;

@@ -1,5 +1,6 @@
 /** Map, movement and report data for the UI. Computed in the worker. */
-import type { IncomingView, MapData, MapVillage, MovementView } from '../shared/protocol';
+import type { IncomingView, MapData, MapVillage, MovementView, VillageInfo } from '../shared/protocol';
+import { UNIT_IDS, type UnitCounts } from '../shared/gameData';
 import { growBarbarian, villagePoints } from './barbarians';
 import { estimateLoot } from './intel';
 import { BARBARIAN, HUMAN_ID, currentVillage, villagesOf, type WorldState } from './state';
@@ -37,6 +38,7 @@ export function mapData(state: WorldState): MapData {
     }
     const last = state.lastAttack[v.id];
     if (last) mv.last = { ...last };
+    if (state.notes && (state.notes.villages[v.id] || (v.owner >= 0 && state.notes.players[v.owner]))) mv.note = true;
     villages.push(mv);
   }
   const churches = state.config.churches
@@ -91,4 +93,29 @@ export function movementViews(state: WorldState): MovementView[] {
     views.push(view);
   }
   return views.sort((a, b) => a.arrives - b.arrives);
+}
+
+/** One village in detail for the map panel and the player profile. */
+export function villageInfo(state: WorldState, id: number): VillageInfo | null {
+  const v = state.villages[id];
+  if (!v) return null;
+  const reports = state.reports.filter((r) => r.attacker.id === id || r.defender.id === id);
+  const name = (p: number) => (p === BARBARIAN ? 'barbaren' : state.players[p]?.name ?? '?');
+  const owners = (state.worldStats?.conquests ?? []).filter((c) => c.village === id).map((c) => ({ from: name(c.from), to: name(c.to), at: c.time })).reverse();
+  const scouted = [...reports].reverse().find((r) => r.defender.id === id && r.scouted);
+  let yourSupport: UnitCounts | null = null;
+  for (const [origin, units] of Object.entries(v.support ?? {})) {
+    if (state.villages[Number(origin)]?.owner !== HUMAN_ID) continue;
+    yourSupport ??= {};
+    for (const u of UNIT_IDS) if (units[u]) yourSupport[u] = (yourSupport[u] ?? 0) + units[u]!;
+  }
+  return {
+    id: v.id, name: v.name, x: v.x, y: v.y, owner: v.owner, ownerName: name(v.owner),
+    reports: reports.slice(-30).reverse(),
+    owners,
+    note: state.notes?.villages[id] ?? '',
+    ownerNote: v.owner >= 0 ? (state.notes?.players[v.owner] ?? '') : '',
+    scout: scouted?.scouted ? { time: scouted.time, units: scouted.scouted.units, ...(scouted.scouted.away ? { away: scouted.scouted.away } : {}) } : null,
+    yourSupport,
+  };
 }

@@ -1,4 +1,5 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import { VillageHistory } from '../components/VillageHistory';
 import { Coords } from '../components/Coords';
 import { formatGameTime } from '../../shared/time';
 import { TripleConfirm } from '../components/TripleConfirm';
@@ -17,6 +18,7 @@ export function PlayerScreen() {
     return () => window.clearInterval(t);
   }, [id]);
   const p = playerView.value;
+  const [historyOf, setHistoryOf] = useState<number | null>(null);
   if (id === null) return <div class="screen narrow"><p class="muted">Kies een speler (klik op een naam).</p></div>;
   if (!p || p.id !== id) return <div class="screen narrow"><p class="muted">Laden…</p></div>;
   const h = p.history;
@@ -144,6 +146,9 @@ export function PlayerScreen() {
                   <td class="right mono">{num(v.points)}</td>
                   {!you && <td class="right mono">{v.distance}</td>}
                   <td class="right">
+                    <button class="small" onClick={() => setHistoryOf(v.id)}>
+                      Geschiedenis
+                    </button>{' '}
                     {!you && (
                       <button class="small" onClick={() => attackVillage(v.x, v.y)}>
                         Verzamelplaats
@@ -156,6 +161,17 @@ export function PlayerScreen() {
           </table>
         )}
       </section>
+      {historyOf !== null && (
+        <div class="modal-backdrop" onClick={() => setHistoryOf(null)}>
+          <div class="modal" role="dialog" aria-modal="true" aria-label="Geschiedenis van het dorp" onClick={(e) => e.stopPropagation()}>
+            <div class="row">
+              <h3 style={{ margin: 0, flex: 1 }}>{p.villages.find((v) => v.id === historyOf)?.name ?? 'Dorp'}</h3>
+              <button class="small" onClick={() => setHistoryOf(null)} aria-label="Sluiten">✕</button>
+            </div>
+            <VillageHistory id={historyOf} {...(you ? {} : { owner: p.id })} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

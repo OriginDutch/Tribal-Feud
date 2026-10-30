@@ -122,7 +122,7 @@ describe('attacks', () => {
     expect(report?.result).toBe('win');
     const loot = report?.loot ?? [0, 0, 0];
     expect(loot[0] + loot[1] + loot[2]).toBe(20 * 80);
-    expect(s.lastAttack[target.id]).toEqual({ time: report?.time, result: 'win', loot: 20 * 80 });
+    expect(s.lastAttack[target.id]).toEqual({ report: report?.id, time: report?.time, result: 'win', loot: 20 * 80 });
 
     const before = v.res[0];
     run(s, out);

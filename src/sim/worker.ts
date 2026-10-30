@@ -26,7 +26,7 @@ import { advance, schedule, scheduleRandom, setPaused, setSpeed } from './simula
 import { createWorld, currentVillage, playerVillage, type Player, type WorldState } from './state';
 import { storageCapacity } from './formulas';
 import { villageView } from './view';
-import { incomingViews, mapData, movementViews } from './mapView';
+import { incomingViews, mapData, movementViews, villageInfo } from './mapView';
 import { CANCEL_WINDOW_MS, cancelBlocker, cancelMovement, conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendNobleTrain, sendSupport, travelTimeMs } from './movement';
 import { BARBARIAN } from './state';
 import { maxMintable, mintBlocker, mintCoins } from './nobles';
@@ -1235,6 +1235,18 @@ async function handle(cmd: Command): Promise<void> {
     case 'getMap':
       if (state) post({ type: 'map', map: mapData(state) });
       return;
+    case 'getVillage':
+      if (state) post({ type: 'village', info: villageInfo(state, cmd.id) });
+      return;
+    case 'setNote': {
+      if (!state) return;
+      const notes = (state.notes ??= { villages: {}, players: {} });
+      const list = cmd.target === 'village' ? notes.villages : notes.players;
+      const text = cmd.text.trim().slice(0, 500);
+      if (text) list[cmd.id] = text;
+      else delete list[cmd.id];
+      return;
+    }
     case 'setMark': {
       if (!state) return;
       const marks = (state.mapMarks ??= { players: {}, tribes: {} });

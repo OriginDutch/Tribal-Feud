@@ -564,6 +564,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
     });
     addReport(state, report);
     state.lastAttack[target.id] = {
+      report: report.id,
       time: report.time,
       result: report.result,
       loot: loot ? loot[0] + loot[1] + loot[2] : 0,

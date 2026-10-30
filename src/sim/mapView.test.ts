@@ -21,3 +21,30 @@ describe('incoming attacks as you see them', () => {
     expect(a).not.toHaveProperty('units');
   });
 });
+
+describe('one village in detail', () => {
+  it('your reports about it (with the report of the last attack), notes, marks and the scout eye', async () => {
+    const { mapData, villageInfo } = await import('./mapView');
+    const { advance } = await import('./simulation');
+    const s = createWorld(createConfig('classic', 'V', 9, { worldSpeed: 1, bots: { count: 5 }, conquest: { protectionDays: 0 } } as never));
+    const me = playerVillage(s)!;
+    const bot = s.players.find((p) => p.bot)!;
+    const bv = villagesOf(s, bot.id)[0]!;
+    me.buildings.place = 1; me.units.spy = 5;
+    expect(sendAttack(s, me.id, bv.id, { spy: 5 })).toBeNull();
+    s.paused = false;
+    while (Object.keys(s.movements).length) { s.paused = false; advance(s, 3_600_000); }
+    const info = villageInfo(s, bv.id)!;
+    expect(info.reports.length).toBe(1);
+    expect(info.scout).not.toBeNull();
+    const mv = mapData(s).villages.find((v) => v.id === bv.id)!;
+    expect(mv.last?.report).toBe(info.reports[0]!.id);
+    expect(mv.scoutedAt).toBe(info.scout!.time);
+    s.notes = { villages: { [bv.id]: 'edeldoel' }, players: {} };
+    s.mapMarks = { players: { [bot.id]: '#e5533f' }, tribes: {} };
+    const data = mapData(s);
+    expect(data.villages.find((v) => v.id === bv.id)!.note).toBe(true);
+    expect(data.marks.players[bot.id]).toBe('#e5533f');
+    expect(villageInfo(s, bv.id)!.note).toBe('edeldoel');
+  });
+});

@@ -1,13 +1,14 @@
 import { definedLetters } from '../../shared/farmTemplates';
 import { PlayerLink } from '../components/PlayerLink';
+import { VillageHistory } from '../components/VillageHistory';
 import { MARK_COLORS, OWNER_COLORS, tribeIndex, villageColor } from '../map/colors';
 import { Minimap } from '../map/Minimap';
 import { BARB_TYPE_NAMES, BONUS_NAMES, type BarbType } from '../../shared/barbarianTypes';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { MapVillage } from '../../shared/protocol';
+import type { MapVillage, TribeView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
-import { attackVillage, inviteCandidates, mapData, mapFocus, mapStyle, openPlayer, openSupport, openTribe, refusedInvites, showOnMap, tribeAsks, selectedVillage, send, setMapStyle, snapshot } from '../store';
+import { attackVillage, inviteCandidates, mapData, mapFocus, mapStyle, openPlayer, openSupport, openTribe, refusedInvites, showOnMap, tribeAsks, selectedVillage, send, setMapStyle, snapshot, villageInfo, reportPopup } from '../store';
 import { OVERHANG, forestAt, onSpriteLoad, tierOf, villageAt } from '../map/mapSprites';
 import { distance, travelMs } from '../units';
 
@@ -22,6 +23,8 @@ function scoutColor(snap: { time: number; multipliers: { world: number } } | nul
   const days = ((snap.time - at) * snap.multipliers.world) / 86_400_000;
   return days < 1 ? '#7fdc6a' : days < 3 ? '#f2d14b' : days < 7 ? '#a8997f' : null;
 }
+
+const HOVER_DELAY_MS = 600;
 
 const TYPE_LETTER: Record<BarbType, string> = { resource: 'G', military: 'M', defensive: 'V', balanced: 'B' };
 
@@ -466,6 +469,15 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
           ctx.beginPath(); ctx.arc(lx, ly, r * 0.22, 0, Math.PI * 2); ctx.fill();
         }
       }
+      if (v.note && zoom >= 14) {
+        // a note: a small page bottom right
+        const w = Math.max(6, zoom * 0.17), h = w * 1.25;
+        const lx = sx + zoom * 0.3 - w / 2, ly = sy + zoom * 0.3 - h / 2;
+        ctx.fillStyle = '#efe6d6'; ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1;
+        ctx.fillRect(lx, ly, w, h); ctx.strokeRect(lx, ly, w, h);
+        ctx.strokeStyle = '#7d705c';
+        for (let i = 1; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(lx + w * 0.2, ly + (h * i) / 3); ctx.lineTo(lx + w * 0.8, ly + (h * i) / 3); ctx.stroke(); }
+      }
       if (v.last && zoom >= 8) {
         ctx.fillStyle = v.last.result === 'loss' ? COLORS.bot : COLORS.attacked;
         ctx.strokeStyle = 'rgba(0,0,0,0.5)';
@@ -650,6 +662,25 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
       if (!hover || hover.x !== f.x || hover.y !== f.y) setHover(f);
     }
   };
+  /** The hover card: after resting on a village for a moment, so it never gets in the way. */
+  const [card, setCard] = useState<{ id: number; x: number; y: number } | null>(null);
+  const cardTimer = useRef<{ t: number; field: string } | null>(null);
+  const hideCard = () => {
+    if (cardTimer.current) window.clearTimeout(cardTimer.current.t);
+    cardTimer.current = null;
+    setCard(null);
+  };
+  const planCard = (e: PointerEvent) => {
+    const f = fieldAt(e);
+    const k = key(f.x, f.y);
+    if (cardTimer.current?.field === k) return;
+    hideCard();
+    const v = byCoord.get(k);
+    if (!v) return;
+    const x = e.offsetX, y = e.offsetY;
+    cardTimer.current = { field: k, t: window.setTimeout(() => setCard({ id: v.id, x, y }), HOVER_DELAY_MS) };
+  };
+  useEffect(() => () => { if (cardTimer.current) window.clearTimeout(cardTimer.current.t); }, []);
   const onPointerUp = (e: PointerEvent) => {
     const d = drag.current;
     drag.current = null;
@@ -798,15 +829,18 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
         )}
       </div>
       <div class="map-body">
-        <canvas
-          ref={canvasRef}
-          class="map-canvas"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerLeave={() => setHover(null)}
-          onWheel={onWheel}
-        />
+        <div class="map-canvas-wrap">
+          <canvas
+            ref={canvasRef}
+            class="map-canvas"
+            onPointerDown={(e) => { hideCard(); onPointerDown(e); }}
+            onPointerMove={(e) => { onPointerMove(e); if (!drag.current) planCard(e); }}
+            onPointerUp={onPointerUp}
+            onPointerLeave={() => { setHover(null); hideCard(); }}
+            onWheel={(e) => { hideCard(); onWheel(e); }}
+          />
+          {card && byId.get(card.id) && <HoverCard v={byId.get(card.id)!} x={card.x} y={card.y} tribes={data?.tribes ?? []} />}
+        </div>
         <aside class="map-side">
           {data && (
             <section class="panel minimap-panel">
@@ -888,8 +922,11 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
                     <tr>
                       <td>Laatste aanval</td>
                       <td class="right">
-                        <span class={`dot ${selected.last.result}`} /> {formatGameTime(selected.last.time)}
-                        {selected.last.loot > 0 && <span class="muted"> · buit {num(selected.last.loot)}</span>}
+                        <button class="link" title="Rapport bekijken" disabled={selected.last.report === undefined}
+                          onClick={() => { const r = villageInfo.value?.reports.find((x) => x.id === selected.last!.report); if (r) reportPopup.value = r; }}>
+                          <span class={`dot ${selected.last.result}`} /> {formatGameTime(selected.last.time)}
+                          {selected.last.loot > 0 && <span class="muted"> · buit {num(selected.last.loot)}</span>}
+                        </button>
                       </td>
                     </tr>
                   )}
@@ -930,6 +967,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
                   onPick={(x) => { jumpTo(x); setFocus((f) => (f ? { ...f, index: Math.max(0, focusList.findIndex((y) => y.id === x.id)) } : f)); }}
                 />
               )}
+              <VillageHistory id={selected.id} {...(selected.kind === 'bot' ? { owner: selected.owner } : {})} />
             </>
           )}
           </section>
@@ -1029,6 +1067,25 @@ function MarkRow({ label, current, onPick }: { label: string; current?: string; 
           onClick={() => onPick(current === c ? null : c)} />
       ))}
       {current && <button class="small link" onClick={() => onPick(null)}>weg</button>}
+    </div>
+  );
+}
+
+/** A small card next to the village under the pointer: who, how big, what you know. */
+function HoverCard({ v, x, y, tribes }: { v: MapVillage; x: number; y: number; tribes: TribeView[] }) {
+  const s = snapshot.value;
+  const tribe = v.tribe !== undefined ? tribes.find((t) => t.id === v.tribe) : undefined;
+  const scout = v.scoutedAt !== undefined ? scoutColor(s, v.scoutedAt) : null;
+  const flip = x > 520;
+  return (
+    <div class="map-hovercard" style={{ left: `${flip ? x - 266 : x + 16}px`, top: `${Math.max(8, y - 20)}px` }} role="tooltip">
+      <strong>{v.name} <span class="muted">({v.x}|{v.y})</span></strong>
+      <span>{v.kind === 'barb' ? 'Barbaren' : v.ownerName}{tribe ? ` [${tribe.tag}]` : ''} · {num(v.points)} p</span>
+      {v.kind === 'barb' && v.barbType && <span class="muted">{BARB_TYPE_NAMES[v.barbType]}{v.wall !== undefined ? ` · muur ${v.wall}` : ''}</span>}
+      {v.kind !== 'barb' && v.wall !== undefined && <span class="muted">muur {v.wall}</span>}
+      {v.last && <span class="muted">laatste aanval {formatGameTime(v.last.time)} · {v.last.result === 'loss' ? 'verloren' : 'gewonnen'}{v.last.loot ? ` · buit ${num(v.last.loot)}` : ''}</span>}
+      {scout && <span class="muted"><i class="hc-dot" style={{ background: scout }} /> verkend {s ? formatGameTime(v.scoutedAt!) : ''}</span>}
+      {v.note && <span class="muted">heeft een notitie (klik voor meer)</span>}
     </div>
   );
 }

@@ -32,6 +32,7 @@ import { NewsScreen } from './screens/NewsScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { onShortcut } from './keys';
 import { NewsTicker } from './components/NewsTicker';
+import { ReportPopup } from './components/ReportPopup';
 import { QuestToasts } from './components/QuestToasts';
 import { CommandPalette } from './components/CommandPalette';
 
@@ -128,6 +129,7 @@ export function App() {
           </aside>
           <CommandPalette />
           <EndgameModal />
+          <ReportPopup />
           <NewsTicker />
         </div>
       ) : (

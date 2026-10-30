@@ -47,6 +47,8 @@ export type Command =
   | { type: 'getMap' }
   | { type: 'getReports' }
   | { type: 'getNews' }
+  | { type: 'getVillage'; id: number }
+  | { type: 'setNote'; target: 'village' | 'player'; id: number; text: string }
   | { type: 'setMark'; target: 'player' | 'tribe'; id: number; color: string | null }
   | { type: 'talksVote'; talks: number; option: number }
   | { type: 'talksPropose'; talks: number; villages: number; resources: number; help?: { target: number; space: number } }
@@ -158,9 +160,31 @@ export interface MapVillage {
   /** Tribe of the owner. */
   tribe?: number;
   /** Your last attack on this village. */
-  last?: { time: number; result: Report['result']; loot: number; scouted?: [number, number, number] };
+  last?: { report?: number; time: number; result: Report['result']; loot: number; scouted?: [number, number, number] };
+  /** You wrote a note on this village or its owner. */
+  note?: true;
   /** When you last scouted it (player villages). */
   scoutedAt?: number;
+}
+
+/** One village in detail: its reports, earlier owners, your notes, your last scout. */
+export interface VillageInfo {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  owner: number;
+  ownerName: string;
+  /** Your reports about it, newest first (attacks on it and from it). */
+  reports: Report[];
+  /** Conquests of it by players that the world statistics still know (the last 200 in the world). */
+  owners: { from: string; to: string; at: number }[];
+  note: string;
+  ownerNote: string;
+  /** Your last scout of it: what was home and when. */
+  scout: { time: number; units: UnitCounts; away?: UnitCounts } | null;
+  /** Your troops supporting it. */
+  yourSupport: UnitCounts | null;
 }
 
 /** Your own colours for players and tribes on the map. */
@@ -524,6 +548,7 @@ export type WorkerMessage =
   | { type: 'map'; map: MapData }
   | { type: 'reports'; reports: Report[] }
   | { type: 'news'; news: import('../sim/news').NewsItem[] }
+  | { type: 'village'; info: VillageInfo | null }
   | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number> }
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'supportList'; rows: SupportRow[] }

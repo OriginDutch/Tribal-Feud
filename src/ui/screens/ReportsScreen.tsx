@@ -28,7 +28,7 @@ const scoutOnly = (r: Report) => {
 const kindOf = (r: Report): Kind => (r.defense ? 'defense' : scoutOnly(r) ? 'scout' : 'attack');
 
 /** Colour of a report: from your side, so a held defense is green. */
-function tone(r: Report): 'win' | 'mid' | 'loss' | 'scout' {
+export function tone(r: Report): 'win' | 'mid' | 'loss' | 'scout' {
   if (r.defense) return r.result === 'loss' ? 'win' : 'loss';
   if (scoutOnly(r)) return r.result === 'loss' ? 'loss' : 'scout';
   return r.result === 'win' ? 'win' : r.result === 'winLosses' ? 'mid' : 'loss';
@@ -42,7 +42,7 @@ function headline(r: Report): string {
   return `${r.result === 'win' ? 'Gewonnen' : r.result === 'winLosses' ? 'Gewonnen met verliezen' : 'Verloren'} · ${target}`;
 }
 
-function listTitle(r: Report): string {
+export function listTitle(r: Report): string {
   const target = `${r.defender.name} (${r.defender.x}|${r.defender.y})`;
   if (r.defense) return `Verdediging: ${r.attacker.ownerName} valt ${r.defender.name} aan`;
   if (scoutOnly(r)) return `Verkenning van ${target}`;
@@ -115,7 +115,7 @@ function ResPills({ res }: { res: [number, number, number] }) {
   );
 }
 
-function ReportDetail({ r }: { r: Report }) {
+export function ReportDetail({ r }: { r: Report }) {
   const s = snapshot.value;
   const names = s?.village?.buildings ?? [];
   const bname = (id: string) => names.find((b) => b.id === id)?.name ?? id;

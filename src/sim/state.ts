@@ -218,6 +218,8 @@ import type { FarmTemplates } from '../shared/farmTemplates';
  * Runtime-only things (timers, suspended-because-tab-hidden) live in the worker.
  */
 export interface LastAttack {
+  /** The report of it (missing in saves from before this was kept). */
+  report?: number;
   time: number;
   result: 'win' | 'winLosses' | 'loss';
   loot: number;
@@ -252,6 +254,8 @@ export interface WorldState {
   outlaws?: Record<number, import('./talks').Outlaw>;
   /** Resources the losers of peace talks still have to pay (see reparations). */
   reparations?: import('./reparations').Reparation[];
+  /** Your notes on villages and players (shown on the map and in their panels). */
+  notes?: { villages: Record<number, string>; players: Record<number, string> };
   /** Your own colours for players and tribes on the map. */
   mapMarks?: import('../shared/protocol').MapMarks;
   /** Help in attacks owed after peace talks, and when each player last failed one (see duties). */
