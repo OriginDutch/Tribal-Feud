@@ -14,6 +14,8 @@ import { isOnline } from './bots';
 import { answerRequest } from './tribeOrders';
 import { grudge } from './botReact';
 import { nextFloat } from './rng';
+import type { WarAskInfo } from '../shared/protocol';
+import { WAR_FRICTION, frictionBetween, tribeStrength } from './warCause';
 import {
   HUMAN_ID,
   addLog,
@@ -30,6 +32,9 @@ import {
   fitCheck,
   fits,
   found,
+  contactKey,
+  inContact,
+  tribeContacts,
   join,
   leaderAccepts,
   leave,
@@ -213,6 +218,56 @@ export function proposeRelation(state: WorldState, tribeId: number, relation: 'n
   return null;
 }
 
+/** After a no from your leader you wait this long before asking for a war again. */
+export const WAR_ASK_COOLDOWN = DAY;
+
+/** As a member of a bot tribe: ask your leader to declare war on a tribe your tribe touches. */
+export function askLeaderWar(state: WorldState, tribeId: number): string | null {
+  const t = tribeOf(state, HUMAN_ID);
+  if (!t) return 'Je zit niet in een stam.';
+  if (t.leader === HUMAN_ID) return 'Jij bent de leider: verklaar zelf de oorlog.';
+  const o = state.tribes?.[tribeId];
+  if (!o || o.id === t.id) return 'Die stam bestaat niet.';
+  const rel = t.relations[o.id];
+  if (rel === 'war') return 'Jullie zijn al in oorlog.';
+  if (rel === 'nap' || rel === 'ally') return `Jullie hebben een verdrag met ${tag(o)}: daar vraag je geen oorlog tegen.`;
+  if (!inContact(state, t, o)) return `${tag(o)} grenst nergens aan jullie stam.`;
+  if ((state.tribeAsks ?? []).some((a) => a.kind === 'war')) return 'Je hebt de leider al om een oorlog gevraagd; hij antwoordt als hij online is.';
+  if (state.warAskNo !== undefined && state.time - state.warAskNo < WAR_ASK_COOLDOWN) return 'Je leider zei net nee. Wacht een speldag voor je het opnieuw vraagt.';
+  (state.tribeAsks ??= []).push({ kind: 'war', tribe: o.id, at: state.time });
+  addLog(state, { time: state.time, text: `Je vraagt je leider om ${tag(o)} de oorlog te verklaren.` });
+  return null;
+}
+
+/** For the tribe screen: whom you may ask your leader to fight, and until when you wait after a no. */
+export function warAskInfo(state: WorldState): WarAskInfo {
+  const t = tribeOf(state, HUMAN_ID);
+  if (!t || t.leader === HUMAN_ID) return { contact: [] };
+  const contacts = tribeContacts(state);
+  const contact = Object.values(state.tribes ?? {}).filter((o) => o.id !== t.id && contacts.has(contactKey(t.id, o.id))).map((o) => o.id);
+  const waitUntil = state.warAskNo !== undefined && state.time - state.warAskNo < WAR_ASK_COOLDOWN ? state.warAskNo + WAR_ASK_COOLDOWN : undefined;
+  return waitUntil === undefined ? { contact } : { contact, waitUntil };
+}
+
+/**
+ * Your leader weighs your war: the same reasons as a war of his own (enough friction, a tribe that
+ * expects to win), but your ask counts. It lowers the friction he needs, more so when he thinks
+ * highly of you (standing). Missing reason = yes.
+ */
+export function warAskVerdict(state: WorldState, mine: Tribe, o: Tribe, leader: Player): string | null {
+  const rel = mine.relations[o.id];
+  if (rel === 'nap' || rel === 'ally') return `we hebben een verdrag met ${tag(o)}. Dat breek ik niet zomaar.`;
+  if (!inContact(state, mine, o)) return `${tag(o)} zit nergens bij ons in de buurt.`;
+  const ours = tribeStrength(state, mine), theirs = tribeStrength(state, o);
+  if (ours / Math.max(1, theirs) < 1.2) return `we zijn nog niet sterk genoeg voor ${tag(o)}.`;
+  const arch = leader.bot?.archetype ?? 'diplomat';
+  const standing = state.standing ?? 60;
+  const ask = Math.max(0.4, Math.min(1, 0.7 - (standing - 60) / 200));
+  const need = WAR_FRICTION * (1.6 - AGGRESSION[arch]) * ask;
+  if (frictionBetween(mine, o) < need) return `ik zie geen aanleiding. ${tag(o)} heeft ons (nog) niks aangedaan.`;
+  return null;
+}
+
 /** As leader: declare war (immediate), or end a treaty. */
 export function setOwnRelation(state: WorldState, tribeId: number, action: 'war' | 'end'): string | null {
   const t = myLedTribe(state);
@@ -368,6 +423,24 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
     } else {
       refused(state, 'invites', p.id);
       addMessage(state, { kind: 'answer', from: p.id, title: `${p.name} slaat af`, text: inviteRefusal(state, t, p, current) });
+    }
+    return true;
+  }
+  if (ask.kind === 'war') {
+    const mine = tribeOf(state, HUMAN_ID);
+    const o = state.tribes?.[ask.tribe];
+    if (!mine || mine.leader === HUMAN_ID || !o) return true;
+    const leader = state.players[mine.leader];
+    if (!leader?.bot) return true;
+    if (mine.relations[o.id] === 'war') return true;
+    if (!isOnline(state, leader.id, leader.bot)) return false;
+    const no = warAskVerdict(state, mine, o, leader);
+    if (no) {
+      state.warAskNo = state.time;
+      addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: `${leader.name}: geen oorlog met ${tag(o)}`, text: `${leader.name}: ${no}` });
+    } else {
+      declareWar(state, mine, o, false, 'op jouw verzoek');
+      addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: `${leader.name}: oorlog met ${tag(o)}`, text: `${leader.name}: je hebt gelijk. ${tag(mine)} verklaart ${tag(o)} de oorlog.` });
     }
     return true;
   }

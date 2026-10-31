@@ -8,7 +8,7 @@ import { TalksPanel } from '../components/TalksPanel';
 import { Coords } from '../components/Coords';
 import { MapLink } from '../components/MapLink';
 import { duration, num } from '../format';
-import { inviteCandidates, mapData, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes } from '../store';
+import { inviteCandidates, mapData, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes, warAsk } from '../store';
 
 const REL: Record<TribeRelation, string> = { ally: 'Bondgenoot', nap: 'Niet-aanvalsverdrag', war: 'Oorlog' };
 const ASK_REL = { nap: 'NAP', ally: 'bondgenootschap', peace: 'vrede' } as const;
@@ -324,6 +324,7 @@ export function TribesScreen() {
   const solo = ranking.value.filter((r) => r.villages > 0 && r.tribe === undefined).length;
   const applied = new Set(tribeAsks.value.flatMap((a) => (a.kind === 'apply' ? [a.tribe] : [])));
   const proposed = new Map(tribeAsks.value.flatMap((a) => (a.kind === 'propose' ? [[a.tribe, a.relation] as const] : [])));
+  const askedWar = tribeAsks.value.find((a) => a.kind === 'war')?.tribe;
   const relToMine = open && mine && open.id !== mine.id ? (mine.relations.find((r) => r.id === open.id)?.rel ?? null) : null;
 
   return (
@@ -429,6 +430,25 @@ export function TribesScreen() {
                         {relToMine && <Confirm label="Verdrag beëindigen" onConfirm={() => send({ type: 'tribeRelation', tribe: open.id, action: 'end' })} />}
                         <Confirm label="Oorlog verklaren" sure="Echt oorlog?" cls="warn" onConfirm={() => send({ type: 'tribeRelation', tribe: open.id, action: 'war' })} />
                       </>
+                    )}
+                  </div>
+                )}
+                {!leader && mine && open.id !== mine.id && relToMine !== 'war' && (
+                  <div class="row wrap tribe-actions" data-war-ask>
+                    {askedWar === open.id ? (
+                      <span class="muted">Je vroeg je leider om oorlog. Hij antwoordt als hij online is.</span>
+                    ) : relToMine === 'nap' || relToMine === 'ally' ? (
+                      <span class="muted">Jullie hebben een verdrag: daar vraag je geen oorlog tegen.</span>
+                    ) : !warAsk.value.contact.includes(open.id) ? (
+                      <span class="muted">Grenst nergens aan jullie stam: je leider begint hier geen oorlog.</span>
+                    ) : askedWar !== undefined ? (
+                      <span class="muted">Je hebt je leider al om een andere oorlog gevraagd.</span>
+                    ) : warAsk.value.waitUntil !== undefined ? (
+                      <span class="muted">Je leider zei net nee. Opnieuw vragen kan vanaf {formatGameTime(warAsk.value.waitUntil)}.</span>
+                    ) : (
+                      <button class="small warn" onClick={() => send({ type: 'tribeAskWar', tribe: open.id })} title="Je leider beslist: genoeg wrijving, sterk genoeg, en hoe hoger hij je waardeert hoe zwaarder je stem telt.">
+                        Leider om oorlog vragen
+                      </button>
                     )}
                   </div>
                 )}
