@@ -6,6 +6,7 @@ import { formatGameTime } from '../../shared/time';
 import { Confirm } from '../components/Confirm';
 import { TalksPanel } from '../components/TalksPanel';
 import { Coords } from '../components/Coords';
+import { OrderPanel } from '../components/OrderPanel';
 import { MapLink } from '../components/MapLink';
 import { duration, num } from '../format';
 import { inviteCandidates, mapData, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes, warAsk, friction } from '../store';
@@ -78,6 +79,7 @@ function MyTribe({ t }: { t: TribeView }) {
         <Tag t={t} onClick={() => (tribeFocus.value = t.id)} /> {t.name} · {leader ? 'jij bent de leider' : `leider: ${players.get(t.leader)?.name ?? '?'}`} ·{' '}
         {t.members.length}/{MAX_MEMBERS} leden
       </p>
+      <OrderPanel />
       {leader && t.members.length < MAX_MEMBERS && (
         <details class="invite-list">
           <summary>Spelers uitnodigen ({inviteCandidates.value.length} in de buurt)</summary>

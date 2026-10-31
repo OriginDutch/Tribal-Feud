@@ -1043,3 +1043,11 @@ button.world-open:hover strong { color: var(--accent); }
 .farm-fold { width: 100%; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; margin: 10px 0; border-radius: 10px; border: 1px dashed var(--border-2); background: var(--panel-2); color: var(--text); text-align: left; font-size: 14px; cursor: pointer; }
 .farm-fold:hover { border-color: var(--accent-line); }
 .more-moves { margin-top: 10px; }
+
+/* your bot leader's order: tribe screen + top bar chip */
+.order-panel { margin: 10px 0 4px; padding: 12px 14px; border-radius: 12px; background: radial-gradient(120% 140% at 0% 0%, var(--accent-soft), transparent 60%), var(--bg); border: 1px solid var(--accent-line); display: flex; flex-direction: column; gap: 8px; }
+.order-kicker { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.order-facts { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.order-chip { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 10px; background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--accent); font-weight: 600; font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.order-chip.open { animation: order-pulse 1.6s ease-in-out infinite; }
+@keyframes order-pulse { 50% { box-shadow: 0 0 0 3px var(--accent-soft); } }

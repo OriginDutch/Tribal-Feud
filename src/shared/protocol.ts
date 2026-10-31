@@ -287,6 +287,25 @@ export interface OrderView {
   waiting: number;
 }
 
+export interface LeaderOrderView {
+  order: 'attack' | 'support';
+  /** open = in your inbox, waiting for your yes or no. */
+  status: 'open' | 'accepted';
+  /** Inbox message (open orders). */
+  message?: number;
+  target: { id: number; name: string; x: number; y: number; owner: number; ownerName: string };
+  /** Deadline (game time); a joint attack also has its landing time. */
+  until: number;
+  landAt?: number;
+  from: string;
+  /** Attack orders: the attack strength the leader wants (scouts don't count). */
+  minAttack?: number;
+  /** Your attacks underway to the target: strength and landing time. */
+  underway: { attack: number; arrives: number }[];
+  /** Your strongest village for it: attack at home and when it would land if sent now. */
+  best?: { id: number; name: string; attack: number; arrives: number };
+}
+
 export interface InboxView {
   id: number;
   time: number;
@@ -504,6 +523,8 @@ export interface Snapshot {
   /** Your tribe (id) and whether you lead it. */
   myTribe: number | null;
   myTribeLeader: boolean;
+  /** The order of your bot leader you said yes to (or one still waiting for your answer). */
+  leaderOrder: LeaderOrderView | null;
   inboxUnread: number;
   /** Open messages that ask for an answer. */
   inboxOpen: number;

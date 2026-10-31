@@ -338,7 +338,7 @@ export interface WorldState {
   standingNotes?: MoodNote[];
   standingWarned?: number;
   /** As a member: the order of your leader you said yes to, until when it must be done. */
-  leaderOrder?: { order: 'attack' | 'support'; village: number; until: number; from: number };
+  leaderOrder?: { order: 'attack' | 'support'; village: number; until: number; from: number; landAt?: number };
   /** When your bot leader last gave you an order. */
   leaderOrderAt?: number;
   /** How often you betrayed someone (tribes trust you less). */

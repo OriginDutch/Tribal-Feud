@@ -1,0 +1,104 @@
+import { formatGameTime } from '../../shared/time';
+import type { LeaderOrderView } from '../../shared/protocol';
+import { duration, num } from '../format';
+import { attackVillage, openSupport, screen, send, snapshot } from '../store';
+import { Coords } from './Coords';
+import { PlayerLink } from './PlayerLink';
+
+/** What your leader wants, in his words: the target, the deadline and what counts. */
+function what(o: LeaderOrderView): string {
+  if (o.order === 'support') return 'Stuur verdediging naar';
+  return o.landAt !== undefined ? 'Gezamenlijke aanval op' : 'Val aan:';
+}
+
+/** Your current order from your bot leader: target, deadline, what counts, and how you stand. */
+export function OrderPanel() {
+  const s = snapshot.value;
+  const o = s?.leaderOrder;
+  if (!s || !o) return null;
+  const left = o.until - s.time;
+  const enough = (a: number) => o.minAttack === undefined || a >= o.minAttack;
+  const sent = o.underway.filter((m) => enough(m.attack) && m.arrives <= o.until);
+  const bestOk = o.best && enough(o.best.attack) && o.best.arrives <= o.until;
+  return (
+    <div class="order-panel" data-order>
+      <div class="row wrap" style={{ gap: '8px', alignItems: 'baseline' }}>
+        <strong class="order-kicker">{o.status === 'open' ? 'Nieuwe opdracht' : 'Je opdracht'}</strong>
+        <span>
+          {what(o)} <strong>{o.target.name}</strong> <Coords x={o.target.x} y={o.target.y} />
+          {o.target.owner >= 0 && <> van <PlayerLink id={o.target.owner} name={o.target.ownerName} /></>}
+        </span>
+        <span class="muted">· van {o.from}</span>
+      </div>
+      <ul class="order-facts">
+        {o.landAt !== undefined ? (
+          <li>
+            Landen om <strong class="mono">{formatGameTime(o.landAt)}</strong> (over {duration(o.landAt - s.time)}), samen met de anderen; de edels komen er direct
+            achteraan.
+          </li>
+        ) : (
+          <li>
+            Uiterlijk <strong class="mono">{formatGameTime(o.until)}</strong> geland{' '}
+            <span class={left < 2 * 3600_000 ? 'warn' : 'muted'}>(nog {duration(left)})</span>
+          </li>
+        )}
+        {o.minAttack !== undefined && (
+          <li>
+            Telt bij minstens <strong>{num(o.minAttack)}</strong> aanvalskracht in één aanval (verkenners tellen niet), en pas als hij landt: terugroepen = niet gedaan.
+          </li>
+        )}
+        {sent.length > 0 ? (
+          <li class="good">
+            Onderweg: {sent.map((m) => `${num(m.attack)} aanval, landt ${formatGameTime(m.arrives)}`).join(' · ')} ✓
+          </li>
+        ) : o.underway.length > 0 ? (
+          <li class="warn">
+            Onderweg, maar telt niet: {o.underway.map((m) => `${num(m.attack)} aanval${!enough(m.attack) ? ' (te klein)' : ''}${m.arrives > o.until ? ' (te laat)' : ''}`).join(' · ')}
+          </li>
+        ) : null}
+        {o.order === 'attack' && !sent.length && (
+          o.best ? (
+            <li class={bestOk ? '' : 'warn'}>
+              Je sterkste dorp: {o.best.name} met {num(o.best.attack)} aanval thuis, landt bij nu versturen om {formatGameTime(o.best.arrives)}{' '}
+              {bestOk ? '✓' : !enough(o.best.attack) ? '· te weinig' : '· te laat'}
+            </li>
+          ) : (
+            <li class="warn">Je hebt nu geen aanvallende troepen thuis.</li>
+          )
+        )}
+        {o.status === 'accepted' && <li class="muted">Gedaan: +6 aanzien bij je leider. Niet op tijd: −8, meer dan een nee had gekost.</li>}
+      </ul>
+      <div class="row wrap" style={{ gap: '8px' }}>
+        {o.status === 'open' && o.message !== undefined && (
+          <>
+            <button class="small primary" onClick={() => send({ type: 'inboxAnswer', id: o.message!, accept: true })}>Ja, doe ik</button>
+            <button class="small" onClick={() => send({ type: 'inboxAnswer', id: o.message!, accept: false })}>Nee</button>
+          </>
+        )}
+        {o.order === 'attack' ? (
+          <button class="small" onClick={() => attackVillage(o.target.x, o.target.y)}>Naar verzamelplaats</button>
+        ) : (
+          <button class="small" onClick={() => openSupport(o.target.id, o.until)}>Support plannen</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** A small chip in the top bar while an order runs; opens the tribe screen. */
+export function OrderChip() {
+  const s = snapshot.value;
+  const o = s?.leaderOrder;
+  if (!s || !o) return null;
+  const at = o.landAt ?? o.until;
+  return (
+    <button
+      class={`order-chip ${o.status === 'open' ? 'open' : ''}`}
+      data-order-chip
+      onClick={() => (screen.value = 'tribes')}
+      title={`${o.status === 'open' ? 'Nieuwe opdracht' : 'Opdracht'} van ${o.from}: ${o.order === 'attack' ? 'val' : 'support naar'} ${o.target.name} (${o.target.x}|${o.target.y})${o.order === 'attack' ? ' aan' : ''}`}
+    >
+      <span aria-hidden="true">⚑</span> {o.status === 'open' ? 'Opdracht' : duration(at - s.time)}
+    </button>
+  );
+}

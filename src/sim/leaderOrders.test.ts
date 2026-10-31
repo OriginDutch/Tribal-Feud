@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { DAY } from '../shared/time';
 import { answerMessage, foundTribe } from './humanTribe';
-import { checkLeaderOrder, leaderOrderAttack } from './tribeOrders';
+import { checkLeaderOrder, leaderOrderLanded } from './tribeOrders';
+import { sendAttack } from './movement';
+import { advance } from './simulation';
+import { playerVillage } from './state';
 import { HUMAN_ID, createWorld, villagesOf, type WorldState } from './state';
 import { found, join, setRelation, tribeOf } from './tribes';
 import { addMessage } from './humanTribe';
@@ -20,7 +23,12 @@ describe('your bot leader gives orders', () => {
     const target = Object.values(s.villages).find((v) => v.owner !== HUMAN_ID && v.owner !== lead.id)!;
     const msg = addMessage(s, { kind: 'request', from: lead.id, title: 'Order', text: 'Val aan', request: { type: 'order', order: 'attack', village: target.id, x: target.x, y: target.y }, status: 'open', expires: s.time + DAY });
     expect(answerMessage(s, msg.id, true)).toBeNull();
-    leaderOrderAttack(s, target.id);
+    // scouts, or a small army: does not count
+    leaderOrderLanded(s, target.id, { spy: 500 });
+    leaderOrderLanded(s, target.id, { axe: 10 });
+    expect(s.standing ?? 60).toBe(60);
+    expect(s.leaderOrder).toBeDefined();
+    leaderOrderLanded(s, target.id, { axe: 100 });
     expect(s.standing).toBe(66);
     const msg2 = addMessage(s, { kind: 'request', from: lead.id, title: 'Order', text: 'Val aan', request: { type: 'order', order: 'attack', village: target.id, x: target.x, y: target.y }, status: 'open', expires: s.time + DAY });
     answerMessage(s, msg2.id, true);
@@ -30,6 +38,24 @@ describe('your bot leader gives orders', () => {
     const msg3 = addMessage(s, { kind: 'request', from: lead.id, title: 'Order', text: 'Val aan', request: { type: 'order', order: 'attack', village: target.id, x: target.x, y: target.y }, status: 'open', expires: s.time + DAY });
     answerMessage(s, msg3.id, false);
     expect(s.standing).toBe(54);
+  });
+
+  it('the order counts when the attack lands, not when it leaves (a recalled attack never does)', () => {
+    const s = world();
+    s.paused = false;
+    const lead = s.players.find((p) => p.bot && villagesOf(s, p.id).length)!;
+    const t = found(s, lead);
+    join(s, t, s.players[HUMAN_ID]!);
+    const home = playerVillage(s)!;
+    home.units.axe = 200;
+    const target = Object.values(s.villages).filter((v) => v.owner !== HUMAN_ID && v.owner !== lead.id).sort((a, b) => Math.hypot(a.x - home.x, a.y - home.y) - Math.hypot(b.x - home.x, b.y - home.y))[0]!;
+    const msg = addMessage(s, { kind: 'request', from: lead.id, title: 'Order', text: 'Val aan', request: { type: 'order', order: 'attack', village: target.id, x: target.x, y: target.y }, status: 'open', expires: s.time + DAY });
+    answerMessage(s, msg.id, true);
+    expect(sendAttack(s, home.id, target.id, { axe: 200 })).toBeNull();
+    expect(s.leaderOrder).toBeDefined(); // sent, not landed yet
+    for (let i = 0; i < 2000 && s.leaderOrder; i++) advance(s, 60_000);
+    expect(s.leaderOrder).toBeUndefined();
+    expect(s.standing).toBe(66);
   });
 
   it('a merger proposal: their tribe goes up in yours', () => {

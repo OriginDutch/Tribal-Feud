@@ -6,6 +6,7 @@ import { VillageSwitcher } from './VillageSwitcher';
 import { AccountButton } from './Account';
 import { MusicButton } from '../music/MusicButton';
 import { ResIcon } from './ResIcon';
+import { OrderChip } from './OrderPanel';
 import { keyLabel, keyOf } from '../keys';
 
 const RES = [
@@ -88,6 +89,7 @@ export function TopBar() {
           <kbd>Ctrl K</kbd>
         </button>
       )}
+      {hasVillage && <OrderChip />}
       {s && (
         <div class="clock">
           <span class="clock-time">{formatGameTime(s.time)}</span>

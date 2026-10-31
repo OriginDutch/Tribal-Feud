@@ -23,7 +23,7 @@ import { DAY, formatGameTime } from '../shared/time';
 import { arriveTrade, arriveTradeReturn } from './market';
 import { currentResources, isOperational, settle, type Village } from './village';
 import { mateEvent, onVillageLost } from './loyalty';
-import { leaderOrderSupport } from './tribeOrders';
+import { leaderOrderLanded, leaderOrderSupport } from './tribeOrders';
 import { statAttack, statConquest } from './worldStats';
 import { battleBonus } from './battleBonus';
 import { judgeScout, rememberScout } from './botStrategy';
@@ -363,6 +363,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
     return;
   }
 
+  if (m.owner === HUMAN_ID) leaderOrderLanded(state, target.id, m.units);
   growBarbarian(state, target, state.time);
   // the village became ours while this was underway (the rest of a noble train, a joint op):
   // like in TW the troops just move in instead of fighting their own garrison

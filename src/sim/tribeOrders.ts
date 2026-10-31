@@ -10,6 +10,7 @@
  * Bots only act on all of this during their own (online) turn, with the same rules as always.
  */
 import type { Archetype } from '../shared/botProfiles';
+import type { LeaderOrderView } from '../shared/protocol';
 import { UNIT_IDS, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { DAY, HOUR, MINUTE, formatGameTime } from '../shared/time';
 import { villagesNear } from './bots';
@@ -192,6 +193,44 @@ export function answerRequest(state: WorldState, m: InboxMessage, accept: boolea
 
 // --- your bot leader gives you orders ------------------------------------------------------------
 
+/** Your current order for the screens: accepted, or still open in your inbox. */
+export function leaderOrderView(state: WorldState): LeaderOrderView | null {
+  const open = (state.inbox ?? []).find((m) => m.request?.type === 'order' && m.status === 'open');
+  const r = open?.request?.type === 'order' ? open.request : undefined;
+  const o = state.leaderOrder;
+  const village = o?.village ?? r?.village;
+  const order = o?.order ?? r?.order;
+  if (village === undefined || !order) return null;
+  const v = state.villages[village];
+  if (!v) return null;
+  const from = state.players[o?.from ?? open?.from ?? -1]?.name ?? '?';
+  const landAt = o ? o.landAt : r?.arrives;
+  const until = o?.until ?? r?.arrives ?? open?.expires ?? state.time + DAY / 2;
+  // attacks: from the movement index (no scan over every movement); supports are rare, a scan is fine
+  const ids = order === 'attack' ? [...(movementIndex(state).incoming.get(v.id) ?? [])].map((id) => state.movements[id]) : Object.values(state.movements);
+  const underway = ids
+    .filter((m) => m !== undefined && m.owner === HUMAN_ID && m.kind === (order === 'attack' ? 'attack' : 'support') && m.to === v.id)
+    .map((m) => m!)
+    .map((m) => ({ attack: Math.round(orderAttack(state, m.units)), arrives: m.arrives }));
+  let best: LeaderOrderView['best'];
+  if (order === 'attack') {
+    for (const h of villagesOf(state, HUMAN_ID)) {
+      const army: UnitCounts = {};
+      for (const u of OFFENSE) if (h.units[u] > 0) army[u] = h.units[u];
+      const attack = orderAttack(state, army);
+      if (attack <= 0 || (best && attack <= best.attack)) continue;
+      best = { id: h.id, name: h.name, attack: Math.round(attack), arrives: state.time + travelTimeMs(state, army, distance(h, v)) };
+    }
+  }
+  return {
+    order, status: o ? 'accepted' : 'open', ...(open && !o ? { message: open.id } : {}),
+    target: { id: v.id, name: v.name, x: v.x, y: v.y, owner: v.owner, ownerName: state.players[v.owner]?.name ?? 'barbaren' },
+    until, ...(landAt !== undefined ? { landAt } : {}), from,
+    ...(order === 'attack' ? { minAttack: ORDER_MIN_ATTACK } : {}),
+    underway, ...(best ? { best } : {}),
+  };
+}
+
 /** You answer your leader's order: yes means you have until the deadline to do it. */
 function answerLeaderOrder(state: WorldState, m: InboxMessage, r: Extract<BotRequest, { type: 'order' }>, leader: Player, accept: boolean): string | null {
   if (!accept) {
@@ -200,16 +239,33 @@ function answerLeaderOrder(state: WorldState, m: InboxMessage, r: Extract<BotReq
     return null;
   }
   m.status = 'accepted';
-  state.leaderOrder = { order: r.order, village: r.village, until: r.arrives ?? state.time + DAY / 2, from: leader.id };
+  // a joint attack: landing a little after the others still counts
+  state.leaderOrder = { order: r.order, village: r.village, until: r.arrives !== undefined ? r.arrives + 10 * MINUTE : state.time + DAY / 2, from: leader.id, ...(r.arrives !== undefined ? { landAt: r.arrives } : {}) };
   return null;
 }
 
-/** You attacked a village: was it the one your leader ordered? */
-export function leaderOrderAttack(state: WorldState, villageId: number): void {
+/** An attack order counts for a real attack: this much attack strength (scouts don't count), and it has to land. */
+export const ORDER_MIN_ATTACK = 3000;
+/** Attack strength of an army without its scouts. */
+export function orderAttack(state: WorldState, units: UnitCounts): number {
+  let a = 0;
+  for (const u of UNIT_IDS) if (u !== 'spy') a += (units[u] ?? 0) * state.config.units[u].attack;
+  return a;
+}
+
+/** Your attack landed: was it the one your leader ordered, and big enough? */
+export function leaderOrderLanded(state: WorldState, villageId: number, units: UnitCounts): void {
   const o = state.leaderOrder;
   if (!o || o.order !== 'attack' || o.village !== villageId) return;
+  const v = state.villages[villageId];
+  const a = orderAttack(state, units);
+  if (a < ORDER_MIN_ATTACK) {
+    addLog(state, { time: state.time, text: `Je aanval op ${v?.name ?? '?'} telt niet voor de order: ${Math.round(a).toLocaleString('nl-NL')} aanvalskracht, de leider wil er minstens ${ORDER_MIN_ATTACK.toLocaleString('nl-NL')}.` });
+    return;
+  }
   delete state.leaderOrder;
   changeStanding(state, 6, 'je voerde mijn order uit');
+  addLog(state, { time: state.time, text: `Order uitgevoerd: je aanval op ${v?.name ?? '?'} is geland.` });
 }
 /** Your support arrived: was it where your leader wanted it? */
 export function leaderOrderSupport(state: WorldState, villageId: number): void {
