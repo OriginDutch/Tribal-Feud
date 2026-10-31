@@ -80,7 +80,7 @@ export type BotRequest =
   | { type: 'resources'; village: number; res: [number, number, number] }
   | { type: 'permission'; target: number }
   /** Your bot leader orders you: attack a village, or support a mate's village. */
-  | { type: 'order'; order: 'attack' | 'support'; village: number; x: number; y: number; arrives?: number };
+  | { type: 'order'; order: 'attack' | 'support' | 'scout'; village: number; x: number; y: number; arrives?: number; spies?: number };
 
 /** You asked your tribe to help defend a village against an attack. */
 export interface HelpAsk {
@@ -338,7 +338,7 @@ export interface WorldState {
   standingNotes?: MoodNote[];
   standingWarned?: number;
   /** As a member: the order of your leader you said yes to, until when it must be done. */
-  leaderOrder?: { order: 'attack' | 'support'; village: number; until: number; from: number; landAt?: number };
+  leaderOrder?: { order: 'attack' | 'support' | 'scout'; village: number; until: number; from: number; landAt?: number; spies?: number };
   /** When your bot leader last gave you an order. */
   leaderOrderAt?: number;
   /** How often you betrayed someone (tribes trust you less). */

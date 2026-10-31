@@ -215,9 +215,9 @@ export function leaderOrderView(state: WorldState): LeaderOrderView | null {
   const landAt = o ? o.landAt : r?.arrives;
   const until = o?.until ?? r?.arrives ?? open?.expires ?? state.time + DAY / 2;
   // attacks: from the movement index (no scan over every movement); supports are rare, a scan is fine
-  const ids = order === 'attack' ? [...(movementIndex(state).incoming.get(v.id) ?? [])].map((id) => state.movements[id]) : Object.values(state.movements);
+  const ids = order !== 'support' ? [...(movementIndex(state).incoming.get(v.id) ?? [])].map((id) => state.movements[id]) : Object.values(state.movements);
   const underway = ids
-    .filter((m) => m !== undefined && m.owner === HUMAN_ID && m.kind === (order === 'attack' ? 'attack' : 'support') && m.to === v.id)
+    .filter((m) => m !== undefined && m.owner === HUMAN_ID && m.kind === (order === 'support' ? 'support' : 'attack') && m.to === v.id && (order !== 'scout' || (m.units.spy ?? 0) > 0))
     .map((m) => m!)
     .map((m) => ({ attack: Math.round(orderAttack(state, m.units)), arrives: m.arrives }));
   let best: LeaderOrderView['best'];
@@ -230,11 +230,19 @@ export function leaderOrderView(state: WorldState): LeaderOrderView | null {
       best = { id: h.id, name: h.name, attack: Math.round(attack), arrives: state.time + travelTimeMs(state, army, distance(h, v)) };
     }
   }
+  if (order === 'scout') {
+    // the village with the most spies: a scout is all or nothing
+    for (const h of villagesOf(state, HUMAN_ID)) {
+      if (h.units.spy <= 0 || (best && h.units.spy <= (best.spies ?? 0))) continue;
+      best = { id: h.id, name: h.name, attack: 0, spies: h.units.spy, arrives: state.time + travelTimeMs(state, { spy: 1 }, distance(h, v)) };
+    }
+  }
   return {
     order, status: o ? 'accepted' : 'open', ...(open && !o ? { message: open.id } : {}),
     target: { id: v.id, name: v.name, x: v.x, y: v.y, owner: v.owner, ownerName: state.players[v.owner]?.name ?? 'barbaren' },
     until, ...(landAt !== undefined ? { landAt } : {}), from,
     ...(order === 'attack' ? { minAttack: ORDER_MIN_ATTACK } : {}),
+    ...(order === 'scout' ? { minSpies: o?.spies ?? (r?.spies ?? 0) } : {}),
     underway, ...(best ? { best } : {}),
   };
 }
@@ -243,12 +251,12 @@ export function leaderOrderView(state: WorldState): LeaderOrderView | null {
 function answerLeaderOrder(state: WorldState, m: InboxMessage, r: Extract<BotRequest, { type: 'order' }>, leader: Player, accept: boolean): string | null {
   if (!accept) {
     m.status = 'declined';
-    changeStanding(state, -4, r.order === 'attack' ? 'je weigerde mijn aanvalsorder' : 'je weigerde support te sturen');
+    changeStanding(state, -4, r.order === 'attack' ? 'je weigerde mijn aanvalsorder' : r.order === 'scout' ? 'je weigerde te verkennen' : 'je weigerde support te sturen');
     return null;
   }
   m.status = 'accepted';
   // a joint attack: landing a little after the others still counts
-  state.leaderOrder = { order: r.order, village: r.village, until: r.arrives !== undefined ? r.arrives + 10 * MINUTE : state.time + DAY / 2, from: leader.id, ...(r.arrives !== undefined ? { landAt: r.arrives } : {}) };
+  state.leaderOrder = { order: r.order, village: r.village, until: r.arrives !== undefined ? r.arrives + 10 * MINUTE : state.time + DAY / 2, from: leader.id, ...(r.arrives !== undefined ? { landAt: r.arrives } : {}), ...(r.spies ? { spies: r.spies } : {}) };
   return null;
 }
 
@@ -275,6 +283,33 @@ export function leaderOrderLanded(state: WorldState, villageId: number, units: U
   changeStanding(state, 6, 'je voerde mijn order uit');
   addLog(state, { time: state.time, text: `Order uitgevoerd: je aanval op ${v?.name ?? '?'} is geland.` });
 }
+/** Your scouts got through: was it the village your leader wanted scouted? (Also counted: your attack that saw it.) */
+export function leaderOrderScouted(state: WorldState, villageId: number): void {
+  const o = state.leaderOrder;
+  if (!o || o.order !== 'scout' || o.village !== villageId) return;
+  delete state.leaderOrder;
+  changeStanding(state, 6, 'je verkende wat ik vroeg');
+  addLog(state, { time: state.time, text: `Order uitgevoerd: je verkenners kwamen door bij ${state.villages[villageId]?.name ?? '?'}.` });
+}
+
+/**
+ * You are the tribe's scout (the most spies in reach): your bot leader asks you to scout a front
+ * village his own scouts don't get into. `spies`: how many died there last (send more).
+ */
+export function giveScoutOrder(state: WorldState, leader: Player, target: Village, spies: number): boolean {
+  const open = (state.inbox ?? []).some((m) => m.request?.type === 'order' && m.status === 'open');
+  if (open || state.leaderOrder) return false;
+  const request: Extract<BotRequest, { type: 'order' }> = { type: 'order', order: 'scout', village: target.id, x: target.x, y: target.y, ...(spies ? { spies } : {}) };
+  const title = `${leader.name}: verken ${target.name}`;
+  state.leaderOrderAt = state.time;
+  addMessage(state, {
+    kind: 'request', from: leader.id, title, request, status: 'open', expires: state.time + DAY / 2,
+    text: `${leader.name}: we moeten weten wat er in ${target.name} (${target.x}|${target.y}) van ${state.players[target.owner]?.name ?? '?'} staat. ${spies ? `Onze verkenners kwamen er niet door (${spies} gesneuveld): stuur er meer.` : 'Jij hebt de meeste verkenners.'} Dan plannen we de aanval.`,
+  });
+  if (pauses(state, 'requests')) alertHuman(state, title);
+  return true;
+}
+
 /** Your support arrived: was it where your leader wanted it? */
 export function leaderOrderSupport(state: WorldState, villageId: number): void {
   const o = state.leaderOrder;

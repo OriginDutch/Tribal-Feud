@@ -23,7 +23,8 @@ import type { Village } from './village';
 import { isOperational, popMax } from './village';
 
 /** What a bot learned from a scout. */
-export interface BotScout { at: number; def: number; owner: number }
+/** A bot's scout of a village. `spies`: how many went when they died (the next ones come with more). */
+export interface BotScout { at: number; def: number; owner: number; spies?: number }
 
 /** Defense noted when the scouts were killed: unknown, treated as far too strong. */
 export const SCOUTS_DIED = 1e12;
@@ -80,12 +81,15 @@ export function attackOf(state: WorldState, units: UnitCounts): number {
 }
 
 /** Called after a bot's scouts got through. */
-export function rememberScout(state: WorldState, owner: number, target: Village, present: UnitCounts | null, wall: number): void {
+export function rememberScout(state: WorldState, owner: number, target: Village, present: UnitCounts | null, wall: number, spiesLost = 0): void {
   const bot = state.players[owner]?.bot;
   if (!bot || target.owner < 0) return;
   // present = null: the scouts died. Unknown counts as too strong (and stops re-scouting for a while)
   const def = present ? defenseOf(state, present, wall) : SCOUTS_DIED;
-  (bot.scouted ??= {})[target.id] = { at: state.time, def, owner: target.owner };
+  // died again: the next ones need more than both groups that died
+  const before = bot.scouted?.[target.id];
+  const spies = present ? undefined : Math.max(spiesLost, before?.def === SCOUTS_DIED ? (before.spies ?? 0) : 0);
+  (bot.scouted ??= {})[target.id] = spies ? { at: state.time, def, owner: target.owner, spies } : { at: state.time, def, owner: target.owner };
   // forget old scouts
   for (const [id, sc] of Object.entries(bot.scouted)) if (state.time - sc.at > 6 * waryFor(state)) delete bot.scouted[Number(id)];
 }
@@ -183,10 +187,18 @@ export function farmablePlayerVillage(state: WorldState, player: Player, t: Vill
 }
 
 /** Sends scouts from `v` to a player village nearby that the bot wants to know about. */
-export function scout(state: WorldState, v: Village, t: Village): boolean {
-  if (v.units.spy < SCOUT_GROUP) return false;
-  const died = (state.players[v.owner]?.bot?.scouted?.[t.id]?.def ?? 0) >= SCOUTS_DIED;
-  return sendAttack(state, v.id, t.id, { spy: died ? v.units.spy : SCOUT_GROUP }) === null;
+/**
+ * Spies needed for a scout of `t`: a small group, or after scouts died there at least double what
+ * died (only more spies than the defender has get through). Any bot's memory counts (`seen`).
+ */
+export function spiesNeeded(sc: BotScout | undefined): number {
+  return sc && sc.def >= SCOUTS_DIED ? Math.max(2 * SCOUT_GROUP, 2 * (sc.spies ?? SCOUT_GROUP)) : SCOUT_GROUP;
+}
+
+export function scout(state: WorldState, v: Village, t: Village, need = spiesNeeded(state.players[v.owner]?.bot?.scouted?.[t.id])): boolean {
+  if (v.units.spy < need) return false;
+  // after a failed scout: everything this village has (more than needed only helps)
+  return sendAttack(state, v.id, t.id, { spy: need > SCOUT_GROUP ? v.units.spy : SCOUT_GROUP }) === null;
 }
 
 /** Farmers scout one unknown player village in farm range per turn, so they know who is weak. */

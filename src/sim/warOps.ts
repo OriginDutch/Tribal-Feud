@@ -18,14 +18,14 @@ import type { UnitCounts } from '../shared/gameData';
 import type { WarFrontView } from '../shared/protocol';
 import { DAY, HOUR, MINUTE } from '../shared/time';
 import { push } from './eventQueue';
-import { SCOUTS_DIED, attackOf, effectiveAttack, freshScout, freshSighting, nobleEscorts, scout as sendScouts } from './botStrategy';
+import { attackOf, effectiveAttack, freshScout, freshSighting, nobleEscorts, scout as sendScouts, spiesNeeded } from './botStrategy';
 import { villagesNear } from './bots';
 import { distance, fieldsWithin, moraleFor, sendAttack, sendNobleTrain, travelBudget, travelTimeMs } from './movement';
 import { nextFloat } from './rng';
 import { HUMAN_ID, nextId, villagesOf, type Player, type WorldState } from './state';
 import { type Tribe } from './tribes';
 import { addNews } from './news';
-import { giveOpOrder } from './tribeOrders';
+import { giveOpOrder, giveScoutOrder } from './tribeOrders';
 import type { Village } from './village';
 import { isOperational } from './village';
 
@@ -140,13 +140,26 @@ function plan(state: WorldState, t: Tribe, enemy: Tribe): void {
     if (!roles) continue;
     if (launch(state, t, enemy, target, roles)) return;
   }
-  // nothing known that we can break: scout the nearest unknown front village
-  // (one whose scouts died lately keeps its borders shut: try the next one)
-  const shut = (v: Village) => t.members.some((m) => { const p = state.players[m]; const sc = p?.bot ? freshScout(state, p, v.id) : undefined; return !!sc && sc.def >= SCOUTS_DIED; });
-  const unknown = candidates.find((v) => tribeIntel(state, t, v.id) === undefined && !shut(v));
-  if (!unknown) return;
-  const from = ours.filter((v) => state.players[v.owner]?.bot && v.units.spy >= 5).sort((a, b) => distance(a, unknown) - distance(b, unknown))[0];
-  if (from) sendScouts(state, from, unknown);
+  // nothing known that we can break: scout the nearest unknown front village. After scouts died
+  // there, only a group of more than double gets through: the tribe's scout goes (the member with
+  // the most spies in reach); that can be you, then you get the order.
+  const leader = state.players[t.leader];
+  const budget = travelBudget(state, OP_HOURS);
+  for (const v of candidates) {
+    if (tribeIntel(state, t, v.id) !== undefined) continue;
+    const need = Math.max(...t.members.map((m) => { const p = state.players[m]; return spiesNeeded(p?.bot ? freshScout(state, p, v.id) : undefined); }));
+    const you = humanFree(state, t);
+    // a first look: the nearest bot with a few spies. After a failed one: the tribe's scout
+    const first = need <= spiesNeeded(undefined);
+    const scouts = ours
+      .filter((o) => (state.players[o.owner]?.bot || (o.owner === HUMAN_ID && you && !first)) && o.units.spy >= need && travelTimeMs(state, { spy: 1 }, distance(o, v)) <= budget)
+      .sort((a, b) => (first ? distance(a, v) - distance(b, v) : b.units.spy - a.units.spy || distance(a, v) - distance(b, v)));
+    const best = scouts[0];
+    if (!best) continue;
+    const lost = first ? 0 : need / 2;
+    if (best.owner === HUMAN_ID) { if (leader && giveScoutOrder(state, leader, v, lost)) return; continue; }
+    if (sendScouts(state, best, v, need)) return;
+  }
 }
 
 /** You can take a part: a bot leads, and no other order of yours is running or waiting. */

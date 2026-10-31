@@ -23,7 +23,7 @@ import { DAY, formatGameTime } from '../shared/time';
 import { arriveTrade, arriveTradeReturn } from './market';
 import { currentResources, isOperational, settle, type Village } from './village';
 import { mateEvent, onVillageLost } from './loyalty';
-import { leaderOrderLanded, leaderOrderSupport } from './tribeOrders';
+import { leaderOrderLanded, leaderOrderScouted, leaderOrderSupport } from './tribeOrders';
 import { statAttack, statConquest } from './worldStats';
 import { battleBonus } from './battleBonus';
 import { judgeScout, rememberScout } from './botStrategy';
@@ -523,7 +523,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
     if (target.owner >= 0 && (m.units.spy ?? 0) > 0) {
       // scouts that die see nothing: the bot notes that this one keeps its borders shut
       if (battle.spiesSurvived > 0) rememberScout(state, m.owner, target, defenderPresent, battle.wallBefore);
-      else rememberScout(state, m.owner, target, null, 0);
+      else rememberScout(state, m.owner, target, null, 0, m.units.spy ?? 0);
       const p = state.players[m.owner];
       if (p) judgeScout(state, p, from, target);
     }
@@ -535,6 +535,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
     const seesDefender = Object.keys(survivors).length > 0 || battle.spiesSurvived > 0;
     // what you saw goes to your bot leader: his joint attacks plan with it. What stands there now
     // (after your attack: a cleared village is an open door for the tribe's nobles)
+    if (battle.spiesSurvived > 0) leaderOrderScouted(state, target.id);
     if (seesDefender && target.owner >= 0 && target.owner !== HUMAN_ID) {
       const t = state.players[HUMAN_ID]?.tribe;
       const leader = t !== undefined ? state.tribes?.[t]?.leader : undefined;

@@ -8,6 +8,7 @@ import { PlayerLink } from './PlayerLink';
 /** What your leader wants, in his words: the target, the deadline and what counts. */
 function what(o: LeaderOrderView): string {
   if (o.order === 'support') return 'Stuur verdediging naar';
+  if (o.order === 'scout') return 'Verken';
   return o.landAt !== undefined ? 'Gezamenlijke aanval op' : 'Val aan:';
 }
 
@@ -42,12 +43,17 @@ export function OrderPanel() {
             <span class={left < 2 * 3600_000 ? 'warn' : 'muted'}>(nog {duration(left)})</span>
           </li>
         )}
+        {o.order === 'scout' && (
+          <li>
+            Telt zodra je verkenners erdoorheen komen{o.minSpies ? <> — de vorige {num(o.minSpies)} sneuvelden, stuur er dus <strong>meer dan {num(o.minSpies * 2)}</strong></> : ''}. Wat je ziet, weet de stam: daarmee plant je leider de aanval.
+          </li>
+        )}
         {o.minAttack !== undefined && (
           <li>
             Telt bij minstens <strong>{num(o.minAttack)}</strong> aanvalskracht in één aanval (verkenners tellen niet), en pas als hij landt: terugroepen = niet gedaan.
           </li>
         )}
-        {sent.length > 0 ? (
+        {o.order === 'scout' ? (o.underway.length > 0 && <li class="good">Verkenners onderweg, landen {o.underway.map((m) => formatGameTime(m.arrives)).join(' · ')}</li>) : sent.length > 0 ? (
           <li class="good">
             Onderweg: {sent.map((m) => `${num(m.attack)} aanval, landt ${formatGameTime(m.arrives)}`).join(' · ')} ✓
           </li>
@@ -56,6 +62,9 @@ export function OrderPanel() {
             Onderweg, maar telt niet: {o.underway.map((m) => `${num(m.attack)} aanval${!enough(m.attack) ? ' (te klein)' : ''}${m.arrives > o.until ? ' (te laat)' : ''}`).join(' · ')}
           </li>
         ) : null}
+        {o.order === 'scout' && !o.underway.length && o.best?.spies !== undefined && (
+          <li>Je meeste verkenners: {o.best.name} met {num(o.best.spies)}, landt bij nu versturen om {formatGameTime(o.best.arrives)}</li>
+        )}
         {o.order === 'attack' && !sent.length && (
           o.best ? (
             <li class={bestOk ? '' : 'warn'}>
@@ -75,7 +84,7 @@ export function OrderPanel() {
             <button class="small" onClick={() => send({ type: 'inboxAnswer', id: o.message!, accept: false })}>Nee</button>
           </>
         )}
-        {o.order === 'attack' ? (
+        {o.order !== 'support' ? (
           <button class="small" onClick={() => attackVillage(o.target.x, o.target.y)}>Naar verzamelplaats</button>
         ) : (
           <button class="small" onClick={() => openSupport(o.target.id, o.until)}>Support plannen</button>
@@ -96,7 +105,7 @@ export function OrderChip() {
       class={`order-chip ${o.status === 'open' ? 'open' : ''}`}
       data-order-chip
       onClick={() => (screen.value = 'tribes')}
-      title={`${o.status === 'open' ? 'Nieuwe opdracht' : 'Opdracht'} van ${o.from}: ${o.order === 'attack' ? 'val' : 'support naar'} ${o.target.name} (${o.target.x}|${o.target.y})${o.order === 'attack' ? ' aan' : ''}`}
+      title={`${o.status === 'open' ? 'Nieuwe opdracht' : 'Opdracht'} van ${o.from}: ${o.order === 'attack' ? 'val' : o.order === 'scout' ? 'verken' : 'support naar'} ${o.target.name} (${o.target.x}|${o.target.y})${o.order === 'attack' ? ' aan' : ''}`}
     >
       <span aria-hidden="true">⚑</span> {o.status === 'open' ? 'Opdracht' : duration(at - s.time)}
     </button>

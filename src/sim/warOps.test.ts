@@ -148,3 +148,68 @@ describe('joint operations with you', () => {
     expect(ta.ops ?? []).toHaveLength(0);
   });
 });
+
+describe('scouting the front', () => {
+  it('scouts that died there: the next group is more than double, from the member with the most spies', async () => {
+    const { SCOUTS_DIED } = await import('./botStrategy');
+    const { s, ta, target, a1, a2, enemy } = setup();
+    a1.bot!.scouted = { [target.id]: { at: s.time, def: SCOUTS_DIED, owner: enemy.id, spies: 10 } };
+    target.units.spy = 15;
+    const v1 = villagesOf(s, a1.id)[0]!, v2 = villagesOf(s, a2.id)[0]!;
+    v1.units.spy = 12; // not enough (needs 20)
+    v2.units.spy = 30;
+    warOpsTick(s);
+    expect(ta.ops ?? []).toHaveLength(0);
+    const out = Object.values(s.movements).filter((m) => m.to === target.id && m.kind === 'attack');
+    expect(out).toHaveLength(1);
+    expect(out[0]!.from).toBe(v2.id);
+    expect(out[0]!.units.spy).toBe(30);
+    // they get through (30 > 15) and the tribe knows what stands there
+    run(s, out[0]!.arrives + 1);
+    expect(a2.bot!.scouted?.[target.id]?.def).toBeLessThan(SCOUTS_DIED);
+  });
+
+  it('you have the most spies: you are the tribe\'s scout and get the order; your scouts count for it and for the plan', async () => {
+    const { SCOUTS_DIED } = await import('./botStrategy');
+    const { HUMAN_ID, playerVillage } = await import('./state');
+    const { sendAttack } = await import('./movement');
+    const { answerMessage } = await import('./humanTribe');
+    const { s, ta, target, a1, enemy } = setup();
+    a1.bot!.scouted = { [target.id]: { at: s.time, def: SCOUTS_DIED, owner: enemy.id, spies: 10 } };
+    target.units.spy = 15;
+    const home = playerVillage(s)!;
+    home.x = target.x + 4; home.y = target.y;
+    home.buildings.place = Math.max(1, home.buildings.place);
+    home.units.spy = 100;
+    ta.members.push(HUMAN_ID);
+    s.players[HUMAN_ID]!.tribe = ta.id;
+    warOpsTick(s);
+    const order = s.inbox!.at(-1)!;
+    expect(order.request).toMatchObject({ type: 'order', order: 'scout', village: target.id });
+    expect(answerMessage(s, order.id, true)).toBeNull();
+    expect(sendAttack(s, home.id, target.id, { spy: 100 })).toBeNull();
+    const m = Object.values(s.movements).find((x) => x.owner === HUMAN_ID && x.to === target.id)!;
+    run(s, m.arrives + 1);
+    expect(s.leaderOrder).toBeUndefined();
+    expect(s.standing).toBe(66);
+    // what you saw went to your leader
+    expect(a1.bot!.scouted?.[target.id]?.def).toBeLessThan(SCOUTS_DIED);
+  });
+
+  it('dead scouts are remembered with how many went, so the next group knows what it needs', async () => {
+    const { SCOUTS_DIED, scout, spiesNeeded } = await import('./botStrategy');
+    const { s, target, a1 } = setup();
+    target.units.spy = 15;
+    const v1 = villagesOf(s, a1.id)[0]!;
+    v1.units.spy = 5;
+    expect(scout(s, v1, target)).toBe(true);
+    const m = Object.values(s.movements).find((x) => x.owner === a1.id && x.to === target.id)!;
+    run(s, m.arrives + 1);
+    const sc = a1.bot!.scouted?.[target.id];
+    expect(sc).toMatchObject({ def: SCOUTS_DIED, spies: 5 });
+    expect(spiesNeeded(sc)).toBe(10);
+    // too few now: it waits instead of throwing more away
+    v1.units.spy = 8;
+    expect(scout(s, v1, target)).toBe(false);
+  });
+});

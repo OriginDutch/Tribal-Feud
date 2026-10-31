@@ -288,7 +288,7 @@ export interface OrderView {
 }
 
 export interface LeaderOrderView {
-  order: 'attack' | 'support';
+  order: 'attack' | 'support' | 'scout';
   /** open = in your inbox, waiting for your yes or no. */
   status: 'open' | 'accepted';
   /** Inbox message (open orders). */
@@ -300,10 +300,12 @@ export interface LeaderOrderView {
   from: string;
   /** Attack orders: the attack strength the leader wants (scouts don't count). */
   minAttack?: number;
+  /** Scout orders: more spies than this get through (the last ones that died). */
+  minSpies?: number;
   /** Your attacks underway to the target: strength and landing time. */
   underway: { attack: number; arrives: number }[];
   /** Your strongest village for it: attack at home and when it would land if sent now. */
-  best?: { id: number; name: string; attack: number; arrives: number };
+  best?: { id: number; name: string; attack: number; arrives: number; spies?: number };
 }
 
 export interface InboxView {

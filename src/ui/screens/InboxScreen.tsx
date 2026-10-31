@@ -53,7 +53,7 @@ export function InboxScreen() {
                 // agreeing to support: plan it right away
                 if (m.request?.type === 'support') openSupport(m.request.village, m.request.arrives);
                 if (m.request?.type === 'order' && m.request.order === 'support') openSupport(m.request.village, m.request.arrives ?? null);
-                if (m.request?.type === 'order' && m.request.order === 'attack') attackVillage(m.request.x, m.request.y);
+                if (m.request?.type === 'order' && (m.request.order === 'attack' || m.request.order === 'scout')) attackVillage(m.request.x, m.request.y);
               }}
             >
               {m.kind === 'treaty' ? 'Tekenen' : ACCEPT[m.request?.type ?? 'none']}
