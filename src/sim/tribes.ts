@@ -422,6 +422,62 @@ export function onDiplomacy(state: WorldState): void {
   push(state.queue, state.time + DIPLOMACY_EVERY, { kind: 'diplomacy' });
 }
 
+/** Two tribes touch when at least this many pairs of their villages lie within REACH of each other. */
+export const CONTACT_PAIRS = 3;
+
+/**
+ * Which tribes touch: at least CONTACT_PAIRS pairs of villages (one of each tribe) within REACH.
+ * A front line counts even when the centres lie far apart (one big member far away drags a centre
+ * off); a single stray village does not. Keys are "low id:high id".
+ */
+const contactCache = new WeakMap<WorldState, { at: number; set: Set<string> }>();
+export function tribeContacts(state: WorldState): Set<string> {
+  // villages change hands slowly: one answer per 10 game minutes is plenty
+  const at = Math.floor(state.time / (10 * MINUTE));
+  const hit = contactCache.get(state);
+  if (hit && hit.at === at) return hit.set;
+  const set = findContacts(state);
+  contactCache.set(state, { at, set });
+  return set;
+}
+function findContacts(state: WorldState): Set<string> {
+  const cell = (n: number) => Math.floor(n / REACH);
+  const grid = new Map<string, { x: number; y: number; tribe: number }[]>();
+  for (const t of Object.values(state.tribes ?? {})) {
+    for (const m of t.members) for (const v of villagesOf(state, m)) {
+      const k = `${cell(v.x)}:${cell(v.y)}`;
+      let list = grid.get(k);
+      if (!list) grid.set(k, (list = []));
+      list.push({ x: v.x, y: v.y, tribe: t.id });
+    }
+  }
+  const pairs = new Map<string, number>();
+  const out = new Set<string>();
+  for (const [k, list] of grid) {
+    const [cx, cy] = k.split(':').map(Number) as [number, number];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+      const other = grid.get(`${cx + dx}:${cy + dy}`);
+      if (!other) continue;
+      for (const a of list) for (const b of other) {
+        // each pair once: only from the lower tribe id
+        if (a.tribe >= b.tribe) continue;
+        const key = `${a.tribe}:${b.tribe}`;
+        if (out.has(key) || Math.hypot(a.x - b.x, a.y - b.y) > REACH) continue;
+        const n = (pairs.get(key) ?? 0) + 1;
+        pairs.set(key, n);
+        if (n >= CONTACT_PAIRS) out.add(key);
+      }
+    }
+  }
+  return out;
+}
+export const contactKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
+
+/** Do these two tribes touch (see tribeContacts)? */
+export function inContact(state: WorldState, a: Tribe, b: Tribe): boolean {
+  return tribeContacts(state).has(contactKey(a.id, b.id));
+}
+
 /** The leader's view of a candidate: not too weak, and the tribe has room. */
 export function leaderAccepts(state: WorldState, t: Tribe, p: Player): boolean {
   if (t.members.length >= MAX_MEMBERS) return false;
@@ -456,8 +512,10 @@ function diplomacy(state: WorldState): void {
     near.push({ a, b, d, closeness: Math.max(0, 1 - d / (REACH * 2)) });
   }
   frictionTick(state, near);
+  const contacts = tribeContacts(state);
   for (const { a, b, d } of near) {
-    if (d > REACH * 2.4) { if (a.relations[b.id] && a.relations[b.id] !== 'war') setRelation(state, a, b, null); continue; }
+    // too far apart: centres far away AND no front line where their villages touch
+    if (d > REACH * 2.4 && !contacts.has(contactKey(a.id, b.id))) { if (a.relations[b.id] && a.relations[b.id] !== 'war') setRelation(state, a, b, null); continue; }
     // allies: who helps whom in their wars (may cool an alliance down)
     if (a.relations[b.id] === 'ally' || a.relations[b.id] === 'nap') {
       allianceTick(state, a, b, {

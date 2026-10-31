@@ -109,7 +109,9 @@ export interface TribeOrder {
 export type TribeAsk =
   | { kind: 'apply'; tribe: number; at: number }
   | { kind: 'invite'; player: number; at: number }
-  | { kind: 'propose'; tribe: number; relation: 'nap' | 'ally' | 'peace'; at: number };
+  | { kind: 'propose'; tribe: number; relation: 'nap' | 'ally' | 'peace'; at: number }
+  /** As a member: you asked your leader to declare war on this tribe. */
+  | { kind: 'war'; tribe: number; at: number };
 
 /** A bot's judgement of an incoming attack, made once when it first sees it. */
 export interface SeenAttack {
@@ -321,6 +323,8 @@ export interface WorldState {
   inbox?: InboxMessage[];
   /** What you asked bots, waiting for their answer (they answer when they are online). */
   tribeAsks?: TribeAsk[];
+  /** When your leader last said no to a war you asked for (you wait a game day before asking again). */
+  warAskNo?: number;
   /** How often a bot turned down your invitation, and a tribe your application (for a note in the lists). */
   tribeRefusals?: { invites: Record<number, number>; applications: Record<number, number> };
   /** Your requests for help to your tribe. */

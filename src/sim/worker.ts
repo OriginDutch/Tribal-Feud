@@ -8,7 +8,7 @@ import { setFront, warFrontView } from './warOps';
 import { deleteGroup, saveGroup, setGroup } from './groups';
 import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderAttack } from './tribeOrders';
 import { grudge, grudgeHalfLife } from './botReact';
-import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, proposeRelation, setOwnRelation } from './humanTribe';
+import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, askLeaderWar, proposeRelation, setOwnRelation, warAskInfo } from './humanTribe';
 import { fitCheck, playerCentre, tribeNews, tribeViews } from './tribes';
 import { latestNews } from './news';
 import { MAX_BIDS, cedable, isOutlaw, proposeTalks, voteTalks } from './talks';
@@ -358,7 +358,7 @@ function sendRanking(s: WorldState): void {
     return row;
   });
   ranking.sort((a, b) => b.points - a.points);
-  post({ type: 'ranking', ranking, tribes: tribeViews(s), news: tribeNews(s), asks: [...(s.tribeAsks ?? [])], candidates: inviteCandidates(s, ranking), refusedApplications: { ...(s.tribeRefusals?.applications ?? {}) }, refusedInvites: { ...(s.tribeRefusals?.invites ?? {}) } });
+  post({ type: 'ranking', ranking, tribes: tribeViews(s), news: tribeNews(s), asks: [...(s.tribeAsks ?? [])], candidates: inviteCandidates(s, ranking), refusedApplications: { ...(s.tribeRefusals?.applications ?? {}) }, refusedInvites: { ...(s.tribeRefusals?.invites ?? {}) }, warAsk: warAskInfo(s) });
 }
 
 /** For a leader: the 20 players nearest to your villages that are not in your tribe. */
@@ -1163,6 +1163,7 @@ async function handle(cmd: Command): Promise<void> {
     case 'tribeKick':
     case 'tribePropose':
     case 'tribeRelation':
+    case 'tribeAskWar':
     case 'inboxAnswer': {
       if (!state) return;
       const s = state;
@@ -1174,6 +1175,7 @@ async function handle(cmd: Command): Promise<void> {
         : cmd.type === 'tribeKick' ? kickMember(s, cmd.player)
         : cmd.type === 'tribePropose' ? proposeRelation(s, cmd.tribe, cmd.relation)
         : cmd.type === 'tribeRelation' ? setOwnRelation(s, cmd.tribe, cmd.action)
+        : cmd.type === 'tribeAskWar' ? askLeaderWar(s, cmd.tribe)
         : answerMessage(s, cmd.id, cmd.accept);
       if (error) post({ type: 'notice', level: 'error', text: error });
       post({ type: 'inbox', inbox: inboxViews(s) });

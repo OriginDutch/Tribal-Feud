@@ -95,6 +95,8 @@ export type Command =
   | { type: 'tribeKick'; player: number }
   | { type: 'tribePropose'; tribe: number; relation: 'nap' | 'ally' | 'peace' }
   | { type: 'tribeRelation'; tribe: number; action: 'war' | 'end' }
+  /** As a member: ask your leader to declare war on a tribe. */
+  | { type: 'tribeAskWar'; tribe: number }
   /** Leader: the war front your bot members fight (enemy tribe, optionally one village). null = let them choose. */
   | { type: 'tribeFront'; enemy: number | null; target?: number }
   | { type: 'inboxAnswer'; id: number; accept: boolean }
@@ -245,10 +247,16 @@ export interface CandidateView {
   /** Distance to your tribe's centre and how far your tribe reaches (fields). */
   reach: number;
 }
+/** As a member: the tribes you may ask your leader to go to war with, and until when you wait after a no. */
+export interface WarAskInfo {
+  contact: number[];
+  waitUntil?: number;
+}
 export type TribeAskView =
   | { kind: 'apply'; tribe: number; at: number }
   | { kind: 'invite'; player: number; at: number }
-  | { kind: 'propose'; tribe: number; relation: 'nap' | 'ally' | 'peace'; at: number };
+  | { kind: 'propose'; tribe: number; relation: 'nap' | 'ally' | 'peace'; at: number }
+  | { kind: 'war'; tribe: number; at: number };
 export interface OrderView {
   id: number;
   kind: 'attack' | 'spare' | 'focus';
@@ -583,7 +591,7 @@ export type WorkerMessage =
   | { type: 'reports'; reports: Report[] }
   | { type: 'news'; news: import('../sim/news').NewsItem[] }
   | { type: 'village'; info: VillageInfo | null }
-  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number> }
+  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number>; warAsk: WarAskInfo }
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'supportList'; rows: SupportRow[] }
   | { type: 'opinions'; opinions: OpinionsView }

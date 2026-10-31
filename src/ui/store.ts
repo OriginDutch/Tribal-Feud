@@ -4,7 +4,7 @@
  */
 import { signal } from '@preact/signals';
 import type { BuildingId, RecruitBuilding, UnitCounts } from '../shared/gameData';
-import type { CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, SupportRow, SurplusRow, ScavView, FarmAllView, OpinionsView, WorldStatsView, SimResult, TribeAskView, TribeView, WorkerMessage } from '../shared/protocol';
+import type { CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, SupportRow, SurplusRow, ScavView, FarmAllView, OpinionsView, WorldStatsView, SimResult, TribeAskView, TribeView, WarAskInfo, WorkerMessage } from '../shared/protocol';
 import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
@@ -99,6 +99,7 @@ export function openTribe(id: number): void {
 }
 export const tribeNews = signal<{ time: number; text: string }[]>([]);
 export const tribeAsks = signal<TribeAskView[]>([]);
+export const warAsk = signal<WarAskInfo>({ contact: [] });
 export const inviteCandidates = signal<CandidateView[]>([]);
 export const refusedApplications = signal<Record<number, number>>({});
 export const refusedInvites = signal<Record<number, number>>({});
@@ -245,6 +246,7 @@ port.onmessage = (e: MessageEvent<WorkerMessage>) => {
       tribes.value = msg.tribes;
       tribeNews.value = msg.news;
       tribeAsks.value = msg.asks;
+      warAsk.value = msg.warAsk ?? { contact: [] };
       inviteCandidates.value = msg.candidates;
       refusedApplications.value = msg.refusedApplications;
       refusedInvites.value = msg.refusedInvites;
