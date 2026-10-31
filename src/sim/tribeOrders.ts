@@ -201,11 +201,27 @@ export function answerRequest(state: WorldState, m: InboxMessage, accept: boolea
 
 // --- your bot leader gives you orders ------------------------------------------------------------
 
-/** Your current order for the screens: accepted, or still open in your inbox. */
-export function leaderOrderView(state: WorldState): LeaderOrderView | null {
-  const open = (state.inbox ?? []).find((m) => m.request?.type === 'order' && m.status === 'open');
+/** Scout orders run beside one normal order, at most this many at a time (open or said yes to). */
+export const MAX_SCOUT_ORDERS = 3;
+const isOrder = (m: InboxMessage) => m.request?.type === 'order' && m.status === 'open';
+const isScout = (m: InboxMessage) => m.request?.type === 'order' && m.request.order === 'scout';
+/** The normal order (attack or support) waiting in your inbox, if any. */
+function openOrder(state: WorldState): InboxMessage | undefined {
+  return (state.inbox ?? []).find((m) => isOrder(m) && !isScout(m));
+}
+/** Scout orders open or said yes to; with `village`: only for that village. */
+export function scoutOrders(state: WorldState, village?: number): number {
+  const open = (state.inbox ?? []).filter((m) => isOrder(m) && isScout(m) && (village === undefined || (m.request as { village: number }).village === village)).length;
+  return open + (state.scoutOrders ?? []).filter((o) => village === undefined || o.village === village).length;
+}
+
+/** One order for the screens, accepted or still open in your inbox. */
+function orderView(
+  state: WorldState,
+  o: { order: 'attack' | 'support' | 'scout'; village: number; until: number; from: number; landAt?: number; spies?: number } | undefined,
+  open: InboxMessage | undefined,
+): LeaderOrderView | null {
   const r = open?.request?.type === 'order' ? open.request : undefined;
-  const o = state.leaderOrder;
   const village = o?.village ?? r?.village;
   const order = o?.order ?? r?.order;
   if (village === undefined || !order) return null;
@@ -247,6 +263,17 @@ export function leaderOrderView(state: WorldState): LeaderOrderView | null {
   };
 }
 
+/** Your normal order (accepted or open) for the screens. */
+export function leaderOrderView(state: WorldState): LeaderOrderView | null {
+  return orderView(state, state.leaderOrder, state.leaderOrder ? undefined : openOrder(state));
+}
+/** Your scout orders (accepted and open) for the screens. */
+export function scoutOrderViews(state: WorldState): LeaderOrderView[] {
+  const accepted = (state.scoutOrders ?? []).map((o) => orderView(state, { order: 'scout', ...o }, undefined));
+  const open = (state.inbox ?? []).filter((m) => isOrder(m) && isScout(m)).map((m) => orderView(state, undefined, m));
+  return [...open, ...accepted].filter((x): x is LeaderOrderView => !!x);
+}
+
 /** You answer your leader's order: yes means you have until the deadline to do it. */
 function answerLeaderOrder(state: WorldState, m: InboxMessage, r: Extract<BotRequest, { type: 'order' }>, leader: Player, accept: boolean): string | null {
   if (!accept) {
@@ -255,6 +282,10 @@ function answerLeaderOrder(state: WorldState, m: InboxMessage, r: Extract<BotReq
     return null;
   }
   m.status = 'accepted';
+  if (r.order === 'scout') {
+    (state.scoutOrders ??= []).push({ village: r.village, until: state.time + DAY / 2, from: leader.id, ...(r.spies ? { spies: r.spies } : {}) });
+    return null;
+  }
   // a joint attack: landing a little after the others still counts
   state.leaderOrder = { order: r.order, village: r.village, until: r.arrives !== undefined ? r.arrives + 10 * MINUTE : state.time + DAY / 2, from: leader.id, ...(r.arrives !== undefined ? { landAt: r.arrives } : {}), ...(r.spies ? { spies: r.spies } : {}) };
   return null;
@@ -285,9 +316,11 @@ export function leaderOrderLanded(state: WorldState, villageId: number, units: U
 }
 /** Your scouts got through: was it the village your leader wanted scouted? (Also counted: your attack that saw it.) */
 export function leaderOrderScouted(state: WorldState, villageId: number): void {
+  const i = (state.scoutOrders ?? []).findIndex((o) => o.village === villageId);
   const o = state.leaderOrder;
-  if (!o || o.order !== 'scout' || o.village !== villageId) return;
-  delete state.leaderOrder;
+  if (i >= 0) state.scoutOrders!.splice(i, 1);
+  else if (o && o.order === 'scout' && o.village === villageId) delete state.leaderOrder; // saves from before scout orders ran apart
+  else return;
   changeStanding(state, 6, 'je verkende wat ik vroeg');
   addLog(state, { time: state.time, text: `Order uitgevoerd: je verkenners kwamen door bij ${state.villages[villageId]?.name ?? '?'}.` });
 }
@@ -297,11 +330,9 @@ export function leaderOrderScouted(state: WorldState, villageId: number): void {
  * village his own scouts don't get into. `spies`: how many died there last (send more).
  */
 export function giveScoutOrder(state: WorldState, leader: Player, target: Village, spies: number): boolean {
-  const open = (state.inbox ?? []).some((m) => m.request?.type === 'order' && m.status === 'open');
-  if (open || state.leaderOrder) return false;
+  if (scoutOrders(state) >= MAX_SCOUT_ORDERS || scoutOrders(state, target.id) > 0) return false;
   const request: Extract<BotRequest, { type: 'order' }> = { type: 'order', order: 'scout', village: target.id, x: target.x, y: target.y, ...(spies ? { spies } : {}) };
   const title = `${leader.name}: verken ${target.name}`;
-  state.leaderOrderAt = state.time;
   addMessage(state, {
     kind: 'request', from: leader.id, title, request, status: 'open', expires: state.time + DAY / 2,
     text: `${leader.name}: we moeten weten wat er in ${target.name} (${target.x}|${target.y}) van ${state.players[target.owner]?.name ?? '?'} staat. ${spies ? `Onze verkenners kwamen er niet door (${spies} gesneuveld): stuur er meer.` : 'Jij hebt de meeste verkenners.'} Dan plannen we de aanval.`,
@@ -319,6 +350,12 @@ export function leaderOrderSupport(state: WorldState, villageId: number): void {
 }
 /** A yes that was never done costs more than a no. */
 export function checkLeaderOrder(state: WorldState): void {
+  // scout orders: a smaller job, a smaller penalty
+  const late = (state.scoutOrders ?? []).filter((o) => o.until <= state.time);
+  if (late.length) {
+    state.scoutOrders = state.scoutOrders!.filter((o) => o.until > state.time);
+    changeStanding(state, -4 * late.length, 'je zou verkennen maar deed het niet');
+  }
   const o = state.leaderOrder;
   if (!o || o.until > state.time) return;
   delete state.leaderOrder;
@@ -330,7 +367,7 @@ export function checkLeaderOrder(state: WorldState): void {
  * Only when no order of yours is open. Returns whether the order went out.
  */
 export function giveOpOrder(state: WorldState, leader: Player, target: Village, landAt: number): boolean {
-  const open = (state.inbox ?? []).some((m) => m.request?.type === 'order' && m.status === 'open');
+  const open = !!openOrder(state);
   if (open || state.leaderOrder) return false;
   const request: Extract<BotRequest, { type: 'order' }> = { type: 'order', order: 'attack', village: target.id, x: target.x, y: target.y, arrives: landAt };
   const title = `${leader.name}: gezamenlijke aanval op ${target.name}`;
@@ -345,7 +382,7 @@ export function giveOpOrder(state: WorldState, leader: Player, target: Village, 
 
 /** A bot leader of your tribe gives you an order now and then: support a mate, or attack an enemy. */
 function leaderOrders(state: WorldState, leader: Player): void {
-  const open = (state.inbox ?? []).some((m) => m.request?.type === 'order' && m.status === 'open');
+  const open = !!openOrder(state);
   if (open || state.leaderOrder || (state.leaderOrderAt !== undefined && state.time - state.leaderOrderAt < 12 * HOUR)) return;
   if (nextFloat(state.rng) > 0.05) return;
   const t = tribeOf(state, HUMAN_ID);

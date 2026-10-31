@@ -341,6 +341,8 @@ export interface WorldState {
   standingWarned?: number;
   /** As a member: the order of your leader you said yes to, until when it must be done. */
   leaderOrder?: { order: 'attack' | 'support' | 'scout'; village: number; until: number; from: number; landAt?: number; spies?: number };
+  /** Scout orders you said yes to (beside one normal order, at most 3; see MAX_SCOUT_ORDERS). */
+  scoutOrders?: { village: number; until: number; from: number; spies?: number }[];
   /** When your bot leader last gave you an order. */
   leaderOrderAt?: number;
   /** How often you betrayed someone (tribes trust you less). */

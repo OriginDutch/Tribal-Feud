@@ -6,7 +6,7 @@ import { autoFarmInterval, setAutoFarm } from './farmAll';
 import { isFarmLetter } from '../shared/farmTemplates';
 import { humanOpSent, setFront, warFrontView } from './warOps';
 import { deleteGroup, saveGroup, setGroup } from './groups';
-import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderView } from './tribeOrders';
+import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderView, scoutOrderViews } from './tribeOrders';
 import { grudge, grudgeHalfLife } from './botReact';
 import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, askLeaderWar, proposeRelation, setOwnRelation, warAskInfo, frictionView } from './humanTribe';
 import { fitCheck, playerCentre, tribeNews, tribeViews } from './tribes';
@@ -310,6 +310,7 @@ function snapshot(): Snapshot | null {
     myTribe: state.players[HUMAN_ID]?.tribe ?? null,
     myTribeLeader: (() => { const t = state.players[HUMAN_ID]?.tribe; return t !== undefined && state.tribes?.[t]?.leader === HUMAN_ID; })(),
     leaderOrder: leaderOrderView(state),
+    scoutOrders: scoutOrderViews(state),
     inboxUnread: (state.inbox ?? []).filter((m) => !m.read).length,
     inboxOpen: (state.inbox ?? []).filter((m) => m.status === 'open').length,
     tribePause: state.tribePause ?? { war: true, requests: true },

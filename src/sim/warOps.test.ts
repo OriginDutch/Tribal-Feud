@@ -212,4 +212,33 @@ describe('scouting the front', () => {
     v1.units.spy = 8;
     expect(scout(s, v1, target)).toBe(false);
   });
+
+  it('scout orders run beside a normal order, at most 3; each counts on its own', async () => {
+    const { HUMAN_ID } = await import('./state');
+    const { answerMessage, addMessage } = await import('./humanTribe');
+    const { giveScoutOrder, leaderOrderScouted, checkLeaderOrder, scoutOrders } = await import('./tribeOrders');
+    const { s, ta, a1, enemy } = setup();
+    ta.members.push(HUMAN_ID);
+    s.players[HUMAN_ID]!.tribe = ta.id;
+    // a normal order running
+    const t0 = villagesOf(s, enemy.id)[0]!;
+    const m0 = addMessage(s, { kind: 'request', from: a1.id, title: 'Order', text: '', request: { type: 'order', order: 'attack', village: t0.id, x: t0.x, y: t0.y }, status: 'open', expires: s.time + DAY });
+    answerMessage(s, m0.id, true);
+    const targets = Object.values(s.villages).filter((v) => v.owner >= 0 && v.owner !== a1.id && v.owner !== HUMAN_ID).slice(0, 5);
+    expect(giveScoutOrder(s, a1, targets[0]!, 0)).toBe(true);
+    expect(giveScoutOrder(s, a1, targets[0]!, 0)).toBe(false); // that one is asked already
+    expect(giveScoutOrder(s, a1, targets[1]!, 0)).toBe(true);
+    expect(giveScoutOrder(s, a1, targets[2]!, 0)).toBe(true);
+    expect(giveScoutOrder(s, a1, targets[3]!, 0)).toBe(false); // three is enough
+    for (const m of s.inbox!.filter((x) => x.request?.type === 'order' && x.request.order === 'scout')) answerMessage(s, m.id, true);
+    expect(s.scoutOrders).toHaveLength(3);
+    expect(s.leaderOrder?.order).toBe('attack');
+    const before = s.standing ?? 60;
+    leaderOrderScouted(s, targets[1]!.id);
+    expect(s.standing).toBe(before + 6);
+    expect(scoutOrders(s)).toBe(2);
+    s.time += DAY;
+    checkLeaderOrder(s);
+    expect(s.scoutOrders).toHaveLength(0);
+  });
 });

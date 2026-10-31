@@ -527,6 +527,8 @@ export interface Snapshot {
   myTribeLeader: boolean;
   /** The order of your bot leader you said yes to (or one still waiting for your answer). */
   leaderOrder: LeaderOrderView | null;
+  /** Scout orders beside it (open and said yes to), at most 3. */
+  scoutOrders: LeaderOrderView[];
   inboxUnread: number;
   /** Open messages that ask for an answer. */
   inboxOpen: number;

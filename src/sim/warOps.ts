@@ -25,7 +25,7 @@ import { nextFloat } from './rng';
 import { HUMAN_ID, nextId, villagesOf, type Player, type WorldState } from './state';
 import { type Tribe } from './tribes';
 import { addNews } from './news';
-import { giveOpOrder, giveScoutOrder } from './tribeOrders';
+import { MAX_SCOUT_ORDERS, giveOpOrder, giveScoutOrder, scoutOrders } from './tribeOrders';
 import type { Village } from './village';
 import { isOperational } from './village';
 
@@ -148,7 +148,7 @@ function plan(state: WorldState, t: Tribe, enemy: Tribe): void {
   for (const v of candidates) {
     if (tribeIntel(state, t, v.id) !== undefined) continue;
     const need = Math.max(...t.members.map((m) => { const p = state.players[m]; return spiesNeeded(p?.bot ? freshScout(state, p, v.id) : undefined); }));
-    const you = humanFree(state, t);
+    const you = humanScoutFree(state, t, v);
     // a first look: the nearest bot with a few spies. After a failed one: the tribe's scout
     const first = need <= spiesNeeded(undefined);
     const scouts = ours
@@ -165,7 +165,12 @@ function plan(state: WorldState, t: Tribe, enemy: Tribe): void {
 /** You can take a part: a bot leads, and no other order of yours is running or waiting. */
 function humanFree(state: WorldState, t: Tribe): boolean {
   if (t.leader === HUMAN_ID || !t.members.includes(HUMAN_ID) || state.leaderOrder) return false;
-  return !(state.inbox ?? []).some((m) => m.request?.type === 'order' && m.status === 'open');
+  return !(state.inbox ?? []).some((m) => m.request?.type === 'order' && m.request.order !== 'scout' && m.status === 'open');
+}
+/** You can take a scout order for this village: beside your normal order, up to MAX_SCOUT_ORDERS. */
+function humanScoutFree(state: WorldState, t: Tribe, v: Village): boolean {
+  if (t.leader === HUMAN_ID || !t.members.includes(HUMAN_ID)) return false;
+  return scoutOrders(state) < MAX_SCOUT_ORDERS && scoutOrders(state, v.id) === 0;
 }
 
 /**

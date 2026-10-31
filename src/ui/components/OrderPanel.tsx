@@ -12,11 +12,17 @@ function what(o: LeaderOrderView): string {
   return o.landAt !== undefined ? 'Gezamenlijke aanval op' : 'Val aan:';
 }
 
-/** Your current order from your bot leader: target, deadline, what counts, and how you stand. */
+/** Your orders from your bot leader: the normal one and the scout orders beside it. */
 export function OrderPanel() {
   const s = snapshot.value;
-  const o = s?.leaderOrder;
-  if (!s || !o) return null;
+  if (!s) return null;
+  const all = [...(s.leaderOrder ? [s.leaderOrder] : []), ...(s.scoutOrders ?? [])];
+  return <>{all.map((o) => <OneOrder key={`${o.order}:${o.target.id}`} o={o} />)}</>;
+}
+
+/** One order: target, deadline, what counts, and how you stand. */
+function OneOrder({ o }: { o: LeaderOrderView }) {
+  const s = snapshot.value!;
   const left = o.until - s.time;
   const enough = (a: number) => o.minAttack === undefined || a >= o.minAttack;
   const sent = o.underway.filter((m) => enough(m.attack) && m.arrives <= o.until);
@@ -75,7 +81,7 @@ export function OrderPanel() {
             <li class="warn">Je hebt nu geen aanvallende troepen thuis.</li>
           )
         )}
-        {o.status === 'accepted' && <li class="muted">Gedaan: +6 aanzien bij je leider. Niet op tijd: −8, meer dan een nee had gekost.</li>}
+        {o.status === 'accepted' && <li class="muted">Gedaan: +6 aanzien bij je leider. Niet op tijd: {o.order === 'scout' ? '−4' : '−8, meer dan een nee had gekost'}.</li>}
       </ul>
       <div class="row wrap" style={{ gap: '8px' }}>
         {o.status === 'open' && o.message !== undefined && (
@@ -94,20 +100,22 @@ export function OrderPanel() {
   );
 }
 
-/** A small chip in the top bar while an order runs; opens the tribe screen. */
+/** A small chip in the top bar while orders run (the first one counts down); opens the tribe screen. */
 export function OrderChip() {
   const s = snapshot.value;
-  const o = s?.leaderOrder;
+  const all = s ? [...(s.leaderOrder ? [s.leaderOrder] : []), ...(s.scoutOrders ?? [])] : [];
+  const o = all[0];
   if (!s || !o) return null;
   const at = o.landAt ?? o.until;
+  const more = all.length > 1 ? ` +${all.length - 1}` : '';
   return (
     <button
-      class={`order-chip ${o.status === 'open' ? 'open' : ''}`}
+      class={`order-chip ${all.some((x) => x.status === 'open') ? 'open' : ''}`}
       data-order-chip
       onClick={() => (screen.value = 'tribes')}
       title={`${o.status === 'open' ? 'Nieuwe opdracht' : 'Opdracht'} van ${o.from}: ${o.order === 'attack' ? 'val' : o.order === 'scout' ? 'verken' : 'support naar'} ${o.target.name} (${o.target.x}|${o.target.y})${o.order === 'attack' ? ' aan' : ''}`}
     >
-      <span aria-hidden="true">⚑</span> {o.status === 'open' ? 'Opdracht' : duration(at - s.time)}
+      <span aria-hidden="true">⚑</span> {all.some((x) => x.status === 'open') ? 'Opdracht' : duration(at - s.time)}{more}
     </button>
   );
 }
