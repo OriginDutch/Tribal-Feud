@@ -26,7 +26,7 @@ import { mateEvent, onVillageLost } from './loyalty';
 import { leaderOrderLanded, leaderOrderScouted, leaderOrderSupport } from './tribeOrders';
 import { statAttack, statConquest } from './worldStats';
 import { battleBonus } from './battleBonus';
-import { judgeScout, rememberScout } from './botStrategy';
+import { judgeScout, raiseSpies, rememberScout } from './botStrategy';
 import { FRICTION_ATTACK, FRICTION_CONQUEST, addFriction } from './warCause';
 import { equipped, itemKills } from './paladin';
 import { flagForConquest, flagKills, flagValue } from './flags';
@@ -491,6 +491,8 @@ function arriveAttack(state: WorldState, m: Movement): void {
     }
   }
 
+  // a bot whose village got scouted: next time it wants as many scouts as came (arms race)
+  if (battle.spiesSurvived > 0 && target.owner >= 0 && target.owner !== m.owner) raiseSpies(state, state.players[target.owner], m.units.spy ?? 0);
   attackHook?.(state, m, target, { won: battle.attackerWon, conquered, ...(loyalty ? { loyalty: loyalty.after } : {}) });
 
   // send the survivors home

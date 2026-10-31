@@ -11,26 +11,59 @@
  */
 import { skillOf } from './bots';
 import type { UnitCounts, UnitId } from '../shared/gameData';
-import type { BotProfile } from '../shared/botProfiles';
+import type { Archetype, BotProfile } from '../shared/botProfiles';
 import { DAY, HOUR } from '../shared/time';
 import { grudge } from './botReact';
 import { distance, moraleFor, protectionBlocker, sendAttack } from './movement';
-import { nextFloat } from './rng';
+import { hashFloat, nextFloat } from './rng';
 import { BARBARIAN, villagesOf, type Player, type WorldState } from './state';
 import { mayAttack, relationBetween } from './tribes';
 import { outclassed } from './warCause';
 import type { Village } from './village';
 import { isOperational, popMax } from './village';
 
-/** What a bot learned from a scout. */
 /** A bot's scout of a village. `spies`: how many went when they died (the next ones come with more). */
 export interface BotScout { at: number; def: number; owner: number; spies?: number }
 
 /** Defense noted when the scouts were killed: unknown, treated as far too strong. */
 export const SCOUTS_DIED = 1e12;
-/** Scouts each bot village keeps. */
-/** Scouts a bot keeps per village, by tier: pros keep their villages hard to scout. */
-export const BOT_SPIES = { pro: 15, mid: 6, casual: 3 } as const;
+/**
+ * Scouts a bot keeps per village: its own level within its tier's range, the same all game. Most
+ * sit a little above the old fixed 15 / 6 / 3, a few far higher (a village you can't look into).
+ * Farmers and opportunists like to look first, turtles less so. Hard worlds: half again as many.
+ */
+const SPY_RANGE = { pro: [8, 60], mid: [3, 25], casual: [1, 12] } as const;
+const SPY_TASTE: Partial<Record<Archetype, number>> = { farmer: 1.25, opportunist: 1.25, rusher: 1.1, turtle: 0.75 };
+/** In a war the scouts go up to this: three times its own level, at most 150 (hard: 225). */
+const SPY_WAR_MAX = 150;
+const spyHard = (state: WorldState) => (state.config.bots.difficulty === 'hard' ? 1.5 : 1);
+
+/** The scouts a bot keeps per village in peace time (its own level; see SPY_RANGE). */
+export function spyLevel(state: WorldState, player: Player): number {
+  const b = player.bot;
+  if (!b) return 0;
+  const [lo, hi] = SPY_RANGE[b.tier ?? 'pro'];
+  // its own draw, from the seed: no world randomness used, the same after every load
+  const u = hashFloat(state.config.seed, player.id, 0x5917);
+  const level = (lo + (hi - lo) * u ** 2.2) * (SPY_TASTE[b.archetype] ?? 1) * spyHard(state);
+  return Math.round(Math.min(hi * spyHard(state), Math.max(lo, level)));
+}
+
+/** Scouts to keep now: its level, or more after an arms race in a war (see raiseSpies). */
+export function spiesToKeep(state: WorldState, player: Player): number {
+  return Math.max(spyLevel(state, player), player.bot?.spyWar ?? 0);
+}
+
+/**
+ * Arms race: its scouts died at an enemy (it wants twice what that took), or an enemy's scouts got
+ * into its village (it wants as many as came). Up to three times its own level, at most SPY_WAR_MAX.
+ */
+export function raiseSpies(state: WorldState, player: Player | undefined, want: number): void {
+  const b = player?.bot;
+  if (!b || want <= 0) return;
+  const cap = Math.min(SPY_WAR_MAX * spyHard(state), 3 * spyLevel(state, player));
+  b.spyWar = Math.min(cap, Math.max(b.spyWar ?? 0, Math.ceil(want)));
+}
 /** Scouts sent at a village; where they died before, everything that is home. */
 const SCOUT_GROUP = 5;
 /** How far a strike reaches (fields). */
@@ -90,6 +123,8 @@ export function rememberScout(state: WorldState, owner: number, target: Village,
   const before = bot.scouted?.[target.id];
   const spies = present ? undefined : Math.max(spiesLost, before?.def === SCOUTS_DIED ? (before.spies ?? 0) : 0);
   (bot.scouted ??= {})[target.id] = spies ? { at: state.time, def, owner: target.owner, spies } : { at: state.time, def, owner: target.owner };
+  // its scouts died: from now on it keeps more
+  if (spies) raiseSpies(state, state.players[owner], 2 * spies);
   // forget old scouts
   for (const [id, sc] of Object.entries(bot.scouted)) if (state.time - sc.at > 6 * waryFor(state)) delete bot.scouted[Number(id)];
 }
@@ -197,8 +232,8 @@ export function spiesNeeded(sc: BotScout | undefined): number {
 
 export function scout(state: WorldState, v: Village, t: Village, need = spiesNeeded(state.players[v.owner]?.bot?.scouted?.[t.id])): boolean {
   if (v.units.spy < need) return false;
-  // after a failed scout: everything this village has (more than needed only helps)
-  return sendAttack(state, v.id, t.id, { spy: need > SCOUT_GROUP ? v.units.spy : SCOUT_GROUP }) === null;
+  // everything this village has: only more than the defender has gets through, and they come back
+  return sendAttack(state, v.id, t.id, { spy: v.units.spy }) === null;
 }
 
 /** Farmers scout one unknown player village in farm range per turn, so they know who is weak. */

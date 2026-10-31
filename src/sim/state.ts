@@ -123,6 +123,8 @@ export interface SeenAttack {
 
 export interface BotState {
   archetype: Archetype;
+  /** Scouts per village raised in an arms race (see raiseSpies); never lower than its own level. */
+  spyWar?: number;
   /** Stopped playing for good (only in saves from 28 Oct 2026; casuals don't quit any more). */
   quit?: boolean;
   /** Villages it has named (its numbering). */

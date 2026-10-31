@@ -8,7 +8,7 @@ import { cededAway, cededTo } from './peace';
 import { refreshRoleName } from './botNames';
 import { botScavenge } from './scavenge';
 import { outclassed, strengthOf } from './warCause';
-import { BOT_SPIES, beatable, defenseOf, nobleEscorts, farmablePlayerVillage, scoutForConquest, scoutForFarming, strike } from './botStrategy';
+import { spiesToKeep, beatable, defenseOf, nobleEscorts, farmablePlayerVillage, scoutForConquest, scoutForFarming, strike } from './botStrategy';
 import { ARCHETYPES, BOT_PROFILES, type BotProfile } from '../shared/botProfiles';
 import { RECRUIT_BUILDINGS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { MINUTE } from '../shared/time';
@@ -666,7 +666,8 @@ function recruitTroops(state: WorldState, v: Village, profile: BotProfile, reser
   }
   // a few scouts in every village: bots look before they attack a player
   const spies = v.units.spy + v.outside.spy + v.recruitQueues.stable.filter((j) => j.unit === 'spy').reduce((n, j) => n + j.total - j.done, 0);
-  const keep = BOT_SPIES[state.players[v.owner]?.bot?.tier ?? 'pro'];
+  const owner = state.players[v.owner];
+  const keep = owner ? spiesToKeep(state, owner) : 0;
   if (spies < keep && recruitBlocker(state, v, 'spy') === null) {
     const n = Math.min(keep - spies, maxRecruitable(state, v, 'spy'));
     if (n > 0) recruit(state, v.id, 'spy', n);
