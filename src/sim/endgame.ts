@@ -34,7 +34,18 @@ export function endgameRules(state: WorldState): EndgameRules {
 }
 
 /** Share of the world per tribe (0..1), biggest first. */
+const sharesCache = new WeakMap<WorldState, { at: number; shares: { tribe: Tribe; villages: number; share: number }[] }>();
+/** Shares change slowly: one count of every village per game minute is plenty (the quests ask after every event). */
 export function tribeShares(state: WorldState): { tribe: Tribe; villages: number; share: number }[] {
+  const at = Math.floor(state.time / 60_000);
+  const hit = sharesCache.get(state);
+  if (hit && hit.at === at) return hit.shares;
+  const shares = countShares(state);
+  sharesCache.set(state, { at, shares });
+  return shares;
+}
+/** The shares counted now (the endgame clock itself goes by this, never by a cached count). */
+export function countShares(state: WorldState): { tribe: Tribe; villages: number; share: number }[] {
   const rules = endgameRules(state);
   let total = 0;
   for (const v of Object.values(state.villages)) if (rules.countBarbarians || v.owner >= 0) total++;
@@ -56,7 +67,7 @@ export function endgameTick(state: WorldState): void {
   const eg = (state.endgame ??= { warned: [] });
   if (eg.winner) return;
   const rules = endgameRules(state);
-  const shares = tribeShares(state);
+  const shares = countShares(state);
   const top = shares[0];
 
   // close to winning: everyone hears it once

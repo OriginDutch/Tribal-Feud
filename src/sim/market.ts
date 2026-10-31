@@ -8,7 +8,7 @@ import type { Res } from '../shared/gameData';
 import { push } from './eventQueue';
 import { storageCapacity } from './formulas';
 import { distance, type Movement } from './movement';
-import { HUMAN_ID, addLog, addMovement, nextId, removeMovement, villagesOf, type WorldState } from './state';
+import { HUMAN_ID, addLog, addMovement, movementIndex, nextId, removeMovement, villagesOf, type WorldState } from './state';
 import { currentResources, isOperational, settle, type Village } from './village';
 import { mateEvent } from './loyalty';
 
@@ -40,10 +40,8 @@ export function merchantsTotal(v: Village): number {
 }
 
 export function merchantsBusy(state: WorldState, v: Village): number {
-  let busy = 0;
-  for (const m of Object.values(state.movements)) {
-    if ((m.kind === 'trade' && m.from === v.id) || (m.kind === 'tradeReturn' && m.to === v.id)) busy += m.merchants ?? 0;
-  }
+  // merchants on the road: from the movement index (no scan over every movement in the world)
+  let busy = movementIndex(state).merchants.get(v.id) ?? 0;
   for (const o of state.offers ?? []) if (o.villageId === v.id) busy += merchantsFor(o.give.amount);
   return busy;
 }

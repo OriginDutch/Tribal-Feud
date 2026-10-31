@@ -39,6 +39,13 @@ function gift(state: WorldState, p: Player, n: number, why: string): void {
 }
 
 /** Free flags in stock (not hanging in a village). */
+/** Free flags of one kind per level (index = level - 1), counting the villages once. */
+export function freeFlagsByLevel(state: WorldState, p: Player, type: FlagType): number[] {
+  const free = [...(p.flags?.have[type] ?? [])];
+  for (const v of villagesOf(state, p.id)) if (v.flag?.type === type && free[v.flag.level - 1] !== undefined) free[v.flag.level - 1]!--;
+  return free;
+}
+
 export function freeFlags(state: WorldState, p: Player, type: FlagType, level: number): number {
   const total = p.flags?.have[type][level - 1] ?? 0;
   const used = villagesOf(state, p.id).filter((v) => v.flag?.type === type && v.flag.level === level).length;

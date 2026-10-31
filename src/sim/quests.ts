@@ -141,7 +141,16 @@ export function chainActive(state: WorldState, chain: QuestChain): boolean {
 }
 
 /** Completes every quest whose demands are met (several in a row if possible). */
-export function checkQuests(state: WorldState): void {
+const questCheck = new WeakMap<WorldState, number>();
+/**
+ * Runs after every event, so there (`throttled`) at most once per game minute: a few
+ * demands look at every village (world share) or every own village (faith), which adds up over
+ * tens of thousands of events. A quest done a game minute late is no loss.
+ */
+export function checkQuests(state: WorldState, throttled = false): void {
+  const at = Math.floor(state.time / 60_000);
+  if (throttled && questCheck.get(state) === at) return;
+  questCheck.set(state, at);
   for (const chain of state.config.quests.chains) {
     if (!chainActive(state, chain)) continue;
     for (;;) {

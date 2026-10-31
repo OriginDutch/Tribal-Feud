@@ -25,7 +25,7 @@ import {
   type Village,
 } from './village';
 import { hasFaith, hasFirstChurch } from './church';
-import { FLAG_TYPES, freeFlags, setFlag, type FlagType } from './flags';
+import { FLAG_TYPES, freeFlagsByLevel, setFlag, type FlagType } from './flags';
 
 export interface BuildTemplate {
   id: string;
@@ -131,8 +131,9 @@ export function manageVillage(state: WorldState, v: Village, m: VillageManager):
   if (m.flag && state.config.flags) {
     const p = state.players[v.owner]!;
     const current = v.flag?.type === m.flag ? v.flag.level : 0;
+    const free = freeFlagsByLevel(state, p, m.flag);
     for (let l = 9; l > current; l--) {
-      if (freeFlags(state, p, m.flag, l) > 0) { setFlag(state, v.owner, v.id, { type: m.flag, level: l }); break; }
+      if ((free[l - 1] ?? 0) > 0) { setFlag(state, v.owner, v.id, { type: m.flag, level: l }); break; }
     }
   }
 }

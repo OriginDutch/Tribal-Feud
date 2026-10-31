@@ -125,7 +125,7 @@ export function advance(state: WorldState, realDtMs: number): AdvanceResult {
     state.time = next.time;
     let entry = handle(state, next.event);
     result.processed++;
-    checkQuests(state);
+    checkQuests(state, true);
     autoClaimRewards(state);
     if (state.alert) {
       // a game event raised an alert (incoming attack, village lost): pause right here

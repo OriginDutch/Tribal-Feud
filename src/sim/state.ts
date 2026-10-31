@@ -480,10 +480,27 @@ export interface MovementIndex {
   supports: Map<string, number>;
   /** Every attack underway (any size), per target village. What a defender sees coming. */
   incoming: Map<number, Set<number>>;
+  /** Merchants out per village (walking with goods, or walking back). */
+  merchants: Map<number, number>;
+  /** Goods walking to a village. */
+  goods: Map<number, [number, number, number]>;
 }
 const movementIndexes = new WeakMap<WorldState, MovementIndex>();
 const REAL_ATTACK = 100;
 function track(ix: MovementIndex, m: Movement, sign: 1 | -1): void {
+  if (m.kind === 'trade' || m.kind === 'tradeReturn') {
+    const home = m.kind === 'trade' ? m.from : m.to;
+    const n = (ix.merchants.get(home) ?? 0) + sign * (m.merchants ?? 0);
+    if (n > 0) ix.merchants.set(home, n);
+    else ix.merchants.delete(home);
+    if (m.kind === 'trade' && m.res) {
+      const g = ix.goods.get(m.to) ?? [0, 0, 0];
+      for (const i of [0, 1, 2] as const) g[i] += sign * m.res[i];
+      if (g[0] || g[1] || g[2]) ix.goods.set(m.to, g);
+      else ix.goods.delete(m.to);
+    }
+    return;
+  }
   if (m.kind === 'support') {
     const k = `${m.owner}:${m.to}`;
     const n = (ix.supports.get(k) ?? 0) + sign;
@@ -515,7 +532,7 @@ function track(ix: MovementIndex, m: Movement, sign: 1 | -1): void {
 export function movementIndex(state: WorldState): MovementIndex {
   let ix = movementIndexes.get(state);
   if (!ix) {
-    ix = { attacks: new Map(), supports: new Map(), incoming: new Map() };
+    ix = { attacks: new Map(), supports: new Map(), incoming: new Map(), merchants: new Map(), goods: new Map() };
     for (const m of Object.values(state.movements)) track(ix, m, 1);
     movementIndexes.set(state, ix);
   }

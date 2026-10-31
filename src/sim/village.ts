@@ -33,7 +33,7 @@ import {
   researchTimeMs,
   storageCapacity,
 } from './formulas';
-import { HUMAN_ID, addLog, nextId, type WorldState } from './state';
+import { HUMAN_ID, addLog, nextId, villagesOf, type WorldState } from './state';
 import { buildingReward } from './quests';
 import { hasFirstChurch } from './church';
 import { flagValue, type FlagType } from './flags';
@@ -574,8 +574,7 @@ function scheduleRecruit(state: WorldState, v: Village, job: RecruitJob): void {
 
 function paladinsOwned(state: WorldState, owner: number): number {
   let n = 0;
-  for (const v of Object.values(state.villages)) {
-    if (v.owner !== owner) continue;
+  for (const v of villagesOf(state, owner)) {
     n += v.units.knight + v.outside.knight;
     for (const job of v.recruitQueues.statue) n += job.total - job.done;
   }

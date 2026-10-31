@@ -11,7 +11,7 @@ import { findTemplate } from './manager';
 import { MERCHANT_CARRY, merchantsFree, sendResources, tradeTimeMs } from './market';
 import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { distance } from './movement';
-import { HUMAN_ID, villagesOf, type WorldState } from './state';
+import { HUMAN_ID, movementIndex, villagesOf, type WorldState } from './state';
 import { currentResources, isOperational, type Village } from './village';
 
 export interface SurplusSettings {
@@ -34,12 +34,8 @@ const ZERO = (): Res => [0, 0, 0];
 
 /** Resources on the way to a village (your merchants walking there). */
 function incoming(state: WorldState, v: Village): Res {
-  const r = ZERO();
-  for (const m of Object.values(state.movements)) {
-    if (m.kind !== 'trade' || m.to !== v.id || !m.res) continue;
-    for (const i of [0, 1, 2] as const) r[i] += m.res[i];
-  }
-  return r;
+  const g = movementIndex(state).goods.get(v.id);
+  return g ? [g[0], g[1], g[2]] : ZERO();
 }
 
 /**
