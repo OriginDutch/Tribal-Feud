@@ -8,7 +8,7 @@ import { setFront, warFrontView } from './warOps';
 import { deleteGroup, saveGroup, setGroup } from './groups';
 import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderAttack } from './tribeOrders';
 import { grudge, grudgeHalfLife } from './botReact';
-import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, askLeaderWar, proposeRelation, setOwnRelation, warAskInfo } from './humanTribe';
+import { answerMessage, applyToTribe, foundTribe, invitePlayer, kickMember, leaveTribe, markInboxRead, askLeaderWar, proposeRelation, setOwnRelation, warAskInfo, frictionView } from './humanTribe';
 import { fitCheck, playerCentre, tribeNews, tribeViews } from './tribes';
 import { latestNews } from './news';
 import { MAX_BIDS, cedable, isOutlaw, proposeTalks, voteTalks } from './talks';
@@ -358,7 +358,7 @@ function sendRanking(s: WorldState): void {
     return row;
   });
   ranking.sort((a, b) => b.points - a.points);
-  post({ type: 'ranking', ranking, tribes: tribeViews(s), news: tribeNews(s), asks: [...(s.tribeAsks ?? [])], candidates: inviteCandidates(s, ranking), refusedApplications: { ...(s.tribeRefusals?.applications ?? {}) }, refusedInvites: { ...(s.tribeRefusals?.invites ?? {}) }, warAsk: warAskInfo(s) });
+  post({ type: 'ranking', ranking, tribes: tribeViews(s), news: tribeNews(s), asks: [...(s.tribeAsks ?? [])], candidates: inviteCandidates(s, ranking), refusedApplications: { ...(s.tribeRefusals?.applications ?? {}) }, refusedInvites: { ...(s.tribeRefusals?.invites ?? {}) }, warAsk: warAskInfo(s), friction: frictionView(s) });
 }
 
 /** For a leader: the 20 players nearest to your villages that are not in your tribe. */

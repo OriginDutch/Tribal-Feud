@@ -252,6 +252,21 @@ export interface WarAskInfo {
   contact: number[];
   waitUntil?: number;
 }
+/** Your tribe's friction with another tribe (tribe screen), highest first. */
+export interface FrictionRow {
+  tribe: number;
+  friction: number;
+  /** Friction a war needs; who would start it. 'you' = you lead the stronger side and decide yourself. */
+  need: number;
+  starter: 'us' | 'them' | 'you';
+  /** Under 1.2x stronger: a war only comes at twice the need. */
+  even: boolean;
+  /** As a member: what your leader needs when you ask him (only when your tribe is the stronger one). */
+  asked?: number;
+  why: 'attack' | 'conquest' | 'treaty' | 'border' | null;
+  contact: boolean;
+  rel?: TribeRelation;
+}
 export type TribeAskView =
   | { kind: 'apply'; tribe: number; at: number }
   | { kind: 'invite'; player: number; at: number }
@@ -591,7 +606,7 @@ export type WorkerMessage =
   | { type: 'reports'; reports: Report[] }
   | { type: 'news'; news: import('../sim/news').NewsItem[] }
   | { type: 'village'; info: VillageInfo | null }
-  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number>; warAsk: WarAskInfo }
+  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number>; warAsk: WarAskInfo; friction: FrictionRow[] }
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'supportList'; rows: SupportRow[] }
   | { type: 'opinions'; opinions: OpinionsView }

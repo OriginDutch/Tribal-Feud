@@ -487,6 +487,20 @@ export function leaderAccepts(state: WorldState, t: Tribe, p: Player): boolean {
   return pc.points >= avg * 0.15;
 }
 
+/**
+ * Who would start a war between two tribes, and the friction he needs: the stronger side (troops,
+ * with allies), at WAR_FRICTION scaled by its leader's aggression (and your difficulty when the
+ * weaker side is yours). `power` is the strength ratio: under 1.2 it takes twice the friction.
+ */
+export function warNeed(state: WorldState, a: Tribe, b: Tribe): { strong: Tribe; weak: Tribe; need: number; power: number } {
+  const sa = tribeStrength(state, a), sb = tribeStrength(state, b);
+  const strong = sa >= sb ? a : b, weak = strong === a ? b : a;
+  const power = Math.max(sa, sb) / Math.max(1, Math.min(sa, sb));
+  const arch = state.players[strong.leader]?.bot?.archetype ?? 'diplomat';
+  const factor = weak.members.includes(HUMAN_ID) ? kindness(state.config).war : 1;
+  return { strong, weak, power, need: WAR_FRICTION * (1.6 - AGGRESSION[arch]) / factor };
+}
+
 /** Relations between neighbouring tribes: NAPs, alliances, wars and peace. */
 function diplomacy(state: WorldState): void {
   const list = Object.values(state.tribes ?? {});
@@ -501,7 +515,6 @@ function diplomacy(state: WorldState): void {
     return true;
   };
   const allies = (t: Tribe) => Object.values(t.relations).filter((r) => r === 'ally').length;
-  const warFactor = (t: Tribe) => (t.members.includes(HUMAN_ID) ? kindness(state.config).war : 1);
   // neighbours: friction fades, living close adds a little
   const near: { a: Tribe; b: Tribe; closeness: number; d: number }[] = [];
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
@@ -529,12 +542,8 @@ function diplomacy(state: WorldState): void {
     const rel = a.relations[b.id];
     const since = state.time - (a.since?.[b.id] ?? state.time);
     // troops decide, not points: strength with allies on both sides
-    const sa = tribeStrength(state, a), sb = tribeStrength(state, b);
-    const strong = sa >= sb ? a : b, weak = strong === a ? b : a;
-    const power = Math.max(sa, sb) / Math.max(1, Math.min(sa, sb));
+    const { strong, weak, power, need } = warNeed(state, a, b);
     const friction = frictionBetween(a, b);
-    // friction a war needs: aggressive leaders need less, a tribe you're in more (easy difficulty)
-    const need = WAR_FRICTION * (1.6 - AGGRESSION[lead(strong)]) / warFactor(weak);
     const roll = nextFloat(state.rng);
     if (!rel) {
       // a war needs a reason (friction) and a side that expects to win; a bitter rivalry between

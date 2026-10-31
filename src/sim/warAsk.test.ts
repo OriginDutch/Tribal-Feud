@@ -133,3 +133,18 @@ describe('asking your leader for a war', () => {
     expect(warAskVerdict(s, ta, tb, lead)).toBeNull();
   });
 });
+
+describe('friction overview', () => {
+  it('your tribe: friction, what a war needs, the source and whether you touch', async () => {
+    const { frictionView } = await import('./humanTribe');
+    const { s, ta, tb } = setup();
+    addFriction(s, ta.members[0]!, tb.members[1]!, 6, 'conquest');
+    const [row] = frictionView(s);
+    expect(row).toMatchObject({ tribe: tb.id, starter: 'us', why: 'conquest', contact: true, even: false });
+    expect(row!.friction).toBeCloseTo(6);
+    expect(row!.need).toBeCloseTo(WAR_FRICTION * 1.45);
+    expect(row!.asked).toBeLessThan(row!.need);
+    ta.relations[tb.id] = 'nap'; tb.relations[ta.id] = 'nap';
+    expect(frictionView(s)[0]!.asked).toBeUndefined();
+  });
+});

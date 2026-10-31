@@ -1,6 +1,6 @@
 import { PlayerLink } from '../components/PlayerLink';
 import { useEffect, useState } from 'preact/hooks';
-import type { TribeRelation, TribeView } from '../../shared/protocol';
+import type { FrictionRow, TribeRelation, TribeView } from '../../shared/protocol';
 import { MAX_MEMBERS } from '../../shared/tribes';
 import { formatGameTime } from '../../shared/time';
 import { Confirm } from '../components/Confirm';
@@ -8,7 +8,7 @@ import { TalksPanel } from '../components/TalksPanel';
 import { Coords } from '../components/Coords';
 import { MapLink } from '../components/MapLink';
 import { duration, num } from '../format';
-import { inviteCandidates, mapData, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes, warAsk } from '../store';
+import { inviteCandidates, mapData, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes, warAsk, friction } from '../store';
 
 const REL: Record<TribeRelation, string> = { ally: 'Bondgenoot', nap: 'Niet-aanvalsverdrag', war: 'Oorlog' };
 const ASK_REL = { nap: 'NAP', ally: 'bondgenootschap', peace: 'vrede' } as const;
@@ -433,6 +433,15 @@ export function TribesScreen() {
                     )}
                   </div>
                 )}
+                {mine && open.id !== mine.id && (() => {
+                  const f = friction.value.find((r) => r.tribe === open.id);
+                  return f ? (
+                    <p class="muted" data-friction-line>
+                      Wrijving met jouw stam: <strong>{fmt(f.friction)}</strong> (oorlog bij {fmt(f.even ? f.need * 2 : f.need)}
+                      {f.asked !== undefined && <>, {fmt(f.asked)} op jouw verzoek</>}){!f.contact && ' · grenst nergens aan jullie'}
+                    </p>
+                  ) : null;
+                })()}
                 {!leader && mine && open.id !== mine.id && relToMine !== 'war' && (
                   <div class="row wrap tribe-actions" data-war-ask>
                     {askedWar === open.id ? (
@@ -514,6 +523,7 @@ export function TribesScreen() {
                   </ul>
                 )}
               </section>
+              {mine && open.id === mine.id && <FrictionPanel byId={byId} leader={leader} />}
               <section class="panel">
                 <h2>Nieuws</h2>
                 <ul class="news">
@@ -529,6 +539,74 @@ export function TribesScreen() {
         </div>
       )}
     </div>
+  );
+}
+
+const fmt = (n: number) => n.toLocaleString('nl-NL', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const WHY: Record<NonNullable<FrictionRow['why']>, string> = { attack: 'aanvallen', conquest: 'veroveringen', treaty: 'gebroken verdrag', border: 'grens' };
+const STARTER: Record<FrictionRow['starter'], string> = { us: 'jullie leider', them: 'zij', you: 'jij' };
+
+/** Your tribe's friction with every other tribe: how close each is to a war, and why. */
+function FrictionPanel({ byId, leader }: { byId: Map<number, TribeView>; leader: boolean }) {
+  const rows = friction.value;
+  return (
+    <section class="panel friction" data-friction>
+      <h2>Wrijving</h2>
+      {!rows.length ? (
+        <p class="muted">Geen wrijving met andere stammen.</p>
+      ) : (
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Stam</th>
+              <th>Wrijving</th>
+              <th class="right">Oorlog bij</th>
+              <th>Bron</th>
+              <th title="Grenst de stam ergens aan jullie (minstens 3 dorpenparen binnen 16 velden)?">Grens</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const o = byId.get(r.tribe);
+              if (!o) return null;
+              // a treaty, or two tribes about as strong: it takes twice the friction
+              const need = r.even || r.rel === 'nap' || r.rel === 'ally' ? r.need * 2 : r.need;
+              const title = r.rel === 'war' ? 'Jullie zijn al in oorlog.'
+                : r.rel ? 'Jullie hebben een verdrag: dat breekt pas bij twee keer zoveel wrijving en een duidelijk sterkere kant.'
+                : r.starter === 'you' ? 'Jullie zijn sterker: jij beslist zelf over oorlog.'
+                : `Begint de oorlog: ${STARTER[r.starter]}.${r.even ? ' Ongeveer even sterk, dus het kost twee keer zoveel wrijving.' : ''}`;
+              return (
+                <tr key={r.tribe} class={r.contact ? '' : 'muted'}>
+                  <td class="ellipsis">
+                    <Tag t={o} onClick={() => (tribeFocus.value = o.id)} /> {o.name}
+                    {r.rel && <> <span class={`rel rel-${r.rel}`}>{REL[r.rel]}</span></>}
+                  </td>
+                  <td style={{ minWidth: '120px' }} title={`${fmt(r.friction)} van ${fmt(need)}`}>
+                    <div class="row" style={{ gap: '8px', alignItems: 'center' }}>
+                      <div class="bar" style={{ flex: 1 }}>
+                        <b style={{ width: `${Math.min(100, (r.friction / need) * 100)}%`, ...(r.friction >= need ? { background: 'var(--danger, #c8563f)' } : {}) }} />
+                      </div>
+                      <span class="mono">{fmt(r.friction)}</span>
+                    </div>
+                  </td>
+                  <td class="right mono nowrap" title={title}>
+                    {r.rel === 'war' ? <span class="muted">al oorlog</span> : r.starter === 'you' ? <span class="muted">jij beslist</span> : fmt(need)}
+                    {r.asked !== undefined && <span class="muted" title="Wat je leider nodig heeft als jij erom vraagt (hoe meer hij je waardeert, hoe minder)"> · {fmt(r.asked)} op verzoek</span>}
+                    {r.starter === 'them' && <span class="muted"> (zij)</span>}
+                  </td>
+                  <td>{r.why ? WHY[r.why] : '—'}</td>
+                  <td>{r.contact ? '✓' : <span title="Grenst nergens: hier komt geen oorlog van, hoe hoog de wrijving ook is.">✗</span>}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      <p class="hint">
+        Wrijving komt van aanvallen (+0,25), veroveringen (+4), gebroken verdragen en dicht bij elkaar wonen, en zakt elke 90 speelminuten met 4%. Een oorlog
+        begint bij de sterkste kant zodra de wrijving boven zijn grens zit en jullie aan elkaar grenzen.{leader ? '' : ' Als lid kun je je leider om oorlog vragen: dan is de grens lager.'}
+      </p>
+    </section>
   );
 }
 

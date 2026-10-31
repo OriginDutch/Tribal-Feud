@@ -14,8 +14,8 @@ import { isOnline } from './bots';
 import { answerRequest } from './tribeOrders';
 import { grudge } from './botReact';
 import { nextFloat } from './rng';
-import type { WarAskInfo } from '../shared/protocol';
-import { WAR_FRICTION, frictionBetween, tribeStrength } from './warCause';
+import type { FrictionRow, WarAskInfo } from '../shared/protocol';
+import { WAR_FRICTION, frictionBetween, topWhy, tribeStrength } from './warCause';
 import {
   HUMAN_ID,
   addLog,
@@ -35,6 +35,7 @@ import {
   contactKey,
   inContact,
   tribeContacts,
+  warNeed,
   join,
   leaderAccepts,
   leave,
@@ -249,6 +250,38 @@ export function warAskInfo(state: WorldState): WarAskInfo {
   return waitUntil === undefined ? { contact } : { contact, waitUntil };
 }
 
+/** The friction your leader needs for a war you ask for: less than his own, less still the more he values you. */
+function askedNeed(state: WorldState, leader: Player): number {
+  const arch = leader.bot?.archetype ?? 'diplomat';
+  const ask = Math.max(0.4, Math.min(1, 0.7 - ((state.standing ?? 60) - 60) / 200));
+  return WAR_FRICTION * (1.6 - AGGRESSION[arch]) * ask;
+}
+
+/** Your tribe's friction with every other tribe, highest first (empty without a tribe). */
+export function frictionView(state: WorldState): FrictionRow[] {
+  const t = tribeOf(state, HUMAN_ID);
+  if (!t) return [];
+  const contacts = tribeContacts(state);
+  const leader = state.players[t.leader];
+  const rows: FrictionRow[] = [];
+  for (const [id, f] of Object.entries(t.friction ?? {})) {
+    const o = state.tribes?.[Number(id)];
+    if (!o || f < 0.1) continue;
+    const { strong, need, power } = warNeed(state, t, o);
+    const ours = strong.id === t.id;
+    const row: FrictionRow = {
+      tribe: o.id, friction: f, need, even: power < 1.2,
+      starter: ours ? (t.leader === HUMAN_ID ? 'you' : 'us') : 'them',
+      why: topWhy(t, o), contact: contacts.has(contactKey(t.id, o.id)),
+    };
+    if (ours && t.leader !== HUMAN_ID && leader?.bot && !row.even && !t.relations[o.id]) row.asked = askedNeed(state, leader);
+    const rel = t.relations[o.id];
+    if (rel) row.rel = rel;
+    rows.push(row);
+  }
+  return rows.sort((a, b) => b.friction - a.friction);
+}
+
 /**
  * Your leader weighs your war: the same reasons as a war of his own (enough friction, a tribe that
  * expects to win), but your ask counts. It lowers the friction he needs, more so when he thinks
@@ -260,11 +293,7 @@ export function warAskVerdict(state: WorldState, mine: Tribe, o: Tribe, leader: 
   if (!inContact(state, mine, o)) return `${tag(o)} zit nergens bij ons in de buurt.`;
   const ours = tribeStrength(state, mine), theirs = tribeStrength(state, o);
   if (ours / Math.max(1, theirs) < 1.2) return `we zijn nog niet sterk genoeg voor ${tag(o)}.`;
-  const arch = leader.bot?.archetype ?? 'diplomat';
-  const standing = state.standing ?? 60;
-  const ask = Math.max(0.4, Math.min(1, 0.7 - (standing - 60) / 200));
-  const need = WAR_FRICTION * (1.6 - AGGRESSION[arch]) * ask;
-  if (frictionBetween(mine, o) < need) return `ik zie geen aanleiding. ${tag(o)} heeft ons (nog) niks aangedaan.`;
+  if (frictionBetween(mine, o) < askedNeed(state, leader)) return `ik zie geen aanleiding. ${tag(o)} heeft ons (nog) niks aangedaan.`;
   return null;
 }
 

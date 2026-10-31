@@ -131,6 +131,13 @@ const WHY_TEXT: Record<FrictionWhy, string> = {
   border: 'om de grens',
 };
 
+/** The main source of the friction between two tribes (null: none recorded). */
+export function topWhy(a: Tribe, b: Tribe): FrictionWhy | null {
+  const w = a.frictionWhy?.[b.id];
+  const top = w && (Object.entries(w) as [FrictionWhy, number][]).sort((x, y) => y[1] - x[1])[0];
+  return top && top[1] > 0 ? top[0] : null;
+}
+
 /** The main source of the friction between two tribes, as a few words ("na veroverde dorpen"). */
 export function warReason(a: Tribe, b: Tribe): string {
   const w = a.frictionWhy?.[b.id];
