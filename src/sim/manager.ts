@@ -79,9 +79,14 @@ export function findTemplate(state: WorldState, id: string | undefined): BuildTe
   return id ? allTemplates(state).find((t) => t.id === id) : undefined;
 }
 
+/**
+ * How often the manager looks at your villages: every 5 game minutes on a normal world, faster on a
+ * fast one, but never more often than once a game minute. Every 15 game seconds (speed 20) meant
+ * walking all your villages 240 times a game hour; a slot that frees up waiting a minute costs nothing.
+ */
 function checkInterval(state: WorldState): number {
   const c = state.config;
-  return (CHECK_MINUTES * MINUTE) / (c.worldSpeed * Math.max(1, c.buildSpeed, c.recruitSpeed));
+  return Math.max(MINUTE, (CHECK_MINUTES * MINUTE) / (c.worldSpeed * Math.max(1, c.buildSpeed, c.recruitSpeed)));
 }
 
 /** Keeps exactly one manager check scheduled while any village has a manager. */
