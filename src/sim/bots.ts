@@ -17,7 +17,7 @@ import { DIFFICULTIES, type DifficultyDef } from '../shared/config';
 const DAY = 86_400_000;
 import { push } from './eventQueue';
 import { buildingCost } from './formulas';
-import { distance, loyaltyNow, moraleFor, protectionBlocker, protectionEndsAt, sendAttack, sendNobleTrain, sendSupport, travelTimeMs } from './movement';
+import { distance, loyaltyNow, moraleFor, protectionBlocker, protectionEndsAt, sendAttack, sendNobleTrain, sendSupport, travelBudget, travelTimeMs } from './movement';
 import { coinsForSlots, curveOf, mintCoins, noblesAllowed, playerCoins, slotsUsed } from './nobles';
 import { MERCHANT_CARRY, acceptOffer, cancelOffer, createOffer, merchantsFree, offersOf, type TradeOffer } from './market';
 import { hashFloat, nextFloat } from './rng';
@@ -369,7 +369,9 @@ function helpTribe(state: WorldState, player: Player, v: Village, profile: BotPr
   void profile;
   for (const threat of threatsFor(state, player.tribe)) {
     const target = state.villages[threat.village];
-    if (!target || target.owner === player.id || distance(target, v) > 12) continue;
+    if (!target || target.owner === player.id) continue;
+    // a mate: 12 fields, as bots always did; you: the tribe's reach in marching time, like your asks
+    if (target.owner === HUMAN_ID ? travelTimeMs(state, { sword: 1 }, distance(target, v)) > travelBudget(state, 12) : distance(target, v) > 12) continue;
     // already helping this village
     if (isHelping(state, player.id, target.id)) continue;
     const share = helpShare(player.bot.archetype);

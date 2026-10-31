@@ -170,6 +170,20 @@ export function distance(a: { x: number; y: number }, b: { x: number; y: number 
 }
 
 /** Travel time for a group: the slowest unit sets the pace. */
+/**
+ * A reach in travel time: `hours` of marching on a normal world (speed 1), shortened on a fast one
+ * like everything else. Tribe help, orders and joint attacks go by this, not by a fixed number of fields.
+ */
+export function travelBudget(state: WorldState, hours: number): number {
+  const { config } = state;
+  return (hours * 3_600_000) / (config.worldSpeed * config.unitSpeed * config.marchSpeed);
+}
+/** How many fields a unit covers within a travel budget (for map searches). */
+export function fieldsWithin(state: WorldState, budgetMs: number, unit: UnitId = 'axe'): number {
+  const { config } = state;
+  return (budgetMs / 60_000) * (config.worldSpeed * config.unitSpeed * config.marchSpeed) / config.units[unit].speed;
+}
+
 export function travelTimeMs(state: WorldState, units: UnitCounts, dist: number): number {
   const { config } = state;
   let slowest = 0;
@@ -519,6 +533,13 @@ function arriveAttack(state: WorldState, m: Movement): void {
     const anyLost = UNIT_IDS.some((u) => (battle.attackerLost[u] ?? 0) > 0);
     const result: Report['result'] = !battle.attackerWon ? 'loss' : anyLost ? 'winLosses' : 'win';
     const seesDefender = Object.keys(survivors).length > 0 || battle.spiesSurvived > 0;
+    // what you saw goes to your bot leader: his joint attacks plan with it. What stands there now
+    // (after your attack: a cleared village is an open door for the tribe's nobles)
+    if (seesDefender && target.owner >= 0 && target.owner !== HUMAN_ID) {
+      const t = state.players[HUMAN_ID]?.tribe;
+      const leader = t !== undefined ? state.tribes?.[t]?.leader : undefined;
+      if (leader !== undefined && leader !== HUMAN_ID) rememberScout(state, leader, target, defendersOf(target), target.buildings.wall);
+    }
     const report: Report = {
       id: nextId(state),
       time: state.time,

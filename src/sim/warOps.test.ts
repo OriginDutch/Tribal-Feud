@@ -100,3 +100,51 @@ describe('the front you choose as leader', () => {
     expect(ta.front).toBeUndefined();
   });
 });
+
+describe('joint operations with you', () => {
+  it('your army counts: you get the order, your bots bring the nobles behind it, and you share your scouts', async () => {
+    const { HUMAN_ID, playerVillage } = await import('./state');
+    const { sendAttack, distance, travelTimeMs } = await import('./movement');
+    const { humanOpSent } = await import('./warOps');
+    const { s, ta, target, a1, a2 } = setup();
+    // the bots' own armies are gone: only your army can break the target
+    for (const p of [a1, a2]) { const v = villagesOf(s, p.id)[0]!; v.units.axe = 0; v.units.light = 0; v.units.ram = 0; }
+    // spears and swords to escort the nobles past what is left of the wall (no army of their own)
+    Object.assign(villagesOf(s, a1.id)[0]!.units, { spear: 3000, sword: 1500 });
+    const home = playerVillage(s)!;
+    home.x = target.x + 3; home.y = target.y;
+    home.buildings.place = Math.max(1, home.buildings.place);
+    home.units.axe = 20000; home.units.ram = 300;
+    ta.members.push(HUMAN_ID);
+    s.players[HUMAN_ID]!.tribe = ta.id;
+    warOpsTick(s);
+    const op = ta.ops?.[0];
+    expect(op).toBeDefined();
+    expect(op!.human).toBe(true);
+    expect(op!.roles.some((r) => r.member === HUMAN_ID && r.kind === 'nuke')).toBe(true);
+    expect(op!.roles.some((r) => r.kind === 'nobles' && r.member === a1.id)).toBe(true);
+    const order = s.inbox!.at(-1)!;
+    expect(order.request).toMatchObject({ type: 'order', order: 'attack', village: target.id, arrives: op!.landAt });
+    // you send so it lands with the others
+    const army = { axe: 20000, ram: 300 };
+    run(s, op!.landAt - travelTimeMs(s, army, distance(home, target)));
+    expect(sendAttack(s, home.id, target.id, army)).toBeNull();
+    humanOpSent(s, target.id);
+    expect(op!.roles.find((r) => r.member === HUMAN_ID)!.state).toBe('sent');
+    run(s, op!.landAt + 60 * 60_000);
+    expect(target.owner).toBe(a1.id);
+  });
+
+  it('no bot role, no joint attack: your army alone is a plain order', async () => {
+    const { HUMAN_ID, playerVillage } = await import('./state');
+    const { s, ta, target, a1, a2 } = setup();
+    for (const p of [a1, a2]) { const v = villagesOf(s, p.id)[0]!; v.units.axe = 0; v.units.light = 0; v.units.ram = 0; v.units.snob = 0; }
+    const home = playerVillage(s)!;
+    home.x = target.x + 3; home.y = target.y;
+    home.units.axe = 20000;
+    ta.members.push(HUMAN_ID);
+    s.players[HUMAN_ID]!.tribe = ta.id;
+    warOpsTick(s);
+    expect(ta.ops ?? []).toHaveLength(0);
+  });
+});

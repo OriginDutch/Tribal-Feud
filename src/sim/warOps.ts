@@ -18,9 +18,9 @@ import type { UnitCounts } from '../shared/gameData';
 import type { WarFrontView } from '../shared/protocol';
 import { DAY, HOUR, MINUTE } from '../shared/time';
 import { push } from './eventQueue';
-import { attackOf, effectiveAttack, freshSighting, nobleEscorts, scout as sendScouts } from './botStrategy';
+import { SCOUTS_DIED, attackOf, effectiveAttack, freshScout, freshSighting, nobleEscorts, scout as sendScouts } from './botStrategy';
 import { villagesNear } from './bots';
-import { distance, moraleFor, sendAttack, sendNobleTrain, travelTimeMs } from './movement';
+import { distance, fieldsWithin, moraleFor, sendAttack, sendNobleTrain, travelBudget, travelTimeMs } from './movement';
 import { nextFloat } from './rng';
 import { HUMAN_ID, nextId, villagesOf, type Player, type WorldState } from './state';
 import { type Tribe } from './tribes';
@@ -48,8 +48,11 @@ export interface TribeOp {
   human?: boolean;
 }
 
-/** How far the tribe reaches for a front village (fields). */
-const FRONT_RANGE = 18;
+/**
+ * How far an army may march to take part: 12 hours on a normal world (~40 fields for axes),
+ * shorter on a fast world like all travel. Tribes in TW fight across that kind of distance.
+ */
+const OP_HOURS = 12;
 /** Front villages the leader considers. */
 const FRONT_SIZE = 8;
 /** At most this many full armies per operation. */
@@ -62,9 +65,9 @@ const FORGET = { pro: 0, mid: 0.08, casual: 0.3 } as const;
 
 const tierOf = (p: Player | undefined) => p?.bot?.tier ?? 'pro';
 
-function armyOf(v: Village): UnitCounts {
+function armyOf(v: Pick<Village, 'units'>): UnitCounts {
   const a: UnitCounts = {};
-  for (const u of OFF) if (v.units[u] > 0) a[u] = v.units[u];
+  for (const u of OFF) if ((v.units[u] ?? 0) > 0) a[u] = v.units[u];
   return a;
 }
 
@@ -94,7 +97,7 @@ function front(state: WorldState, t: Tribe, enemy: Tribe, ours: Village[]): Vill
   const theirs = new Set(enemy.members);
   const seen = new Map<number, { v: Village; d: number }>();
   for (const o of ours) {
-    for (const v of villagesNear(state, o, FRONT_RANGE)) {
+    for (const v of villagesNear(state, o, fieldsWithin(state, travelBudget(state, OP_HOURS)))) {
       if (!theirs.has(v.owner)) continue;
       const d = distance(o, v);
       const had = seen.get(v.id);
@@ -135,37 +138,53 @@ function plan(state: WorldState, t: Tribe, enemy: Tribe): void {
     if (def === undefined) continue;
     const roles = nukes(state, t, target, def);
     if (!roles) continue;
-    launch(state, t, enemy, target, roles);
-    return;
+    if (launch(state, t, enemy, target, roles)) return;
   }
   // nothing known that we can break: scout the nearest unknown front village
-  const unknown = candidates.find((v) => tribeIntel(state, t, v.id) === undefined);
+  // (one whose scouts died lately keeps its borders shut: try the next one)
+  const shut = (v: Village) => t.members.some((m) => { const p = state.players[m]; const sc = p?.bot ? freshScout(state, p, v.id) : undefined; return !!sc && sc.def >= SCOUTS_DIED; });
+  const unknown = candidates.find((v) => tribeIntel(state, t, v.id) === undefined && !shut(v));
   if (!unknown) return;
   const from = ours.filter((v) => state.players[v.owner]?.bot && v.units.spy >= 5).sort((a, b) => distance(a, unknown) - distance(b, unknown))[0];
   if (from) sendScouts(state, from, unknown);
 }
 
-/** Bot armies near the target that together clearly break it (morale and bad luck included). */
+/** You can take a part: a bot leads, and no other order of yours is running or waiting. */
+function humanFree(state: WorldState, t: Tribe): boolean {
+  if (t.leader === HUMAN_ID || !t.members.includes(HUMAN_ID) || state.leaderOrder) return false;
+  return !(state.inbox ?? []).some((m) => m.request?.type === 'order' && m.status === 'open');
+}
+
+/**
+ * Armies that together clearly break the target (morale and bad luck included): your bots', and
+ * yours when a bot leads (you get the order with the landing time). Each must land within the
+ * tribe's reach (OP_HOURS of marching).
+ */
 function nukes(state: WorldState, t: Tribe, target: Village, def: number): OpRole[] | null {
   const need = def * 1.3;
   const busy = new Set((t.ops ?? []).flatMap((o) => o.roles.map((r) => r.village)));
+  const budget = travelBudget(state, OP_HOURS);
+  const you = humanFree(state, t);
   const options = t.members
-    .filter((m) => state.players[m]?.bot)
+    .filter((m) => state.players[m]?.bot || (m === HUMAN_ID && you))
     .flatMap((m) => villagesOf(state, m))
-    .filter((v) => !busy.has(v.id) && distance(v, target) <= FRONT_RANGE && isOperational(state.config, v, 'place') && attackOf(state, armyOf(v)) >= MIN_NUKE)
+    .filter((v) => !busy.has(v.id) && isOperational(state.config, v, 'place') && attackOf(state, armyOf(v)) >= MIN_NUKE && travelTimeMs(state, armyOf(v), distance(v, target)) <= budget)
     .map((v) => ({ v, power: effectiveAttack(state, v.owner, target.owner, armyOf(v)) }))
     .sort((a, b) => b.power - a.power);
   const roles: OpRole[] = [];
   let sum = 0;
   for (const o of options) {
     if (sum >= need || roles.length >= MAX_NUKES) break;
+    // you send one army, from your strongest village in reach
+    if (o.v.owner === HUMAN_ID && roles.some((r) => r.member === HUMAN_ID)) continue;
     roles.push({ member: o.v.owner, village: o.v.id, kind: 'nuke', launchAt: 0 });
     sum += o.power;
   }
   return sum >= need ? roles : null;
 }
 
-function launch(state: WorldState, t: Tribe, enemy: Tribe, target: Village, roles: OpRole[]): void {
+/** Hands out the roles; false when it is no joint attack after all (or your order could not go out). */
+function launch(state: WorldState, t: Tribe, enemy: Tribe, target: Village, roles: OpRole[]): boolean {
   const travel = (r: OpRole) => {
     const v = state.villages[r.village]!;
     return travelTimeMs(state, r.kind === 'nobles' ? { snob: 1 } : armyOf(v), distance(v, target));
@@ -178,15 +197,42 @@ function launch(state: WorldState, t: Tribe, enemy: Tribe, target: Village, role
     // rather one that isn't sending an army too
     .sort((a, b) => Number(roles.some((r) => r.village === a.id)) - Number(roles.some((r) => r.village === b.id)) || distance(a, target) - distance(b, target))[0];
   if (nobleVillage) roles.push({ member: nobleVillage.owner, village: nobleVillage.id, kind: 'nobles', launchAt: 0 });
-  const landAt = state.time + Math.max(...roles.map(travel)) + 15 * MINUTE;
+  // your army alone is no joint attack: that is what a plain order is for
+  if (!roles.some((r) => r.member !== HUMAN_ID)) return false;
+  const leader = state.players[t.leader];
+  const yours = roles.some((r) => r.member === HUMAN_ID);
+  // with you in it: an hour (game time) to read the order and send
+  const landAt = state.time + Math.max(...roles.map(travel)) + (yours ? HOUR : 15 * MINUTE);
   for (const r of roles) r.launchAt = landAt + (r.kind === 'nobles' ? 30_000 : 0) - travel(r);
   const op: TribeOp = { id: nextId(state), enemy: enemy.id, target: target.id, landAt, roles };
+  if (yours) {
+    if (!leader || !giveOpOrder(state, leader, target, landAt)) return false;
+    op.human = true;
+  }
   (t.ops ??= []).push(op);
-  roles.forEach((r, i) => push(state.queue, r.launchAt, { kind: 'opLaunch', tribe: t.id, op: op.id, role: i }));
-  // you: join with your own army if you have a village in reach
-  if (t.leader !== HUMAN_ID && t.members.includes(HUMAN_ID) && villagesOf(state, HUMAN_ID).some((v) => distance(v, target) <= FRONT_RANGE)) {
-    const leader = state.players[t.leader];
-    if (leader && giveOpOrder(state, leader, target, landAt)) op.human = true;
+  // your part is yours to send: no event for it (see humanOpSent)
+  roles.forEach((r, i) => { if (r.member !== HUMAN_ID) push(state.queue, r.launchAt, { kind: 'opLaunch', tribe: t.id, op: op.id, role: i }); });
+  // you: join with your own army if you have one that gets there in time
+  const budget = travelBudget(state, OP_HOURS);
+  if (!yours && leader && humanFree(state, t) && villagesOf(state, HUMAN_ID).some((v) => attackOf(state, armyOf(v)) >= MIN_NUKE && travelTimeMs(state, armyOf(v), distance(v, target)) <= Math.min(budget, landAt - state.time))) {
+    if (giveOpOrder(state, leader, target, landAt)) op.human = true;
+  }
+  return true;
+}
+
+/**
+ * You sent an attack: if it is your part in a joint attack (a real army that lands before the
+ * nobles), your role counts as sent.
+ */
+export function humanOpSent(state: WorldState, targetId: number): void {
+  const tid = state.players[HUMAN_ID]?.tribe;
+  const t = tid !== undefined ? state.tribes?.[tid] : undefined;
+  for (const op of t?.ops ?? []) {
+    if (op.target !== targetId) continue;
+    const r = op.roles.find((x) => x.member === HUMAN_ID && !x.state);
+    if (!r) continue;
+    const ok = Object.values(state.movements).some((m) => m.owner === HUMAN_ID && m.kind === 'attack' && m.to === targetId && m.arrives <= op.landAt + 20_000 && attackOf(state, armyOf({ units: m.units as Village['units'] })) >= MIN_NUKE);
+    if (ok) r.state = 'sent';
   }
 }
 
@@ -195,7 +241,7 @@ export function onOpLaunch(state: WorldState, tribeId: number, opId: number, rol
   const t = state.tribes?.[tribeId];
   const op = t?.ops?.find((o) => o.id === opId);
   const r = op?.roles[role];
-  if (!t || !op || !r || r.state) return;
+  if (!t || !op || !r || r.state || r.member === HUMAN_ID) return;
   const v = state.villages[r.village];
   const target = state.villages[op.target];
   const enemy = state.tribes?.[op.enemy];
@@ -237,7 +283,7 @@ function report(state: WorldState, t: Tribe, op: TribeOp): void {
   // taking part counts: a win together lifts everyone who went, a failed attack costs them a little
   const went = new Set(op.roles.filter((r) => r.state === 'sent').map((r) => r.member));
   for (const m of went) {
-    if (m === t.leader) continue;
+    if (m === t.leader || m === HUMAN_ID) continue;
     changeMood(state, state.players[m], took ? 4 : -2, took ? `we namen ${target!.name} samen in` : 'de gezamenlijke aanval mislukte');
   }
   if (took) moodAll(state, t, 1, `de stam nam ${target!.name} in`, undefined);

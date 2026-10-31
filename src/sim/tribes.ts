@@ -633,13 +633,13 @@ export function threatsFor(state: WorldState, tribeId: number): { village: numbe
   const ix = movementIndex(state);
   const out: { village: number; arrives: number }[] = [];
   for (const member of t.members) {
-    if (member === HUMAN_ID) continue;
     for (const v of villagesOf(state, member)) {
       if (cededAway(state, v.id)) continue; // given up in a treaty: nobody defends it
       const at = ix.attacks.get(v.id);
       if (!at) continue;
-      // only attacks the member saw and called out: an unseen attack gets no help
-      for (const [id, arrives] of at) if (arrives > state.time && sawAttack(state, member, id)) out.push({ village: v.id, arrives });
+      // only attacks the member saw and called out: an unseen attack gets no help. Yours show on the
+      // tribe's incoming list as soon as they are underway (like in TW)
+      for (const [id, arrives] of at) if (arrives > state.time && (member === HUMAN_ID || sawAttack(state, member, id))) out.push({ village: v.id, arrives });
     }
   }
   return out;

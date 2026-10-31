@@ -195,8 +195,9 @@ function WarFront() {
         </>
       ) : (
         <p class="hint">
-          In oorlog met {w.enemies.map((e) => `[${e.tag}]`).join(', ')}. De leider plant gezamenlijke aanvallen; heb je een dorp in de buurt, dan krijg je een
-          order met de landingstijd. Meedoen hoeft niet, maar wie nooit meedoet telt niet mee.
+          In oorlog met {w.enemies.map((e) => `[${e.tag}]`).join(', ')}. De leider plant gezamenlijke aanvallen op frontdorpen die de stam kent: van
+          verkenningen, en van wat jij ziet als je aanvalt of verkent. Heeft hij jouw leger nodig, dan krijg je een order met de landingstijd; de edels van de
+          stam komen er direct achteraan, dus stuur je niet, dan sneuvelen ze.
         </p>
       )}
       {w.ops.length > 0 ? (

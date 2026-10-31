@@ -15,11 +15,11 @@ import { UNIT_IDS, type Res, type UnitCounts, type UnitId } from '../shared/game
 import { DAY, HOUR, MINUTE, formatGameTime } from '../shared/time';
 import { villagesNear } from './bots';
 import { addMessage, alertHuman, pauses } from './humanTribe';
-import { distance, protectionBlocker, sendAttack, sendSupport, travelTimeMs } from './movement';
+import { distance, fieldsWithin, protectionBlocker, sendAttack, sendSupport, travelBudget, travelTimeMs } from './movement';
 import { MERCHANT_CARRY, merchantsFree, sendResources } from './market';
 import { nextFloat } from './rng';
 import { BARBARIAN, HUMAN_ID, addLog, movementIndex, nextId, villagesOf, type BotRequest, type BotState, type InboxMessage, type Player, type WorldState } from './state';
-import { AGGRESSION, mayAttack, tribeOf } from './tribes';
+import { AGGRESSION, mayAttack, relationBetween, tribeOf } from './tribes';
 import { changeStanding, mateEvent, moodAll } from './loyalty';
 import { storageCapacity } from './formulas';
 import { currentResources, isOperational, type Village } from './village';
@@ -27,8 +27,16 @@ import { currentResources, isOperational, type Village } from './village';
 const DEFENSE: UnitId[] = ['spear', 'sword', 'archer', 'heavy'];
 const OFFENSE: UnitId[] = ['axe', 'light', 'marcher', 'ram', 'catapult'];
 /** How far (fields) mates go to help, or to carry out an attack order. */
-const HELP_RANGE = 15;
-const ORDER_RANGE = 25;
+/**
+ * How far mates go for each other, in marching time: 12 hours on a normal world (~32 fields for
+ * swordsmen, ~40 for axes), shorter on a fast world like all travel. Help must also land in time.
+ */
+const REACH_HOURS = 12;
+const reach = (state: WorldState) => travelBudget(state, REACH_HOURS);
+/** Can defense from `from` reach `to` within the tribe's reach (swordsmen, the slowest defenders)? */
+const helpReach = (state: WorldState, from: Village, to: Village) => travelTimeMs(state, { sword: 1 }, distance(from, to)) <= reach(state);
+/** At war with the owner of this player's target: the tribe needs everyone now. */
+const atWar = (state: WorldState, player: number, target: number) => target >= 0 && relationBetween(state, player, target) === 'war';
 /** Orders and help asks run out after a fixed game day (your attention, not the world's tempo). */
 const LIFETIME = DAY;
 
@@ -319,7 +327,7 @@ function leaderOrders(state: WorldState, leader: Player): void {
     if (id === HUMAN_ID) continue;
     for (const v of villagesOf(state, id)) {
       const hits = [...(ix.attacks.get(v.id)?.values() ?? [])].filter((a) => a > state.time + 15 * MINUTE);
-      if (!hits.length || !mine.some((o) => distance(o, v) <= HELP_RANGE)) continue;
+      if (!hits.length || !mine.some((o) => helpReach(state, o, v))) continue;
       const arrives = Math.min(...hits);
       give({ type: 'order', order: 'support', village: v.id, x: v.x, y: v.y, arrives }, `${leader.name}: support naar ${v.name}`, `${leader.name}: ${v.name} (${v.x}|${v.y}) van ${state.players[id]?.name ?? '?'} wordt aangevallen. Stuur verdediging, het moet er zijn voor ${Math.max(1, Math.round((arrives - state.time) / MINUTE))} min.`);
       return;
@@ -330,7 +338,7 @@ function leaderOrders(state: WorldState, leader: Player): void {
   if (!enemies.size) return;
   let best: Village | null = null, bestD = Infinity;
   for (const o of mine) {
-    for (const v of villagesNear(state, o, ORDER_RANGE)) {
+    for (const v of villagesNear(state, o, fieldsWithin(state, reach(state)))) {
       if (!enemies.has(v.owner)) continue;
       const d = distance(o, v);
       if (d < bestD) { bestD = d; best = v; }
@@ -363,12 +371,14 @@ function answerHelpAsks(state: WorldState, player: Player): void {
     const ix = movementIndex(state);
     const busy = villagesOf(state, player.id).some((v) => [...(ix.attacks.get(v.id)?.values() ?? [])].some((a) => a > state.time));
     if (busy) { reply(`${player.name} kan niet helpen`, `${player.name}: ik zit zelf onder vuur.`); continue; }
-    const chance = HELPFUL[bot.archetype] + favorOf(bot) * 0.15;
+    // in a war against the attacker the tribe stands together: much keener to help
+    const attacker = state.movements[ask.movement]?.owner ?? -1;
+    const chance = HELPFUL[bot.archetype] + favorOf(bot) * 0.15 + (atWar(state, player.id, attacker) ? 0.3 : 0);
     if (nextFloat(state.rng) >= chance) { reply(`${player.name} helpt niet`, `${player.name}: deze keer niet, sorry.`); continue; }
     const share = 0.25 + HELPFUL[bot.archetype] * 0.35 + Math.max(0, favorOf(bot)) * 0.05;
     let sent: UnitCounts | null = null, margin = 0, late = false, empty = true;
     for (const v of villagesOf(state, player.id).sort((a, b) => distance(a, target) - distance(b, target))) {
-      if (distance(v, target) > HELP_RANGE || !isOperational(state.config, v, 'place')) continue;
+      if (!helpReach(state, v, target) || !isOperational(state.config, v, 'place')) continue;
       const units: UnitCounts = {};
       for (const u of DEFENSE) { const n = Math.floor(v.units[u] * share); if (n > 0) units[u] = n; }
       if (sum(units) < 20) continue;
@@ -446,7 +456,11 @@ function answerOrders(state: WorldState, player: Player): void {
       o.answers[player.id] = answer;
       addMessage(state, { kind: 'answer', from: player.id, title: `${player.name}: ${answer === 'yes' ? 'akkoord' : answer === 'half' ? 'deels' : 'nee'}`, text: `${player.name}: ${text}` });
     };
-    const keen = (o.binding ? 0.85 : 0.45) * OBEDIENT[bot.archetype] + favorOf(bot) * 0.12;
+    // in a war, an attack or focus on the enemy is what the tribe needs: far keener (a bot that sits
+    // still while one mate does everything loses that mate, or the war)
+    const enemy = o.kind === 'attack' ? (state.villages[o.target]?.owner ?? -1) : o.kind === 'focus' ? o.target : -1;
+    const war = atWar(state, player.id, enemy);
+    const keen = Math.min(0.95, ((o.binding ? 0.85 : 0.45) * OBEDIENT[bot.archetype] + favorOf(bot) * 0.12) * (war ? 1.5 : 1) + (war ? 0.2 : 0));
     const roll = nextFloat(state.rng);
     if (o.kind === 'spare' || o.kind === 'focus') {
       const name = state.players[o.target]?.name ?? '?';
@@ -466,13 +480,13 @@ function answerOrders(state: WorldState, player: Player): void {
     if (roll >= keen) { reply('no', 'daar heb ik nu geen troepen voor over.'); continue; }
     const half = roll > keen * 0.6;
     const from = villagesOf(state, player.id)
-      .filter((v) => distance(v, target) <= ORDER_RANGE && isOperational(state.config, v, 'place'))
+      .filter((v) => isOperational(state.config, v, 'place'))
       .map((v) => {
         const units: UnitCounts = {};
         for (const u of OFFENSE) { const n = Math.floor(v.units[u] * (half ? 0.5 : 1)); if (n > 0) units[u] = n; }
         return { v, units };
       })
-      .filter((x) => sum(x.units) >= 50)
+      .filter((x) => sum(x.units) >= 50 && travelTimeMs(state, x.units, distance(x.v, target)) <= reach(state))
       .sort((a, b) => sum(b.units) - sum(a.units))[0];
     if (!from) { reply('no', 'ik heb geen aanvalsleger in de buurt.'); continue; }
     if (sendAttack(state, from.v.id, target.id, from.units) !== null) { reply('no', 'het lukte niet om te sturen.'); continue; }
@@ -502,7 +516,7 @@ function askHuman(state: WorldState, player: Player): void {
     const m = state.movements[Number(id)];
     const v = m ? state.villages[m.to] : undefined;
     if (!m || !v || v.owner !== player.id || m.arrives - state.time < 10 * MINUTE) continue;
-    if (!mine.some((o) => distance(o, v) <= HELP_RANGE)) continue;
+    if (!mine.some((o) => helpReach(state, o, v))) continue;
     ask({ type: 'support', village: v.id, movement: m.id, arrives: m.arrives }, `${player.name} vraagt support`, `${player.name}: ${v.name} (${v.x}|${v.y}) wordt aangevallen. Kun je verdediging sturen?`);
     return;
   }

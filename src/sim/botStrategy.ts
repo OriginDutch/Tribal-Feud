@@ -26,7 +26,7 @@ import { isOperational, popMax } from './village';
 export interface BotScout { at: number; def: number; owner: number }
 
 /** Defense noted when the scouts were killed: unknown, treated as far too strong. */
-const SCOUTS_DIED = 1e12;
+export const SCOUTS_DIED = 1e12;
 /** Scouts each bot village keeps. */
 /** Scouts a bot keeps per village, by tier: pros keep their villages hard to scout. */
 export const BOT_SPIES = { pro: 15, mid: 6, casual: 3 } as const;

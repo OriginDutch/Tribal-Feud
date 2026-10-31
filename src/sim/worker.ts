@@ -4,7 +4,7 @@
  */
 import { autoFarmInterval, setAutoFarm } from './farmAll';
 import { isFarmLetter } from '../shared/farmTemplates';
-import { setFront, warFrontView } from './warOps';
+import { humanOpSent, setFront, warFrontView } from './warOps';
 import { deleteGroup, saveGroup, setGroup } from './groups';
 import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderView } from './tribeOrders';
 import { grudge, grudgeHalfLife } from './botReact';
@@ -941,7 +941,7 @@ async function handle(cmd: Command): Promise<void> {
       {
         const error = sendAttack(state, cmd.from, cmd.to, cmd.units, cmd.catapultTarget, undefined, 0, undefined, true);
         if (error) notice(error, 'error');
-        else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); }
+        else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); humanOpSent(state, cmd.to); }
       }
       break;
     case 'sendFarm': {
@@ -1047,7 +1047,7 @@ async function handle(cmd: Command): Promise<void> {
       if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
       const error = sendNobleTrain(state, cmd.from, cmd.to, cmd.first, cmd.escorts, cmd.catapultTarget, cmd.clearFirst ?? false);
       if (error) notice(error, 'error');
-      else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); }
+      else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); humanOpSent(state, cmd.to); }
       break;
     }
     case 'sendSupport': {
