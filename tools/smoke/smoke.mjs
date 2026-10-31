@@ -9,8 +9,9 @@ import { chromium } from 'playwright';
 const PORT = 4179;
 const URL = `http://localhost:${PORT}/`;
 
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'pipe', shell: process.platform === 'win32' });
-const stop = () => { try { server.kill(); } catch { /* gone */ } };
+// its own process group, so stopping it also stops vite under npx (else old servers pile up on the port)
+const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'pipe', shell: process.platform === 'win32', detached: process.platform !== 'win32' });
+const stop = () => { try { if (process.platform === 'win32') server.kill(); else process.kill(-server.pid); } catch { /* gone */ } };
 
 async function waitForServer() {
   for (let i = 0; i < 60; i++) {

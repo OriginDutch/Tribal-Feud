@@ -9,8 +9,9 @@ import { chromium } from 'playwright';
 
 const PORT = 4180;
 const URL = `http://localhost:${PORT}/`;
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore', shell: process.platform === 'win32' });
-const stop = () => { try { server.kill(); } catch { /* gone */ } };
+// its own process group, so stopping it also stops vite under npx (else old servers pile up on the port)
+const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore', shell: process.platform === 'win32', detached: process.platform !== 'win32' });
+const stop = () => { try { if (process.platform === 'win32') server.kill(); else process.kill(-server.pid); } catch { /* gone */ } };
 const problems = [];
 const expect = (what, pass, detail = '') => { if (!pass) problems.push(`${what}${detail ? ` (${detail})` : ''}`); };
 const secs = (t) => { const m = /Dag (\d+) · (\d+):(\d+):(\d+)/.exec(t ?? ''); return m ? +m[1] * 86400 + +m[2] * 3600 + +m[3] * 60 + +m[4] : NaN; };
@@ -40,9 +41,21 @@ try {
   // a menu link opened in a new tab lands in the same world, on that screen
   await A.waitForFunction(() => location.hash === '#farm');
   // ctrl-click a menu link; once more if the first click went nowhere (a slow first paint)
-  const openMap = () => Promise.all([ctx.waitForEvent('page', { timeout: 15_000 }), A.locator('nav.rail a[aria-label="Kaart"]').click({ modifiers: ['ControlOrMeta'] })]);
-  const [B] = await openMap().catch(() => openMap());
+  const openMap = () => Promise.all([ctx.waitForEvent('page', { timeout: 8_000 }), A.locator('nav.rail a[aria-label="Kaart"]').click({ modifiers: ['ControlOrMeta'] })]);
+  // headless Chromium sometimes opens the new tab but never navigates it (it stays at about:blank,
+  // ~1 run in 10): a harness quirk, not the game. Then close it and click again (at most 3 times).
+  // Or the click opens nothing at all. Either way: click again, up to 4 times.
+  let B;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const [page] = await openMap().catch(() => [null]);
+    if (!page) continue;
+    B = page;
+    if (await B.waitForURL(/#map$/, { timeout: 8_000 }).then(() => true).catch(() => false)) break;
+    if (attempt < 4) await B.close();
+  }
+  if (!B) throw new Error('a ctrl-click on a menu link opened no tab (4 tries)');
   B.on('pageerror', (e) => problems.push(`page error: ${e.message}`));
+  await B.bringToFront();
   await B.waitForSelector('nav.rail', { timeout: 20_000 });
   expect('a link opened in a new tab shows the world on that screen', B.url().endsWith('#map') && A.url().endsWith('#farm'), `${A.url()} / ${B.url()}`);
   expect('each tab is titled after its screen', (await A.title()) === 'Farm-assistent · Tribal Feud' && (await B.title()) === 'Kaart · Tribal Feud', `${await A.title()} / ${await B.title()}`);
