@@ -8,8 +8,9 @@ import { useEffect, useState } from 'preact/hooks';
 import { BUILDING_IDS, UNIT_IDS, type UnitCounts } from '../../shared/gameData';
 import { formatGameTime } from '../../shared/time';
 import type { Report } from '../../sim/movement';
+import { nowHeld } from '../../shared/reportHeld';
 import { num } from '../format';
-import { attackVillage, ranking, reports, screen, send, simPrefill, snapshot, tribes } from '../store';
+import { attackVillage, ranking, reportOwnersNow, reports, screen, send, simPrefill, snapshot, tribes } from '../store';
 import { FLAG_NAMES, type FlagType } from '../../shared/flags';
 import { UnitIcon } from '../units/UnitIcon';
 
@@ -326,19 +327,23 @@ export function ReportsScreen() {
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [hideAuto, setHideAuto] = useSaved('reports-hide-auto', true);
   const [query, setQuery] = useState('');
+  const [hideTaken, setHideTaken] = useSaved('reports-hide-taken', false);
+  const now = reportOwnersNow.value;
+  const taken = (r: Report) => nowHeld(r, now)?.mine === true;
 
   useEffect(() => {
     send({ type: 'getReports' });
-  }, [snapshot.value?.unreadReports]);
+  }, [snapshot.value?.unreadReports, snapshot.value?.villages.length]);
   // for searching on [TAG]: who is in which tribe
   useEffect(() => { send({ type: 'getRanking' }); }, []);
 
   const match = matcher(query);
   // auto-farm reports: their own filter; elsewhere hidden if you want
   const shown = [...list].reverse().filter((r) =>
-    (filter === 'auto' ? !!r.auto : (!r.auto || !hideAuto) && (filter === 'all' || kindOf(r) === filter)) && match(r),
+    (filter === 'auto' ? !!r.auto : (!r.auto || !hideAuto) && (filter === 'all' || kindOf(r) === filter)) && match(r) && !(hideTaken && taken(r)),
   );
   const autoCount = list.filter((r) => r.auto).length;
+  const takenIds = list.filter(taken).map((r) => r.id);
   const pickedShown = shown.filter((r) => picked.has(r.id));
   const allPicked = shown.length > 0 && pickedShown.length === shown.length;
 
@@ -386,6 +391,9 @@ export function ReportsScreen() {
           <label class="inline-check" title="Rapporten van automatisch farmen alleen tonen onder Auto-farm">
             <input type="checkbox" checked={hideAuto} onChange={(e) => setHideAuto(e.currentTarget.checked)} /> auto-farm verbergen
           </label>
+          <label class="inline-check" title="Rapporten over dorpen die sindsdien van jou zijn">
+            <input type="checkbox" checked={hideTaken} onChange={(e) => setHideTaken(e.currentTarget.checked)} /> overgenomen verbergen
+          </label>
         </div>
         <div class="row report-tools">
           <label class="inline-check">
@@ -397,6 +405,11 @@ export function ReportsScreen() {
           <button class="small" disabled={!list.some((r) => r.read)} onClick={() => remove('read')}>
             Verwijder gelezen
           </button>
+          {takenIds.length > 0 && (
+            <button class="small" title="Rapporten over dorpen die sindsdien van jou zijn" onClick={() => remove(takenIds)}>
+              Verwijder overgenomen ({takenIds.length})
+            </button>
+          )}
           {autoCount > 0 && (
             <button class="small" onClick={() => remove(list.filter((r) => r.auto).map((r) => r.id))}>
               Verwijder auto-farm ({autoCount})
@@ -416,6 +429,7 @@ export function ReportsScreen() {
                     <span class="report-title">
                       {listTitle(r)}
                       {r.conquered && <strong class="warn"> · veroverd</strong>}
+                      {(() => { const h = nowHeld(r, now); return h && <strong class={h.mine ? 'held-mine' : 'held-other'}> · {h.label}</strong>; })()}
                     </span>
                     {r.loot && <span class="muted mono">buit {num(r.loot[0] + r.loot[1] + r.loot[2])}</span>}
                     <span class="mono muted">{formatGameTime(r.time)}</span>

@@ -36,7 +36,7 @@ import { createWorld, currentVillage, playSfx, playerVillage, type Player, type 
 import { storageCapacity } from './formulas';
 import { villageView } from './view';
 import { incomingViews, mapData, movementViews, villageInfo } from './mapView';
-import { CANCEL_WINDOW_MS, cancelBlocker, cancelMovement, conquer, distance, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendNobleTrain, sendSupport, travelTimeMs } from './movement';
+import { CANCEL_WINDOW_MS, cancelBlocker, cancelMovement, conquer, distance, reportOwners, loyaltyNow, protectionEndsAt, returnSupport, sendAttack, sendNobleTrain, sendSupport, travelTimeMs } from './movement';
 import { BARBARIAN } from './state';
 import { maxMintable, mintBlocker, mintCoins } from './nobles';
 import { allTemplates, deleteNobleTemplate, deleteTemplate, deleteTroopTemplate, findTemplate, saveNobleTemplate, saveTemplate, saveTroopTemplate, scheduleManager, setManager, templateUse } from './manager';
@@ -186,6 +186,10 @@ let from: Client | null = null;
 let fromSettled = false;
 /** Messages every tab needs, whoever caused them. */
 const BROADCAST = new Set<WorkerMessage['type']>(['saves', 'autoPaused', 'cloud', 'cloudWorlds']);
+
+function reportsMsg(s: WorldState): WorkerMessage {
+  return { type: 'reports', reports: s.reports, now: reportOwners(s) };
+}
 
 function post(msg: WorkerMessage): void {
   if (from && !BROADCAST.has(msg.type)) { from.port.postMessage(msg); return; }
@@ -1550,19 +1554,19 @@ async function handle(cmd: Command): Promise<void> {
       if (state) post({ type: 'news', news: [...(state.news ?? [])].reverse() });
       break;
     case 'getReports':
-      if (state) post({ type: 'reports', reports: state.reports });
+      if (state) post(reportsMsg(state));
       return;
     case 'deleteReports': {
       if (!state) return;
       const drop = cmd.ids === 'read' ? new Set(state.reports.filter((r) => r.read).map((r) => r.id)) : new Set(cmd.ids);
       state.reports = state.reports.filter((r) => !drop.has(r.id));
-      post({ type: 'reports', reports: state.reports });
+      post(reportsMsg(state));
       break;
     }
     case 'markReportsRead':
       if (!state) return;
       for (const r of state.reports) if (cmd.ids === 'all' || cmd.ids.includes(r.id)) r.read = true;
-      post({ type: 'reports', reports: state.reports });
+      post(reportsMsg(state));
       break;
     case 'build':
     case 'cancelBuild':

@@ -6,7 +6,7 @@ import { noteSnapshot } from './perf';
 import { playSounds } from './sfx';
 import { signal } from '@preact/signals';
 import type { BuildingId, RecruitBuilding, UnitCounts } from '../shared/gameData';
-import type { CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, SupportRow, SurplusRow, ScavView, FarmAllView, OpinionsView, WorldStatsView, SimResult, TribeAskView, TribeView, WarAskInfo, FrictionRow, WorkerMessage } from '../shared/protocol';
+import type { ReportOwners, CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, SupportRow, SurplusRow, ScavView, FarmAllView, OpinionsView, WorldStatsView, SimResult, TribeAskView, TribeView, WarAskInfo, FrictionRow, WorkerMessage } from '../shared/protocol';
 import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
@@ -60,6 +60,8 @@ export function openBuilding(id: BuildingId): void {
 }
 export const mapData = signal<MapData | null>(null);
 export const reports = signal<Report[]>([]);
+/** Who holds each report's target village now (see reportOwners). */
+export const reportOwnersNow = signal<ReportOwners>({});
 export const newsList = signal<import('../sim/news').NewsItem[]>([]);
 /** The village shown in detail (map panel, player profile). */
 export const villageInfo = signal<import('../shared/protocol').VillageInfo | null>(null);
@@ -248,6 +250,7 @@ port.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'reports':
       reports.value = msg.reports;
+      reportOwnersNow.value = msg.now;
       break;
     case 'news':
       newsList.value = msg.news;

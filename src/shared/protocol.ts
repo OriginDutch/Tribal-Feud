@@ -241,6 +241,9 @@ export interface MapMarks {
   tribes: Record<number, string>;
 }
 
+/** Who holds the villages your reports are about right now, by village id (the target of each report). */
+export type ReportOwners = Record<number, { owner: number; ownerName: string; name: string }>;
+
 export interface MapData {
   ownVillageId: number;
   villages: MapVillage[];
@@ -688,7 +691,7 @@ export type WorkerMessage =
   | { type: 'cloud'; status: CloudStatus }
   | { type: 'cloudWorlds'; worlds: CloudWorld[] }
   | { type: 'map'; map: MapData }
-  | { type: 'reports'; reports: Report[] }
+  | { type: 'reports'; reports: Report[]; now: ReportOwners }
   | { type: 'news'; news: import('../sim/news').NewsItem[] }
   | { type: 'village'; info: VillageInfo | null }
   | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number>; warAsk: WarAskInfo; friction: FrictionRow[] }

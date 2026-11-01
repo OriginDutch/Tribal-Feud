@@ -210,6 +210,18 @@ function ownerName(state: WorldState, owner: number): string {
   return state.players[owner]?.name ?? '?';
 }
 
+/** Who holds each report's target village now, so the list can say it changed hands since. */
+export function reportOwners(state: WorldState): Record<number, { owner: number; ownerName: string; name: string }> {
+  const out: Record<number, { owner: number; ownerName: string; name: string }> = {};
+  for (const r of state.reports) {
+    const id = r.defender.id;
+    if (out[id]) continue;
+    const v = state.villages[id];
+    if (v) out[id] = { owner: v.owner, ownerName: ownerName(state, v.owner), name: v.name };
+  }
+  return out;
+}
+
 function reportVillage(state: WorldState, v: Village): ReportVillage {
   return { id: v.id, name: v.name, x: v.x, y: v.y, ownerName: ownerName(state, v.owner), owner: v.owner };
 }
