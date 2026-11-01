@@ -140,3 +140,17 @@ describe('own templates that tear down', () => {
     expect(v.buildings.market).toBe(10);
   });
 });
+
+describe('account manager: paladin and nobles', () => {
+  it('keeps nobles too, as far as packets allow, and never a second paladin', () => {
+    const { s, v } = setup();
+    Object.assign(v.buildings, { main: 20, barracks: 5, smith: 20, market: 10, snob: 1, statue: 1, farm: 30, storage: 30 });
+    v.res = [400000, 400000, 400000];
+    s.config.nobleCost = 'packages';
+    v.packages = 3; // enough for nobles 1 and 2 (1 + 2 packets), not a third
+    expect(setManager(s, v.id, { troops: { snob: 5, knight: 2 }, troopShare: 1 })).toBeNull();
+    run(s, 48 * HOUR);
+    expect(v.units.snob).toBe(2);
+    expect(v.units.knight ?? 0).toBeLessThanOrEqual(1);
+  });
+});

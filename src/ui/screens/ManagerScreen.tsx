@@ -14,6 +14,13 @@ import { UnitIcon } from '../units/UnitIcon';
 import { FLAG_NAMES, FLAG_TYPES, type FlagType } from '../../shared/flags';
 
 const TROOP_UNITS: UnitId[] = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'ram', 'catapult'];
+/** What a village can keep: every unit, the paladin (only one exists) and nobles (they need coins or packets) too. */
+const KEEP_UNITS: UnitId[] = [...TROOP_UNITS, 'knight', 'snob'];
+/** Units this world has (a world without paladins has no knight). */
+const worldUnits = (list: UnitId[]) => {
+  const on = snapshot.value?.village?.units.filter((u) => u.enabled).map((u) => u.id);
+  return on ? list.filter((u) => on.includes(u)) : list;
+};
 
 /** Account manager: a village builds along a template and keeps a troop target by itself. */
 export function ManagerScreen() {
@@ -43,7 +50,7 @@ export function ManagerScreen() {
   }, [key]);
 
   if (!s || !v) return null;
-  const units = v.units.filter((u) => u.enabled && TROOP_UNITS.includes(u.id));
+  const units = v.units.filter((u) => u.enabled && KEEP_UNITS.includes(u.id));
   const churchesOn = v.buildings.some((b) => b.id === 'church');
   const levelsOn = v.units.some((u) => u.tech);
   const flagsOn = !!s.flags;
@@ -51,7 +58,7 @@ export function ManagerScreen() {
 
   const manager = () => {
     const t: UnitCounts = {};
-    for (const u of TROOP_UNITS) {
+    for (const u of KEEP_UNITS) {
       const n = Math.floor(Number(troops[u] ?? 0));
       if (n > 0) t[u] = n;
     }
@@ -421,7 +428,7 @@ function TroopTemplates({ templates, use }: { templates: TroopTemplate[]; use: R
   const [editing, setEditing] = useState<{ id: string; name: string; troops: Partial<Record<UnitId, string>> } | null>(null);
   const [io, setIo] = useState<{ mode: 'import' } | { mode: 'export'; text: string } | null>(null);
   const summary = (t: UnitCounts) =>
-    TROOP_UNITS.filter((u) => (t[u] ?? 0) > 0)
+    KEEP_UNITS.filter((u) => (t[u] ?? 0) > 0)
       .map((u) => `${num(t[u]!)} ${UNIT_SHORT[u]}`)
       .join(' · ');
   const edit = (t: TroopTemplate) => setEditing({ id: t.id, name: t.name, troops: Object.fromEntries(Object.entries(t.troops).map(([u, n]) => [u, String(n)])) });
@@ -485,7 +492,7 @@ function TroopTemplates({ templates, use }: { templates: TroopTemplate[]; use: R
             <input type="text" maxLength={40} value={editing.name} onInput={(e) => setEditing({ ...editing, name: e.currentTarget.value })} />
           </label>
           <div class="template-units">
-            {TROOP_UNITS.map((u) => (
+            {worldUnits(KEEP_UNITS).map((u) => (
               <label key={u}>
                 <span class="unit-name">
                   <UnitIcon id={u} size={18} /> {UNIT_SHORT[u]}
@@ -505,7 +512,7 @@ function TroopTemplates({ templates, use }: { templates: TroopTemplate[]; use: R
               class="primary"
               onClick={() => {
                 const troops: UnitCounts = {};
-                for (const u of TROOP_UNITS) {
+                for (const u of KEEP_UNITS) {
                   const n = Math.floor(Number(editing.troops[u] ?? 0));
                   if (n > 0) troops[u] = n;
                 }
@@ -517,7 +524,7 @@ function TroopTemplates({ templates, use }: { templates: TroopTemplate[]; use: R
             </button>
             <Confirm label="Annuleren" sure="Wijzigingen weggooien?" onConfirm={() => setEditing(null)} />
           </div>
-          <p class="hint">Telt troepen thuis, onderweg en in opleiding, zoals de eigen aantallen per dorp.</p>
+          <p class="hint">Telt troepen thuis, onderweg en in opleiding, zoals de eigen aantallen per dorp. Er bestaat maar één paladijn: het eerste dorp dat er een wil krijgt hem. Edels komen er zolang je munten of pakketten het toelaten; sneuvelt er een bij een overname, dan maakt het dorp een nieuwe.</p>
         </div>
       )}
     </section>
