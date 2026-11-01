@@ -24,6 +24,19 @@ export const GROUPS: MenuGroup[] = [
   { id: 'opdrachten', label: 'Opdrachten', icon: 'quests', tabs: [{ screen: 'quests', label: 'Opdrachten' }] },
 ];
 
+/**
+ * On a phone: five places in the bottom bar. The village with its buildings as a tab, messages
+ * with the quests; the rest (farm, army, tribe, world, settings) behind "Meer".
+ */
+export const MOBILE_GROUPS: MenuGroup[] = [
+  { id: 'dorp', label: 'Dorp', icon: 'overview', tabs: [{ screen: 'overview', label: 'Overzicht' }, { screen: 'buildings', label: 'Gebouwen' }] },
+  GROUPS.find((g) => g.id === 'dorpen')!,
+  GROUPS.find((g) => g.id === 'kaart')!,
+  { id: 'berichten', label: 'Berichten', icon: 'mail', tabs: [{ screen: 'reports', label: 'Rapporten' }, { screen: 'inbox', label: 'Inbox' }, { screen: 'quests', label: 'Opdrachten' }] },
+];
+/** Behind "Meer" on a phone. */
+export const MORE_IDS = ['farm', 'leger', 'stam', 'wereld'] as const;
+
 export const SETTINGS: MenuGroup = {
   id: 'instellingen',
   label: 'Instellingen',
@@ -50,8 +63,8 @@ export function visibleTabs(g: MenuGroup, admin: boolean): MenuGroup['tabs'] {
 }
 
 /** The group a screen belongs to (buildings and the player profile have none). */
-export function groupOf(screen: Screen): MenuGroup | undefined {
-  return [...GROUPS, SETTINGS].find((g) => g.tabs.some((t) => t.screen === screen));
+export function groupOf(screen: Screen, mobile = false): MenuGroup | undefined {
+  return [...(mobile ? MOBILE_GROUPS : []), ...GROUPS, SETTINGS].find((g) => g.tabs.some((t) => t.screen === screen));
 }
 
 export function isMenuBuilding(screen: Screen): boolean {

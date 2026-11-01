@@ -1,3 +1,6 @@
+import { BuildingsScreen } from './screens/BuildingsScreen';
+import { MobileNav, MobileSheets, MobileStatus, MobileTopBar } from './components/MobileShell';
+import { isMobile } from './mobile';
 import { PerfMeter } from './components/PerfMeter';
 import { PlayerScreen } from './screens/PlayerScreen';
 import { SupportScreen } from './screens/SupportScreen';
@@ -101,6 +104,8 @@ function CurrentScreen() {
       return <SettingsScreen />;
     case 'admin':
       return <AdminScreen />;
+    case 'buildings':
+      return <BuildingsScreen />;
     case 'sound':
       return <SoundScreen />;
     case 'rules':
@@ -130,9 +135,11 @@ export function App() {
     );
   }
 
+  const mobile = isMobile.value;
   return (
     <>
-      {hasWorld && <TopBar />}
+      {hasWorld && (mobile ? <MobileTopBar /> : <TopBar />)}
+      {hasWorld && mobile && <MobileStatus />}
       <PerfMeter />
       {/* overlays: they float over the page so nothing below them moves */}
       <div class="overlays">
@@ -144,7 +151,18 @@ export function App() {
         {n && <div class={`notice ${n.level}`}>{n.text}</div>}
       </div>
       <AccountModal />
-      {hasWorld ? (
+      {hasWorld && mobile ? (
+        <div class="layout m-layout">
+          <main class="content">
+            <ScreenTabs />
+            <CurrentScreen />
+          </main>
+          <EndgameModal />
+          <ReportPopup />
+          <MobileSheets />
+          <MobileNav />
+        </div>
+      ) : hasWorld ? (
         <div class="layout">
           <Nav />
           <main class="content">

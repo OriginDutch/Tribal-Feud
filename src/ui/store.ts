@@ -11,7 +11,7 @@ import type { Report } from '../sim/movement';
 import type { LogEntry } from '../sim/state';
 import type { SaveMeta } from '../sim/save';
 
-export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'support' | 'player' | 'debug' | 'building' | 'relations' | 'stats' | 'simulator' | 'scavenge' | 'news' | 'settings' | 'rules' | 'sound' | 'admin';
+export type Screen = 'overview' | 'villages' | 'manager' | 'main' | RecruitBuilding | 'smith' | 'map' | 'place' | 'market' | 'farm' | 'reports' | 'quests' | 'ranking' | 'tribes' | 'inbox' | 'support' | 'player' | 'debug' | 'building' | 'relations' | 'stats' | 'simulator' | 'scavenge' | 'news' | 'settings' | 'rules' | 'sound' | 'admin' | 'buildings';
 
 export const snapshot = signal<Snapshot | null>(null);
 export const saves = signal<SaveMeta[]>([]);
@@ -21,7 +21,7 @@ export const cloudWorlds = signal<import('../cloud/sync').CloudWorld[]>([]);
 /** Set when an event auto-paused the game; cleared when the player resumes. */
 export const autoPause = signal<LogEntry | null>(null);
 export const notice = signal<{ text: string; level: 'info' | 'error' } | null>(null);
-const SCREENS = ['overview', 'villages', 'manager', 'main', 'barracks', 'stable', 'garage', 'statue', 'snob', 'smith', 'map', 'place', 'market', 'farm', 'reports', 'quests', 'ranking', 'tribes', 'inbox', 'support', 'player', 'debug', 'building', 'relations', 'stats', 'simulator', 'scavenge', 'news', 'settings', 'rules', 'sound', 'admin'] as const satisfies readonly Screen[];
+const SCREENS = ['overview', 'villages', 'manager', 'main', 'barracks', 'stable', 'garage', 'statue', 'snob', 'smith', 'map', 'place', 'market', 'farm', 'reports', 'quests', 'ranking', 'tribes', 'inbox', 'support', 'player', 'debug', 'building', 'relations', 'stats', 'simulator', 'scavenge', 'news', 'settings', 'rules', 'sound', 'admin', 'buildings'] as const satisfies readonly Screen[];
 export const screen = signal<Screen>(screenFromHash() ?? 'overview');
 function screenFromHash(): Screen | null {
   const h = typeof location !== 'undefined' ? decodeURIComponent(location.hash.slice(1)) : '';

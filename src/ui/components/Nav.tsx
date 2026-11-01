@@ -5,17 +5,18 @@ import { GROUPS, MENU_BUILDINGS, SETTINGS, groupOf, isMenuBuilding, visibleTabs,
 import { account } from '../../cloud/auth';
 import { newAccounts } from '../../cloud/admin';
 import { buildingsMenuOpen, keyHint } from '../keys';
+import { isMobile } from '../mobile';
 
 type Badge = { n: number; kind: 'danger' | 'good' | 'plain' } | null;
 
 /** Badges per screen; a group shows the sum of its tabs (danger wins over good). */
-function screenBadge(sc: Screen): Badge {
+export function screenBadge(sc: Screen): Badge {
   const s = snapshot.value!;
   switch (sc) {
     case 'reports': return s.unreadReports > 0 ? { n: s.unreadReports, kind: 'danger' } : null;
     case 'inbox': return s.inboxOpen > 0 || s.inboxUnread > 0 ? { n: s.inboxOpen || s.inboxUnread, kind: s.inboxOpen ? 'good' : 'danger' } : null;
     case 'overview': return s.incoming.length > 0 ? { n: s.incoming.length, kind: 'danger' } : null;
-    case 'quests': return s.quests.rewards.length > 0 ? { n: s.quests.rewards.length, kind: 'good' } : null;
+    case 'quests': return !s.autoRewards && s.quests.rewards.length > 0 ? { n: s.quests.rewards.length, kind: 'good' } : null;
     case 'admin': return account.value?.admin && newAccounts.value > 0 ? { n: newAccounts.value, kind: 'danger' } : null;
     default: return null;
   }
@@ -115,7 +116,7 @@ export function Nav() {
 
 /** Tabs above a screen whose group has more than one. */
 export function ScreenTabs() {
-  const g = groupOf(screen.value);
+  const g = groupOf(screen.value, isMobile.value);
   const tabs = g ? visibleTabs(g, account.value?.admin ?? false) : [];
   if (!g || tabs.length < 2 || !snapshot.value) return null;
   return (
