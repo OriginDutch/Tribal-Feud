@@ -174,6 +174,12 @@ function redrawEarned(state: WorldState, p: Player): void {
   }
 }
 
+/** Right after loading: saves from before the drop table get their flags re-drawn at once. */
+export function redrawOnLoad(state: WorldState): void {
+  if (!state.config.flags) return;
+  for (const p of state.players) if (p.flags && p.flags.drops !== DROPS_VERSION) redrawEarned(state, p);
+}
+
 /**
  * Merges what can be merged, low levels first, but keeps at least as many flags as you have
  * villages (each merge costs two), so every village can still hang one. `only`: one kind.

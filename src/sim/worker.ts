@@ -82,7 +82,7 @@ import { fight } from './combat';
 import { endgameRules } from './endgame';
 import { liveTribes } from './worldStats';
 import { hasFaith } from './church';
-import { FLAG_TYPES, freeFlags, mergeAll, setFlag, upgradeFlag, type FlagType } from './flags';
+import { FLAG_TYPES, freeFlags, mergeAll, redrawOnLoad, setFlag, upgradeFlag, type FlagType } from './flags';
 import { ITEMS, ITEM_IDS, equipItem, type ItemId } from './paladin';
 import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
 import { farmAll, farmNotifies, markFarm, planFarmAll, type FarmAllOptions } from './farmAll';
@@ -927,6 +927,7 @@ async function handle(cmd: Command): Promise<void> {
         if (!(await getSave(keep))) await putSave(keep, data);
       }
       state = fromSaveData(data);
+      redrawOnLoad(state);
       runningSinceBackup = 0;
       // always resume paused, so nothing happens before the player looks
       state.paused = true;
