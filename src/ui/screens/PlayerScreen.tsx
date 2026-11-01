@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { FaceIcon } from '../components/FaceIcon';
 import { VillageHistory } from '../components/VillageHistory';
 import { Coords } from '../components/Coords';
 import { formatGameTime } from '../../shared/time';
@@ -27,6 +28,7 @@ export function PlayerScreen() {
   return (
     <div class="screen narrow">
       <div class="row player-head">
+        <FaceIcon face={p.face} size={72} class="face-big" />
         <h2 style={{ margin: 0, flex: 1 }}>
           {p.name}
           {p.tribe && (

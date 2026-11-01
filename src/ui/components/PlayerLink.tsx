@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { FaceIcon } from './FaceIcon';
 import { mapData, openPlayer, ranking, send, tribes } from '../store';
 import { num } from '../format';
 
@@ -60,6 +61,7 @@ function PlayerCard({ id, name, x, y }: { id: number; name: string; x: number; y
   const top = y + 140 > window.innerHeight ? y - 160 : y;
   return (
     <div class="player-card" style={{ left: `${left}px`, top: `${top}px` }} role="tooltip">
+      <FaceIcon face={row?.face} size={56} class="face-card" />
       <strong>
         {mark && <i class="hc-dot" style={{ background: mark }} />} {name}
         {tribe && <span class="tribe-tag" style={{ '--tc': tribe.color }}> [{tribe.tag}]</span>}

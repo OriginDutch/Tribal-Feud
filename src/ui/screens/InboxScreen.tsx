@@ -1,4 +1,5 @@
 import { PlayerLink } from '../components/PlayerLink';
+import { FaceIcon } from '../components/FaceIcon';
 import { useEffect } from 'preact/hooks';
 import type { InboxView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
@@ -37,6 +38,7 @@ export function InboxScreen() {
   const row = (m: InboxView) => (
     <li key={m.id} class={`inbox-item kind-${m.kind} ${m.read ? '' : 'unread'} ${m.status ?? ''}`}>
       <div class="inbox-head">
+        <FaceIcon face={m.fromFace} size={36} />
         <span class={`inbox-kind kind-${m.kind}`}>{KIND[m.kind]}</span>
         <strong class="inbox-title">{m.title}</strong>
         {m.from >= 0 && <PlayerLink id={m.from} name={m.fromName} />}

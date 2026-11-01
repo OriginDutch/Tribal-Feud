@@ -7,6 +7,7 @@ import type { ConfigOverrides, PresetId } from './config';
 import type { Speed } from './time';
 import type { AlertMode, LogEntry } from '../sim/state';
 import type { BotRequest } from '../sim/state';
+import type { Face } from './faces';
 import type { VillageGroup } from '../sim/groups';
 import type { BuildTemplate, NobleTemplate, TroopTemplate, VillageManager } from '../sim/manager';
 import type { SaveMeta } from '../sim/save';
@@ -314,6 +315,8 @@ export interface InboxView {
   kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty' | 'talks';
   from: number;
   fromName: string;
+  /** The sender's portrait (a bot). */
+  fromFace?: Face;
   request?: BotRequest;
   title: string;
   text: string;
@@ -364,6 +367,7 @@ export interface PlayerView {
   id: number;
   name: string;
   isBot: boolean;
+  face?: Face;
   rank: number;
   points: number;
   tribe?: { id: number; tag: string; name: string; color: string };
@@ -678,6 +682,8 @@ export interface RankingRow {
   villages: number;
   isBot: boolean;
   tribe?: number;
+  /** A bot's portrait. */
+  face?: Face;
   /** Debug info, only for bots. */
   archetype?: string;
   activity?: number;

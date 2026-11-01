@@ -7,6 +7,7 @@ import { Confirm } from '../components/Confirm';
 import { TalksPanel } from '../components/TalksPanel';
 import { Coords } from '../components/Coords';
 import { OrderPanel } from '../components/OrderPanel';
+import { FaceIcon } from '../components/FaceIcon';
 import { MapLink } from '../components/MapLink';
 import { duration, num } from '../format';
 import { inviteCandidates, mapData, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes, warAsk, friction } from '../store';
@@ -482,7 +483,7 @@ export function TribesScreen() {
                         <tr key={p.id} class={p.isBot ? '' : 'me'}>
                           <td class="ellipsis">
                             {p.id === open.leader && <span title="Leider">♛ </span>}
-                            <PlayerLink id={p.id} name={p.name} strong={!p.isBot} />
+                            <FaceIcon face={p.face} size={24} /> <PlayerLink id={p.id} name={p.name} strong={!p.isBot} />
                             <MapLink owner={p.id} />
                           </td>
                           <td class="right mono">{num(p.points)}</td>

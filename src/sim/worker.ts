@@ -5,6 +5,7 @@
 import { autoFarmInterval, setAutoFarm } from './farmAll';
 import { isFarmLetter } from '../shared/farmTemplates';
 import { humanOpSent, setFront, warFrontView } from './warOps';
+import { faceOf } from './faces';
 import { deleteGroup, saveGroup, setGroup } from './groups';
 import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderView, scoutOrderViews } from './tribeOrders';
 import { grudge, grudgeHalfLife } from './botReact';
@@ -353,6 +354,8 @@ function sendRanking(s: WorldState): void {
       isBot: p.isBot,
     };
     if (p.tribe !== undefined) row.tribe = p.tribe;
+    const face = faceOf(s, p.id);
+    if (face) row.face = face;
     if (p.bot) {
       row.archetype = ARCHETYPE_NAMES[p.bot.archetype];
       row.activity = p.bot.activity;
@@ -601,6 +604,7 @@ function inboxViews(s: WorldState): InboxView[] {
   return [...(s.inbox ?? [])].reverse().map((m) => ({
     id: m.id, time: m.time, kind: m.kind, from: m.from, fromName: m.from >= 0 ? (s.players[m.from]?.name ?? '?') : 'Wereld',
     title: m.title, text: m.text, read: m.read,
+    ...((() => { const f = m.from >= 0 ? faceOf(s, m.from) : null; return f ? { fromFace: f } : {}; })()),
     ...(m.tribe !== undefined ? { tribe: m.tribe } : {}),
     ...(m.request ? { request: m.request } : {}),
     ...(m.status ? { status: m.status } : {}),
@@ -645,6 +649,7 @@ function playerView(s: WorldState, id: number): PlayerView | null {
   const incoming = Object.values(s.movements).filter((m) => m.kind === 'attack' && m.owner === id && s.villages[m.to]?.owner === HUMAN_ID).length;
   return {
     id, name: p.name, isBot: p.isBot, rank, points, villages,
+    ...((() => { const f = faceOf(s, id); return f ? { face: f } : {}; })()),
     centre: w ? { x: Math.round(cx / w), y: Math.round(cy / w) } : null,
     ...(t ? { tribe: { id: t.id, tag: t.tag, name: t.name, color: t.color } } : {}),
     history, incoming,

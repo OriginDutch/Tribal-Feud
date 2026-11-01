@@ -1,4 +1,5 @@
 import { PlayerLink } from '../components/PlayerLink';
+import { FaceIcon } from '../components/FaceIcon';
 import { useSaved } from '../useSaved';
 import { useEffect, useState } from 'preact/hooks';
 import { MapLink } from '../components/MapLink';
@@ -55,7 +56,7 @@ export function RankingScreen() {
               <tr key={r.id} class={r.isBot ? '' : 'me'}>
                 <td class="right mono">{i + 1}</td>
                 <td class="ellipsis">
-                  <PlayerLink id={r.id} name={r.name} strong={!r.isBot} />
+                  <FaceIcon face={r.face} size={24} /> <PlayerLink id={r.id} name={r.name} strong={!r.isBot} />
                   {r.villages > 0 && <MapLink owner={r.id} />}
                 </td>
                 <td>
