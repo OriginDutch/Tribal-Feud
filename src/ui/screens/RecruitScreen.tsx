@@ -31,7 +31,7 @@ function UnitCard({ villageId, u, have }: { villageId: number; u: UnitView; have
     }
   };
   return (
-    <div class={`unit-card${u.recruit.blocker ? ' blocked' : ''}`}>
+    <div class={`unit-card${u.recruit.blocker ? (u.recruit.locked ? ' blocked' : ' limit') : ''}`}>
       <div class="uc-portrait">
         <img src={`/units/${u.id}.webp`} alt="" loading="lazy" width={480} height={480} style={{ objectPosition: `50% ${PORTRAIT_FOCUS[u.id] ?? 5}%` }} />
       </div>

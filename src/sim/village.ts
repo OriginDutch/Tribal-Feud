@@ -594,6 +594,16 @@ export function maxRecruitable(state: WorldState, v: Village, u: UnitId): number
 }
 
 /** Why `u` can't be recruited at all right now (ignores amount), or null. */
+/**
+ * Not available yet: off on this world, no (working) building, or not researched. Unlike a
+ * limit you already reached (one paladin, coins for the next nobleman): the unit is there, you
+ * just can't add more right now.
+ */
+export function recruitLocked(state: WorldState, v: Village, u: UnitId): boolean {
+  const { config } = state;
+  return !isUnitEnabled(config, u) || !isOperational(config, v, config.units[u].building) || !v.researched.includes(u);
+}
+
 export function recruitBlocker(state: WorldState, v: Village, u: UnitId): string | null {
   const { config } = state;
   const def = config.units[u];

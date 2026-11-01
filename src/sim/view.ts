@@ -34,6 +34,7 @@ import {
   popUsed,
   productionRates,
   recruitBlocker,
+  recruitLocked,
   researchBlocker,
   maxTech,
   researchCost,
@@ -81,7 +82,8 @@ export interface UnitView {
   research: { cost: Res; requires: string[]; time: number; blocker: string | null } | null;
   /** Research levels worlds: current level, max, strength multiplier, and the next level. */
   tech?: { level: number; max: number; multiplier: number; next: { level: number; cost: Res; time: number; blocker: string | null } | null };
-  recruit: { perUnit: number; max: number; blocker: string | null };
+  /** locked: not available yet (building, research); a blocker without it is a limit reached. */
+  recruit: { perUnit: number; max: number; blocker: string | null; locked: boolean };
 }
 
 export interface RecruitJobView {
@@ -270,6 +272,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
         perUnit: recruitTimeMs(config, def, v.buildings[def.building]),
         max: recruitBlocker(state, v, u) ? 0 : maxRecruitable(state, v, u),
         blocker: recruitBlocker(state, v, u),
+        locked: recruitLocked(state, v, u),
       },
     };
   });
