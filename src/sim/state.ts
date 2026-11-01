@@ -14,7 +14,7 @@ import type { WorldConfig } from '../shared/config';
 import type { Speed } from '../shared/time';
 import { createQueue, type EventQueue } from './eventQueue';
 import { seedRng, type RngState } from './rng';
-import type { Res, UnitCounts } from '../shared/gameData';
+import type { Res, UnitCounts, UnitId } from '../shared/gameData';
 import type { Archetype } from '../shared/botProfiles';
 import { generateMap } from './map';
 import type { Movement, Report } from './movement';
@@ -38,7 +38,9 @@ export type GameEvent =
   | { kind: 'scavenge'; villageId: number }
   /** A member's part of a tribe's joint operation leaves now (warOps). */
   | { kind: 'opLaunch'; tribe: number; op: number; role: number }
-  | { kind: 'talks'; talks: number };
+  | { kind: 'talks'; talks: number }
+  /** One of your planned attacks leaves now (planned.ts). */
+  | { kind: 'planned'; id: number };
 
 export interface LogEntry {
   time: number;
@@ -255,6 +257,8 @@ export interface WorldState {
   treaties?: import('./peace').Treaty[];
   /** Peace talks underway (see talks), when talks between two tribes last ended ("a:b"), outlaws. */
   talks?: import('./talks').Talks[];
+  /** Your attacks set to leave by themselves, so they land at a chosen time (planned.ts). */
+  planned?: PlannedAttack[];
   talksEnded?: Record<string, number>;
   outlaws?: Record<number, import('./talks').Outlaw>;
   /** Resources the losers of peace talks still have to pay (see reparations). */
@@ -554,4 +558,31 @@ export function removeMovement(state: WorldState, id: number): void {
 export function invalidateOwners(state: WorldState): void {
   ownerIndex.delete(state);
   humanVillageCache.delete(state);
+}
+
+/**
+ * An attack of yours set to leave by itself at `sendAt`, so it lands at `landAt`. One wave is a
+ * plain attack; 2..5 waves are a noble train (each wave as it goes, nobles included). The troops
+ * stay home and defend, but nothing else may use them (see reservedUnits).
+ */
+export interface PlannedAttack {
+  id: number;
+  from: number;
+  to: number;
+  waves: UnitCounts[];
+  clearFirst?: boolean;
+  catapultTarget?: import('../shared/gameData').BuildingId;
+  landAt: number;
+  sendAt: number;
+}
+
+/** Troops held back in a village for planned attacks (none for anyone but you). */
+export function reservedUnits(state: WorldState, villageId: number): UnitCounts {
+  const out: UnitCounts = {};
+  if (!state.planned?.length) return out;
+  for (const p of state.planned) {
+    if (p.from !== villageId) continue;
+    for (const w of p.waves) for (const [u, n] of Object.entries(w) as [UnitId, number][]) out[u] = (out[u] ?? 0) + n;
+  }
+  return out;
 }

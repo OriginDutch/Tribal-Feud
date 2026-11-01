@@ -116,7 +116,8 @@ export const scavView = signal<ScavView | null>(null);
 export const farmAllPlan = signal<FarmAllView | null>(null);
 export const surplusPlan = signal<{ rows: SurplusRow[]; keep: number } | null>(null);
 /** Target picked on the map, prefilled in the rally point. */
-export const placeTarget = signal<{ x: number; y: number } | null>(null);
+/** A target for the rally point, and a landing time to plan for (from an order). */
+export const placeTarget = signal<{ x: number; y: number; landAt?: number } | null>(null);
 /** Map style: drawn villages, or the classic flat squares. Remembered per browser. */
 export const mapStyle = signal<'sprites' | 'flat'>(
   (() => {
@@ -304,8 +305,8 @@ export function togglePause(): void {
 }
 
 /** Opens the rally point with a target filled in. */
-export function attackVillage(x: number, y: number): void {
-  placeTarget.value = { x, y };
+export function attackVillage(x: number, y: number, landAt?: number): void {
+  placeTarget.value = landAt !== undefined ? { x, y, landAt } : { x, y };
   screen.value = 'place';
 }
 

@@ -37,6 +37,10 @@ export function PlaceScreen() {
   const [saveName, setSaveName] = useState<string | null>(null);
   /** The noble train template in use (to update or delete it). */
   const [trainTpl, setTrainTpl] = useState('');
+  /** Planning: land at a chosen time (day and clock), the attack leaves by itself. */
+  const [planOn, setPlanOn] = useState(false);
+  const [landDay, setLandDay] = useState('');
+  const [landClock, setLandClock] = useState('');
 
   // villages by coordinate, to resolve the target
   useEffect(() => {
@@ -49,14 +53,25 @@ export function PlaceScreen() {
     if (t) {
       setX(String(t.x));
       setY(String(t.y));
+      if (t.landAt !== undefined) setLanding(t.landAt);
       placeTarget.value = null;
     }
   }, [placeTarget.value]);
+
+  function setLanding(at: number) {
+    const sec = Math.floor(at / 1000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setLandDay(String(Math.floor(sec / 86400) + 1));
+    setLandClock(`${pad(Math.floor((sec % 86400) / 3600))}:${pad(Math.floor((sec % 3600) / 60))}:${pad(sec % 60)}`);
+    setPlanOn(true);
+  }
 
   if (!s || !v) return null;
   const place = v.buildings.find((b) => b.id === 'place');
   const target = mapData.value?.villages.find((m) => m.x === Number(x) && m.y === Number(y));
   const units = v.units.filter((u) => u.enabled);
+  /** Home and not held for a planned attack. */
+  const freeOf = (u: { home: number; reserved?: number }) => Math.max(0, u.home - (u.reserved ?? 0));
 
   const chosen: UnitCounts = {};
   for (const u of UNIT_IDS) {
@@ -68,7 +83,7 @@ export function PlaceScreen() {
   const eta = target && hasUnits ? travelMs(chosen, v.units, dist, s.marchFactor) : 0;
 
   // --- noble train ---------------------------------------------------------------------
-  const homeOf = (u: UnitId) => v.units.find((x) => x.id === u)?.home ?? 0;
+  const homeOf = (u: UnitId) => { const x = v.units.find((y) => y.id === u); return x ? freeOf(x) : 0; };
   const attackOf = (u: UnitId) => v.units.find((x) => x.id === u)?.stats.attack ?? 0;
   /** Suggested escort per extra nobleman: enough attack to break a wall (like the bots), from what is left. */
   const suggest = (size: number): Partial<Record<UnitId, string>>[] => {
@@ -179,7 +194,7 @@ export function PlaceScreen() {
         <section class="panel">
           <h3>Troepen sturen</h3>
           <div class="send-actions">
-            <button class="small" onClick={() => setCounts(Object.fromEntries(units.filter((u) => u.home > 0).map((u) => [u.id, String(u.home)])))}>
+            <button class="small" onClick={() => setCounts(Object.fromEntries(units.filter((u) => freeOf(u) > 0).map((u) => [u.id, String(freeOf(u))])))}>
               Alles selecteren
             </button>
             <button class="small" onClick={() => setCounts({})}>
@@ -191,14 +206,14 @@ export function PlaceScreen() {
               <label key={u.id} class="send-unit">
                 <span class="unit-name">
                   <UnitIcon id={u.id} size={20} /> <span class="nm" title={u.name}>{u.name}</span>
-                  <button class="link" onClick={() => setCounts({ ...counts, [u.id]: String(u.home) })}>
-                    ({num(u.home)})
+                  <button class="link" onClick={() => setCounts({ ...counts, [u.id]: String(freeOf(u)) })} title={u.reserved ? `${num(u.reserved)} staan klaar voor een ingeplande aanval` : undefined}>
+                    ({num(freeOf(u))}{u.reserved ? <span class="reserved"> +{num(u.reserved)}⏱</span> : null})
                   </button>
                 </span>
                 <input
                   type="number"
                   min={0}
-                  max={u.home}
+                  max={freeOf(u)}
                   value={counts[u.id] ?? ''}
                   placeholder="0"
                   onInput={(e) => setCounts({ ...counts, [u.id]: e.currentTarget.value })}
@@ -255,6 +270,33 @@ export function PlaceScreen() {
               Ondersteunen
             </button>
           </div>
+          {target && !ownTarget && target.id !== v.id && (
+            <PlanRow
+              on={planOn}
+              setOn={(on) => {
+                if (on && !landDay) {
+                  // the leader's landing time for this target, else a little after the soonest
+                  const o = [s.leaderOrder].find((x) => x?.landAt !== undefined && x.target.id === target.id);
+                  setLanding(o?.landAt ?? Math.ceil((s.time + (trainSize > 1 ? trainEta : eta) + 10 * 60_000) / 60_000) * 60_000);
+                } else setPlanOn(on);
+              }}
+              day={landDay}
+              clock={landClock}
+              setDay={setLandDay}
+              setClock={setLandClock}
+              walk={trainSize > 1 ? trainEta : eta}
+              ready={trainSize > 1 ? trainBlocker === null : hasUnits}
+              train={trainSize > 1}
+              onPlan={(landAt) => {
+                send(trainSize > 1
+                  ? { type: 'planAttack', from: v.id, to: target.id, first, escorts: escortCounts, landAt, ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}), ...(clearFirst ? { clearFirst: true } : {}) }
+                  : { type: 'planAttack', from: v.id, to: target.id, first: chosen, landAt, ...((chosen.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}) });
+                setCounts({});
+                setTrainSize(0);
+                setEscorts([]);
+              }}
+            />
+          )}
           <div class="row">
             <button class="small" onClick={() => openSupport(v.id)}>
               Support naar dit dorp plannen
@@ -410,6 +452,7 @@ export function PlaceScreen() {
         </section>
       )}
 
+      <Planned />
       <Movements />
 
       <section class="panel">
@@ -469,6 +512,104 @@ export function PlaceScreen() {
         )}
       </section>
     </div>
+  );
+}
+
+/** Parses day + "HH:MM(:SS)" into game time, or null. */
+function parseLanding(day: string, clock: string): number | null {
+  const d = Math.floor(Number(day));
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(clock.trim());
+  if (!(d >= 1) || !m) return null;
+  const [h, mi, se] = [Number(m[1]), Number(m[2]), Number(m[3] ?? 0)];
+  if (h > 23 || mi > 59 || se > 59) return null;
+  return (d - 1) * 86_400_000 + ((h * 60 + mi) * 60 + se) * 1000;
+}
+
+/** "Laten landen om…": pick a landing time; the attack (or train) above leaves by itself. */
+function PlanRow(p: {
+  on: boolean; setOn: (on: boolean) => void; day: string; clock: string; setDay: (d: string) => void; setClock: (c: string) => void;
+  walk: number; ready: boolean; train: boolean; onPlan: (landAt: number) => void;
+}) {
+  const s = snapshot.value!;
+  if (!p.on) {
+    return (
+      <div class="row">
+        <button class="small" onClick={() => p.setOn(true)} title="Kies wanneer hij moet landen; het spel stuurt hem zelf op het juiste moment, de troepen blijven tot dan thuis.">
+          ⏱ Laten landen om…
+        </button>
+      </div>
+    );
+  }
+  const landAt = parseLanding(p.day, p.clock);
+  const leave = landAt !== null && p.walk > 0 ? landAt - p.walk : null;
+  const late = leave !== null && leave < s.time;
+  const order = s.leaderOrder?.landAt;
+  return (
+    <div class="plan-row">
+      <div class="row wrap">
+        <strong>⏱ Laten landen om</strong>
+        <label class="inline">Dag <input type="number" min={1} style={{ width: '64px' }} value={p.day} onInput={(e) => p.setDay(e.currentTarget.value)} /></label>
+        <input class="mono" style={{ width: '96px' }} placeholder="14:32:00" value={p.clock} onInput={(e) => p.setClock(e.currentTarget.value)} />
+        {order !== undefined && (
+          <button class="small" onClick={() => { const sec = Math.floor(order / 1000); p.setDay(String(Math.floor(sec / 86400) + 1)); p.setClock(formatGameTime(order).split(' · ')[1]!); }}>
+            Zoals de opdracht
+          </button>
+        )}
+        <button class="primary" disabled={!p.ready || landAt === null || leave === null || late} onClick={() => landAt !== null && p.onPlan(landAt)}>
+          {p.train ? 'Edeltrein inplannen' : 'Inplannen'}
+        </button>
+        <button class="small" onClick={() => p.setOn(false)}>✕</button>
+      </div>
+      <p class={late ? 'warn' : 'muted'}>
+        {landAt === null
+          ? 'Vul een dag en tijd in (uu:mm of uu:mm:ss).'
+          : !p.ready || p.walk <= 0
+            ? 'Kies eerst de troepen hierboven.'
+            : late
+              ? `Te laat: zo landt hij op z'n vroegst om ${formatGameTime(s.time + p.walk)}.`
+              : `Vertrekt vanzelf om ${formatGameTime(leave!)} (over ${duration(leave! - s.time)}). Tot dan blijven de troepen thuis en verdedigen ze mee, maar farmen, rooftochten en andere aanvallen laten ze met rust. Sneuvelt er iets, dan gaat hij met wat er is.`}
+      </p>
+    </div>
+  );
+}
+
+/** Your planned attacks (all villages): when they leave and land, with a way to call them off. */
+function Planned() {
+  const s = snapshot.value!;
+  const list = s.planned ?? [];
+  if (!list.length) return null;
+  return (
+    <section class="panel">
+      <h3>Ingepland <span class="muted">{list.length}</span></h3>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Aanval</th>
+            <th>Troepen</th>
+            <th>Vertrekt</th>
+            <th>Landt</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((p) => (
+            <tr key={p.id} class={p.from.id === s.village?.id ? '' : 'muted-row'}>
+              <td>
+                <span class="tag-attack">{p.waves > 1 ? `Edeltrein ${p.waves}` : 'Aanval'}</span> {p.from.name} → {p.to.name} <Coords x={p.to.x} y={p.to.y} />
+                <Owner o={p.to} />
+                {p.short && <span class="warn" title="Niet alles staat nu thuis; hij gaat met wat er op het vertrekmoment is."> · niet alles thuis</span>}
+              </td>
+              <td class="muted">{unitsText(p.units)}</td>
+              <td class="mono">{formatGameTime(p.sendAt)} <span class="muted">({duration(p.sendAt - s.time)})</span></td>
+              <td class="mono muted">{formatGameTime(p.landAt)}</td>
+              <td class="right">
+                <Confirm label="Annuleren" sure="Deze ingeplande aanval annuleren?" cls="warn" onConfirm={() => send({ type: 'cancelPlanned', id: p.id })} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   );
 }
 

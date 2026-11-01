@@ -17,7 +17,7 @@ import { fight, morale } from './combat';
 import { push } from './eventQueue';
 import { hidingCapacity, storageCapacity } from './formulas';
 import { nextFloat, nextInt } from './rng';
-import { BARBARIAN, HUMAN_ID, addLog, addMovement, invalidateOwners, moveOwner, nextId, removeMovement, villagesOf, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, addLog, addMovement, invalidateOwners, moveOwner, nextId, removeMovement, reservedUnits, villagesOf, type WorldState } from './state';
 import { onHumanVillageLost, onIncomingAttack } from './alerts';
 import { DAY, formatGameTime } from '../shared/time';
 import { arriveTrade, arriveTradeReturn } from './market';
@@ -216,6 +216,52 @@ function cleanCounts(units: UnitCounts): UnitCounts {
   return out;
 }
 
+/**
+ * Whether a village has `units` home and free: troops held back for one of your planned attacks
+ * stay out of reach of everything else. Null when it does, else why not.
+ */
+export function shortOf(state: WorldState, from: Village, units: UnitCounts, what = 'in het dorp'): string | null {
+  const held = from.owner === HUMAN_ID ? reservedUnits(state, from.id) : {};
+  for (const u of UNIT_IDS) {
+    const want = units[u] ?? 0;
+    if (want <= 0) continue;
+    const r = held[u] ?? 0;
+    if (want > from.units[u] - r) {
+      const name = state.config.units[u].name.toLowerCase();
+      return r > 0 && want <= from.units[u] ? `Niet genoeg ${name} vrij: ${r} staan klaar voor een ingeplande aanval.` : `Niet genoeg ${name} ${what}.`;
+    }
+  }
+  return null;
+}
+
+/** What is home and free per unit (home minus what your planned attacks hold back). */
+export function freeUnits(state: WorldState, v: Village): Record<UnitId, number> {
+  const out = { ...v.units };
+  if (v.owner !== HUMAN_ID) return out;
+  for (const [u, n] of Object.entries(reservedUnits(state, v.id)) as [UnitId, number][]) out[u] = Math.max(0, out[u] - n);
+  return out;
+}
+
+/** Why this attack can't go (everything but whether the troops are home), or null. */
+export function attackBlocker(state: WorldState, from: Village, to: Village, units: UnitCounts, catapultTarget?: BuildingId, breach = false): string | null {
+  const { config } = state;
+  if (from.id === to.id) return 'Je kunt je eigen dorp niet aanvallen.';
+  if (to.owner === from.owner) return 'Je kunt je eigen dorpen niet aanvallen.';
+  if (!isOperational(config, from, 'place')) return 'Je hebt een werkende verzamelplaats nodig.';
+  if (Object.keys(units).length === 0) return 'Kies minstens één eenheid.';
+  if ((units.snob ?? 0) > 0 && distance(from, to) > config.conquest.maxDistance) {
+    return `Een edelman loopt maximaal ${config.conquest.maxDistance} velden.`;
+  }
+  const protectedMsg = protectionBlocker(state, from.owner, to.owner);
+  if (protectedMsg) return protectedMsg;
+  const talks = to.owner >= 0 && state.talks?.length ? talksBetween(state, from.owner, to.owner) : undefined;
+  if (talks && !breach) return 'Er lopen vredesbesprekingen met die stam: aanvallen betekent vogelvrij.';
+  if (to.owner >= 0 && !talks && !mayAttack(state, from.owner, to.owner) && !cededTo(state, from.owner, to.id)) return 'Dat is een stamgenoot, bondgenoot of NAP-partner.';
+  if (catapultTarget && !BUILDING_IDS.includes(catapultTarget)) return 'Ongeldig doelwit voor katapulten.';
+  if (catapultTarget === 'hide') return 'De schuilplaats kan niet beschoten worden.';
+  return null;
+}
+
 export function sendAttack(
   state: WorldState,
   fromId: number,
@@ -234,24 +280,12 @@ export function sendAttack(
   const from = state.villages[fromId];
   const to = state.villages[toId];
   if (!from || !to) return 'Dorp bestaat niet.';
-  if (from.id === to.id) return 'Je kunt je eigen dorp niet aanvallen.';
-  if (to.owner === from.owner) return 'Je kunt je eigen dorpen niet aanvallen.';
-  if (!isOperational(config, from, 'place')) return 'Je hebt een werkende verzamelplaats nodig.';
   const units = cleanCounts(requested);
-  if (Object.keys(units).length === 0) return 'Kies minstens één eenheid.';
-  if ((units.snob ?? 0) > 0 && distance(from, to) > config.conquest.maxDistance) {
-    return `Een edelman loopt maximaal ${config.conquest.maxDistance} velden.`;
-  }
-  const protectedMsg = protectionBlocker(state, from.owner, to.owner);
-  if (protectedMsg) return protectedMsg;
+  const blocked = attackBlocker(state, from, to, units, catapultTarget, breach);
+  if (blocked) return blocked;
+  const short = shortOf(state, from, units);
+  if (short) return short;
   const talks = to.owner >= 0 && state.talks?.length ? talksBetween(state, from.owner, to.owner) : undefined;
-  if (talks && !breach) return 'Er lopen vredesbesprekingen met die stam: aanvallen betekent vogelvrij.';
-  if (to.owner >= 0 && !talks && !mayAttack(state, from.owner, to.owner) && !cededTo(state, from.owner, to.id)) return 'Dat is een stamgenoot, bondgenoot of NAP-partner.';
-  for (const u of UNIT_IDS) {
-    if ((units[u] ?? 0) > from.units[u]) return `Niet genoeg ${config.units[u].name.toLowerCase()} in het dorp.`;
-  }
-  if (catapultTarget && !BUILDING_IDS.includes(catapultTarget)) return 'Ongeldig doelwit voor katapulten.';
-  if (catapultTarget === 'hide') return 'De schuilplaats kan niet beschoten worden.';
 
   for (const u of UNIT_IDS) {
     const n = units[u] ?? 0;
@@ -299,6 +333,8 @@ export function sendNobleTrain(
   clearFirst = false,
   /** Part of this joint operation of a tribe. */
   op?: number,
+  /** Walk at least this long (a planned train lands at its time). */
+  minDuration = 0,
 ): string | null {
   const from = state.villages[fromId];
   const to = state.villages[toId];
@@ -311,18 +347,20 @@ export function sendNobleTrain(
   const attacks: UnitCounts[] = [clearFirst ? firstWave : { ...firstWave, snob: 1 }, ...escorts.map((e) => ({ ...cleanCounts(e), snob: 1 }))];
   const total: UnitCounts = {};
   for (const a of attacks) for (const u of UNIT_IDS) if ((a[u] ?? 0) > 0) total[u] = (total[u] ?? 0) + (a[u] ?? 0);
+  const free = freeUnits(state, from);
   for (const u of UNIT_IDS) {
-    if ((total[u] ?? 0) > from.units[u]) {
-      return `Niet genoeg ${state.config.units[u].name.toLowerCase()} voor deze trein (${total[u]} nodig, ${from.units[u]} thuis).`;
+    if ((total[u] ?? 0) > free[u]) {
+      const held = from.units[u] - free[u];
+      return `Niet genoeg ${state.config.units[u].name.toLowerCase()} voor deze trein (${total[u]} nodig, ${free[u]} vrij${held ? `, ${held} klaar voor een ingeplande aanval` : ''}).`;
     }
   }
   // the first attack is checked like any attack (distance, protection, place); the rest follow
   const train = nextId(state);
   // a pure clear walks with the nobles, so it lands first, right before them
-  const pace = clearFirst ? Math.max(...attacks.slice(1).map((a) => travelTimeMs(state, a, distance(from, to)))) : 0;
+  const pace = Math.max(minDuration, clearFirst ? Math.max(...attacks.slice(1).map((a) => travelTimeMs(state, a, distance(from, to)))) : 0);
   const error = sendAttack(state, fromId, toId, attacks[0] ?? {}, catapultTarget, train, pace, op);
   if (error) return error;
-  for (const a of attacks.slice(1)) sendAttack(state, fromId, toId, a, undefined, train, 0, op);
+  for (const a of attacks.slice(1)) sendAttack(state, fromId, toId, a, undefined, train, minDuration, op);
   return null;
 }
 
@@ -821,9 +859,8 @@ export function sendSupport(state: WorldState, fromId: number, toId: number, req
   if (!isOperational(config, from, 'place')) return 'Je hebt een werkende verzamelplaats nodig.';
   const units = cleanCounts(requested);
   if (Object.keys(units).length === 0) return 'Kies minstens één eenheid.';
-  for (const u of UNIT_IDS) {
-    if ((units[u] ?? 0) > from.units[u]) return `Niet genoeg ${config.units[u].name.toLowerCase()} in het dorp.`;
-  }
+  const short = shortOf(state, from, units);
+  if (short) return short;
   for (const u of UNIT_IDS) {
     const n = units[u] ?? 0;
     from.units[u] -= n;

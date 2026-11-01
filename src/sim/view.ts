@@ -18,7 +18,7 @@ import {
   researchTimeMs,
   storageCapacity,
 } from './formulas';
-import type { WorldState } from './state';
+import { HUMAN_ID, reservedUnits, type WorldState } from './state';
 import { MERCHANTS } from './market';
 import { BONUS_FACTORS } from '../shared/barbarianTypes';
 import {
@@ -73,6 +73,8 @@ export interface UnitView {
   building: RecruitBuilding;
   enabled: boolean;
   home: number;
+  /** Of what is home: held for your planned attacks (not free to send). */
+  reserved: number;
   /** Away from home: on the move, scavenging or standing elsewhere as support (what's where). */
   away: { total: number; moving: number; scavenging: number; support: number };
   cost: Res;
@@ -225,6 +227,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
       if (units) for (const [u, n] of Object.entries(units) as [UnitId, number][]) supportAway[u] = (supportAway[u] ?? 0) + n;
     }
   }
+  const held = v.owner === HUMAN_ID ? reservedUnits(state, v.id) : {};
   const units: UnitView[] = UNIT_IDS.map((u) => {
     const def = config.units[u];
     const total = Math.max(0, v.outside[u]);
@@ -236,6 +239,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
       building: def.building,
       enabled: isUnitEnabled(config, u),
       home: v.units[u],
+      reserved: Math.min(v.units[u], held[u] ?? 0),
       away: { total, scavenging, support, moving: total - scavenging - support },
       cost: def.cost,
       pop: def.pop,

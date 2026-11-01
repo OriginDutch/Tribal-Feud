@@ -5,7 +5,7 @@
 import { UNIT_IDS, type UnitCounts } from '../shared/gameData';
 import type { FarmKey } from '../shared/farmTemplates';
 import { FARM_C_UNIT, estimateLoot } from './intel';
-import { distance, sendAttack } from './movement';
+import { distance, freeUnits, sendAttack } from './movement';
 import { push } from './eventQueue';
 import { BARBARIAN, HUMAN_ID, villagesOf, type WorldState } from './state';
 import { isOperational } from './village';
@@ -36,10 +36,11 @@ function fits(units: UnitCounts, pool: UnitCounts): boolean {
 
 export function planFarmAll(state: WorldState, opts: FarmAllOptions): FarmAllPlan {
   const own = villagesOf(state, HUMAN_ID).filter((v) => isOperational(state.config, v, 'place'));
-  const pools = new Map(own.map((v) => [v.id, { ...v.units } as UnitCounts]));
+  // troops held back for planned attacks are not there for farming
+  const pools = new Map(own.map((v) => [v.id, freeUnits(state, v) as UnitCounts]));
   const template = opts.template === '*' ? null : (state.farmTemplates[opts.template] ?? {});
   const hasTemplate = template && Object.values(template).some((n) => n && n > 0);
-  const able = own.filter((v) => (template ? hasTemplate && fits(template, v.units) : v.units[FARM_C_UNIT] > 0)).length;
+  const able = own.filter((v) => { const p = pools.get(v.id)!; return template ? hasTemplate && fits(template, p) : (p[FARM_C_UNIT] ?? 0) > 0; }).length;
 
   const busy = new Set<number>();
   for (const m of Object.values(state.movements)) if (m.owner === HUMAN_ID && m.kind === 'attack') busy.add(m.to);
@@ -47,7 +48,7 @@ export function planFarmAll(state: WorldState, opts: FarmAllOptions): FarmAllPla
   const skipped = { busy: 0, lost: 0, wall: 0, noScout: 0 };
   const pairs: { from: number; to: number; d: number }[] = [];
   const reach = opts.maxDistance ?? Infinity;
-  const canSend = own.filter((v) => (template ? hasTemplate && fits(template, v.units) : v.units[FARM_C_UNIT] > 0));
+  const canSend = own.filter((v) => { const p = pools.get(v.id)!; return template ? hasTemplate && fits(template, p) : (p[FARM_C_UNIT] ?? 0) > 0; });
   for (const t of Object.values(state.villages)) {
     if (t.owner !== BARBARIAN) continue;
     const local: { from: number; to: number; d: number }[] = [];

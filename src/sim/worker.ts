@@ -5,6 +5,7 @@
 import { autoFarmInterval, setAutoFarm } from './farmAll';
 import { isFarmLetter } from '../shared/farmTemplates';
 import { humanOpSent, setFront, warFrontView } from './warOps';
+import { cancelPlanned, planAttack, planOrder, plannedViews } from './planned';
 import { faceOf } from './faces';
 import { deleteGroup, saveGroup, setGroup } from './groups';
 import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderView, scoutOrderViews } from './tribeOrders';
@@ -312,6 +313,7 @@ function snapshot(): Snapshot | null {
     myTribeLeader: (() => { const t = state.players[HUMAN_ID]?.tribe; return t !== undefined && state.tribes?.[t]?.leader === HUMAN_ID; })(),
     leaderOrder: leaderOrderView(state),
     scoutOrders: scoutOrderViews(state),
+    planned: plannedViews(state),
     inboxUnread: (state.inbox ?? []).filter((m) => !m.read).length,
     inboxOpen: (state.inbox ?? []).filter((m) => m.status === 'open').length,
     tribePause: state.tribePause ?? { war: true, requests: true },
@@ -1054,6 +1056,24 @@ async function handle(cmd: Command): Promise<void> {
       const error = sendNobleTrain(state, cmd.from, cmd.to, cmd.first, cmd.escorts, cmd.catapultTarget, cmd.clearFirst ?? false);
       if (error) notice(error, 'error');
       else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); humanOpSent(state, cmd.to); }
+      break;
+    }
+    case 'planAttack': {
+      if (!state) return;
+      const error = planAttack(state, { from: cmd.from, to: cmd.to, first: cmd.first, ...(cmd.escorts?.length ? { escorts: cmd.escorts } : {}), ...(cmd.catapultTarget ? { catapultTarget: cmd.catapultTarget } : {}), ...(cmd.clearFirst ? { clearFirst: true } : {}), landAt: cmd.landAt });
+      notice(error ?? 'Aanval ingepland: hij vertrekt vanzelf.', error ? 'error' : 'info');
+      break;
+    }
+    case 'planOrder': {
+      if (!state) return;
+      const error = planOrder(state, cmd.from, cmd.to, cmd.landAt, !!cmd.spies);
+      notice(error ?? 'Ingepland: hij vertrekt vanzelf op tijd.', error ? 'error' : 'info');
+      break;
+    }
+    case 'cancelPlanned': {
+      if (!state) return;
+      const error = cancelPlanned(state, cmd.id);
+      if (error) notice(error, 'error');
       break;
     }
     case 'sendSupport': {

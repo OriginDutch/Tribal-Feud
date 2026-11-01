@@ -12,6 +12,7 @@ import { onBotTurn } from './bots';
 import { onManagerCheck } from './manager';
 import { settleScavenge } from './scavenge';
 import { onOpLaunch } from './warOps';
+import { onPlanned } from './planned';
 
 /**
  * Pure simulation core. No timers, no DOM, no worker APIs:
@@ -53,6 +54,11 @@ function touch(state: WorldState, event: GameEvent): void {
     case 'autoFarm':
       for (const v of villagesOf(state, HUMAN_ID)) settleRecruits(state, v, true);
       return;
+    case 'planned': {
+      const p = state.planned?.find((x) => x.id === event.id);
+      if (p) { at(p.from); at(p.to); }
+      return;
+    }
     case 'botTurn':
       // stale turn events (rescheduled since) look at nothing
       if (state.players[event.playerId]?.bot?.nextTurn !== state.time) return;
@@ -97,6 +103,9 @@ function handle(state: WorldState, event: GameEvent): LogEntry | null {
       return null;
     case 'autoFarm':
       onAutoFarm(state);
+      return null;
+    case 'planned':
+      onPlanned(state, event.id);
       return null;
     case 'test': {
       const entry: LogEntry = { time: state.time, text: `Test-event: ${event.label}` };

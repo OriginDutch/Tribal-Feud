@@ -15,7 +15,7 @@ import { UNIT_IDS, type Res, type UnitCounts, type UnitId } from '../shared/game
 import { DAY, HOUR, MINUTE, formatGameTime } from '../shared/time';
 import { villagesNear } from './bots';
 import { addMessage, alertHuman, pauses } from './humanTribe';
-import { distance, fieldsWithin, protectionBlocker, sendAttack, sendSupport, travelBudget, travelTimeMs } from './movement';
+import { distance, fieldsWithin, freeUnits, protectionBlocker, sendAttack, sendSupport, travelBudget, travelTimeMs } from './movement';
 import { MERCHANT_CARRY, merchantsFree, sendResources } from './market';
 import { nextFloat } from './rng';
 import { BARBARIAN, HUMAN_ID, addLog, movementIndex, nextId, villagesOf, type BotRequest, type BotState, type InboxMessage, type Player, type WorldState } from './state';
@@ -25,7 +25,7 @@ import { storageCapacity } from './formulas';
 import { currentResources, isOperational, type Village } from './village';
 
 const DEFENSE: UnitId[] = ['spear', 'sword', 'archer', 'heavy'];
-const OFFENSE: UnitId[] = ['axe', 'light', 'marcher', 'ram', 'catapult'];
+export const OFFENSE: UnitId[] = ['axe', 'light', 'marcher', 'ram', 'catapult'];
 /** How far (fields) mates go to help, or to carry out an attack order. */
 /**
  * How far mates go for each other, in marching time: 12 hours on a normal world (~32 fields for
@@ -239,8 +239,10 @@ function orderView(
   let best: LeaderOrderView['best'];
   if (order === 'attack') {
     for (const h of villagesOf(state, HUMAN_ID)) {
+      // what is free: troops held for a planned attack are spoken for
+      const free = freeUnits(state, h);
       const army: UnitCounts = {};
-      for (const u of OFFENSE) if (h.units[u] > 0) army[u] = h.units[u];
+      for (const u of OFFENSE) if (free[u] > 0) army[u] = free[u];
       const attack = orderAttack(state, army);
       if (attack <= 0 || (best && attack <= best.attack)) continue;
       best = { id: h.id, name: h.name, attack: Math.round(attack), arrives: state.time + travelTimeMs(state, army, distance(h, v)) };
@@ -249,8 +251,9 @@ function orderView(
   if (order === 'scout') {
     // the village with the most spies: a scout is all or nothing
     for (const h of villagesOf(state, HUMAN_ID)) {
-      if (h.units.spy <= 0 || (best && h.units.spy <= (best.spies ?? 0))) continue;
-      best = { id: h.id, name: h.name, attack: 0, spies: h.units.spy, arrives: state.time + travelTimeMs(state, { spy: 1 }, distance(h, v)) };
+      const spies = freeUnits(state, h).spy;
+      if (spies <= 0 || (best && spies <= (best.spies ?? 0))) continue;
+      best = { id: h.id, name: h.name, attack: 0, spies, arrives: state.time + travelTimeMs(state, { spy: 1 }, distance(h, v)) };
     }
   }
   return {
@@ -260,6 +263,7 @@ function orderView(
     ...(order === 'attack' ? { minAttack: ORDER_MIN_ATTACK } : {}),
     ...(order === 'scout' ? { minSpies: o?.spies ?? (r?.spies ?? 0) } : {}),
     underway, ...(best ? { best } : {}),
+    planned: (state.planned ?? []).filter((p) => p.to === v.id).map((p) => ({ id: p.id, attack: Math.round(p.waves.reduce((a, w) => a + orderAttack(state, w), 0)), landAt: p.landAt, spies: p.waves.reduce((a, w) => a + (w.spy ?? 0), 0) })),
   };
 }
 

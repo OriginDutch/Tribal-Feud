@@ -1086,3 +1086,9 @@ tr.locked .building-thumb { filter: grayscale(0.7); opacity: 0.7; }
 .face-big { border-radius: 12px; margin-right: 14px; }
 .player-card .face-card { float: left; margin: 0 10px 4px 0; border-radius: 8px; }
 .inbox-head .face { border-radius: 8px; }
+
+/* planned attacks */
+.plan-row { margin: 8px 0; padding: 8px 10px; border: 1px dashed var(--border-2); border-radius: 6px; }
+.plan-row p { margin: 6px 0 0; font-size: 13px; }
+.send-unit .reserved { color: var(--muted); font-size: 11px; }
+tr.muted-row td { opacity: 0.75; }

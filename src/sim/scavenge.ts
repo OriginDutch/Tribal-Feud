@@ -14,7 +14,7 @@ import { SCAV_LEVELS, SCAV_NAMES, SCAV_UNITS, planScav, previewScav, scavSum, ty
 import { push } from './eventQueue';
 import { storageCapacity } from './formulas';
 import { nextFloat } from './rng';
-import { HUMAN_ID, addLog, type WorldState } from './state';
+import { HUMAN_ID, addLog, reservedUnits, type WorldState } from './state';
 import { isOperational, settle, type Village } from './village';
 
 export { SCAV_LEVELS, SCAV_NAMES, SCAV_FACTORS, SCAV_SAFE, SCAV_MAX_LOSS, SCAV_UNITS } from '../shared/scavenge';
@@ -60,11 +60,12 @@ export function scavBlocker(state: WorldState, v: Village, level: number, units:
   if (level > sc.unlocked) return `Rond eerst ${SCAV_NAMES[level - 1]} veilig af.`;
   if (sc.runs.some((r) => r.level === level)) return 'Dit level is al onderweg.';
   let any = false;
+  const held = v.owner === HUMAN_ID ? reservedUnits(state, v.id) : {};
   for (const [u, n] of Object.entries(units) as [UnitId, number][]) {
     if (!n) continue;
     if (!SCAV_UNITS.includes(u)) return `${state.config.units[u].name} kan niet mee.`;
     if (n < 0 || !Number.isInteger(n)) return 'Ongeldig aantal.';
-    if (v.units[u] < n) return `Te weinig ${state.config.units[u].name.toLowerCase()}.`;
+    if (v.units[u] - (held[u] ?? 0) < n) return held[u] && v.units[u] >= n ? `Te weinig ${state.config.units[u].name.toLowerCase()} vrij: ${held[u]} staan klaar voor een ingeplande aanval.` : `Te weinig ${state.config.units[u].name.toLowerCase()}.`;
     any = true;
   }
   if (!any) return 'Kies troepen.';
@@ -149,7 +150,11 @@ export function dropScavenge(v: Village): void {
 /** The template's split for this village right now. */
 export function planFor(state: WorldState, v: Village, tpl: ScavTemplate): UnitCounts[] {
   const sc = scavOf(v);
-  return planScav(scavParams(state), v.units, sc.unlocked, sc.runs.map((r) => r.level), tpl);
+  // troops held back for planned attacks don't go scavenging
+  const held = v.owner === HUMAN_ID ? reservedUnits(state, v.id) : {};
+  const free = { ...v.units };
+  for (const [u, n] of Object.entries(held) as [UnitId, number][]) free[u] = Math.max(0, free[u] - n);
+  return planScav(scavParams(state), free, sc.unlocked, sc.runs.map((r) => r.level), tpl);
 }
 
 /** Sends a plan (units per level); returns how many runs left, and the first error if any. */

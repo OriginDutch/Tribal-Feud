@@ -71,7 +71,12 @@ function OneOrder({ o }: { o: LeaderOrderView }) {
         {o.order === 'scout' && !o.underway.length && o.best?.spies !== undefined && (
           <li>Je meeste verkenners: {o.best.name} met {num(o.best.spies)}, landt bij nu versturen om {formatGameTime(o.best.arrives)}</li>
         )}
-        {o.order === 'attack' && !sent.length && (
+        {(o.planned ?? []).length > 0 && (
+          <li class={o.planned.some((p) => (o.order === 'scout' ? p.spies > 0 : enough(p.attack)) && p.landAt <= o.until) ? 'good' : 'warn'}>
+            Ingepland: {o.planned.map((p) => `${o.order === 'scout' ? `${num(p.spies)} verkenners` : `${num(p.attack)} aanval`}, landt ${formatGameTime(p.landAt)}`).join(' · ')} ⏱
+          </li>
+        )}
+        {o.order === 'attack' && !sent.length && !(o.planned ?? []).length && (
           o.best ? (
             <li class={bestOk ? '' : 'warn'}>
               Je sterkste dorp: {o.best.name} met {num(o.best.attack)} aanval thuis, landt bij nu versturen om {formatGameTime(o.best.arrives)}{' '}
@@ -90,8 +95,17 @@ function OneOrder({ o }: { o: LeaderOrderView }) {
             <button class="small" onClick={() => send({ type: 'inboxAnswer', id: o.message!, accept: false })}>Nee</button>
           </>
         )}
+        {o.order === 'attack' && o.landAt !== undefined && o.status === 'accepted' && o.best && enough(o.best.attack) && o.best.arrives <= o.landAt && !sent.length && !(o.planned ?? []).length && (
+          <button
+            class="small primary"
+            title="Je vrije aanvallende troepen in dat dorp vertrekken vanzelf, zodat ze precies om de landingstijd aankomen. Tot dan blijven ze thuis."
+            onClick={() => send({ type: 'planOrder', from: o.best!.id, to: o.target.id, landAt: o.landAt! })}
+          >
+            ⏱ Inplannen vanuit {o.best.name}
+          </button>
+        )}
         {o.order !== 'support' ? (
-          <button class="small" onClick={() => attackVillage(o.target.x, o.target.y)}>Naar verzamelplaats</button>
+          <button class="small" onClick={() => attackVillage(o.target.x, o.target.y, o.landAt)}>Naar verzamelplaats</button>
         ) : (
           <button class="small" onClick={() => openSupport(o.target.id, o.until)}>Support plannen</button>
         )}

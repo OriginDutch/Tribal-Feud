@@ -33,7 +33,7 @@ import {
   researchTimeMs,
   storageCapacity,
 } from './formulas';
-import { HUMAN_ID, addLog, nextId, villagesOf, type WorldState } from './state';
+import { HUMAN_ID, addLog, nextId, reservedUnits, villagesOf, type WorldState } from './state';
 import { buildingReward } from './quests';
 import { hasFirstChurch } from './church';
 import { flagValue, type FlagType } from './flags';
@@ -701,11 +701,13 @@ export function cancelRecruit(state: WorldState, villageId: number, jobId: numbe
 export function dismissUnits(state: WorldState, villageId: number, units: UnitCounts): string | null {
   const v = state.villages[villageId];
   if (!v || v.owner !== HUMAN_ID) return 'Dat is niet jouw dorp.';
+  const held = reservedUnits(state, v.id);
   let any = false;
   for (const u of UNIT_IDS) {
     const n = Math.floor(units[u] ?? 0);
     if (n < 0) return 'Ongeldig aantal.';
     if (n > v.units[u]) return `Er staan niet zoveel ${state.config.units[u].name.toLowerCase()} thuis.`;
+    if (n > v.units[u] - (held[u] ?? 0)) return `${held[u]} ${state.config.units[u].name.toLowerCase()} staan klaar voor een ingeplande aanval; annuleer die eerst.`;
     if (n > 0) any = true;
   }
   if (!any) return 'Kies minstens één eenheid.';

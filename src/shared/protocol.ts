@@ -126,6 +126,11 @@ export type Command =
   /** Support from several of your villages at once (the support planner). */
   | { type: 'sendSupportMany'; to: number; orders: { from: number; units: UnitCounts }[] }
   | { type: 'sendNobleTrain'; from: number; to: number; first: UnitCounts; escorts: UnitCounts[]; catapultTarget?: BuildingId; clearFirst?: boolean }
+  /** Plan an attack or noble train to land at landAt; it leaves by itself. */
+  | { type: 'planAttack'; from: number; to: number; first: UnitCounts; escorts?: UnitCounts[]; catapultTarget?: BuildingId; clearFirst?: boolean; landAt: number }
+  /** Plan your strongest free army (or spies) from a village for an order, to land at landAt. */
+  | { type: 'planOrder'; from: number; to: number; spies?: boolean; landAt: number }
+  | { type: 'cancelPlanned'; id: number }
   | { type: 'returnSupport'; hostId: number; originId: number }
   /** Sends many supports home at once (rows of the support list). */
   | { type: 'returnSupportMany'; pairs: { hostId: number; originId: number }[] }
@@ -307,6 +312,23 @@ export interface LeaderOrderView {
   underway: { attack: number; arrives: number }[];
   /** Your strongest village for it: attack at home and when it would land if sent now. */
   best?: { id: number; name: string; attack: number; arrives: number; spies?: number };
+  /** Your planned attacks on the target (not yet left): strength and landing time. */
+  planned: { id: number; attack: number; landAt: number; spies: number }[];
+}
+
+/** One of your planned attacks: it leaves by itself at sendAt and lands at landAt. */
+export interface PlannedView {
+  id: number;
+  from: { id: number; name: string; x: number; y: number };
+  to: { id: number; name: string; x: number; y: number; owner: number; ownerName: string };
+  /** All waves together, and how many waves (more than 1 = a noble train). */
+  units: UnitCounts;
+  waves: number;
+  clearFirst: boolean;
+  sendAt: number;
+  landAt: number;
+  /** Not all of it is home right now (it goes with what is there). */
+  short: boolean;
 }
 
 export interface InboxView {
@@ -533,6 +555,8 @@ export interface Snapshot {
   leaderOrder: LeaderOrderView | null;
   /** Scout orders beside it (open and said yes to), at most 3. */
   scoutOrders: LeaderOrderView[];
+  /** Your planned attacks, soonest to leave first. */
+  planned: PlannedView[];
   inboxUnread: number;
   /** Open messages that ask for an answer. */
   inboxOpen: number;

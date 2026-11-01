@@ -34,6 +34,13 @@ export function onIncomingAttack(state: WorldState, fromVillage: number, text: s
   raise(state, text);
 }
 
+/** One of your planned attacks could not leave (or lapsed): it pauses unless alerts are off. */
+export function onPlanFailed(state: WorldState, text: string): void {
+  // a raised alert is logged when the game pauses for it
+  if ((state.alertMode ?? 'perVillage') !== 'off') raise(state, text);
+  else addLog(state, { time: state.time, text });
+}
+
 /** The human lost a village. With no villages left he starts over at the outer ring, like a bot. */
 export function onHumanVillageLost(state: WorldState, text: string): void {
   if ((state.alertMode ?? 'perVillage') !== 'off') raise(state, text);
