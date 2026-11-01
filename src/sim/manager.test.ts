@@ -118,3 +118,25 @@ describe('account manager: a full storage it cannot raise', () => {
     expect(v.buildQueue.map((j) => j.building)).toContain('main');
   });
 });
+
+describe('own templates that tear down', () => {
+  it('when every step is there: one level at a time off what stands higher; not the farm, not what the template does not name', () => {
+    const { s, v } = setup();
+    Object.assign(v.buildings, { main: 20, barracks: 25, farm: 20, wall: 15, market: 10, smith: 5 });
+    const steps: [import('../shared/gameData').BuildingId, number][] = [['main', 20], ['barracks', 10], ['farm', 5], ['wall', 20], ['smith', 5]];
+    expect(saveTemplate(s, { id: 'own:off', name: 'Off', steps, demolish: true })).toBeNull();
+    // not done yet (the wall is short): nothing comes off
+    expect(setManager(s, v.id, { template: 'own:off', troopShare: 0 })).toBeNull();
+    expect(v.buildQueue.some((j) => j.demolish)).toBe(false);
+    v.buildings.wall = 20;
+    v.buildQueue = [];
+    setManager(s, v.id, { template: 'own:off', troopShare: 0 });
+    const jobs = v.buildQueue.filter((j) => j.demolish);
+    expect(jobs.map((j) => j.building)).toEqual(['barracks']);
+    expect(jobs[0]!.level).toBe(24);
+    run(s, 40 * 24 * HOUR);
+    expect(v.buildings.barracks).toBe(10);
+    expect(v.buildings.farm).toBeGreaterThanOrEqual(20);
+    expect(v.buildings.market).toBe(10);
+  });
+});

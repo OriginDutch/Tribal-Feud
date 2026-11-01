@@ -21,7 +21,10 @@ import {
   startResearch,
   techLevel,
   buildBlocker,
+  demolishBlocker,
+  plannedLevel,
   queueBuild,
+  queueDemolish,
   type Village,
 } from './village';
 import { hasFaith, hasFirstChurch } from './church';
@@ -31,6 +34,8 @@ export interface BuildTemplate {
   id: string;
   name: string;
   steps: [BuildingId, number][];
+  /** Once built: tear down what stands higher than the template has it (not the farm; buildings it doesn't name stay). */
+  demolish?: true;
 }
 
 /** A named troop target the player can put on villages (only the player's own, no presets). */
@@ -113,6 +118,7 @@ export function manageVillage(state: WorldState, v: Village, m: VillageManager):
   const template = findTemplate(state, m.template);
   // the presets play like the bots (keeping resources in balance); own templates are followed exactly
   const reserve: Res = template ? autoBuild(state, v, template.steps, [0, 0, 0], !template.id.startsWith('preset:')) : [0, 0, 0];
+  if (template?.demolish && !template.id.startsWith('preset:')) tearDown(state, v, template.steps);
   const troops = m.troopTemplate ? state.troopTemplates?.find((t) => t.id === m.troopTemplate)?.troops : m.troops;
   if (troops) keepTroops(state, v, troops, m.troopShare, reserve);
   // churches: a village without faith gets one (the first church again if it was lost)
@@ -140,6 +146,24 @@ export function manageVillage(state: WorldState, v: Village, m: VillageManager):
     for (let l = 9; l > current; l--) {
       if ((free[l - 1] ?? 0) > 0) { setFlag(state, v.owner, v.id, { type: m.flag, level: l }); break; }
     }
+  }
+}
+
+/**
+ * Own template with "afbreken": when every step is there, one level at a time comes off a building
+ * that stands higher than the template's highest level for it. Not the farm, and buildings the
+ * template doesn't name stay as they are.
+ */
+export function tearDown(state: WorldState, v: Village, steps: readonly (readonly [BuildingId, number])[]): void {
+  if (steps.some(([b, l]) => plannedLevel(v, b) < l)) return; // first build, then tear down
+  if (v.buildQueue.length >= state.config.village.buildQueueSlots) return;
+  const want = new Map<BuildingId, number>();
+  for (const [b, l] of steps) want.set(b, Math.max(want.get(b) ?? 0, l));
+  for (const [b, l] of want) {
+    if (b === 'farm' || plannedLevel(v, b) <= l) continue;
+    if (demolishBlocker(state, v, b) !== null) continue;
+    queueDemolish(state, v.id, b);
+    return;
   }
 }
 
@@ -244,7 +268,7 @@ export function saveTemplate(state: WorldState, t: BuildTemplate): string | null
   if (steps.length === 0) return 'Een sjabloon heeft minstens één stap.';
   state.templates ??= [];
   const i = state.templates.findIndex((x) => x.id === t.id);
-  const clean = { id: t.id, name, steps };
+  const clean: BuildTemplate = { id: t.id, name, steps, ...(t.demolish ? { demolish: true as const } : {}) };
   if (i >= 0) state.templates[i] = clean;
   else state.templates.push(clean);
   return null;

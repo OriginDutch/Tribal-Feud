@@ -302,7 +302,7 @@ function BuildTemplates({ templates, use }: { templates: BuildTemplate[]; use: R
                     {t.name} {!own && <span class="muted">(voorbeeld)</span>}
                   </td>
                   <td class="muted">
-                    {t.steps.length} stappen{n > 0 ? ` · ${n} ${n === 1 ? 'dorp' : 'dorpen'}` : ''}
+                    {t.steps.length} stappen{t.demolish ? ' · breekt af' : ''}{n > 0 ? ` · ${n} ${n === 1 ? 'dorp' : 'dorpen'}` : ''}
                   </td>
                   <td class="right nowrap">
                     {own && (
@@ -407,6 +407,9 @@ function BuildTemplates({ templates, use }: { templates: BuildTemplate[]; use: R
             </button>
             <Confirm label="Annuleren" sure="Wijzigingen weggooien?" onConfirm={() => setEditing(null)} />
           </div>
+          <label class="inline" title="Als alle stappen er staan, breekt de manager gebouwen die hoger staan dan in dit sjabloon één level per keer af. De boerderij nooit; gebouwen die niet in het sjabloon staan blijven staan.">
+            <input type="checkbox" checked={!!editing.demolish} onChange={(e) => setEditing({ ...editing, ...(e.currentTarget.checked ? { demolish: true } : { demolish: undefined }) })} /> Afbreken wat hoger staat dan dit sjabloon
+          </label>
           <p class="hint">{num(editing.steps.length)} stappen. Een stap is klaar zodra het gebouw dat level heeft (of in de queue staat).</p>
         </div>
       )}
