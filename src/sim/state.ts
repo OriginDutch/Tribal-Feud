@@ -261,6 +261,8 @@ export interface WorldState {
   treaties?: import('./peace').Treaty[];
   /** Peace talks underway (see talks), when talks between two tribes last ended ("a:b"), outlaws. */
   talks?: import('./talks').Talks[];
+  /** Sounds for the screens since the last snapshot (drained by the worker; not kept in saves). */
+  sfx?: import('../shared/reportOutcome').Sfx[];
   /** Your attacks set to leave by themselves, so they land at a chosen time (planned.ts). */
   planned?: PlannedAttack[];
   talksEnded?: Record<string, number>;
@@ -591,4 +593,9 @@ export function reservedUnits(state: WorldState, villageId: number): UnitCounts 
     for (const w of p.waves) for (const [u, n] of Object.entries(w) as [UnitId, number][]) out[u] = (out[u] ?? 0) + n;
   }
   return out;
+}
+
+/** A sound for the screens (a report, an order, an attack leaving). */
+export function playSfx(state: WorldState, sound: import('../shared/reportOutcome').Sfx | null): void {
+  if (sound) (state.sfx ??= []).push(sound);
 }

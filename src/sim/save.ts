@@ -232,6 +232,8 @@ export function fromSaveData(raw: unknown): WorldState {
     throw new Error('Ongeldige save.');
   }
   let data = structuredClone(raw) as SaveData;
+  // sounds of the moment the save was made are long gone
+  delete (data.state as Partial<WorldState>).sfx;
   if (data.version > SAVE_VERSION) {
     throw new Error(`Save is van een nieuwere versie (${data.version}) dan dit spel (${SAVE_VERSION}).`);
   }

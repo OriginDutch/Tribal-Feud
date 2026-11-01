@@ -31,7 +31,7 @@ import { Firestore } from '../cloud/rest';
 import { CloudSync } from '../cloud/sync';
 import { isSafetyCopy, worldKeyOf } from '../shared/worlds';
 import { advance, schedule, scheduleRandom, setPaused, setSpeed } from './simulation';
-import { createWorld, currentVillage, playerVillage, type Player, type WorldState } from './state';
+import { createWorld, currentVillage, playSfx, playerVillage, type Player, type WorldState } from './state';
 import { storageCapacity } from './formulas';
 import { villageView } from './view';
 import { incomingViews, mapData, movementViews, villageInfo } from './mapView';
@@ -765,6 +765,11 @@ function postSnapshot(): void {
   if (from && state) { from.current = state.current ?? null; fromSettled = true; }
   // a hidden tab gets no snapshots (it gets a fresh one when it shows again)
   for (const c of clients) if (c.visible || c === from) asClient(c, () => c.port.postMessage({ type: 'snapshot', snapshot: snapshot() }));
+  if (state?.sfx?.length) {
+    const sounds = state.sfx;
+    state.sfx = [];
+    for (const c of clients) if (c.visible) c.port.postMessage({ type: 'sfx', sounds });
+  }
 }
 
 async function postSaves(): Promise<void> {
@@ -951,7 +956,13 @@ async function handle(cmd: Command): Promise<void> {
       {
         const error = sendAttack(state, cmd.from, cmd.to, cmd.units, cmd.catapultTarget, undefined, 0, undefined, true);
         if (error) notice(error, 'error');
-        else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); humanOpSent(state, cmd.to); }
+        else {
+          const owner = state.villages[cmd.to]?.owner;
+          if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner);
+          humanOpSent(state, cmd.to);
+          // the march: not for farm runs on barbarians
+          if ((owner !== undefined && owner >= 0) || cmd.units.snob) playSfx(state, 'march');
+        }
       }
       break;
     case 'sendFarm': {
@@ -1057,7 +1068,7 @@ async function handle(cmd: Command): Promise<void> {
       if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
       const error = sendNobleTrain(state, cmd.from, cmd.to, cmd.first, cmd.escorts, cmd.catapultTarget, cmd.clearFirst ?? false);
       if (error) notice(error, 'error');
-      else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); humanOpSent(state, cmd.to); }
+      else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); humanOpSent(state, cmd.to); playSfx(state, 'march'); }
       break;
     }
     case 'planAttack': {

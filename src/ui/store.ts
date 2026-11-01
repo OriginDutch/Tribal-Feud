@@ -2,6 +2,7 @@
  * Connection to the simulation worker + UI state as signals.
  * Components read these signals; only the parts that use a changed signal re-render.
  */
+import { playSounds } from './sfx';
 import { signal } from '@preact/signals';
 import type { BuildingId, RecruitBuilding, UnitCounts } from '../shared/gameData';
 import type { CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, SupportRow, SurplusRow, ScavView, FarmAllView, OpinionsView, WorldStatsView, SimResult, TribeAskView, TribeView, WarAskInfo, FrictionRow, WorkerMessage } from '../shared/protocol';
@@ -218,6 +219,9 @@ port.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'blocked':
       blocked.value = true;
+      break;
+    case 'sfx':
+      playSounds(msg.sounds);
       break;
     case 'autoPaused':
       autoPause.value = msg.entry;

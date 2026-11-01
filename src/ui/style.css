@@ -210,7 +210,8 @@ button.link:hover { text-decoration: underline; }
 .nowrap { white-space: nowrap; }
 ul.reports { list-style: none; padding: 0; margin: 0; }
 ul.reports li { border-bottom: 1px solid var(--border); }
-ul.reports li.unread .report-head { font-weight: 600; }
+ul.reports li .report-head { font-weight: 400; color: var(--muted); }
+ul.reports li.unread .report-head { font-weight: 700; color: var(--text, inherit); }
 .report-head { display: flex; gap: 10px; align-items: center; width: 100%; background: none; border: none; text-align: left; padding: 9px 4px; border-radius: 0; }
 .report-head span:nth-child(2) { flex: 1; }
 .report-detail { padding: 4px 8px 14px 24px; display: flex; flex-direction: column; gap: 8px; }
@@ -1098,3 +1099,25 @@ td.rank { font-size: 12px; white-space: nowrap; }
 td.rank-leider, td.rank-rechterhand { color: var(--accent); font-weight: 600; }
 td.rank-kapitein { color: var(--accent); }
 td.rank-rekruut { color: var(--muted); font-style: italic; }
+
+/* report outcome dots: one colour, or two halves (scouts: blue + losses; defence: losses + red) */
+.odot { --a: var(--good); --b: var(--a); flex: none; display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: linear-gradient(90deg, var(--a) 50%, var(--b) 50%); box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
+.odot.won { --a: var(--good); }
+.odot.some { --a: #e2a93b; }
+.odot.heavy { --a: #c2591d; }
+.odot.lost, .odot.def-lost { --a: #c8402e; }
+.odot.conquest { --a: #f2c94c; box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 0 6px 1px rgba(242,201,76,0.7); }
+.odot.scout { --a: #5b8fd6; }
+.odot.scout-some { --a: #5b8fd6; --b: #e2a93b; }
+.odot.scout-heavy { --a: #5b8fd6; --b: #c2591d; }
+.odot.def { --a: var(--good); --b: #c8402e; }
+.odot.def-some { --a: #e2a93b; --b: #c8402e; }
+.odot.def-heavy { --a: #c2591d; --b: #c8402e; }
+.odot.village-lost { --a: #c8402e; box-shadow: 0 0 0 2px #3a0d08; }
+.inbox-item .inbox-title { font-weight: 500; }
+.inbox-item.unread .inbox-title { font-weight: 700; }
+.sfx-list { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.sfx-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; max-width: 360px; }
+.sound-panel + .sound-panel { margin-top: 14px; }
+.sound-panel label.check { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.sound-panel label.check input { width: auto; margin: 0; }

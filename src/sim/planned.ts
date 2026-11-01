@@ -8,7 +8,7 @@ import { UNIT_IDS, type BuildingId, type UnitCounts } from '../shared/gameData';
 import { formatGameTime } from '../shared/time';
 import { push } from './eventQueue';
 import { attackBlocker, distance, freeUnits, protectionEndsAt, sendAttack, sendNobleTrain, shortOf, travelTimeMs } from './movement';
-import { HUMAN_ID, addLog, nextId, type PlannedAttack, type WorldState } from './state';
+import { HUMAN_ID, addLog, nextId, playSfx, type PlannedAttack, type WorldState } from './state';
 import type { PlannedView } from '../shared/protocol';
 import { OFFENSE } from './tribeOrders';
 import { attackedWithoutPermission } from './tribeOrders';
@@ -149,6 +149,7 @@ export function onPlanned(state: WorldState, id: number): void {
   if (to.owner >= 0) attackedWithoutPermission(state, to.owner);
   humanOpSent(state, to.id);
   const what = train ? `Ingeplande edeltrein (${waves.length})` : 'Ingeplande aanval';
+  if (to.owner >= 0 || train) playSfx(state, 'march');
   addLog(state, { time: state.time, text: `${what} ${where} is vertrokken, landt om ${formatGameTime(p.landAt)}${short ? ' — met minder troepen dan gepland' : ''}.` });
 }
 

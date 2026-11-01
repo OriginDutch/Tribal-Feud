@@ -1,3 +1,4 @@
+import { OUTCOME_LABEL, reportOutcome } from '../../shared/reportOutcome';
 import { definedLetters } from '../../shared/farmTemplates';
 import { PlayerLink } from '../components/PlayerLink';
 import { useSaved } from '../useSaved';
@@ -409,9 +410,9 @@ export function ReportsScreen() {
             {shown.map((r) => (
               <li key={r.id} class={r.read ? '' : 'unread'}>
                 <div class="report-line">
+                  <span class={`odot ${reportOutcome(r)}`} title={OUTCOME_LABEL[reportOutcome(r)]} />
                   <input type="checkbox" aria-label="Selecteren" checked={picked.has(r.id)} onChange={(e) => pick(r.id, e.currentTarget.checked)} />
                   <button class="report-head" onClick={() => toggle(r)}>
-                    <span class={`dot ${tone(r)}`} />
                     <span class="report-title">
                       {listTitle(r)}
                       {r.conquered && <strong class="warn"> · veroverd</strong>}

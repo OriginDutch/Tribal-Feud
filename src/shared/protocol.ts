@@ -664,6 +664,8 @@ export interface QuestsView {
 
 export type WorkerMessage =
   | { type: 'snapshot'; snapshot: Snapshot | null }
+  /** Sounds to play (the tab you look at plays them). */
+  | { type: 'sfx'; sounds: import('./reportOutcome').Sfx[] }
   | { type: 'autoPaused'; entry: LogEntry }
   | { type: 'saves'; saves: SaveMeta[] }
   | { type: 'cloud'; status: CloudStatus }

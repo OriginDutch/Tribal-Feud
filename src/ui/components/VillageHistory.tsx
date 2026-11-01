@@ -1,3 +1,4 @@
+import { OUTCOME_LABEL, reportOutcome } from '../../shared/reportOutcome';
 import { useEffect, useState } from 'preact/hooks';
 import { formatGameTime } from '../../shared/time';
 import { reportPopup, send, villageInfo } from '../store';
@@ -58,7 +59,7 @@ export function VillageHistory({ id, owner }: { id: number; owner?: number }) {
           {shown.map((r) => (
             <li key={r.id}>
               <button class="link" onClick={() => (reportPopup.value = r)}>
-                <span class={`dot ${tone(r)}`} />
+                <span class={`odot ${reportOutcome(r)}`} title={OUTCOME_LABEL[reportOutcome(r)]} />
                 <span class="vhist-title">{listTitle(r)}{r.conquered ? ' · veroverd' : ''}{r.loyalty ? ` · toestemming ${Math.round(r.loyalty.before)}→${Math.round(r.loyalty.after)}` : ''}</span>
                 {r.loot ? <span class="muted mono">{num(r.loot[0] + r.loot[1] + r.loot[2])}</span> : null}
                 <span class="muted mono">{formatGameTime(r.time)}</span>

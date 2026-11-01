@@ -18,7 +18,7 @@ import { addMessage, alertHuman, pauses } from './humanTribe';
 import { distance, fieldsWithin, freeUnits, protectionBlocker, sendAttack, sendSupport, travelBudget, travelTimeMs } from './movement';
 import { MERCHANT_CARRY, merchantsFree, sendResources } from './market';
 import { nextFloat } from './rng';
-import { BARBARIAN, HUMAN_ID, addLog, movementIndex, nextId, villagesOf, type BotRequest, type BotState, type InboxMessage, type Player, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, addLog, movementIndex, nextId, playSfx, villagesOf, type BotRequest, type BotState, type InboxMessage, type Player, type WorldState } from './state';
 import { AGGRESSION, mayAttack, relationBetween, tribeOf } from './tribes';
 import { changeStanding, mateEvent, moodAll } from './loyalty';
 import { MERIT, addMerit } from './ranks';
@@ -340,6 +340,7 @@ export function leaderOrderLanded(state: WorldState, villageId: number, units: U
     if (!(units.snob ?? 0)) return;
     delete state.leaderOrder;
     changeStanding(state, 6, 'je bracht de edels');
+    playSfx(state, 'mission-complete');
     addMerit(state, HUMAN_ID, MERIT.order);
     addLog(state, { time: state.time, text: `Order uitgevoerd: je edels zijn geland bij ${v?.name ?? '?'}.` });
     return;
@@ -351,6 +352,7 @@ export function leaderOrderLanded(state: WorldState, villageId: number, units: U
   }
   delete state.leaderOrder;
   changeStanding(state, 6, 'je voerde mijn order uit');
+  playSfx(state, 'mission-complete');
   addMerit(state, HUMAN_ID, MERIT.order);
   addLog(state, { time: state.time, text: `Order uitgevoerd: je aanval op ${v?.name ?? '?'} is geland.` });
 }
@@ -362,6 +364,7 @@ export function leaderOrderScouted(state: WorldState, villageId: number): void {
   else if (o && o.order === 'scout' && o.village === villageId) delete state.leaderOrder; // saves from before scout orders ran apart
   else return;
   changeStanding(state, 6, 'je verkende wat ik vroeg');
+  playSfx(state, 'mission-complete');
   addMerit(state, HUMAN_ID, MERIT.scoutOrder);
   addLog(state, { time: state.time, text: `Order uitgevoerd: je verkenners kwamen door bij ${state.villages[villageId]?.name ?? '?'}.` });
 }
@@ -388,6 +391,7 @@ export function leaderOrderSupport(state: WorldState, villageId: number): void {
   if (!o || o.order !== 'support' || o.village !== villageId) return;
   delete state.leaderOrder;
   changeStanding(state, 6, 'je stuurde de support die ik vroeg');
+  playSfx(state, 'mission-complete');
   addMerit(state, HUMAN_ID, MERIT.order);
 }
 /** A yes that was never done costs more than a no. */
@@ -397,12 +401,14 @@ export function checkLeaderOrder(state: WorldState): void {
   if (late.length) {
     state.scoutOrders = state.scoutOrders!.filter((o) => o.until > state.time);
     changeStanding(state, -4 * late.length, 'je zou verkennen maar deed het niet');
+    playSfx(state, 'mission-failed');
     addMerit(state, HUMAN_ID, MERIT.scoutFailed * late.length);
   }
   const o = state.leaderOrder;
   if (!o || o.until > state.time) return;
   delete state.leaderOrder;
   // an order you asked for yourself and then let lapse costs more
+  playSfx(state, 'mission-failed');
   changeStanding(state, o.asked ? -12 : -8, o.asked ? 'je vroeg zelf om een opdracht en deed hem niet' : 'je zei ja maar deed het niet');
   addMerit(state, HUMAN_ID, MERIT.orderFailed);
 }

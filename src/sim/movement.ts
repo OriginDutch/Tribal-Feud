@@ -17,7 +17,8 @@ import { fight, morale } from './combat';
 import { push } from './eventQueue';
 import { hidingCapacity, storageCapacity } from './formulas';
 import { nextFloat, nextInt } from './rng';
-import { BARBARIAN, HUMAN_ID, addLog, addMovement, invalidateOwners, moveOwner, nextId, removeMovement, reservedUnits, villagesOf, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, addLog, addMovement, invalidateOwners, moveOwner, nextId, playSfx, removeMovement, reservedUnits, villagesOf, type WorldState } from './state';
+import { reportSound } from '../shared/reportOutcome';
 import { onHumanVillageLost, onIncomingAttack } from './alerts';
 import { DAY, formatGameTime } from '../shared/time';
 import { arriveTrade, arriveTradeReturn } from './market';
@@ -154,6 +155,7 @@ export const MAX_AUTO_REPORTS = 200;
 /** Adds a report; the oldest of its kind (auto-farm or the rest) goes when that list is full. */
 export function addReport(state: WorldState, report: Report): void {
   state.reports.push(report);
+  playSfx(state, reportSound(report));
   const auto = !!report.auto;
   const max = auto ? MAX_AUTO_REPORTS : MAX_REPORTS;
   let excess = state.reports.reduce((c, r) => c + (!!r.auto === auto ? 1 : 0), 0) - max;

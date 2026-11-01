@@ -20,6 +20,7 @@ import {
   HUMAN_ID,
   addLog,
   nextId,
+  playSfx,
   type InboxMessage,
   type Player,
   type TribeAsk,
@@ -59,6 +60,9 @@ const expiry = (state: WorldState) => state.time + DAY;
 export function addMessage(state: WorldState, m: Omit<InboxMessage, 'id' | 'time' | 'read'>): InboxMessage {
   const msg: InboxMessage = { id: nextId(state), time: state.time, read: false, ...m };
   (state.inbox ??= []).push(msg);
+  // a new order from your leader
+  if (m.request?.type === 'order') playSfx(state, 'mission-received');
+  if (m.request?.type === 'verdict') playSfx(state, 'mission-failed');
   // keep the inbox finite: drop the oldest answered/info messages
   if (state.inbox.length > 200) {
     const i = state.inbox.findIndex((x) => x.status !== 'open');
