@@ -424,8 +424,14 @@ export function TribesScreen() {
                           <button class="small" onClick={() => send({ type: 'tribeApply', tribe: t.id })}>
                             Aanmelden
                           </button>
+                        ) : t.bump ? (
+                          <Confirm
+                            label="Aankloppen"
+                            sure={`Vol: nemen ze je, dan moet ${t.bump.name} (${RANK_LABEL[t.bump.rank].toLowerCase()}, ${num(t.bump.merit)} rangpunten) eruit. Aankloppen?`}
+                            onConfirm={() => send({ type: 'tribeApply', tribe: t.id })}
+                          />
                         ) : (
-                          <span class="muted">vol</span>
+                          <span class="muted" title="Vol, en niemand is zwak genoeg om voor jou plaats te maken (je hebt 2× zijn punten nodig; de leider, rechterhand en rekruten blijven)">vol</span>
                         )}
                       </td>
                     )}

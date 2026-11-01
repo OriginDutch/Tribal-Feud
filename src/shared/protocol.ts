@@ -398,6 +398,8 @@ export interface TribeView {
   relations: { id: number; rel: TribeRelation; since: number; trust?: number }[];
   /** Every member's rank and merit, by place. */
   ranks: RankRow[];
+  /** A full tribe you are not in: who would make room for you if they take you (null: nobody). */
+  bump?: { id: number; name: string; rank: RankId; merit: number } | null;
   /** Your tribe: the merit you need for the next place up. */
   next?: { rank: RankId; need: number } | null;
 }

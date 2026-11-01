@@ -33,7 +33,7 @@ import { nextFloat } from './rng';
 import { warOpsTick } from './warOps';
 import { WAR_FRICTION, clearFriction, frictionBetween, frictionTick, tribeStrength, warReason } from './warCause';
 import { addNews } from './news';
-import { nextPlace, onJoin, onLeave, rankRows, rightHand, updateRanks } from './ranks';
+import { isRecruit, meritOf, nextPlace, rankOf, onJoin, onLeave, rankRows, rightHand, updateRanks } from './ranks';
 import type { TribeView } from '../shared/protocol';
 import { BARBARIAN, HUMAN_ID, addLog as addWorldLog, movementIndex, villagesOf, type Player, type WorldState } from './state';
 
@@ -204,7 +204,7 @@ export function fitCheck(state: WorldState, t: Tribe, candidate: number): { reas
   const yours = candidate === HUMAN_ID || t.members.includes(HUMAN_ID);
   const reach = reachOf(state, t, tc) + (yours ? kindness(state.config).reach : 0);
   const out = (reason: FitReason) => ({ reason, distance: d, reach });
-  if (t.members.length >= MAX_MEMBERS) return out('full');
+  if (t.members.length >= MAX_MEMBERS && !bumpCandidate(state, t, candidate)) return out('full');
   if (d > reach) return out('far');
   const avg = tc.points / Math.max(1, t.members.length);
   if (d < CORE && cc.points < avg * 0.3) return out('prey');
@@ -348,8 +348,50 @@ export function setLeader(state: WorldState, t: Tribe, next: number): void {
   }
 }
 
+/** To take someone's place in a full tribe you need this many times his points. */
+export const BUMP_POINTS = 2;
+
+/**
+ * A full tribe: the member who would make room for `candidate`. The one valued least (fewest rank
+ * points, then fewest points); never the leader, the right hand or a recruit. Only when the
+ * candidate has at least BUMP_POINTS times his points. Null when nobody qualifies (or there is room).
+ */
+export function bumpCandidate(state: WorldState, t: Tribe, candidate: number): Player | null {
+  if (t.members.length < MAX_MEMBERS) return null;
+  const right = rightHand(state, t);
+  const pts = (id: number) => playerCentre(state, id)?.points ?? 0;
+  const weakest = t.members
+    .filter((m) => m !== t.leader && m !== right && m !== candidate && !isRecruit(state, t, m))
+    .sort((a, b) => meritOf(state, t, a) - meritOf(state, t, b) || pts(a) - pts(b))[0];
+  if (weakest === undefined || pts(candidate) < BUMP_POINTS * pts(weakest)) return null;
+  return state.players[weakest] ?? null;
+}
+
+/** A full tribe takes someone stronger: the one valued least goes, and holds it against both. */
+function makeRoom(state: WorldState, t: Tribe, newcomer: Player): void {
+  const out = bumpCandidate(state, t, newcomer.id);
+  if (!out) return;
+  leave(state, out);
+  if (out.bot) {
+    (out.bot.grudges ??= {})[t.leader] = { score: 0.6, at: state.time, why: 'uit de stam gezet' };
+    out.bot.grudges[newcomer.id] = { score: 0.4, at: state.time, why: 'nam mijn plek in' };
+  }
+  const c = playerCentre(state, out.id);
+  addNews(state, { kind: 'leader', tribes: [t.id], players: [newcomer.id, out.id], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
+    dry: `[${t.tag}] zet ${out.name} eruit om plaats te maken voor ${newcomer.name}.`,
+    head: [`Plaats gemaakt: [${t.tag}] ruilt ${out.name} in voor ${newcomer.name}`, `${out.name} moet [${t.tag}] verlaten voor ${newcomer.name}`] });
+  if (out.id === HUMAN_ID) {
+    const text = `[${t.tag}] heeft je eruit gezet om plaats te maken voor ${newcomer.name}: jij was het minst gewaardeerde lid.`;
+    addMessage(state, { kind: 'info', from: t.leader, tribe: t.id, title: `Uit [${t.tag}] gezet`, text });
+    addWorldLog(state, { time: state.time, text });
+  } else if (t.members.includes(HUMAN_ID)) {
+    (state.tribeNews ??= []).push({ time: state.time, text: `${out.name} moet [${t.tag}] verlaten: ${newcomer.name} neemt zijn plek in.` });
+  }
+}
+
 export function join(state: WorldState, t: Tribe, player: Player): void {
   if (player.tribe !== undefined) leave(state, player);
+  if (t.members.length >= MAX_MEMBERS) makeRoom(state, t, player);
   player.tribe = t.id;
   t.members.push(player.id);
   onJoin(state, t, player.id);
@@ -542,7 +584,7 @@ export function inContact(state: WorldState, a: Tribe, b: Tribe): boolean {
 
 /** The leader's view of a candidate: not too weak, and the tribe has room. */
 export function leaderAccepts(state: WorldState, t: Tribe, p: Player): boolean {
-  if (t.members.length >= MAX_MEMBERS) return false;
+  if (t.members.length >= MAX_MEMBERS && !bumpCandidate(state, t, p.id)) return false;
   const tc = tribeCentre(state, t), pc = playerCentre(state, p.id);
   if (!tc || !pc) return false;
   const avg = tc.points / Math.max(1, t.members.length);
@@ -727,6 +769,7 @@ export function tribeViews(state: WorldState): TribeView[] {
     out.push({
       id: t.id, name: t.name, tag: t.tag, color: t.color, leader: t.leader, members: [...t.members], founded: t.founded, points, villages, share: shares.get(t.id) ?? 0,
       ranks: rankRows(state, t), ...(t.members.includes(HUMAN_ID) ? { next: nextPlace(state, t) } : {}),
+      ...(!t.members.includes(HUMAN_ID) && t.members.length >= MAX_MEMBERS ? { bump: (() => { const b = bumpCandidate(state, t, HUMAN_ID); return b ? { id: b.id, name: b.name, rank: rankOf(state, t, b.id), merit: Math.round(meritOf(state, t, b.id)) } : null; })() } : {}),
       relations: Object.entries(t.relations).map(([id, rel]) => ({ id: Number(id), rel, since: t.since?.[Number(id)] ?? t.founded, ...(t.allyTrust?.[Number(id)] !== undefined ? { trust: Math.round(t.allyTrust[Number(id)]!) } : {}) })),
     });
   }

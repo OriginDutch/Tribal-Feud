@@ -38,6 +38,7 @@ import {
   tribeContacts,
   warNeed,
   join,
+  bumpCandidate,
   setLeader,
   leaderAccepts,
   leave,
@@ -155,7 +156,7 @@ export function applyToTribe(state: WorldState, tribeId: number): string | null 
   if (!t) return 'Die stam bestaat niet meer.';
   if (me.tribe !== undefined) return 'Verlaat eerst je huidige stam.';
   if (isOutlaw(state, HUMAN_ID)) return 'Je bent vogelvrij: geen stam neemt je nu aan.';
-  if (t.members.length >= MAX_MEMBERS) return 'Die stam is vol.';
+  if (t.members.length >= MAX_MEMBERS && !bumpCandidate(state, t, HUMAN_ID)) return 'Die stam is vol, en niemand daar is zwak genoeg om voor jou plaats te maken.';
   if ((state.tribeAsks ?? []).some((a) => a.kind === 'apply' && a.tribe === tribeId)) return 'Je aanmelding loopt al.';
   (state.tribeAsks ??= []).push({ kind: 'apply', tribe: tribeId, at: state.time });
   addLog(state, { time: state.time, text: `Je meldt je aan bij ${tag(t)}.` });
@@ -447,7 +448,7 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
     if (!isOnline(state, leader.id, leader.bot)) return false;
     const arch = leader.bot.archetype;
     const ok =
-      t.members.length < MAX_MEMBERS &&
+      (t.members.length < MAX_MEMBERS || !!bumpCandidate(state, t, HUMAN_ID)) &&
       fits(state, t, HUMAN_ID) &&
       leaderAccepts(state, t, me) &&
       grudge(state, leader, HUMAN_ID) < 0.5 &&
@@ -560,7 +561,7 @@ function inviteRefusal(state: WorldState, t: Tribe, p: Player, current: Tribe | 
 
 function rejectReason(state: WorldState, t: Tribe, me: Player, leader: Player): string {
   const who = `${leader.name} (${tag(t)})`;
-  if (t.members.length >= MAX_MEMBERS) return `${who}: we zitten vol.`;
+  if (t.members.length >= MAX_MEMBERS && !bumpCandidate(state, t, HUMAN_ID)) return `${who}: we zitten vol.`;
   if (grudge(state, leader, HUMAN_ID) >= 0.5) return `${who}: na wat je ons hebt aangedaan? Nee.`;
   const fit = fitCheck(state, t, HUMAN_ID);
   if (fit.reason === 'far') return `${who}: je zit te ver van ons vandaan (${fit.distance.toFixed(1)} velden van ons centrum, wij nemen tot ${fit.reach.toFixed(1)}).`;
