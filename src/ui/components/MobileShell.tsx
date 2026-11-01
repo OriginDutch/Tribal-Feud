@@ -6,7 +6,7 @@
 import { useState } from 'preact/hooks';
 import { SPEEDS, formatGameTime } from '../../shared/time';
 import { num } from '../format';
-import { GROUPS, MOBILE_GROUPS, MORE_IDS, SETTINGS, groupOf, isMenuBuilding, type MenuGroup } from '../menu';
+import { GROUPS, MOBILE_GROUPS, MORE_IDS, SETTINGS, groupOf, isMenuBuilding, visibleTabs, type MenuGroup } from '../menu';
 import { mobileSheet } from '../mobile';
 import { groupFilter, screen, send, setGroupFilter, snapshot, togglePause, type Screen } from '../store';
 import { musicSettings, setMusic } from '../music/player';
@@ -103,7 +103,7 @@ export function MobileNav() {
   return (
     <nav class="m-nav" aria-label="Hoofdmenu">
       {MOBILE_GROUPS.map((g) => (
-        <NavLink key={g.id} g={g} label={g.label} active={!inMore && (cur?.id === g.id || (g.id === 'dorp' && inBuilding))} onClick={() => open(g.tabs[0]!.screen)} />
+        <NavLink key={g.id} g={g} label={g.label} active={!inMore && (cur?.id === g.id || (g.id === 'dorp' && inBuilding))} onClick={() => open(visibleTabs(g, account.value?.admin ?? false, true)[0]!.screen)} />
       ))}
       <button class={`m-nav-item ${inMore || (cur && !MOBILE_GROUPS.includes(cur)) ? 'on' : ''}`} aria-expanded={inMore} onClick={() => (mobileSheet.value = inMore ? null : 'more')}>
         {inMore ? (
@@ -163,7 +163,7 @@ function MoreSheet() {
         {groups.map((g) => {
           const b = groupBadge(g);
           return (
-            <button key={g.id} class="m-tile" onClick={() => open(g.tabs[0]!.screen)}>
+            <button key={g.id} class="m-tile" onClick={() => open(visibleTabs(g, account.value?.admin ?? false, true)[0]!.screen)}>
               <NavIcon name={g.icon} size={24} />
               <span>{g.label}</span>
               {b && <i class={`m-badge ${b.kind}`}>{b.n}</i>}

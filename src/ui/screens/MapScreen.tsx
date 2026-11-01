@@ -648,16 +648,45 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
     return { x: Math.round(p.x), y: Math.round(p.y) };
   };
 
+  /** Fingers on the map, for pinch zoom: two at once zoom around their midpoint. */
+  const touches = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ dist: number; zoom: number } | null>(null);
+  const pinchState = () => {
+    const [a = { x: 0, y: 0 }, b = { x: 0, y: 0 }] = [...touches.current.values()];
+    return { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 } };
+  };
   const onPointerDown = (e: PointerEvent) => {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    if (e.pointerType === 'touch') {
+      touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touches.current.size === 2) {
+        pinch.current = { dist: pinchState().dist, zoom: cam.current.zoom };
+        if (drag.current) drag.current.moved = true; // a pinch is never a tap
+        return;
+      }
+      if (touches.current.size > 2) return;
+    }
     drag.current = { x: e.clientX, y: e.clientY, cx: cam.current.cx, cy: cam.current.cy, moved: false };
   };
   const onPointerMove = (e: PointerEvent) => {
+    if (e.pointerType === 'touch' && touches.current.has(e.pointerId)) {
+      touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch.current && touches.current.size === 2) {
+        const { dist, mid } = pinchState();
+        const before = pointAt(mid);
+        cam.current.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinch.current.zoom * (dist / Math.max(1, pinch.current.dist))));
+        const after = pointAt(mid);
+        cam.current.cx += before.x - after.x;
+        cam.current.cy += before.y - after.y;
+        draw();
+        return;
+      }
+    }
     const d = drag.current;
     if (d) {
       const dx = e.clientX - d.x;
       const dy = e.clientY - d.y;
-      if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
+      if (Math.abs(dx) + Math.abs(dy) > (e.pointerType === 'touch' ? 10 : 3)) d.moved = true;
       cam.current.cx = d.cx - dx / cam.current.zoom;
       cam.current.cy = d.cy - dy / cam.current.zoom;
       draw();
@@ -685,7 +714,25 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
     cardTimer.current = { field: k, t: window.setTimeout(() => setCard({ id: v.id, x, y }), HOVER_DELAY_MS) };
   };
   useEffect(() => () => { if (cardTimer.current) window.clearTimeout(cardTimer.current.t); }, []);
+  const onPointerCancel = (e: PointerEvent) => {
+    touches.current.delete(e.pointerId);
+    pinch.current = null;
+    drag.current = null;
+  };
   const onPointerUp = (e: PointerEvent) => {
+    if (e.pointerType === 'touch') {
+      touches.current.delete(e.pointerId);
+      if (pinch.current) {
+        if (touches.current.size < 2) {
+          pinch.current = null;
+          // the finger that stays down carries on panning from where it is now
+          const [rest] = [...touches.current.values()];
+          drag.current = rest ? { x: rest.x, y: rest.y, cx: cam.current.cx, cy: cam.current.cy, moved: true } : null;
+          redraw((n) => n + 1);
+        }
+        return;
+      }
+    }
     const d = drag.current;
     drag.current = null;
     if (d?.moved) redraw((n) => n + 1);
@@ -741,6 +788,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerCancel={onPointerCancel}
           onPointerLeave={() => setHover(null)}
           onWheel={onWheel}
         />
@@ -840,6 +888,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
             onPointerDown={(e) => { hideCard(); onPointerDown(e); }}
             onPointerMove={(e) => { onPointerMove(e); if (!drag.current) planCard(e); }}
             onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
             onPointerLeave={() => { setHover(null); hideCard(); }}
             onWheel={(e) => { hideCard(); onWheel(e); }}
           />

@@ -117,7 +117,7 @@ export function Nav() {
 /** Tabs above a screen whose group has more than one. */
 export function ScreenTabs() {
   const g = groupOf(screen.value, isMobile.value);
-  const tabs = g ? visibleTabs(g, account.value?.admin ?? false) : [];
+  const tabs = g ? visibleTabs(g, account.value?.admin ?? false, isMobile.value) : [];
   if (!g || tabs.length < 2 || !snapshot.value) return null;
   return (
     <div class="screen-tabs" role="tablist" aria-label={g.label}>

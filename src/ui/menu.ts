@@ -57,9 +57,12 @@ export const MENU_BUILDINGS: { screen: Screen; label: string; building: string }
   { screen: 'market', label: 'Marktplaats', building: 'market' },
 ];
 
-/** Tabs this player sees (the admin tab only for the admin). */
-export function visibleTabs(g: MenuGroup, admin: boolean): MenuGroup['tabs'] {
-  return admin ? g.tabs : g.tabs.filter((t) => t.screen !== 'admin');
+/** Screens without a use on a phone (no keyboard there). */
+const DESKTOP_ONLY: Screen[] = ['settings'];
+
+/** Tabs this player sees (the admin tab only for the admin; no shortcuts on a phone). */
+export function visibleTabs(g: MenuGroup, admin: boolean, mobile = false): MenuGroup['tabs'] {
+  return g.tabs.filter((t) => (admin || t.screen !== 'admin') && !(mobile && DESKTOP_ONLY.includes(t.screen)));
 }
 
 /** The group a screen belongs to (buildings and the player profile have none). */

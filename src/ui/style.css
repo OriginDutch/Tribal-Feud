@@ -1199,3 +1199,17 @@ details.coup summary { cursor: pointer; color: var(--muted); }
   .overlays { top: 110px; }
 }
 .m-sheet > * { flex-shrink: 0; }
+/* ---- phone screens: one column, tables scroll inside their panel with the first column pinned ---- */
+.m-layout .grid, .m-layout .support-controls, .m-layout .stats-tables, .m-layout .templates, .m-layout .sim-layout, .m-layout .tribes-layout, .m-layout .main-grid, .m-layout .ov-layout, .m-layout .ov-side { grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: none !important; }
+.m-layout .grid > *, .m-layout .panel, .m-layout .tribes-layout > *, .m-layout .main-grid > *, .m-layout .ov-layout > * { min-width: 0; grid-area: auto !important; }
+.m-layout .panel { overflow-x: auto; overscroll-behavior-x: contain; }
+.m-layout .panel table th:first-child, .m-layout .panel table td:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); }
+.m-layout .inbox-head, .m-layout .row { flex-wrap: wrap; }
+.m-layout .inbox-item p, .m-layout .panel p { overflow-wrap: anywhere; }
+.m-layout .table.fixed { width: auto; min-width: 100%; }
+.m-layout .table.fixed col:not([style]) { width: 150px; }
+.m-layout .table th { font-size: 12px; }
+.m-layout .map-head > h2, .m-layout .map-head .legend, .m-layout .map-hoverinfo { display: none; }
+.m-layout .map-screen .map-canvas { height: calc(100vh - 104px - 66px - 120px - env(safe-area-inset-bottom)); min-height: 320px; }
+.m-layout .content button:not(.link), .m-layout .content select, .m-layout .content input:not([type=checkbox]):not([type=radio]):not([type=range]), .m-layout .screen-tabs a { min-height: 44px; }
+.m-layout .content input[type=checkbox], .m-layout .content input[type=radio] { width: 22px; height: 22px; }
