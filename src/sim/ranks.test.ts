@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { DAY } from '../shared/time';
 import { leaderPicks } from './nobleRole';
-import { MERIT_HALF_LIFE_DAYS, RECRUIT_DAYS, addMerit, meritOf, rankOf, updateRanks } from './ranks';
+import { MERIT_HALF_LIFE_DAYS, RECRUIT_DAYS, SEED_PER_CONQUEST, addMerit, meritOf, rankOf, updateRanks } from './ranks';
 import { HUMAN_ID, createWorld, villagesOf, type WorldState } from './state';
 import { askForOrder } from './tribeOrders';
 import { found, join, leave } from './tribes';
@@ -18,7 +18,7 @@ function tribe(s: WorldState) {
   for (const b of bots.slice(1)) join(s, t, b);
   join(s, t, s.players[HUMAN_ID]!);
   s.time += RECRUIT_DAYS * DAY + 1;
-  t.seeded = true;
+  t.seeded = 2;
   t.merit = {};
   return { t, lead: bots[0]!, mates: bots.slice(1) };
 }
@@ -96,5 +96,19 @@ describe('rangen', () => {
     expect(askForOrder(s)).toBeNull();
     expect(s.inbox!.at(-1)!.title).toMatch(/nu niks/);
     expect(askForOrder(s)).toMatch(/Je vroeg net al/);
+  });
+
+  it('tribes from before ranks start from the conquests on players everyone made (no fading)', () => {
+    const s = world();
+    const { t, mates } = tribe(s);
+    delete t.seeded;
+    s.worldStats = { days: [], conquests: [], players: { [HUMAN_ID]: { pvp: 0, barb: 0, took: 33, tookBarb: 5, lost: 0 }, [mates[0]!.id]: { pvp: 0, barb: 0, took: 3, tookBarb: 0, lost: 0 } } };
+    updateRanks(s, t);
+    expect(meritOf(s, t, HUMAN_ID)).toBe(33 * SEED_PER_CONQUEST);
+    expect(rankOf(s, t, HUMAN_ID)).toBe('rechterhand');
+    expect(rankOf(s, t, mates[0]!.id)).toBe('kapitein');
+    // once
+    updateRanks(s, t);
+    expect(meritOf(s, t, HUMAN_ID)).toBe(33 * SEED_PER_CONQUEST);
   });
 });

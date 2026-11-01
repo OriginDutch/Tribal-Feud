@@ -68,7 +68,7 @@ export interface Tribe {
   merit?: Record<number, { p: number; at: number }>;
   joinedAt?: Record<number, number>;
   order?: number[];
-  seeded?: true;
+  seeded?: number;
 }
 
 export { MAX_MEMBERS };

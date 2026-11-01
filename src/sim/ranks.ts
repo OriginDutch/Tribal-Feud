@@ -21,10 +21,15 @@ export const MERIT = {
   order: 10, scoutOrder: 4, nuke: 8, nobles: 12, conquestWar: 15, conquest: 5, support: 3,
   orderFailed: -10, scoutFailed: -4, appealLost: -5,
 } as const;
-/** Merit halves in this many game days (on a normal world; shorter on a fast one). */
-export const MERIT_HALF_LIFE_DAYS = 10;
-/** Recruits for this many game days after joining (on a normal world). */
-export const RECRUIT_DAYS = 3;
+/**
+ * Merit halves in this many game days, on every world: orders and joint attacks come in game
+ * hours whatever the world speed, so a fading scaled by speed would leave nothing on a fast world.
+ */
+export const MERIT_HALF_LIFE_DAYS = 2;
+/** Recruits for this many game days after joining (any world speed). */
+export const RECRUIT_DAYS = 1;
+/** Seeding for tribes from before ranks: merit per conquest on a player (from the world totals). */
+export const SEED_PER_CONQUEST = 5;
 /** To take a place: more than this times the holder's merit (plus one point). */
 export const OVERTAKE = 1.1;
 /** Below this merit you stay a warrior, whatever your place in line. */
@@ -34,7 +39,7 @@ const SLOTS: Rank[] = ['rechterhand', 'kapitein', 'veteraan', 'veteraan'];
 /** How much a rank weighs where the leader decides (appeals). */
 export const RANK_WEIGHT: Record<Rank, number> = { leider: 1.8, rechterhand: 1.6, kapitein: 1.4, veteraan: 1.2, krijger: 1, rekruut: 0.8 };
 
-const halfLife = (state: WorldState) => (MERIT_HALF_LIFE_DAYS * DAY) / state.config.worldSpeed;
+const halfLife = (_state: WorldState) => MERIT_HALF_LIFE_DAYS * DAY;
 
 function tribeOfPlayer(state: WorldState, id: number): Tribe | undefined {
   const tid = state.players[id]?.tribe;
@@ -64,7 +69,7 @@ export function addMerit(state: WorldState, id: number, delta: number): void {
 
 export function isRecruit(state: WorldState, t: Tribe, id: number): boolean {
   const at = t.joinedAt?.[id];
-  return at !== undefined && state.time - at < (RECRUIT_DAYS * DAY) / state.config.worldSpeed;
+  return at !== undefined && state.time - at < RECRUIT_DAYS * DAY;
 }
 
 export function rankOf(state: WorldState, t: Tribe, id: number): Rank {
@@ -83,26 +88,31 @@ export function rightHand(state: WorldState, t: Tribe): number | undefined {
   return id !== undefined && rankOf(state, t, id) === 'rechterhand' ? id : undefined;
 }
 
-/** Once, for tribes from before ranks: what we still know (your order notes, conquests). */
+/** Bump this to seed every tribe again (once). */
+const SEED_VERSION = 2;
+
+/**
+ * Once, for tribes from before ranks: what we still know, as of now (no fading). Every member's
+ * conquests on players (world totals, bots too), and your order notes that are left.
+ */
 function seed(state: WorldState, t: Tribe): void {
-  t.seeded = true;
+  t.seeded = SEED_VERSION;
+  for (const m of t.members) {
+    const took = state.worldStats?.players[m]?.took ?? 0;
+    if (took > 0) add(state, t, m, took * SEED_PER_CONQUEST);
+  }
   if (t.members.includes(HUMAN_ID) && t.leader !== HUMAN_ID) {
     for (const n of state.standingNotes ?? []) {
       if (n.delta <= 0) continue;
-      if (/verkende/.test(n.why)) add(state, t, HUMAN_ID, MERIT.scoutOrder, n.time);
-      else if (/order|edels|support die ik vroeg/.test(n.why)) add(state, t, HUMAN_ID, MERIT.order, n.time);
+      if (/verkende/.test(n.why)) add(state, t, HUMAN_ID, MERIT.scoutOrder);
+      else if (/order|edels|support die ik vroeg/.test(n.why)) add(state, t, HUMAN_ID, MERIT.order);
     }
-  }
-  for (const c of state.worldStats?.conquests ?? []) {
-    if (!t.members.includes(c.to) || t.members.includes(c.from)) continue;
-    const ft = state.players[c.from]?.tribe;
-    add(state, t, c.to, ft !== undefined && t.relations[ft] === 'war' ? MERIT.conquestWar : MERIT.conquest, c.time);
   }
 }
 
 /** Places by merit, with a margin to take one; runs with the diplomacy tick. */
 export function updateRanks(state: WorldState, t: Tribe): void {
-  if (!t.seeded) seed(state, t);
+  if (t.seeded !== SEED_VERSION) seed(state, t);
   const before = new Map(t.members.map((m) => [m, rankOf(state, t, m)]));
   const eligible = t.members.filter((m) => m !== t.leader && !isRecruit(state, t, m));
   const m = (id: number) => meritOf(state, t, id);
@@ -140,6 +150,8 @@ export function onLeave(t: Tribe, id: number): void {
 
 /** For the tribe screen: rank and merit of every member, best first. */
 export function rankRows(state: WorldState, t: Tribe): RankRow[] {
+  // a save from before ranks: fill them in right away, not at the next diplomacy tick
+  if (t.seeded !== SEED_VERSION) updateRanks(state, t);
   const order = [t.leader, ...(t.order ?? [])];
   return t.members
     .map((id) => ({ id, rank: rankOf(state, t, id), merit: Math.round(meritOf(state, t, id)) }))
