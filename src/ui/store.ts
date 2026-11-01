@@ -213,10 +213,15 @@ export function showNotice(text: string, level: 'info' | 'error'): void {
 port.onmessage = (e: MessageEvent<WorkerMessage>) => {
   const msg = e.data;
   switch (msg.type) {
-    case 'snapshot':
-      snapshot.value = msg.snapshot;
+    case 'snapshot': {
+      const prev = snapshot.value;
+      const next = msg.snapshot;
+      // unchanged fields came without a value: keep ours (same object, so nothing redraws for them)
+      if (next && msg.same?.length && prev) for (const k of msg.same) (next as unknown as Record<string, unknown>)[k] = (prev as unknown as Record<string, unknown>)[k];
+      snapshot.value = next;
       rememberVillage(msg.snapshot?.village?.id ?? null);
       break;
+    }
     case 'blocked':
       blocked.value = true;
       break;

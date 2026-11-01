@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useMemo, useRef } from 'preact/hooks';
 import type { MapVillage, TribeView } from '../../shared/protocol';
 import { OWNER_COLORS, tribeIndex, villageColor } from './colors';
 
@@ -16,12 +16,19 @@ export function Minimap({ villages, tribes, view, onMove }: {
   onMove: (x: number, y: number) => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  // world bounds: around all villages, square, with a margin
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const v of villages) { minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y); }
-  if (!villages.length) { minX = minY = 450; maxX = maxY = 550; }
-  const size = Math.max(maxX - minX, maxY - minY) + 10;
-  const ox = (minX + maxX) / 2 - size / 2, oy = (minY + maxY) / 2 - size / 2;
+  // world bounds (around all villages, square, with a margin) and the legend counts: only when the villages change,
+  // not on every game update (thousands of villages)
+  const { size, ox, oy, own, inTribe, bots, barbs } = useMemo(() => {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let own = 0, inTribe = 0, bots = 0, barbs = 0;
+    for (const v of villages) {
+      minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y);
+      if (v.kind === 'own') own++; else if (v.kind === 'bot') { if (v.tribe !== undefined) inTribe++; else bots++; } else barbs++;
+    }
+    if (!villages.length) { minX = minY = 450; maxX = maxY = 550; }
+    const size = Math.max(maxX - minX, maxY - minY) + 10;
+    return { size, ox: (minX + maxX) / 2 - size / 2, oy: (minY + maxY) / 2 - size / 2, own, inTribe, bots, barbs };
+  }, [villages]);
 
   useEffect(() => {
     const c = ref.current;
@@ -56,8 +63,6 @@ export function Minimap({ villages, tribes, view, onMove }: {
     const r = ref.current!.getBoundingClientRect();
     onMove(ox + ((e.clientX - r.left) / r.width) * size, oy + ((e.clientY - r.top) / r.height) * size);
   };
-  const own = villages.filter((v) => v.kind === 'own').length, inTribe = villages.filter((v) => v.kind === 'bot' && v.tribe !== undefined).length;
-  const bots = villages.filter((v) => v.kind === 'bot').length - inTribe, barbs = villages.length - own - bots - inTribe;
   return (
     <div class="minimap">
       <canvas

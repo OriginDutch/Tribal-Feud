@@ -76,6 +76,75 @@ export function VillageScene({ village }: { village: VillageView }) {
       return `walk-${name}-${dir}-${step}`;
     };
     const blit = (s: Sprite, dx = s.x, dy = s.y) => ctx.drawImage(baked.atlases[s.a]!, s.sx, s.sy, s.w, s.h, dx, dy, s.w, s.h);
+    // Everything that stands still (ground, decals, buildings, trees) is drawn once into a canvas of the
+    // final size, back to front; each frame is that one blit plus what moves. Something that moves is
+    // drawn at its depth by drawing it, then again the still pieces in front of it that it overlaps.
+    const statics = pieces.bodies.filter((p) => !p.frames).sort((a, b) => a.d - b.d);
+    const anims = pieces.bodies.filter((p) => p.frames);
+    const back = document.createElement('canvas'); back.width = c.width; back.height = c.height;
+    const bctx = back.getContext('2d')!;
+    let backHover: string | null | undefined;
+    const buildBack = (hv: string | null) => {
+      backHover = hv;
+      bctx.setTransform(scale, 0, 0, scale, -VIEW.x * scale, -VIEW.y * scale);
+      bctx.drawImage(baked.ground, 0, 0);
+      for (const p of pieces.decals) bctx.drawImage(baked.atlases[p.s.a]!, p.s.sx, p.s.sy, p.s.w, p.s.h, p.s.x, p.s.y, p.s.w, p.s.h);
+      for (const p of statics) {
+        if (hv && p.building === hv) bctx.filter = 'brightness(1.28) saturate(1.1)';
+        bctx.drawImage(baked.atlases[p.s.a]!, p.s.sx, p.s.sy, p.s.w, p.s.h, p.s.x, p.s.y, p.s.w, p.s.h);
+        bctx.filter = 'none';
+      }
+    };
+    // A mover is drawn on a small canvas of its own first; the still pieces in front of it cut it
+    // away there (by their alpha), then it goes onto the frame. So it hides behind what stands in
+    // front of it, and nothing is drawn twice (no doubled shadows).
+    const tmp = document.createElement('canvas');
+    const tctx = tmp.getContext('2d')!;
+    const place = (d: number, x: number, y: number, w: number, h: number, draw: (g: CanvasRenderingContext2D) => void) => {
+      const ox = Math.floor((x - VIEW.x) * scale), oy = Math.floor((y - VIEW.y) * scale);
+      const tw = Math.ceil(w * scale) + 2, th = Math.ceil(h * scale) + 2;
+      if (tmp.width < tw) tmp.width = tw;
+      if (tmp.height < th) tmp.height = th;
+      tctx.setTransform(1, 0, 0, 1, 0, 0);
+      tctx.clearRect(0, 0, tw, th);
+      tctx.setTransform(scale, 0, 0, scale, -VIEW.x * scale - ox, -VIEW.y * scale - oy);
+      draw(tctx);
+      tctx.globalCompositeOperation = 'destination-out';
+      for (const p of statics) {
+        if (p.d <= d) continue;
+        const r = p.s;
+        if (r.x >= x + w || r.x + r.w <= x || r.y >= y + h || r.y + r.h <= y) continue;
+        // only the part that overlaps the mover
+        const ix = Math.max(r.x, x), iy = Math.max(r.y, y), iw = Math.min(r.x + r.w, x + w) - ix, ih = Math.min(r.y + r.h, y + h) - iy;
+        tctx.drawImage(baked.atlases[r.a]!, r.sx + ix - r.x, r.sy + iy - r.y, iw, ih, ix, iy, iw, ih);
+      }
+      tctx.globalCompositeOperation = 'source-over';
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(tmp, 0, 0, tw, th, ox, oy, tw, th);
+      ctx.setTransform(scale, 0, 0, scale, -VIEW.x * scale, -VIEW.y * scale);
+    };
+    const blitTo = (g: CanvasRenderingContext2D, s: Sprite, dx = s.x, dy = s.y) => g.drawImage(baked.atlases[s.a]!, s.sx, s.sy, s.w, s.h, dx, dy, s.w, s.h);
+    // a puff of smoke, drawn once and stamped with alpha and size (no gradient per puff per frame)
+    const puff = document.createElement('canvas'); puff.width = puff.height = 64;
+    {
+      const p = puff.getContext('2d')!;
+      const col = light === 'dusk' ? '120,114,104' : '225,220,210';
+      const g = p.createRadialGradient(32, 32, 0, 32, 32, 32);
+      g.addColorStop(0, `rgba(${col},1)`); g.addColorStop(1, `rgba(${col},0)`);
+      p.fillStyle = g; p.fillRect(0, 0, 64, 64);
+    }
+    // a pool of warm light (dusk), drawn once and stamped with alpha and size
+    const glow = document.createElement('canvas'); glow.width = glow.height = 128;
+    {
+      const p = glow.getContext('2d')!;
+      const g = p.createRadialGradient(64, 64, 0, 64, 64, 64);
+      g.addColorStop(0, 'rgba(255,170,80,1)'); g.addColorStop(1, 'rgba(255,140,50,0)');
+      p.fillStyle = g; p.fillRect(0, 0, 128, 128);
+    }
+    // the canvas out of sight (scrolled away, another screen on top): no frames
+    let visible = true;
+    const io = new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); }, { threshold: 0 });
+    io.observe(c);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let raf = 0, last = -1;
     const t0 = performance.now();
@@ -83,50 +152,44 @@ export function VillageScene({ village }: { village: VillageView }) {
       raf = requestAnimationFrame(frame);
       const t = reduce ? 0 : (now - t0) / 1000;
       const tick = Math.floor(t * FPS);
-      if (tick === last && !dirty) return;
+      if ((tick === last || !visible) && !dirty) return;
       last = tick; dirty = false;
+      if (hoverRef.current !== backHover) buildBack(hoverRef.current);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(back, 0, 0);
       ctx.setTransform(scale, 0, 0, scale, -VIEW.x * scale, -VIEW.y * scale);
-      ctx.drawImage(baked.ground, 0, 0);
-      for (const p of pieces.decals) blit(p.s);
-      // moving people join the depth sort
-      const hv = hoverRef.current;
-      const list: { d: number; draw: () => void }[] = pieces.bodies.map((p: Piece) => ({
-        d: p.d,
-        draw: p.frames
-          ? () => { const f = p.frames![Math.floor((t / m.loop) * m.frames) % m.frames]; if (f) blit(f); }
-          : hv && p.building === hv
-            ? () => { ctx.filter = 'brightness(1.28) saturate(1.1)'; blit(p.s); ctx.filter = 'none'; }
-            : () => blit(p.s),
-      }));
+      // what moves: animated pieces and the people, at their depth
+      const list: { d: number; x: number; y: number; w: number; h: number; draw: (g: CanvasRenderingContext2D) => void }[] = anims.map((p: Piece) => {
+        const f = p.frames![Math.floor((t / m.loop) * m.frames) % m.frames] ?? p.s;
+        return { d: p.d, x: f.x, y: f.y, w: f.w, h: f.h, draw: (g) => blitTo(g, f) };
+      });
       if (!reduce) for (const w of walkers(t, wallKind)) {
         const s = m.sprites[walkKey(w.name, w.heading, w.dist, w.moving)];
         if (!s) continue;
         const [x, y, d] = project(m, w.x, w.y, w.z);
-        list.push({ d: d + w.bias, draw: () => blit(s, Math.round(x + s.x - o[0]), Math.round(y + s.y - o[1])) });
+        const dx = Math.round(x + s.x - o[0]), dy = Math.round(y + s.y - o[1]);
+        list.push({ d: d + w.bias, x: dx, y: dy, w: s.w, h: s.h, draw: (g) => blitTo(g, s, dx, dy) });
       }
       list.sort((a, b) => a.d - b.d);
-      for (const it of list) it.draw();
+      for (const it of list) place(it.d, it.x, it.y, it.w, it.h, it.draw);
       // chimney smoke
       for (const p of pieces.bodies) for (const [sx, sy] of p.s.smoke ?? []) for (let i = 0; i < 4; i++) {
         const k = (t / m.loop + i / 4 + ((sx * 7) % 10) / 40) % 1;
         const r = 3 + k * 10, cx = sx + k * 16, cy = sy - k * 50;
-        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-        const col = light === 'dusk' ? '120,114,104' : '225,220,210';
-        g.addColorStop(0, `rgba(${col},${0.3 * Math.sin(Math.PI * Math.min(1, k * 1.15))})`); g.addColorStop(1, `rgba(${col},0)`);
-        ctx.fillStyle = g; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        ctx.globalAlpha = 0.3 * Math.sin(Math.PI * Math.min(1, k * 1.15));
+        ctx.drawImage(puff, cx - r, cy - r, r * 2, r * 2);
       }
       ctx.globalAlpha = 1;
       if (light === 'dusk') {
         // warm light pools around fires, torches and lit windows
         ctx.globalCompositeOperation = 'lighter';
         for (const p of pieces.bodies) for (const g of p.s.glow ?? []) {
-          const r = Math.max(30, g.r), flick = 1 + Math.sin(t * 9 + g.x) * 0.06;
-          const grad = ctx.createRadialGradient(g.x, g.y + r * 0.15, 0, g.x, g.y + r * 0.15, r * flick);
-          const a = Math.min(0.22, 0.05 + g.i * 0.012);
-          grad.addColorStop(0, `rgba(255,170,80,${a})`); grad.addColorStop(1, 'rgba(255,140,50,0)');
-          ctx.fillStyle = grad; ctx.fillRect(g.x - r * 1.1, g.y - r * 1.1, r * 2.2, r * 2.4);
+          const r = Math.max(30, g.r) * (1 + Math.sin(t * 9 + g.x) * 0.06);
+          ctx.globalAlpha = Math.min(0.22, 0.05 + g.i * 0.012);
+          ctx.drawImage(glow, g.x - r, g.y + r * 0.15 - r, r * 2, r * 2);
         }
         ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
       }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(vig, 0, 0);
@@ -134,7 +197,7 @@ export function VillageScene({ village }: { village: VillageView }) {
     let dirty = true;
     redraw.current = () => { dirty = true; };
     raf = requestAnimationFrame(frame);
-    return () => { cancelAnimationFrame(raf); redraw.current = () => {}; };
+    return () => { cancelAnimationFrame(raf); io.disconnect(); redraw.current = () => {}; };
   }, [baked, pieces, width, light, wallKind, view]);
   const redraw = useRef<() => void>(() => {});
   useEffect(() => redraw.current(), [hover]);

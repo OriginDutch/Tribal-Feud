@@ -2,7 +2,7 @@ import { formatGameTime } from '../../shared/time';
 import { UnitIcon } from '../units/UnitIcon';
 import { BuildingHeader } from '../buildings/BuildingHeader';
 import { Cost } from '../components/Cost';
-import { duration } from '../format';
+import { duration, upToDec2 } from '../format';
 import { send, snapshot } from '../store';
 
 export function SmithScreen() {
@@ -53,7 +53,7 @@ export function SmithScreen() {
                     <>
                       <td>
                         <span class="chip">Level {u.tech.level}/{u.tech.max}</span>{' '}
-                        <span class="muted">×{u.tech.multiplier.toLocaleString('nl-NL', { maximumFractionDigits: 2 })}</span>
+                        <span class="muted">×{upToDec2(u.tech.multiplier)}</span>
                         <br />
                         <Cost cost={u.tech.next.cost} have={v.res} />
                       </td>
@@ -71,7 +71,7 @@ export function SmithScreen() {
                     </>
                   ) : (
                     <>
-                      <td colSpan={2} class="muted">Level {u.tech.level}/{u.tech.max} · ×{u.tech.multiplier.toLocaleString('nl-NL', { maximumFractionDigits: 2 })} sterker</td>
+                      <td colSpan={2} class="muted">Level {u.tech.level}/{u.tech.max} · ×{upToDec2(u.tech.multiplier)} sterker</td>
                       <td class="right good">✓</td>
                     </>
                   )

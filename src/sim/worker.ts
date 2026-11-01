@@ -170,6 +170,11 @@ async function backup(): Promise<void> {
  */
 interface Client {
   port: { postMessage(message: WorkerMessage): void };
+  /** What this tab last got per snapshot field (JSON), to leave out what didn't change. */
+  sent?: Map<string, string>;
+  /** When this tab last got the village rows (they change with every resource tick), and how many. */
+  villagesAt?: number;
+  villagesLen?: number;
   /** The village this tab shows. */
   current: number | null;
   visible: boolean;
@@ -763,11 +768,39 @@ function questsView(s: WorldState): QuestsView {
   };
 }
 
+/** Village rows to a tab at most this often (ms, real time): resources change them every tick. */
+const VILLAGES_EVERY_MS = 500;
+
+/**
+ * A snapshot to one tab, without the fields that are the same as what it got last time (it keeps
+ * those: `same` names them). Saves copying and redrawing tens of kB ten times a second.
+ */
+function postTo(c: Client, snap: Snapshot | null): void {
+  if (!snap) { c.sent = undefined; c.port.postMessage({ type: 'snapshot', snapshot: null }); return; }
+  const sent = (c.sent ??= new Map());
+  const out: Record<string, unknown> = {};
+  const same: string[] = [];
+  const now = Date.now();
+  for (const [k, value] of Object.entries(snap)) {
+    const prev = sent.get(k);
+    // the village rows: not more often than VILLAGES_EVERY_MS, unless villages came or went
+    if (k === 'villages' && prev !== undefined && now - (c.villagesAt ?? 0) < VILLAGES_EVERY_MS && (value as unknown[]).length === c.villagesLen) { same.push(k); continue; }
+    const json = JSON.stringify(value ?? null);
+    if (json === prev) { same.push(k); continue; }
+    sent.set(k, json);
+    out[k] = value;
+    if (k === 'villages') { c.villagesAt = now; c.villagesLen = (value as unknown[]).length; }
+  }
+  // fields that are gone now (optional ones): the tab must drop them, so they are not 'same'
+  for (const k of [...sent.keys()]) if (!(k in snap)) sent.delete(k);
+  c.port.postMessage({ type: 'snapshot', snapshot: out as unknown as Snapshot, ...(same.length ? { same } : {}) });
+}
+
 function postSnapshot(): void {
   // inside a command: what the command did to the current village is that tab's choice
   if (from && state) { from.current = state.current ?? null; fromSettled = true; }
   // a hidden tab gets no snapshots (it gets a fresh one when it shows again)
-  for (const c of clients) if (c.visible || c === from) asClient(c, () => c.port.postMessage({ type: 'snapshot', snapshot: snapshot() }));
+  for (const c of clients) if (c.visible || c === from) asClient(c, () => postTo(c, snapshot()));
   if (state?.sfx?.length) {
     const sounds = state.sfx;
     state.sfx = [];

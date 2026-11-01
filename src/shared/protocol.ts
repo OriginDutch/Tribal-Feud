@@ -673,7 +673,8 @@ export interface QuestsView {
 }
 
 export type WorkerMessage =
-  | { type: 'snapshot'; snapshot: Snapshot | null }
+  /** `same`: fields left out because they didn't change; keep the ones you have. */
+  | { type: 'snapshot'; snapshot: Snapshot | null; same?: string[] }
   /** Sounds to play (the tab you look at plays them). */
   | { type: 'sfx'; sounds: import('./reportOutcome').Sfx[] }
   | { type: 'autoPaused'; entry: LogEntry }

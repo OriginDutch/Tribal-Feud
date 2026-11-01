@@ -614,18 +614,22 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
   const sel = selectedVillage.value;
   const style = mapStyle.value;
   useEffect(draw, [data, focusIds, sel, style, here?.id, arrows, linesKey, faith]);
+  // the latest draw for callbacks that live longer than one render
+  const drawRef = useRef(draw);
+  drawRef.current = draw;
   // sprites load in the background: redraw when one is ready
   useEffect(() => {
-    onSpriteLoad(() => draw());
+    onSpriteLoad(() => drawRef.current());
     return () => onSpriteLoad(null);
-  });
+  }, []);
+  // a new size: redraw. (Set up once: observing again on every render redrew the whole map on every game update.)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ro = new ResizeObserver(() => draw());
+    const ro = new ResizeObserver(() => drawRef.current());
     ro.observe(canvas);
     return () => ro.disconnect();
-  });
+  }, []);
 
   // --- input ---
   /** Map coordinates under the pointer, not rounded. */

@@ -9,7 +9,7 @@ import { Coords } from '../components/Coords';
 import { OrderPanel } from '../components/OrderPanel';
 import { FaceIcon } from '../components/FaceIcon';
 import { MapLink } from '../components/MapLink';
-import { duration, num } from '../format';
+import { dec1, duration, num, upToDec1 } from '../format';
 import { inviteCandidates, mapData, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes, warAsk, friction } from '../store';
 
 const REL: Record<TribeRelation, string> = { ally: 'Bondgenoot', nap: 'Niet-aanvalsverdrag', war: 'Oorlog' };
@@ -582,7 +582,7 @@ export function TribesScreen() {
   );
 }
 
-const fmt = (n: number) => n.toLocaleString('nl-NL', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const fmt = (n: number) => dec1(n);
 const WHY: Record<NonNullable<FrictionRow['why']>, string> = { attack: 'aanvallen', conquest: 'veroveringen', treaty: 'gebroken verdrag', border: 'grens' };
 const STARTER: Record<FrictionRow['starter'], string> = { us: 'jullie leider', them: 'zij', you: 'jij' };
 
@@ -665,7 +665,7 @@ function EndgamePanel({ list, mine }: { list: TribeView[]; mine?: number }) {
   const top = [...list].sort((a, b) => b.share - a.share).slice(0, 5);
   const mineRow = mine !== undefined && !top.some((t) => t.id === mine) ? list.find((t) => t.id === mine) : undefined;
   const rows = mineRow ? [...top, mineRow] : top;
-  const pct = (x: number) => `${(x * 100).toLocaleString('nl-NL', { maximumFractionDigits: 1 })}%`;
+  const pct = (x: number) => `${upToDec1(x * 100)}%`;
   return (
     <section class="panel endgame">
       <div class="row">

@@ -1,4 +1,15 @@
 const nf = new Intl.NumberFormat('nl-NL');
+// formatters are costly to make: one per style, made once (toLocaleString with options makes a new one per call)
+const nf1 = new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const upTo1 = new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 1 });
+const upTo2 = new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 2 });
+
+/** Always one decimal: 3,0 */
+export const dec1 = (n: number): string => nf1.format(n);
+/** Up to one decimal: 3 or 3,5 */
+export const upToDec1 = (n: number): string => upTo1.format(n);
+/** Up to two decimals. */
+export const upToDec2 = (n: number): string => upTo2.format(n);
 
 export function num(n: number): string {
   return nf.format(Math.floor(n));
