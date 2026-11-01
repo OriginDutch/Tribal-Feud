@@ -42,6 +42,18 @@ function headline(r: Report): string {
   return `${r.result === 'win' ? 'Gewonnen' : r.result === 'winLosses' ? 'Gewonnen met verliezen' : 'Verloren'} · ${target}`;
 }
 
+/**
+ * The picture above a report, by outcome (public/art): your attack won / lost / took the village,
+ * a scout, your defense held / broke. Farm-assistant reports keep the plain colour bar.
+ */
+function reportArt(r: Report): string | null {
+  if (r.auto) return null;
+  if (r.defense) return scoutOnly(r) ? 'scouted' : r.result === 'loss' ? 'held' : 'village-lost';
+  if (r.conquered) return 'conquered';
+  if (scoutOnly(r)) return r.result === 'loss' ? 'lost' : 'scouted';
+  return r.result === 'loss' ? 'lost' : 'won';
+}
+
 export function listTitle(r: Report): string {
   const target = `${r.defender.name} (${r.defender.x}|${r.defender.y})`;
   if (r.defense) return `Verdediging: ${r.attacker.ownerName} valt ${r.defender.name} aan`;
@@ -127,9 +139,10 @@ export function ReportDetail({ r }: { r: Report }) {
   const lootSum = r.loot ? r.loot[0] + r.loot[1] + r.loot[2] : 0;
   const luck = r.luck * 100;
 
+  const art = reportArt(r);
   return (
     <div class="report-card">
-      <div class={`report-banner ${t}`}>
+      <div class={`report-banner ${t}${art ? ' has-art' : ''}`} {...(art ? { style: { '--art': `url(/art/report-${art}.webp)` }, 'data-art': art } : {})}>
         <div>
           <div class="report-big">{headline(r)}</div>
           <div class="report-sub">

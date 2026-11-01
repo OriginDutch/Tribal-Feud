@@ -12,6 +12,7 @@ export function EndgameModal() {
   return (
     <div class="endgame-modal" role="dialog" aria-modal="true">
       <section class="panel">
+        <img class="endgame-art" src={w.you ? '/art/endgame-victory.webp' : '/art/endgame-defeat.webp'} alt="" />
         <h2>{w.you ? 'Gewonnen!' : 'Verloren'}</h2>
         <p>
           [{w.tag}] {w.name} heeft {Math.round(s.endgame.target * 100)}% van de wereld {s.endgame.holdDays} speldagen vastgehouden.

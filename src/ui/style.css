@@ -686,7 +686,7 @@ td.bad { color: var(--danger, #e5533f); }
 p.good { color: #7fbf5a; }
 p.bad { color: #e5533f; }
 .endgame-modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,0.6); z-index: 50; }
-.endgame-modal .panel { max-width: 520px; text-align: center; padding: 28px; }
+.endgame-modal .panel { max-width: 560px; text-align: center; padding: 28px; --endgame-pad: 28px; overflow: hidden; }
 .endgame-modal h2 { font-size: 30px; margin: 0 0 8px; }
 /* relations */
 .mood { display: inline-flex; align-items: center; gap: 8px; }
@@ -1051,3 +1051,17 @@ button.world-open:hover strong { color: var(--accent); }
 .order-chip { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 10px; background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--accent); font-weight: 600; font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .order-chip.open { animation: order-pulse 1.6s ease-in-out infinite; }
 @keyframes order-pulse { 50% { box-shadow: 0 0 0 3px var(--accent-soft); } }
+
+/* report pictures (public/art): the outcome as a scene, the text over a dark fade on the left */
+.report-banner.has-art { position: relative; display: flex; align-items: flex-end; aspect-ratio: 3 / 1; max-height: 190px; padding: 14px 18px; border-left: 4px solid var(--tone, transparent);
+  background: linear-gradient(90deg, rgba(14, 11, 8, 0.88) 0%, rgba(14, 11, 8, 0.55) 45%, rgba(14, 11, 8, 0.05) 100%), var(--art) center / cover no-repeat, #1b1712; }
+.report-banner.has-art.win { --tone: #6f9a4a; }
+.report-banner.has-art.mid { --tone: #c49a3c; }
+.report-banner.has-art.loss { --tone: #b8503c; }
+.report-banner.has-art.scout { --tone: #5d8bb0; }
+.report-banner.has-art .report-big { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
+.report-banner.has-art .report-sub { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+@media (max-width: 700px) { .report-banner.has-art { aspect-ratio: 2.2 / 1; } }
+
+/* the end of a world: victory or defeat as a picture over the text */
+.endgame-art { display: block; width: calc(100% + 2 * var(--endgame-pad, 20px)); margin: calc(-1 * var(--endgame-pad, 20px)) calc(-1 * var(--endgame-pad, 20px)) 14px; aspect-ratio: 1024 / 560; object-fit: cover; border-radius: 12px 12px 0 0; }
