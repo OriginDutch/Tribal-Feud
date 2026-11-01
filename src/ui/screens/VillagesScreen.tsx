@@ -17,6 +17,8 @@ import { UNIT_SHORT } from '../units';
 
 /** All own villages in one table (TW "Overzichten"). Clicking a name selects that village. */
 export function VillagesScreen() {
+  const [openProd, setOpenProd] = useSaved('villages-open-prod', true);
+  const [openTroops, setOpenTroops] = useSaved('villages-open-troops', true);
   const s = snapshot.value;
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [manage, setManage] = useSaved('villages-manage', false);
@@ -86,8 +88,8 @@ export function VillagesScreen() {
         {suggest && <GroupSuggestions villages={s.villages} groups={s.groups} onDone={() => setSuggest(false)} />}
       </section>
       <section class="panel">
-        <h3>Productie</h3>
-        <table class="table fixed villages-table">
+        <FoldHead id="prod" title="Productie" open={openProd} set={setOpenProd} />
+        {openProd && <table class="table fixed villages-table">
           <colgroup>
             <col />
             <col style={{ width: '65px' }} />
@@ -165,11 +167,11 @@ export function VillagesScreen() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table>}
       </section>
       <section class="panel">
-        <h3>Troepen thuis</h3>
-        {used.length === 0 ? (
+        <FoldHead id="troops" title="Troepen thuis" open={openTroops} set={setOpenTroops} />
+        {!openTroops ? null : used.length === 0 ? (
           <p class="muted">Geen troepen.</p>
         ) : (
           <table class="table">
@@ -207,6 +209,17 @@ export function VillagesScreen() {
         )}
       </section>
     </div>
+  );
+}
+
+/** A section title you click to fold the section away (remembered in this browser). */
+function FoldHead({ id, title, open, set }: { id: string; title: string; open: boolean; set: (v: boolean) => void }) {
+  return (
+    <button class="fold-head" aria-expanded={open} aria-controls={`fold-${id}`} onClick={() => set(!open)}>
+      <span class={`fold-chev ${open ? 'open' : ''}`} aria-hidden="true">▸</span>
+      <h3>{title}</h3>
+      {!open && <span class="muted">ingeklapt</span>}
+    </button>
   );
 }
 

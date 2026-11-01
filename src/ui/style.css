@@ -1215,3 +1215,10 @@ details.coup summary { cursor: pointer; color: var(--muted); }
 .m-layout .content input[type=checkbox], .m-layout .content input[type=radio] { width: 22px; height: 22px; }
 .report-title .held-mine { color: var(--good); }
 .report-title .held-other { color: var(--accent); }
+.fold-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; min-height: 32px; }
+.fold-head h3 { margin: 0; }
+.fold-head .muted { font-size: 13px; }
+.fold-chev { display: inline-block; color: var(--muted); transition: transform 0.15s; }
+.fold-chev.open { transform: rotate(90deg); }
+.panel .fold-head, .panel .fold-head:hover, .panel .fold-head:focus { background: none; border: 0; box-shadow: none; }
+.panel .fold-head:hover h3, .panel .fold-head:hover .fold-chev { color: var(--text); }
