@@ -56,6 +56,8 @@ export interface Movement {
   op?: number;
   /** Sent by auto-farm: its report comes in read, and in its own list. */
   auto?: true;
+  /** Yours: sent by the farm tools (farm assistant, farm all, auto-farm), not by hand. Missing on old ones. */
+  farm?: boolean;
   /** A bot's counter-attack: never answered with another counter (no endless ping-pong). */
   counter?: true;
 }
@@ -122,6 +124,8 @@ export interface Report {
   read: boolean;
   /** From auto-farm. */
   auto?: true;
+  /** A farm run (see Movement.farm); missing on old reports. */
+  farm?: boolean;
   attacker: ReportVillage;
   defender: ReportVillage;
   /** win = no losses, winLosses = won with losses, loss = attacker lost everything (or only spies died). */
@@ -307,6 +311,8 @@ export function sendAttack(
     arrives: state.time + duration,
   };
   if (catapultTarget && (units.catapult ?? 0) > 0) movement.catapultTarget = catapultTarget;
+  // yours by hand unless a farm tool marks it (markFarm)
+  if (from.owner === HUMAN_ID) movement.farm = false;
   if (train !== undefined) movement.train = train;
   if (op !== undefined) movement.op = op;
   addMovement(state, movement);
@@ -549,6 +555,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
       arrives: state.time + (m.arrives - m.sent),
     };
     if (loot) back.loot = loot;
+    if (m.farm !== undefined) back.farm = m.farm;
     addMovement(state, back);
     push(state.queue, back.arrives, { kind: 'arrive', movementId: back.id });
   }
@@ -598,6 +605,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
       ...(notes.attacker.length || (seesDefender && notes.defender.length) ? { modifiers: { attacker: notes.attacker, defender: seesDefender ? notes.defender : [] } } : {}),
     };
     if (m.auto) { report.auto = true; report.read = true; }
+    if (m.farm !== undefined) report.farm = m.farm;
     // the wall is always reported when the attacker saw the village
     if (seesDefender) report.wall = { before: battle.wallBefore, after: battle.wallAfter };
     if (m.catapultTarget && battle.buildingBefore !== undefined && battle.buildingAfter !== undefined && seesDefender) {

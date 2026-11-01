@@ -105,3 +105,20 @@ describe('farm alles', () => {
     expect(s.reports.filter((r) => r.auto)).toHaveLength(MAX_AUTO_REPORTS);
   });
 });
+
+describe('farm runs are marked by how they were sent', () => {
+  it('farm all marks them; an attack by hand on barbarians is a normal attack (with a sound)', async () => {
+    const { reportSound } = await import('../shared/reportOutcome');
+    const { s, v, barbs } = setup();
+    v.units.light = 20;
+    expect(farmAll(s, opts()).sent).toBeGreaterThan(0);
+    const farm = Object.values(s.movements).filter((m) => m.kind === 'attack');
+    expect(farm.every((m) => m.farm === true)).toBe(true);
+    v.units.axe = 1;
+    expect(sendAttack(s, v.id, barbs[10]!.id, { axe: 1 })).toBeNull();
+    const byHand = Object.values(s.movements).find((m) => m.to === barbs[10]!.id)!;
+    expect(byHand.farm).toBe(false);
+    s.sfx = [];
+    expect(reportSound({ id: 1, time: 0, read: false, luck: 0, morale: 1, result: 'win', farm: false, attacker: { id: v.id, name: '', x: 0, y: 0, ownerName: '', owner: 0 }, defender: { id: 1, name: '', x: 0, y: 0, ownerName: '', owner: -1 }, attackerUnits: { sent: { axe: 1 }, lost: {} }, defenderUnits: null })).toBe('battle-won');
+  });
+});

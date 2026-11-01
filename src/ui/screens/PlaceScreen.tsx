@@ -630,7 +630,7 @@ const FILTERS: { id: MoveFilter; label: string }[] = [
 const PAGE = 50;
 
 /** Farm runs: to and from barbarian villages. They come in hundreds, so they fold into one line. */
-const isFarm = (m: MovementView) => (m.kind === 'attack' && m.to.owner === -1) || (m.kind === 'return' && m.from.owner === -1);
+const isFarm = (m: MovementView) => (m.kind === 'attack' || m.kind === 'return') && (m.farm ?? (m.kind === 'attack' ? m.to.owner === -1 : m.from.owner === -1));
 function kindOf(m: MovementView): Exclude<MoveFilter, 'all'> {
   if (isFarm(m)) return 'farm';
   if (m.kind === 'attack') return 'attack';

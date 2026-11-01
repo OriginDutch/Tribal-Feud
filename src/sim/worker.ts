@@ -84,7 +84,7 @@ import { hasFaith } from './church';
 import { FLAG_TYPES, freeFlags, setFlag, upgradeFlag, type FlagType } from './flags';
 import { ITEMS, ITEM_IDS, equipItem, type ItemId } from './paladin';
 import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
-import { farmAll, planFarmAll, type FarmAllOptions } from './farmAll';
+import { farmAll, markFarm, planFarmAll, type FarmAllOptions } from './farmAll';
 import type { FarmAllView } from '../shared/protocol';
 import { SCAV_UNITS, scavEnabled, scavOf, scavParams, sendPlan } from './scavenge';
 import { DEFAULT_SCAV_TEMPLATE, type ScavTemplate } from '../shared/scavenge';
@@ -960,8 +960,8 @@ async function handle(cmd: Command): Promise<void> {
           const owner = state.villages[cmd.to]?.owner;
           if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner);
           humanOpSent(state, cmd.to);
-          // the march: not for farm runs on barbarians
-          if ((owner !== undefined && owner >= 0) || cmd.units.snob) playSfx(state, 'march');
+          // sent by hand: the march (farm tools go quietly)
+          playSfx(state, 'march');
         }
       }
       break;
@@ -969,8 +969,10 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
       const units = cmd.template === '*' ? farmCUnits(state, cmd.from, cmd.to) : state.farmTemplates[cmd.template];
+      const before = state.nextId;
       const error = !units ? `Sjabloon ${cmd.template} bestaat niet.` : typeof units === 'string' ? units : sendAttack(state, cmd.from, cmd.to, units);
       if (error) notice(error, 'error');
+      else markFarm(state, before, cmd.to);
       break;
     }
     case 'setFarmTemplate': {

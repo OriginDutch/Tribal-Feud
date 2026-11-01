@@ -466,6 +466,8 @@ export interface MovementView {
   cancelUntil?: number;
   /** Part of a noble train: cancelling calls back the whole train. */
   train?: boolean;
+  /** Yours: a farm run (sent by the farm tools); missing on old ones. */
+  farm?: boolean;
 }
 
 export interface TradeSide {

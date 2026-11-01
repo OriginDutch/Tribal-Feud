@@ -231,7 +231,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
     ctx.globalAlpha = 0.85;
     for (const m of s.movements) {
       if (m.kind === 'trade' || m.kind === 'tradeReturn') continue;
-      const kind: ArrowKind = m.kind === 'support' ? 'support' : m.kind === 'return' ? 'return' : m.to.owner === -1 ? 'farm' : 'attack';
+      const kind: ArrowKind = m.kind === 'support' ? 'support' : m.kind === 'return' ? 'return' : (m.farm ?? m.to.owner === -1) ? 'farm' : 'attack';
       if (!arrows[kind]) continue;
       arrow(m.from, m.to, ARROW_COLOR[kind], kind === 'return');
     }

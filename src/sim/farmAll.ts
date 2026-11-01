@@ -98,15 +98,18 @@ export function farmAll(state: WorldState, opts: FarmAllOptions, auto = false): 
     const e = sendAttack(state, s.from, s.to, s.units);
     if (e) { error ??= e; continue; }
     sent++;
-    if (auto) {
-      // the attack just sent: its report goes to the auto-farm list
-      for (let id = before; id < state.nextId; id++) {
-        const m = state.movements[id];
-        if (m && m.kind === 'attack' && m.to === s.to && m.owner === HUMAN_ID) m.auto = true;
-      }
-    }
+    // the attack just sent is a farm run; with auto-farm its report goes to the auto-farm list
+    markFarm(state, before, s.to, auto);
   }
   return { sent, error };
+}
+
+/** Marks the attack sent since id `before` to `to` as a farm run (and auto-farm). */
+export function markFarm(state: WorldState, before: number, to: number, auto = false): void {
+  for (let id = before; id < state.nextId; id++) {
+    const m = state.movements[id];
+    if (m && m.kind === 'attack' && m.to === to && m.owner === HUMAN_ID) { m.farm = true; if (auto) m.auto = true; }
+  }
 }
 
 /** How often auto-farm runs: every 30 game minutes at world speed 1. */

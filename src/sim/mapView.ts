@@ -90,6 +90,7 @@ export function movementViews(state: WorldState): MovementView[] {
     if (m.res) view.res = m.res;
     if (cancelBlocker(state, m) === null) view.cancelUntil = m.sent + CANCEL_WINDOW_MS;
     if (m.train !== undefined) view.train = true;
+    if (m.farm !== undefined) view.farm = m.farm;
     views.push(view);
   }
   return views.sort((a, b) => a.arrives - b.arrives);

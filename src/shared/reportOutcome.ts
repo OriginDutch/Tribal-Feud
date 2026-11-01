@@ -52,7 +52,8 @@ export const OUTCOME_LABEL: Record<Outcome, string> = {
 
 /** The sound of a report; farm runs (auto-farm, or an attack on barbarians that didn't take it) are silent. */
 export function reportSound(r: Report): Sfx | null {
-  if (r.auto || (!r.defense && r.defender?.owner === -1 && !r.conquered) || !r.attackerUnits) return null;
+  // a farm run: by the farm tools (old reports: any attack on barbarians that didn't take it)
+  if (r.auto || r.farm || (r.farm === undefined && !r.defense && r.defender?.owner === -1 && !r.conquered) || !r.attackerUnits) return null;
   const o = reportOutcome(r);
   if (o === 'lost' || o === 'def-lost' || o === 'village-lost') return 'battle-lost';
   if (o === 'heavy' || o === 'scout-heavy' || o === 'def-heavy') return 'battle-heavy';
