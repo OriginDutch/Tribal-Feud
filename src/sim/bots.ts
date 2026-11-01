@@ -4,6 +4,7 @@
  * functions (queueBuild, recruit, startResearch, sendAttack) and they only know what their
  * own reports told them. They don't attack players yet.
  */
+import { MERIT, addMerit } from './ranks';
 import { cededAway, cededTo } from './peace';
 import { refreshRoleName } from './botNames';
 import { botScavenge } from './scavenge';
@@ -380,7 +381,7 @@ function helpTribe(state: WorldState, player: Player, v: Village, profile: BotPr
     for (const u of ['spear', 'sword', 'archer', 'heavy'] as const) { const n = Math.floor(v.units[u] * share); if (n > 0) { units[u] = n; any = true; } }
     if (!any) continue;
     if (state.time + travelTimeMs(state, units, distance(v, target)) > threat.arrives) continue;
-    if (sendSupport(state, v.id, target.id, units) === null) return; // one help per turn
+    if (sendSupport(state, v.id, target.id, units) === null) { addMerit(state, player.id, MERIT.support); return; } // one help per turn
   }
 }
 

@@ -133,6 +133,8 @@ export type Command =
   | { type: 'cancelPlanned'; id: number }
   /** Give your nobles in a joint attack to another candidate. */
   | { type: 'giveNobles'; op: number; to: number }
+  /** Ask your bot leader for an order. */
+  | { type: 'askOrder' }
   | { type: 'returnSupport'; hostId: number; originId: number }
   /** Sends many supports home at once (rows of the support list). */
   | { type: 'returnSupportMany'; pairs: { hostId: number; originId: number }[] }
@@ -386,7 +388,14 @@ export interface TribeView {
   share: number;
   /** trust: this tribe's trust in an ally (0..100), see alliances. */
   relations: { id: number; rel: TribeRelation; since: number; trust?: number }[];
+  /** Every member's rank and merit, by place. */
+  ranks: RankRow[];
+  /** Your tribe: the merit you need for the next place up. */
+  next?: { rank: RankId; need: number } | null;
 }
+
+export type RankId = 'leider' | 'rechterhand' | 'kapitein' | 'veteraan' | 'krijger' | 'rekruut';
+export interface RankRow { id: number; rank: RankId; merit: number }
 
 /** Everything you can see about another player (profile screen). */
 export interface PlayerView {

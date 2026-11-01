@@ -10,7 +10,8 @@ import type { Archetype } from '../shared/botProfiles';
 import { DAY, MINUTE, formatGameTime } from '../shared/time';
 import { push } from './eventQueue';
 import { addMessage, alertHuman } from './humanTribe';
-import { changeMood, changeStanding, moodOf } from './loyalty';
+import { betray, changeMood, changeStanding, moodOf } from './loyalty';
+import { MERIT, addMerit, rankWeight } from './ranks';
 import { distance, freeUnits, travelTimeMs } from './movement';
 import { nextFloat } from './rng';
 import { HUMAN_ID, addLog, type Player, type WorldState } from './state';
@@ -30,6 +31,9 @@ const APPEAL: Record<Archetype, number> = { rusher: 0.3, opportunist: 0.3, farme
 /** A bot that lost its appeal and is unhappy (mood under REBEL_MOOD) may leave as an outlaw. */
 const REBEL: Partial<Record<Archetype, number>> = { rusher: 0.15, opportunist: 0.15 };
 const REBEL_MOOD = 30;
+/** ...half as likely against a higher rank, 1.5x against a lower one. */
+const REBEL_VS_HIGHER = 0.5;
+const REBEL_VS_LOWER = 1.5;
 /** The leader decides in his own favour this much more strongly. */
 const LEADER_SELF = 3;
 /** When you were drawn and the leader was a candidate too: the chance he takes them himself. */
@@ -71,13 +75,30 @@ export function drawNobles(state: WorldState, cands: NobleCandidate[]): NobleCan
   return cands[cands.length - 1];
 }
 
-/** The leader decides between two candidates: distance, nobles, how he gets on with them; himself first. */
+/** A strong own army counts: whoever clears himself, nobles more safely. Full weight at this much attack. */
+export const ARMY_FULL = 300_000;
+/** ...worth at most this much extra (x1.5). */
+export const ARMY_BONUS = 0.5;
+
+/** Attack strength of a village's own offensive troops. */
+function armyAttack(state: WorldState, v: Village): number {
+  const free = v.owner === HUMAN_ID ? freeUnits(state, v) : v.units;
+  let a = 0;
+  for (const u of ['axe', 'light', 'marcher', 'ram', 'catapult'] as const) a += free[u] * state.config.units[u].attack;
+  return a;
+}
+
+/**
+ * The leader decides between two candidates: distance, nobles, how he gets on with them, their
+ * rank in the tribe and their own army; himself first.
+ */
 export function leaderPicks(state: WorldState, t: Tribe, a: NobleCandidate, b: NobleCandidate): NobleCandidate {
   const score = (c: NobleCandidate) => {
     const v = state.villages[c.village];
     const nobles = v ? Math.min(2, snobsOf(state, v) / NOBLE_MIN) : 0;
     const rel = c.member === HUMAN_ID ? (state.standing ?? 60) : moodOf(state.players[c.member]!);
-    return nobleWeight(c.d) * nobles * (0.5 + rel / 100) * (c.member === t.leader ? LEADER_SELF : 1) * (0.85 + 0.3 * nextFloat(state.rng));
+    const army = v ? 1 + ARMY_BONUS * Math.min(1, armyAttack(state, v) / ARMY_FULL) : 1;
+    return nobleWeight(c.d) * nobles * (0.5 + rel / 100) * rankWeight(state, t, c.member) * army * (c.member === t.leader ? LEADER_SELF : 1) * (0.85 + 0.3 * nextFloat(state.rng));
   };
   return score(a) >= score(b) ? a : b;
 }
@@ -107,7 +128,8 @@ export function chooseNobles(state: WorldState, t: Tribe, cands: NobleCandidate[
   if (ruling.member === HUMAN_ID) {
     const text = `${p.name} ging in beroep tegen jou als edelaar, maar ${nameOf(state, t.leader)} houdt het bij jou.`;
     addLog(state, { time: state.time, text });
-    rebelMaybe(state, t, p);
+    addMerit(state, p.id, MERIT.appealLost);
+    rebelMaybe(state, t, p, winner.member);
     return winner;
   }
   winner = ruling;
@@ -123,10 +145,15 @@ export function chooseNobles(state: WorldState, t: Tribe, cands: NobleCandidate[
   return winner;
 }
 
-/** A bot that lost its appeal: an unhappy rusher or opportunist may leave as an outlaw. */
-function rebelMaybe(state: WorldState, t: Tribe, p: Player): void {
-  const chance = REBEL[p.bot?.archetype ?? 'diplomat'] ?? 0;
+/**
+ * A bot that lost its appeal: an unhappy rusher or opportunist may leave. Against a higher rank
+ * he gives in more easily. A rusher leaves as an outlaw; an opportunist defects to an enemy.
+ */
+function rebelMaybe(state: WorldState, t: Tribe, p: Player, winner: number): void {
+  const base = REBEL[p.bot?.archetype ?? 'diplomat'] ?? 0;
+  const chance = base * (rankWeight(state, t, winner) > rankWeight(state, t, p.id) ? REBEL_VS_HIGHER : REBEL_VS_LOWER);
   if (!chance || moodOf(p) >= REBEL_MOOD || nextFloat(state.rng) >= chance) return;
+  if (p.bot?.archetype === 'opportunist') return betray(state, p, t, 'de edels gingen naar een ander');
   outlawFrom(state, p, t);
   const text = `${p.name} is het niet eens met de beslissing over de edels en verlaat ${tag(t)}: vogelvrij.`;
   addLog(state, { time: state.time, text });
@@ -229,10 +256,11 @@ export function answerAppeal(state: WorldState, opId: number, village: number, a
     x.op.human = true;
     state.leaderOrder = { order: 'attack', village: target.id, until: deadline + 10 * MINUTE, from: x.t.leader, landAt: deadline, nobles: true, op: x.op.id };
     state.leaderOrderAt = state.time;
-    if (p) { changeMood(state, p, -3, 'verloor het beroep over de edels'); rebelMaybe(state, x.t, p); }
+    if (p) { changeMood(state, p, -3, 'verloor het beroep over de edels'); addMerit(state, p.id, MERIT.appealLost); rebelMaybe(state, x.t, p, HUMAN_ID); }
     addLog(state, { time: state.time, text: `${leader} geeft je gelijk: jij brengt de edels naar ${target.name}, landen om ${formatGameTime(deadline)}.` });
     return null;
   }
+  addMerit(state, HUMAN_ID, MERIT.appealLost);
   addMessage(state, {
     kind: 'request', from: x.t.leader, tribe: x.t.id, title: `${leader} houdt het bij ${nameOf(state, holder.member)}`, status: 'open', expires: state.time + DAY / 2,
     request: { type: 'verdict', op: x.op.id, village },

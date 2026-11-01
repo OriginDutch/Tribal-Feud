@@ -1092,3 +1092,9 @@ tr.locked .building-thumb { filter: grayscale(0.7); opacity: 0.7; }
 .plan-row p { margin: 6px 0 0; font-size: 13px; }
 .send-unit .reserved { color: var(--muted); font-size: 11px; }
 tr.muted-row td { opacity: 0.75; }
+
+/* tribe ranks */
+td.rank { font-size: 12px; white-space: nowrap; }
+td.rank-leider, td.rank-rechterhand { color: var(--accent); font-weight: 600; }
+td.rank-kapitein { color: var(--accent); }
+td.rank-rekruut { color: var(--muted); font-style: italic; }

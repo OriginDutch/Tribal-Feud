@@ -27,6 +27,7 @@ import { type Tribe } from './tribes';
 import { addNews } from './news';
 import { MAX_SCOUT_ORDERS, giveOpOrder, giveScoutOrder, scoutOrders } from './tribeOrders';
 import { NOBLE_LAG, chooseNobles, nobleCandidates, offerAppeal } from './nobleRole';
+import { MERIT, addMerit } from './ranks';
 import type { Village } from './village';
 import { isOperational } from './village';
 
@@ -261,7 +262,7 @@ export function humanOpSent(state: WorldState, targetId: number): void {
       // your train: a nobleman that lands right behind the armies
       ? Object.values(state.movements).some((m) => m.owner === HUMAN_ID && m.kind === 'attack' && m.to === targetId && (m.units.snob ?? 0) > 0 && m.arrives >= op.landAt && m.arrives <= op.landAt + NOBLE_LAG + 10 * MINUTE)
       : Object.values(state.movements).some((m) => m.owner === HUMAN_ID && m.kind === 'attack' && m.to === targetId && m.arrives <= op.landAt + 20_000 && attackOf(state, armyOf({ units: m.units as Village['units'] })) >= MIN_NUKE);
-    if (ok) r.state = 'sent';
+    if (ok) { r.state = 'sent'; addMerit(state, HUMAN_ID, r.kind === 'nobles' ? MERIT.nobles : MERIT.nuke); }
   }
 }
 
@@ -303,6 +304,7 @@ export function onOpLaunch(state: WorldState, tribeId: number, opId: number, rol
     error = attackOf(state, army) >= MIN_NUKE / 2 ? sendAttack(state, v.id, target.id, army, undefined, undefined, Math.max(0, left), op.id) : 'te klein';
   }
   r.state = error ? 'failed' : 'sent';
+  if (!error) addMerit(state, r.member, r.kind === 'nobles' ? MERIT.nobles : MERIT.nuke);
 }
 
 /** After an operation: news when it took the village. */

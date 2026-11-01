@@ -21,6 +21,7 @@ import { nextFloat } from './rng';
 import { BARBARIAN, HUMAN_ID, addLog, movementIndex, nextId, villagesOf, type BotRequest, type BotState, type InboxMessage, type Player, type WorldState } from './state';
 import { AGGRESSION, mayAttack, relationBetween, tribeOf } from './tribes';
 import { changeStanding, mateEvent, moodAll } from './loyalty';
+import { MERIT, addMerit } from './ranks';
 import { NOBLE_LAG, NOBLE_MIN, answerAppeal, answerVerdict, giveOptions, passNobles } from './nobleRole';
 import { storageCapacity } from './formulas';
 import { currentResources, isOperational, type Village } from './village';
@@ -316,7 +317,7 @@ function answerLeaderOrder(state: WorldState, m: InboxMessage, r: Extract<BotReq
     return null;
   }
   // a joint attack: landing a little after the others still counts
-  state.leaderOrder = { order: r.order, village: r.village, until: r.arrives !== undefined ? r.arrives + 10 * MINUTE : state.time + DAY / 2, from: leader.id, ...(r.arrives !== undefined ? { landAt: r.arrives } : {}), ...(r.spies ? { spies: r.spies } : {}), ...(r.nobles ? { nobles: true as const } : {}), ...(r.op !== undefined ? { op: r.op } : {}) };
+  state.leaderOrder = { order: r.order, village: r.village, until: r.arrives !== undefined ? r.arrives + 10 * MINUTE : state.time + DAY / 2, from: leader.id, ...(r.arrives !== undefined ? { landAt: r.arrives } : {}), ...(r.spies ? { spies: r.spies } : {}), ...(r.nobles ? { nobles: true as const } : {}), ...(r.op !== undefined ? { op: r.op } : {}), ...(r.asked ? { asked: true as const } : {}) };
   return null;
 }
 
@@ -339,6 +340,7 @@ export function leaderOrderLanded(state: WorldState, villageId: number, units: U
     if (!(units.snob ?? 0)) return;
     delete state.leaderOrder;
     changeStanding(state, 6, 'je bracht de edels');
+    addMerit(state, HUMAN_ID, MERIT.order);
     addLog(state, { time: state.time, text: `Order uitgevoerd: je edels zijn geland bij ${v?.name ?? '?'}.` });
     return;
   }
@@ -349,6 +351,7 @@ export function leaderOrderLanded(state: WorldState, villageId: number, units: U
   }
   delete state.leaderOrder;
   changeStanding(state, 6, 'je voerde mijn order uit');
+  addMerit(state, HUMAN_ID, MERIT.order);
   addLog(state, { time: state.time, text: `Order uitgevoerd: je aanval op ${v?.name ?? '?'} is geland.` });
 }
 /** Your scouts got through: was it the village your leader wanted scouted? (Also counted: your attack that saw it.) */
@@ -359,6 +362,7 @@ export function leaderOrderScouted(state: WorldState, villageId: number): void {
   else if (o && o.order === 'scout' && o.village === villageId) delete state.leaderOrder; // saves from before scout orders ran apart
   else return;
   changeStanding(state, 6, 'je verkende wat ik vroeg');
+  addMerit(state, HUMAN_ID, MERIT.scoutOrder);
   addLog(state, { time: state.time, text: `Order uitgevoerd: je verkenners kwamen door bij ${state.villages[villageId]?.name ?? '?'}.` });
 }
 
@@ -384,6 +388,7 @@ export function leaderOrderSupport(state: WorldState, villageId: number): void {
   if (!o || o.order !== 'support' || o.village !== villageId) return;
   delete state.leaderOrder;
   changeStanding(state, 6, 'je stuurde de support die ik vroeg');
+  addMerit(state, HUMAN_ID, MERIT.order);
 }
 /** A yes that was never done costs more than a no. */
 export function checkLeaderOrder(state: WorldState): void {
@@ -392,11 +397,31 @@ export function checkLeaderOrder(state: WorldState): void {
   if (late.length) {
     state.scoutOrders = state.scoutOrders!.filter((o) => o.until > state.time);
     changeStanding(state, -4 * late.length, 'je zou verkennen maar deed het niet');
+    addMerit(state, HUMAN_ID, MERIT.scoutFailed * late.length);
   }
   const o = state.leaderOrder;
   if (!o || o.until > state.time) return;
   delete state.leaderOrder;
-  changeStanding(state, -8, 'je zei ja maar deed het niet');
+  // an order you asked for yourself and then let lapse costs more
+  changeStanding(state, o.asked ? -12 : -8, o.asked ? 'je vroeg zelf om een opdracht en deed hem niet' : 'je zei ja maar deed het niet');
+  addMerit(state, HUMAN_ID, MERIT.orderFailed);
+}
+
+/** Between two asks for an order (game time). */
+export const ORDER_ASK_COOLDOWN = DAY / 2;
+
+/** You ask your bot leader for an order: he gives one if he has something, else says so. */
+export function askForOrder(state: WorldState): string | null {
+  const t = tribeOf(state, HUMAN_ID);
+  if (!t) return 'Je zit niet in een stam.';
+  const leader = state.players[t.leader];
+  if (!leader?.bot) return 'Jij bent de leider.';
+  if (openOrder(state) || state.leaderOrder) return 'Je hebt al een opdracht.';
+  if (state.orderAskAt !== undefined && state.time - state.orderAskAt < ORDER_ASK_COOLDOWN) return `Je vroeg net al. Opnieuw vragen kan vanaf ${formatGameTime(state.orderAskAt + ORDER_ASK_COOLDOWN)}.`;
+  state.orderAskAt = state.time;
+  if (leaderOrders(state, leader, true)) return null;
+  addMessage(state, { kind: 'info', from: leader.id, tribe: t.id, title: `${leader.name}: nu niks`, text: `${leader.name}: ik heb nu niks voor je. Geen stamgenoot die wordt aangevallen binnen jouw bereik, en geen vijandelijk dorp om op af te gaan.` });
+  return null;
 }
 
 /**
@@ -421,14 +446,15 @@ export function giveOpOrder(state: WorldState, leader: Player, target: Village, 
 }
 
 /** A bot leader of your tribe gives you an order now and then: support a mate, or attack an enemy. */
-function leaderOrders(state: WorldState, leader: Player): void {
+function leaderOrders(state: WorldState, leader: Player, asked = false): boolean {
   const open = !!openOrder(state);
-  if (open || state.leaderOrder || (state.leaderOrderAt !== undefined && state.time - state.leaderOrderAt < 12 * HOUR)) return;
-  if (nextFloat(state.rng) > 0.05) return;
+  if (open || state.leaderOrder) return false;
+  if (!asked && ((state.leaderOrderAt !== undefined && state.time - state.leaderOrderAt < 12 * HOUR) || nextFloat(state.rng) > 0.05)) return false;
   const t = tribeOf(state, HUMAN_ID);
   const mine = villagesOf(state, HUMAN_ID);
-  if (!t || !mine.length) return;
+  if (!t || !mine.length) return false;
   const give = (request: Extract<BotRequest, { type: 'order' }>, title: string, text: string) => {
+    if (asked) request.asked = true;
     state.leaderOrderAt = state.time;
     addMessage(state, { kind: 'request', from: leader.id, title, text, request, status: 'open', expires: request.arrives ?? state.time + DAY / 2 });
     if (pauses(state, 'requests')) alertHuman(state, title);
@@ -442,12 +468,12 @@ function leaderOrders(state: WorldState, leader: Player): void {
       if (!hits.length || !mine.some((o) => helpReach(state, o, v))) continue;
       const arrives = Math.min(...hits);
       give({ type: 'order', order: 'support', village: v.id, x: v.x, y: v.y, arrives }, `${leader.name}: support naar ${v.name}`, `${leader.name}: ${v.name} (${v.x}|${v.y}) van ${state.players[id]?.name ?? '?'} wordt aangevallen. Stuur verdediging, het moet er zijn voor ${Math.max(1, Math.round((arrives - state.time) / MINUTE))} min.`);
-      return;
+      return true;
     }
   }
   // 2. attack: the nearest village of a tribe we are at war with
   const enemies = new Set(Object.entries(t.relations).filter(([, r]) => r === 'war').flatMap(([tid]) => state.tribes?.[Number(tid)]?.members ?? []));
-  if (!enemies.size) return;
+  if (!enemies.size) return false;
   let best: Village | null = null, bestD = Infinity;
   for (const o of mine) {
     for (const v of villagesNear(state, o, fieldsWithin(state, reach(state)))) {
@@ -456,7 +482,9 @@ function leaderOrders(state: WorldState, leader: Player): void {
       if (d < bestD) { bestD = d; best = v; }
     }
   }
-  if (best) give({ type: 'order', order: 'attack', village: best.id, x: best.x, y: best.y }, `${leader.name}: val ${best.name} aan`, `${leader.name}: we zijn in oorlog met ${state.players[best.owner]?.name ?? '?'}. Val ${best.name} (${best.x}|${best.y}) aan, liefst binnen een halve speldag.`);
+  if (!best) return false;
+  give({ type: 'order', order: 'attack', village: best.id, x: best.x, y: best.y }, `${leader.name}: val ${best.name} aan`, `${leader.name}: we zijn in oorlog met ${state.players[best.owner]?.name ?? '?'}. Val ${best.name} (${best.x}|${best.y}) aan, liefst binnen een halve speldag.`);
+  return true;
 }
 
 /** What a bot that shares a tribe with you does for (and asks of) you this turn. */

@@ -33,6 +33,7 @@ import { nextFloat } from './rng';
 import { warOpsTick } from './warOps';
 import { WAR_FRICTION, clearFriction, frictionBetween, frictionTick, tribeStrength, warReason } from './warCause';
 import { addNews } from './news';
+import { nextPlace, onJoin, onLeave, rankRows, rightHand, updateRanks } from './ranks';
 import type { TribeView } from '../shared/protocol';
 import { BARBARIAN, HUMAN_ID, addLog as addWorldLog, movementIndex, villagesOf, type Player, type WorldState } from './state';
 
@@ -63,6 +64,11 @@ export interface Tribe {
   allyTrust?: Record<number, number>;
   /** Help from each ally since the last diplomacy tick. */
   allyHelp?: Record<number, number>;
+  /** Ranks (see ranks): merit per member, when each joined, the members by place (leader not in it). */
+  merit?: Record<number, { p: number; at: number }>;
+  joinedAt?: Record<number, number>;
+  order?: number[];
+  seeded?: true;
 }
 
 export { MAX_MEMBERS };
@@ -277,6 +283,7 @@ export function leave(state: WorldState, player: Player): void {
   delete player.tribe;
   if (!t) return;
   t.members = t.members.filter((m) => m !== player.id);
+  onLeave(t, player.id);
   if (!t.members.length) {
     for (const o of Object.values(state.tribes ?? {})) { delete o.relations[t.id]; delete o.since?.[t.id]; }
     const c = playerCentre(state, player.id);
@@ -294,11 +301,15 @@ export function leave(state: WorldState, player: Player): void {
  * now and you are asked: you never lead a tribe you didn't say yes to.
  */
 function succeed(state: WorldState, t: Tribe, old: Player): void {
-  const rank = (p: Player) => (p.bot ? (p.bot.awayUntil !== undefined && p.bot.awayUntil > state.time ? -1 : { pro: 2, mid: 1, casual: 0 }[p.bot.tier ?? 'pro']) : 2);
+  const rank = (p: Player): number => (p.bot ? (p.bot.awayUntil !== undefined && p.bot.awayUntil > state.time ? -1 : { pro: 2, mid: 1, casual: 0 }[p.bot.tier ?? 'pro']) : 2);
   const order = t.members
     .map((m) => state.players[m])
     .filter((p): p is Player => !!p)
     .sort((a, b) => rank(b) - rank(a) || (playerCentre(state, b.id)?.points ?? 0) - (playerCentre(state, a.id)?.points ?? 0));
+  // the right hand first, when he is there
+  const right = rightHand(state, t);
+  const rp = right !== undefined && t.members.includes(right) ? state.players[right] : undefined;
+  if (rp && rank(rp) >= 0) order.splice(order.indexOf(rp), 1), order.unshift(rp);
   const you = order[0]?.id === HUMAN_ID;
   const next = order.find((p) => p.id !== HUMAN_ID) ?? order[0]!;
   setLeader(state, t, next.id);
@@ -341,6 +352,7 @@ export function join(state: WorldState, t: Tribe, player: Player): void {
   if (player.tribe !== undefined) leave(state, player);
   player.tribe = t.id;
   t.members.push(player.id);
+  onJoin(state, t, player.id);
   // a fresh start with the new leader
   if (player.bot) { delete player.bot.mood; delete player.bot.moodNotes; delete player.bot.complained; }
   if (player.id === HUMAN_ID) { delete state.standing; delete state.standingNotes; delete state.standingWarned; }
@@ -416,6 +428,7 @@ export function onDiplomacy(state: WorldState): void {
 
   // members that lost everything leave
   for (const p of state.players) if (p.tribe !== undefined && villagesOf(state, p.id).length === 0) leave(state, p);
+  for (const t of tribes()) updateRanks(state, t);
 
   // drift: a member that ended up far from the rest leaves (moved by conquests or a restart)
   for (const t of tribes()) {
@@ -713,6 +726,7 @@ export function tribeViews(state: WorldState): TribeView[] {
     for (const m of t.members) for (const v of villagesOf(state, m)) { points += villagePoints(state.config, v); villages++; }
     out.push({
       id: t.id, name: t.name, tag: t.tag, color: t.color, leader: t.leader, members: [...t.members], founded: t.founded, points, villages, share: shares.get(t.id) ?? 0,
+      ranks: rankRows(state, t), ...(t.members.includes(HUMAN_ID) ? { next: nextPlace(state, t) } : {}),
       relations: Object.entries(t.relations).map(([id, rel]) => ({ id: Number(id), rel, since: t.since?.[Number(id)] ?? t.founded, ...(t.allyTrust?.[Number(id)] !== undefined ? { trust: Math.round(t.allyTrust[Number(id)]!) } : {}) })),
     });
   }

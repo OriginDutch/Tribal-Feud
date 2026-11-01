@@ -1,6 +1,6 @@
 import { PlayerLink } from '../components/PlayerLink';
 import { useEffect, useState } from 'preact/hooks';
-import type { FrictionRow, TribeRelation, TribeView } from '../../shared/protocol';
+import type { FrictionRow, RankId, TribeRelation, TribeView } from '../../shared/protocol';
 import { MAX_MEMBERS } from '../../shared/tribes';
 import { formatGameTime } from '../../shared/time';
 import { Confirm } from '../components/Confirm';
@@ -64,6 +64,10 @@ function FoundTribe() {
 }
 
 /** You are in a tribe: what it is, leave, and (leader) invite players nearby. */
+/** Your player id (the human is always 0). */
+const MY_ID = 0;
+const RANK_LABEL: Record<RankId, string> = { leider: 'Leider', rechterhand: 'Rechterhand', kapitein: 'Kapitein', veteraan: 'Veteraan', krijger: 'Krijger', rekruut: 'Rekruut' };
+
 function MyTribe({ t }: { t: TribeView }) {
   const s = snapshot.value!;
   const leader = s.myTribeLeader;
@@ -81,6 +85,19 @@ function MyTribe({ t }: { t: TribeView }) {
         {t.members.length}/{MAX_MEMBERS} leden
       </p>
       <OrderPanel />
+      {!leader && !s.leaderOrder && (
+        <div class="row">
+          <button class="small" onClick={() => send({ type: 'askOrder' })} title="Je leider geeft je er een als hij iets heeft: support voor een aangevallen stamgenoot, of een vijandelijk dorp. Een gevraagde opdracht die je niet haalt kost meer aanzien (−12).">
+            Vraag om een opdracht
+          </button>
+        </div>
+      )}
+      {t.next && (
+        <p class="muted">
+          Je bent {RANK_LABEL[t.ranks.find((r) => r.id === MY_ID)?.rank ?? 'krijger'].toLowerCase()}. Voor {RANK_LABEL[t.next.rank].toLowerCase()} heb je {num(t.next.need)} rangpunten nodig
+          (nu {num(t.ranks.find((r) => r.rank !== 'leider' && r.id === MY_ID)?.merit ?? 0)}).
+        </p>
+      )}
       {leader && t.members.length < MAX_MEMBERS && (
         <details class="invite-list">
           <summary>Spelers uitnodigen ({inviteCandidates.value.length} in de buurt)</summary>
@@ -469,23 +486,26 @@ export function TribesScreen() {
                   <thead>
                     <tr>
                       <th>Lid</th>
+                      <th>Rang</th>
+                      <th class="right" title="Verdiend met opdrachten, rollen in gezamenlijke aanvallen, veroveringen op vijanden en support; zakt langzaam weg">Rangpunten</th>
                       <th class="right">Punten</th>
                       <th class="right">Dorpen</th>
                       {leader && mine?.id === open.id && <th />}
                     </tr>
                   </thead>
                   <tbody>
-                    {open.members
-                      .map((id) => players.get(id))
-                      .filter((p) => p !== undefined)
-                      .sort((a, b) => b.points - a.points)
-                      .map((p) => (
+                    {(open.ranks ?? open.members.map((id) => ({ id, rank: 'krijger' as const, merit: 0 })))
+                      .map((r) => ({ r, p: players.get(r.id) }))
+                      .filter((x) => x.p !== undefined)
+                      .map(({ r, p }) => p && (
                         <tr key={p.id} class={p.isBot ? '' : 'me'}>
                           <td class="ellipsis">
                             {p.id === open.leader && <span title="Leider">♛ </span>}
                             <FaceIcon face={p.face} size={24} /> <PlayerLink id={p.id} name={p.name} strong={!p.isBot} />
                             <MapLink owner={p.id} />
                           </td>
+                          <td class={`rank rank-${r.rank}`}>{RANK_LABEL[r.rank]}</td>
+                          <td class="right mono">{r.id === open.leader ? '—' : num(r.merit)}</td>
                           <td class="right mono">{num(p.points)}</td>
                           <td class="right mono">{p.villages}</td>
                           {leader && mine?.id === open.id && (

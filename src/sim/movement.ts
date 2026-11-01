@@ -26,6 +26,7 @@ import { mateEvent, onVillageLost } from './loyalty';
 import { leaderOrderLanded, leaderOrderScouted, leaderOrderSupport } from './tribeOrders';
 import { statAttack, statConquest } from './worldStats';
 import { battleBonus } from './battleBonus';
+import { MERIT, addMerit } from './ranks';
 import { judgeScout, raiseSpies, rememberScout } from './botStrategy';
 import { FRICTION_ATTACK, FRICTION_CONQUEST, addFriction } from './warCause';
 import { equipped, itemKills } from './paladin';
@@ -739,6 +740,9 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   v.loyaltyAt = state.time;
   moveOwner(state, v.id, old, newOwner);
   if (old >= 0) conquestNews(state, v, old, newOwner);
+  // in service of the tribe: a conquest on another player, more on an enemy at war
+  const nt = state.players[newOwner]?.tribe, ot = old >= 0 ? state.players[old]?.tribe : undefined;
+  if (old >= 0 && nt !== undefined && nt !== ot) addMerit(state, newOwner, ot !== undefined && state.tribes?.[nt]?.relations[ot] === 'war' ? MERIT.conquestWar : MERIT.conquest);
 }
 
 /** Conquests that are news: a top-10 player loses a village, or a player is wiped off the map. */
