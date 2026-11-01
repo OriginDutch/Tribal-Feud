@@ -10,7 +10,7 @@ import { autoBuild } from './bots';
 import { push } from './eventQueue';
 import { recruitTimeMs } from './formulas';
 import { HUMAN_ID, villagesOf, type WorldState } from './state';
-import { sendSurplus } from './surplus';
+import { autoMint, sendSurplus } from './surplus';
 import {
   currentResources,
   maxRecruitable,
@@ -111,6 +111,7 @@ export function onManagerCheck(state: WorldState): void {
   delete state.managerAt;
   for (const v of villagesOf(state, HUMAN_ID)) if (v.manager) manageVillage(state, v, v.manager);
   if (state.surplus?.auto) sendSurplus(state);
+  if (state.mint?.auto) autoMint(state); // after the troops: they come first
   scheduleManager(state);
 }
 

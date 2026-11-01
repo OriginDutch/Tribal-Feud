@@ -2,7 +2,7 @@ import { nameAllBotVillages, renameStartVillages } from './botNames';
 import { nameBots } from './names/apply';
 import type { BuildTemplate, NobleTemplate, TroopTemplate } from './manager';
 import type { VillageGroup } from './groups';
-import type { SurplusSettings } from './surplus';
+import type { MintSettings, SurplusSettings } from './surplus';
 import type { EndgameState } from './endgame';
 import type { MoodNote } from './loyalty';
 import type { WorldStats } from './worldStats';
@@ -314,6 +314,8 @@ export interface WorldState {
   endgame?: EndgameState;
   /** Surplus to building villages (button and automatic). */
   surplus?: SurplusSettings;
+  /** Coin minting: the storage share villages keep, and minting by itself for wanted noblemen. */
+  mint?: MintSettings;
   /** The player's noble train templates. */
   nobleTemplates?: NobleTemplate[];
   /** Time of the scheduled account-manager check. */

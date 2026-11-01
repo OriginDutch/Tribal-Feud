@@ -144,6 +144,7 @@ export type Command =
   | { type: 'returnSupportMany'; pairs: { hostId: number; originId: number }[] }
   | { type: 'getSupportList' }
   | { type: 'setSurplus'; keep: number; auto: boolean }
+  | { type: 'setMint'; keep: number; auto: boolean }
   | { type: 'sendSurplus'; keep: number }
   | { type: 'getSurplusPlan'; keep: number }
   | { type: 'getMintPlan'; keep: number }
@@ -604,6 +605,7 @@ export interface Snapshot {
   groups: VillageGroup[];
   /** Surplus to building villages: keep share and automatic on/off. */
   surplus: { keep: number; auto: boolean };
+  mint: { keep: number; auto: boolean };
   /** Rooftochten on in this world. */
   scavenging: boolean;
   /** Battle rules that may change while playing. */

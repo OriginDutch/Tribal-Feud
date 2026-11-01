@@ -90,7 +90,7 @@ import type { FarmAllView } from '../shared/protocol';
 import { SCAV_UNITS, scavEnabled, scavOf, scavParams, sendPlan } from './scavenge';
 import { DEFAULT_SCAV_TEMPLATE, type ScavTemplate } from '../shared/scavenge';
 import type { ScavView } from '../shared/protocol';
-import { DEFAULT_SURPLUS, mintAll, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
+import { DEFAULT_MINT, DEFAULT_SURPLUS, mintAll, setMint, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
 
 /** Minimal typing for the worker global, so the project only needs the DOM lib. */
 const ctx = self as unknown as {
@@ -338,6 +338,7 @@ function snapshot(): Snapshot | null {
     nobleTemplates: state.nobleTemplates ?? [],
     groups: state.villageGroups ?? [],
     surplus: state.surplus ?? DEFAULT_SURPLUS,
+    mint: state.mint ?? DEFAULT_MINT,
     difficulty: state.config.bots.difficulty,
     scavenging: state.config.scavenging !== false,
     rules: { morale: state.config.morale, luck: state.config.luck, nightBonus: state.config.nightBonus },
@@ -1472,6 +1473,13 @@ async function handle(cmd: Command): Promise<void> {
     case 'getSurplusPlan':
       if (state) post({ type: 'surplusPlan', rows: surplusRows(state, cmd.keep), keep: cmd.keep });
       return;
+    case 'setMint': {
+      if (!state) return;
+      const error = setMint(state, { keep: cmd.keep, auto: cmd.auto });
+      if (error) notice(error, 'error');
+      else if (cmd.auto) scheduleManager(state);
+      break;
+    }
     case 'setSurplus': {
       if (!state) return;
       const error = setSurplus(state, { keep: cmd.keep, auto: cmd.auto });

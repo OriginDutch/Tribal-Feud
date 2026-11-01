@@ -154,3 +154,34 @@ describe('account manager: paladin and nobles', () => {
     expect(v.units.knight ?? 0).toBeLessThanOrEqual(1);
   });
 });
+
+describe('account manager: minting coins when a nobleman is wanted', () => {
+  const nobleVillage = () => {
+    const { s, v } = setup();
+    Object.assign(v.buildings, { main: 20, barracks: 5, smith: 20, market: 10, snob: 1, farm: 30, storage: 30 });
+    v.res = [300000, 300000, 300000];
+    expect(saveTemplate(s, { id: 'own:done', name: 'Af', steps: [['main', 1]] })).toBeNull();
+    expect(setManager(s, v.id, { template: 'own:done', troops: { snob: 1 }, troopShare: 1 })).toBeNull();
+    return { s, v };
+  };
+  it('off: no coins, so no nobleman', () => {
+    const { s, v } = nobleVillage();
+    run(s, 6 * HOUR);
+    expect(v.units.snob).toBe(0);
+    expect(s.players[0]!.coins ?? 0).toBe(0);
+  });
+  it('on: mints just enough for the slot, then the nobleman comes', () => {
+    const { s, v } = nobleVillage();
+    s.mint = { keep: 0.25, auto: true };
+    run(s, 12 * HOUR);
+    expect(s.players[0]!.coins).toBe(1);
+    expect(v.units.snob).toBe(1);
+  });
+  it('keeps its share of the storage', () => {
+    const { s, v } = nobleVillage();
+    s.mint = { keep: 0.9, auto: true };
+    run(s, 2 * HOUR);
+    expect(s.players[0]!.coins ?? 0).toBe(0);
+    expect(v.units.snob).toBe(0);
+  });
+});
