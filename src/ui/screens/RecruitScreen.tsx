@@ -18,6 +18,9 @@ function StatIcon({ d }: { d: string }) {
   );
 }
 
+/** Where the eye goes in each portrait (vertical %, for the crop): riders sit higher than men on foot. */
+const PORTRAIT_FOCUS: Partial<Record<string, number>> = { spy: 12, light: 12, marcher: 8, heavy: 10, knight: 18, snob: 6, ram: 55, catapult: 15 };
+
 function UnitCard({ villageId, u, have }: { villageId: number; u: UnitView; have: [number, number, number] }) {
   const [count, setCount] = useState('');
   const n = Number(count);
@@ -29,6 +32,9 @@ function UnitCard({ villageId, u, have }: { villageId: number; u: UnitView; have
   };
   return (
     <div class={`unit-card${u.recruit.blocker ? ' blocked' : ''}`}>
+      <div class="uc-portrait">
+        <img src={`/units/${u.id}.webp`} alt="" loading="lazy" width={480} height={480} style={{ objectPosition: `50% ${PORTRAIT_FOCUS[u.id] ?? 30}%` }} />
+      </div>
       <div class="uc-head">
         <div class="uc-icon">
           <UnitIcon id={u.id} size={44} />
