@@ -69,6 +69,8 @@ export type Command =
   | { type: 'cancelRecruit'; villageId: number; jobId: number }
   | { type: 'sendAttack'; from: number; to: number; units: UnitCounts; catapultTarget?: BuildingId }
   | { type: 'sendFarm'; from: number; to: number; template: FarmKey }
+  /** A farm template's runs as normal attacks (notifications, sounds) or quiet farm runs. */
+  | { type: 'setFarmNotify'; template: FarmKey; on: boolean }
   /** Empty units = the letter is removed. */
   | { type: 'setFarmTemplate'; template: FarmLetter; units: UnitCounts }
   /** Build, troop and noble templates: hide from the lists and pickers (they keep working). */
@@ -605,6 +607,8 @@ export interface Snapshot {
   templateUse: Record<string, number>;
   unreadReports: number;
   farmTemplates: FarmTemplates;
+  /** Templates with "Meldingen tonen": their runs count as normal attacks for you. */
+  farmNotify: FarmKey[];
   /** Template ids you hid. */
   hiddenTemplates: string[];
   autoRewards: boolean;

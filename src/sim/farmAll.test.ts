@@ -122,3 +122,16 @@ describe('farm runs are marked by how they were sent', () => {
     expect(reportSound({ id: 1, time: 0, read: false, luck: 0, morale: 1, result: 'win', farm: false, attacker: { id: v.id, name: '', x: 0, y: 0, ownerName: '', owner: 0 }, defender: { id: 1, name: '', x: 0, y: 0, ownerName: '', owner: -1 }, attackerUnits: { sent: { axe: 1 }, lost: {} }, defenderUnits: null })).toBe('battle-won');
   });
 });
+
+describe('farm templates with "Meldingen tonen"', () => {
+  it('their runs stay normal attacks for you (also with auto-farm), with the march', () => {
+    const { s, v } = setup();
+    v.units.light = 20;
+    s.farmNotify = ['A'];
+    s.sfx = [];
+    expect(farmAll(s, opts(), true).sent).toBeGreaterThan(0);
+    const sent = Object.values(s.movements).filter((m) => m.kind === 'attack');
+    expect(sent.every((m) => m.farm === false && !m.auto)).toBe(true);
+    expect(s.sfx).toContain('march');
+  });
+});

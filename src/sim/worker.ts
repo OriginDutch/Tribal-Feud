@@ -84,7 +84,7 @@ import { hasFaith } from './church';
 import { FLAG_TYPES, freeFlags, setFlag, upgradeFlag, type FlagType } from './flags';
 import { ITEMS, ITEM_IDS, equipItem, type ItemId } from './paladin';
 import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
-import { farmAll, markFarm, planFarmAll, type FarmAllOptions } from './farmAll';
+import { farmAll, farmNotifies, markFarm, planFarmAll, type FarmAllOptions } from './farmAll';
 import type { FarmAllView } from '../shared/protocol';
 import { SCAV_UNITS, scavEnabled, scavOf, scavParams, sendPlan } from './scavenge';
 import { DEFAULT_SCAV_TEMPLATE, type ScavTemplate } from '../shared/scavenge';
@@ -336,6 +336,7 @@ function snapshot(): Snapshot | null {
     templateUse: templateUse(state),
     unreadReports: state.reports.filter((r) => !r.read).length,
     farmTemplates: state.farmTemplates,
+    farmNotify: state.farmNotify ?? [],
     hiddenTemplates: state.hiddenTemplates ?? [],
     autoRewards: !!state.autoRewards,
     autoFarm: state.autoFarm ? { options: state.autoFarm.options, ...(state.autoFarm.at !== undefined ? { next: state.autoFarm.at } : {}), ...(state.autoFarm.last ? { last: state.autoFarm.last } : {}) } : null,
@@ -972,7 +973,14 @@ async function handle(cmd: Command): Promise<void> {
       const before = state.nextId;
       const error = !units ? `Sjabloon ${cmd.template} bestaat niet.` : typeof units === 'string' ? units : sendAttack(state, cmd.from, cmd.to, units);
       if (error) notice(error, 'error');
-      else markFarm(state, before, cmd.to);
+      else { markFarm(state, before, cmd.to, cmd.template); if (farmNotifies(state, cmd.template)) playSfx(state, 'march'); }
+      break;
+    }
+    case 'setFarmNotify': {
+      if (!state) return;
+      if (cmd.template !== '*' && !isFarmLetter(cmd.template)) break;
+      const rest = (state.farmNotify ?? []).filter((k) => k !== cmd.template);
+      state.farmNotify = cmd.on ? [...rest, cmd.template] : rest;
       break;
     }
     case 'setFarmTemplate': {

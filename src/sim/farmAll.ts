@@ -7,7 +7,7 @@ import type { FarmKey } from '../shared/farmTemplates';
 import { FARM_C_UNIT, estimateLoot } from './intel';
 import { distance, freeUnits, sendAttack } from './movement';
 import { push } from './eventQueue';
-import { BARBARIAN, HUMAN_ID, villagesOf, type WorldState } from './state';
+import { BARBARIAN, HUMAN_ID, playSfx, villagesOf, type WorldState } from './state';
 import { isOperational } from './village';
 
 export interface FarmAllOptions {
@@ -99,13 +99,22 @@ export function farmAll(state: WorldState, opts: FarmAllOptions, auto = false): 
     if (e) { error ??= e; continue; }
     sent++;
     // the attack just sent is a farm run; with auto-farm its report goes to the auto-farm list
-    markFarm(state, before, s.to, auto);
+    markFarm(state, before, s.to, opts.template, auto);
   }
+  // a template with notifications marches off like any attack
+  if (sent > 0 && farmNotifies(state, opts.template)) playSfx(state, 'march');
   return { sent, error };
 }
 
-/** Marks the attack sent since id `before` to `to` as a farm run (and auto-farm). */
-export function markFarm(state: WorldState, before: number, to: number, auto = false): void {
+/** This template's runs count as normal attacks for you ("Meldingen tonen"). */
+export const farmNotifies = (state: WorldState, key: FarmKey): boolean => !!state.farmNotify?.includes(key);
+
+/**
+ * Marks the attack sent since id `before` to `to` as a farm run (and auto-farm), unless its
+ * template shows notifications: then it stays a normal attack for you in every way.
+ */
+export function markFarm(state: WorldState, before: number, to: number, key: FarmKey, auto = false): void {
+  if (farmNotifies(state, key)) return;
   for (let id = before; id < state.nextId; id++) {
     const m = state.movements[id];
     if (m && m.kind === 'attack' && m.to === to && m.owner === HUMAN_ID) { m.farm = true; if (auto) m.auto = true; }

@@ -14,6 +14,16 @@ import { FARM_LETTERS, definedLetters, type FarmKey, type FarmLetter } from '../
 
 const FARM_UNITS: UnitId[] = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'knight'];
 
+/** "Meldingen tonen": this template's runs count as normal attacks for you (unread reports, sounds). */
+function NotifyBox({ name }: { name: FarmKey }) {
+  const on = snapshot.value?.farmNotify?.includes(name) ?? false;
+  return (
+    <label class="inline" title="Aan: deze farmruns tellen voor jou als gewone aanvallen: ongelezen rapporten, meldingen en geluiden, en ze staan onder Aanvallen. Uit: stille farmruns.">
+      <input type="checkbox" checked={on} onChange={(e) => send({ type: 'setFarmNotify', template: name, on: e.currentTarget.checked })} /> Meldingen tonen
+    </label>
+  );
+}
+
 function TemplateEditor({ name, units, onRemove }: { name: FarmLetter; units: UnitCounts; onRemove: () => void }) {
   const [draft, setDraft] = useState<Partial<Record<UnitId, string>>>({});
   useEffect(() => {
@@ -49,6 +59,7 @@ function TemplateEditor({ name, units, onRemove }: { name: FarmLetter; units: Un
           Opslaan
         </button>
         <Confirm label="Verwijderen" sure={`Sjabloon ${name} weg?`} onConfirm={onRemove} />
+        <NotifyBox name={name} />
       </div>
     </div>
   );
@@ -126,6 +137,9 @@ export function FarmScreen() {
           {letters.map((l) => `${l}: ${unitsText(tpl(l))}`).join(' · ') || 'Nog geen sjablonen.'} Een sjabloon is pas te sturen als alle troepen ervan thuis zijn.
           * stuurt genoeg lichte cavalerie voor de geschatte buit (na verkenning).
         </p>
+        <div class="row">
+          <span class="muted">Sjabloon *:</span> <NotifyBox name="*" />
+        </div>
       </section>
       <FarmAllPanel />
       <section class="panel">

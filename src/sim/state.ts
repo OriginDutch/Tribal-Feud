@@ -255,6 +255,8 @@ export interface WorldState {
   /** Your last attack per target village (map, farm assistant). Kept apart from reports, so deleting a report loses nothing. */
   lastAttack: Record<number, LastAttack>;
   farmTemplates: FarmTemplates;
+  /** Farm templates whose runs count as normal attacks for you (reports, notifications, sounds). */
+  farmNotify?: import('../shared/farmTemplates').FarmKey[];
   /** Farm alles on its own, every little while (game time), with these settings. */
   autoFarm?: { options: import('./farmAll').FarmAllOptions; at?: number; last?: { time: number; sent: number } };
   /** Peace treaties with ceded villages (see peace). */
