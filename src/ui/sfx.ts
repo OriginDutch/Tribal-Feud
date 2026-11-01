@@ -8,6 +8,8 @@ import { signal } from '@preact/signals';
 import { SFX_PRIORITY, type Sfx } from '../shared/reportOutcome';
 
 const SETTINGS_KEY = 'tf-sfx';
+/** Bump when the sound files change (they are cached for a year). */
+const VERSION = 2;
 /** At most one sound per this many ms (real time). */
 const GAP_MS = 2000;
 
@@ -65,7 +67,7 @@ const els = new Map<Sfx, HTMLAudioElement>();
 function el(id: Sfx): HTMLAudioElement {
   let a = els.get(id);
   if (!a) {
-    a = new Audio(`/sfx/${id}.${ext}`);
+    a = new Audio(`/sfx/${id}.${ext}?v=${VERSION}`);
     a.preload = 'auto';
     els.set(id, a);
   }
