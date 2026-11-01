@@ -1,3 +1,4 @@
+import { noteSnapshot } from './perf';
 /**
  * Connection to the simulation worker + UI state as signals.
  * Components read these signals; only the parts that use a changed signal re-render.
@@ -214,12 +215,14 @@ port.onmessage = (e: MessageEvent<WorkerMessage>) => {
   const msg = e.data;
   switch (msg.type) {
     case 'snapshot': {
+      const t0 = performance.now();
       const prev = snapshot.value;
       const next = msg.snapshot;
       // unchanged fields came without a value: keep ours (same object, so nothing redraws for them)
       if (next && msg.same?.length && prev) for (const k of msg.same) (next as unknown as Record<string, unknown>)[k] = (prev as unknown as Record<string, unknown>)[k];
       snapshot.value = next;
       rememberVillage(msg.snapshot?.village?.id ?? null);
+      noteSnapshot(performance.now() - t0);
       break;
     }
     case 'blocked':

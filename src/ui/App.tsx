@@ -1,3 +1,4 @@
+import { PerfMeter } from './components/PerfMeter';
 import { PlayerScreen } from './screens/PlayerScreen';
 import { SupportScreen } from './screens/SupportScreen';
 import { InboxScreen } from './screens/InboxScreen';
@@ -132,6 +133,7 @@ export function App() {
   return (
     <>
       {hasWorld && <TopBar />}
+      <PerfMeter />
       {/* overlays: they float over the page so nothing below them moves */}
       <div class="overlays">
         {paused && (
