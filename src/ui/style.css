@@ -1121,3 +1121,6 @@ td.rank-rekruut { color: var(--muted); font-style: italic; }
 .sound-panel + .sound-panel { margin-top: 14px; }
 .sound-panel label.check { display: flex; flex-direction: row; align-items: center; gap: 8px; }
 .sound-panel label.check input { width: auto; margin: 0; }
+
+details.coup { margin: 8px 0; }
+details.coup summary { cursor: pointer; color: var(--muted); }

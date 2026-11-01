@@ -92,6 +92,22 @@ function MyTribe({ t }: { t: TribeView }) {
           </button>
         </div>
       )}
+      {!leader && s.coup && (
+        <details class="coup">
+          <summary>Machtsgreep{s.coup.blocker ? '' : ` · kans ${Math.round(s.coup.chance * 100)}%`}</summary>
+          {s.coup.blocker ? (
+            <p class="muted">{s.coup.blocker}</p>
+          ) : (
+            <>
+              <ul class="order-facts">
+                {s.coup.why.map((w) => <li key={w}>{w}</li>)}
+              </ul>
+              <p class="hint">Lukt het, dan leid jij de stam; de oude leider vertrekt met een wrok tegen je, en wie hem nog mocht kan met hem meegaan. Mislukt het, dan lig je eruit en ben je een tijd vogelvrij.</p>
+              <Confirm label={`Machtsgreep plegen (${Math.round(s.coup.chance * 100)}%)`} cls="warn" sure={`Echt? ${Math.round(s.coup.chance * 100)}% kans; mislukt = eruit en vogelvrij.`} onConfirm={() => send({ type: 'tribeCoup' })} />
+            </>
+          )}
+        </details>
+      )}
       {t.next && (
         <p class="muted">
           Je bent {RANK_LABEL[t.ranks.find((r) => r.id === MY_ID)?.rank ?? 'krijger'].toLowerCase()}. Voor {RANK_LABEL[t.next.rank].toLowerCase()} heb je {num(t.next.need)} rangpunten nodig

@@ -7,6 +7,7 @@ import { isFarmLetter } from '../shared/farmTemplates';
 import { humanOpSent, setFront, warFrontView } from './warOps';
 import { cancelPlanned, planAttack, planOrder, plannedViews } from './planned';
 import { giveNobles } from './nobleRole';
+import { attemptCoup, coupView } from './coup';
 import { askForOrder } from './tribeOrders';
 import { faceOf } from './faces';
 import { deleteGroup, saveGroup, setGroup } from './groups';
@@ -314,6 +315,7 @@ function snapshot(): Snapshot | null {
     myTribe: state.players[HUMAN_ID]?.tribe ?? null,
     myTribeLeader: (() => { const t = state.players[HUMAN_ID]?.tribe; return t !== undefined && state.tribes?.[t]?.leader === HUMAN_ID; })(),
     leaderOrder: leaderOrderView(state),
+    coup: coupView(state),
     scoutOrders: scoutOrderViews(state),
     planned: plannedViews(state),
     inboxUnread: (state.inbox ?? []).filter((m) => !m.read).length,
@@ -1091,6 +1093,12 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       const error = planOrder(state, cmd.from, cmd.to, cmd.landAt, !!cmd.spies);
       notice(error ?? 'Ingepland: hij vertrekt vanzelf op tijd.', error ? 'error' : 'info');
+      break;
+    }
+    case 'tribeCoup': {
+      if (!state) return;
+      const error = attemptCoup(state);
+      if (error) notice(error, 'error');
       break;
     }
     case 'askOrder': {

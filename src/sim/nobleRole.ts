@@ -104,7 +104,7 @@ export function leaderPicks(state: WorldState, t: Tribe, a: NobleCandidate, b: N
 }
 
 /** Out of the tribe, hunted by it for a while (a ruling you would not accept). */
-function outlawFrom(state: WorldState, p: Player, t: Tribe): void {
+export function outlawFrom(state: WorldState, p: Player, t: Tribe): void {
   leave(state, p);
   (state.outlaws ??= {})[p.id] = { tribes: [t.id], until: state.time + (OUTLAW_DAYS * DAY) / state.config.worldSpeed };
 }

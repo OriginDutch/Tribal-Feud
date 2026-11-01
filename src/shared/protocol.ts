@@ -137,6 +137,8 @@ export type Command =
   | { type: 'giveNobles'; op: number; to: number }
   /** Ask your bot leader for an order. */
   | { type: 'askOrder' }
+  /** Try to take over your bot tribe. */
+  | { type: 'tribeCoup' }
   | { type: 'returnSupport'; hostId: number; originId: number }
   /** Sends many supports home at once (rows of the support list). */
   | { type: 'returnSupportMany'; pairs: { hostId: number; originId: number }[] }
@@ -568,6 +570,8 @@ export interface Snapshot {
   /** Your tribe (id) and whether you lead it. */
   myTribe: number | null;
   myTribeLeader: boolean;
+  /** As a member of a bot tribe: your chance at a coup (or why you can't try). */
+  coup: CoupView | null;
   /** The order of your bot leader you said yes to (or one still waiting for your answer). */
   leaderOrder: LeaderOrderView | null;
   /** Scout orders beside it (open and said yes to), at most 3. */
@@ -860,4 +864,12 @@ export interface SimResult {
   buildingAfter?: number;
   attackStrength: number;
   defenseStrength: number;
+}
+
+export interface CoupView {
+  /** 0..1 */
+  chance: number;
+  /** What makes the chance, in words. */
+  why: string[];
+  blocker?: string;
 }
