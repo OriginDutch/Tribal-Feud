@@ -710,7 +710,7 @@ export function conquer(state: WorldState, v: Village, newOwner: number): void {
   if (old >= 0) addFriction(state, newOwner, old, FRICTION_CONQUEST, 'conquest');
   delete v.flag;
   delete v.scav;
-  if (newOwner >= 0) flagForConquest(state, newOwner);
+  if (newOwner >= 0) flagForConquest(state, newOwner, old >= 0);
   if (old >= 0 && old !== HUMAN_ID) {
     const helped = Object.keys(v.support ?? {}).some((o) => state.villages[Number(o)]?.owner === HUMAN_ID);
     onVillageLost(state, old, helped, v.name);

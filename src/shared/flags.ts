@@ -23,3 +23,20 @@ export const FLAG_TEXT: Record<FlagType, (p: number) => string> = {
   defense: (p) => `+${p}% verdediging`, luck: (p) => `geluk ${p}% dichter bij 0 (aanval)`, pop: (p) => `+${p}% boerderij`,
   coin: (p) => `munten ${p}% goedkoper`, haul: (p) => `+${p}% buit`,
 };
+
+/**
+ * The level a new flag comes with: each level about three times rarer than the one below (the top
+ * ones a bit more), so every level adds about as much on average (~5.8 level-1 flags per flag).
+ * Level 9 only by merging. Index = level - 1.
+ */
+export const FLAG_DROP = [0.6, 0.25, 0.1, 0.035, 0.011, 0.003, 0.0008, 0.0002, 0];
+
+/** A level from FLAG_DROP for a roll in [0, 1); `bonus` levels higher (a conquest on a player: 1). */
+export function dropLevel(roll: number, bonus = 0): number {
+  let acc = 0;
+  for (let i = 0; i < FLAG_DROP.length; i++) {
+    acc += FLAG_DROP[i]!;
+    if (roll < acc) return Math.min(9, i + 1 + bonus);
+  }
+  return Math.min(9, 1 + bonus);
+}

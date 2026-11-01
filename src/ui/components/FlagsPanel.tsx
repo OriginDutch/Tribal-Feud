@@ -14,6 +14,7 @@ export function FlagsPanel() {
           <tr>
             <th>Vlag</th>
             {Array.from({ length: 9 }, (_, i) => <th key={i} class="right">L{i + 1}</th>)}
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -28,13 +29,28 @@ export function FlagsPanel() {
                   )}
                 </td>
               ))}
+              <td class="right">
+                {(f.free[t] ?? []).some((n, i) => n >= 3 && i < 8) && (
+                  <button class="small" title="Alles van deze soort zo hoog mogelijk samenvoegen (er blijven genoeg vlaggen over voor al je dorpen)" onClick={() => send({ type: 'mergeFlags', flag: t })}>
+                    Samenvoegen
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      <div class="row">
+        <button class="small" onClick={() => send({ type: 'mergeFlags' })}>Alles samenvoegen</button>
+        <label class="inline">
+          <input type="checkbox" checked={f.auto} onChange={(e) => send({ type: 'flagAuto', on: e.currentTarget.checked })} /> Automatisch samenvoegen
+        </label>
+      </div>
       <p class="hint">
-        Losse vlaggen (niet opgehangen). Drie van hetzelfde soort en level maken er één van het volgende level (▲). Eén vlag per dorp: kies hem in de
-        kolom Vlag hieronder. Nieuwe vlaggen krijg je voor elk veroverd dorp en per 1.500 verslagen vijanden ({f.kills}/1.500).
+        Losse vlaggen (niet opgehangen). Drie van hetzelfde soort en level maken er één van het volgende level (▲). Samenvoegen houdt altijd genoeg
+        vlaggen over om in al je dorpen één te hangen. Eén vlag per dorp: kies hem in de kolom Vlag hieronder. Nieuwe vlaggen krijg je voor elk
+        veroverd dorp en per 1.500 verslagen vijanden ({f.kills}/1.500), met een willekeurig level: L1 60%, L2 25%, L3 10%, L4 3,5%, L5 1,1%, L6 0,3%,
+        L7 0,08%, L8 0,02%. Een verovering op een speler geeft een level hoger.
       </p>
     </div>
   );

@@ -82,7 +82,7 @@ import { fight } from './combat';
 import { endgameRules } from './endgame';
 import { liveTribes } from './worldStats';
 import { hasFaith } from './church';
-import { FLAG_TYPES, freeFlags, setFlag, upgradeFlag, type FlagType } from './flags';
+import { FLAG_TYPES, freeFlags, mergeAll, setFlag, upgradeFlag, type FlagType } from './flags';
 import { ITEMS, ITEM_IDS, equipItem, type ItemId } from './paladin';
 import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
 import { farmAll, farmNotifies, markFarm, planFarmAll, type FarmAllOptions } from './farmAll';
@@ -462,6 +462,7 @@ function flagsView(s: WorldState): NonNullable<Snapshot['flags']> {
   return {
     free: Object.fromEntries(FLAG_TYPES.map((t) => [t, Array.from({ length: 9 }, (_, i) => freeFlags(s, p, t, i + 1))])),
     kills: p.flags?.kills ?? 0,
+    auto: !!p.flags?.auto,
   };
 }
 
@@ -1327,6 +1328,18 @@ async function handle(cmd: Command): Promise<void> {
       if (error) notice(error, 'error');
       else notice(cmd.type === 'askTribeResources' ? 'Je stam is om grondstoffen gevraagd. Stamgenoten antwoorden als ze online zijn.' : cmd.type === 'askPermission' ? 'Gevraagd. Je leider antwoordt als hij online is.' : 'Het is gebeurd. Er is geen weg terug.', 'info');
       post({ type: 'opinions', opinions: opinionsView(state) });
+      break;
+    }
+    case 'mergeFlags': {
+      if (!state) return;
+      const n = mergeAll(state, state.players[HUMAN_ID]!, cmd.flag as FlagType | undefined);
+      notice(n ? `${n}× samengevoegd.` : 'Niets samen te voegen (of je houdt ze nodig voor je dorpen).', n ? 'info' : 'error');
+      break;
+    }
+    case 'flagAuto': {
+      if (!state) return;
+      const p = state.players[HUMAN_ID]!;
+      if (p.flags) { p.flags.auto = cmd.on; if (cmd.on) mergeAll(state, p); }
       break;
     }
     case 'upgradeFlag':
