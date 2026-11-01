@@ -131,6 +131,8 @@ export type Command =
   /** Plan your strongest free army (or spies) from a village for an order, to land at landAt. */
   | { type: 'planOrder'; from: number; to: number; spies?: boolean; landAt: number }
   | { type: 'cancelPlanned'; id: number }
+  /** Give your nobles in a joint attack to another candidate. */
+  | { type: 'giveNobles'; op: number; to: number }
   | { type: 'returnSupport'; hostId: number; originId: number }
   /** Sends many supports home at once (rows of the support list). */
   | { type: 'returnSupportMany'; pairs: { hostId: number; originId: number }[] }
@@ -309,9 +311,11 @@ export interface LeaderOrderView {
   /** Scout orders: more spies than this get through (the last ones that died). */
   minSpies?: number;
   /** Your attacks underway to the target: strength and landing time. */
-  underway: { attack: number; arrives: number }[];
+  underway: { attack: number; arrives: number; nobles: number }[];
   /** Your strongest village for it: attack at home and when it would land if sent now. */
-  best?: { id: number; name: string; attack: number; arrives: number; spies?: number };
+  best?: { id: number; name: string; attack: number; arrives: number; spies?: number; nobles?: number };
+  /** You bring the nobles of a joint attack: at least `min`, and who you could give them to. */
+  nobles?: { min: number; op: number; giveTo: { id: number; name: string; d: number }[] };
   /** Your planned attacks on the target (not yet left): strength and landing time. */
   planned: { id: number; attack: number; landAt: number; spies: number }[];
 }

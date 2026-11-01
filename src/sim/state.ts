@@ -82,7 +82,11 @@ export type BotRequest =
   | { type: 'resources'; village: number; res: [number, number, number] }
   | { type: 'permission'; target: number }
   /** Your bot leader orders you: attack a village, or support a mate's village. */
-  | { type: 'order'; order: 'attack' | 'support' | 'scout'; village: number; x: number; y: number; arrives?: number; spies?: number };
+  | { type: 'order'; order: 'attack' | 'support' | 'scout'; village: number; x: number; y: number; arrives?: number; spies?: number; nobles?: true; op?: number }
+  /** You lost the draw for the nobles of a joint attack: go to appeal (it costs standing)? */
+  | { type: 'appeal'; op: number; village: number }
+  /** Your leader ruled against you on the nobles: agree, or leave the tribe as an outlaw. */
+  | { type: 'verdict'; op: number; village: number };
 
 /** You asked your tribe to help defend a village against an attack. */
 export interface HelpAsk {
@@ -344,7 +348,7 @@ export interface WorldState {
   standingNotes?: MoodNote[];
   standingWarned?: number;
   /** As a member: the order of your leader you said yes to, until when it must be done. */
-  leaderOrder?: { order: 'attack' | 'support' | 'scout'; village: number; until: number; from: number; landAt?: number; spies?: number };
+  leaderOrder?: { order: 'attack' | 'support' | 'scout'; village: number; until: number; from: number; landAt?: number; spies?: number; nobles?: true; op?: number };
   /** Scout orders you said yes to (beside one normal order, at most 3; see MAX_SCOUT_ORDERS). */
   scoutOrders?: { village: number; until: number; from: number; spies?: number }[];
   /** When your bot leader last gave you an order. */

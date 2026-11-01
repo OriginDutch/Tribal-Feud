@@ -1,5 +1,6 @@
 import { PlayerLink } from '../components/PlayerLink';
 import { FaceIcon } from '../components/FaceIcon';
+import { Confirm } from '../components/Confirm';
 import { useEffect } from 'preact/hooks';
 import type { InboxView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
@@ -18,7 +19,7 @@ const KIND: Record<InboxView['kind'], string> = {
   talks: 'Vredesbesprekingen',
   lead: 'Leiderschap',
 };
-const ACCEPT: Record<string, string> = { none: 'Accepteren', support: 'Support plannen', resources: 'Versturen', permission: 'Toestaan', order: 'Akkoord' };
+const ACCEPT: Record<string, string> = { none: 'Accepteren', support: 'Support plannen', resources: 'Versturen', permission: 'Toestaan', order: 'Akkoord', appeal: 'In beroep (−5 aanzien)', verdict: 'Akkoord' };
 const STATUS = { accepted: 'Geaccepteerd', declined: 'Afgewezen', expired: 'Verlopen' } as const;
 
 /** Messages from other players, Football Manager style: some ask for an answer. */
@@ -56,14 +57,18 @@ export function InboxScreen() {
                 // agreeing to support: plan it right away
                 if (m.request?.type === 'support') openSupport(m.request.village, m.request.arrives);
                 if (m.request?.type === 'order' && m.request.order === 'support') openSupport(m.request.village, m.request.arrives ?? null);
-                if (m.request?.type === 'order' && (m.request.order === 'attack' || m.request.order === 'scout')) attackVillage(m.request.x, m.request.y);
+                if (m.request?.type === 'order' && (m.request.order === 'attack' || m.request.order === 'scout')) attackVillage(m.request.x, m.request.y, m.request.nobles ? m.request.arrives : undefined);
               }}
             >
               {m.kind === 'treaty' ? 'Tekenen' : m.kind === 'lead' ? 'Ik leid de stam' : ACCEPT[m.request?.type ?? 'none']}
             </button>
-            <button class="small" onClick={() => send({ type: 'inboxAnswer', id: m.id, accept: false })}>
-              {m.kind === 'treaty' || m.kind === 'lead' ? 'Weigeren' : m.request?.type === 'permission' ? 'Weigeren' : 'Afwijzen'}
-            </button>
+            {m.request?.type === 'verdict' ? (
+              <Confirm label="Oneens: stam verlaten" cls="warn" sure="Je verlaat de stam en bent een tijd vogelvrij. Zeker?" onConfirm={() => send({ type: 'inboxAnswer', id: m.id, accept: false })} />
+            ) : (
+              <button class="small" onClick={() => send({ type: 'inboxAnswer', id: m.id, accept: false })}>
+                {m.kind === 'treaty' || m.kind === 'lead' ? 'Weigeren' : m.request?.type === 'permission' ? 'Weigeren' : m.request?.type === 'appeal' ? 'Laat maar' : 'Afwijzen'}
+              </button>
+            )}
             {m.expires !== undefined && <span class="muted">verloopt {formatGameTime(m.expires)}</span>}
           </>
         ) : m.status ? (

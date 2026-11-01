@@ -3,12 +3,14 @@ import type { LeaderOrderView } from '../../shared/protocol';
 import { duration, num } from '../format';
 import { attackVillage, openSupport, screen, send, snapshot } from '../store';
 import { Coords } from './Coords';
+import { Confirm } from './Confirm';
 import { PlayerLink } from './PlayerLink';
 
 /** What your leader wants, in his words: the target, the deadline and what counts. */
 function what(o: LeaderOrderView): string {
   if (o.order === 'support') return 'Stuur verdediging naar';
   if (o.order === 'scout') return 'Verken';
+  if (o.nobles) return 'Breng de edels naar';
   return o.landAt !== undefined ? 'Gezamenlijke aanval op' : 'Val aan:';
 }
 
@@ -25,7 +27,7 @@ function OneOrder({ o }: { o: LeaderOrderView }) {
   const s = snapshot.value!;
   const left = o.until - s.time;
   const enough = (a: number) => o.minAttack === undefined || a >= o.minAttack;
-  const sent = o.underway.filter((m) => enough(m.attack) && m.arrives <= o.until);
+  const sent = o.underway.filter((m) => (o.nobles ? m.nobles > 0 : enough(m.attack)) && m.arrives <= o.until);
   const bestOk = o.best && enough(o.best.attack) && o.best.arrives <= o.until;
   return (
     <div class="order-panel" data-order>
@@ -38,7 +40,13 @@ function OneOrder({ o }: { o: LeaderOrderView }) {
         <span class="muted">· van {o.from}</span>
       </div>
       <ul class="order-facts">
-        {o.landAt !== undefined ? (
+        {o.nobles && o.landAt !== undefined ? (
+          <li>
+            Edeltrein laten landen om <strong class="mono">{formatGameTime(o.landAt)}</strong> (over {duration(o.landAt - s.time)}), 30 seconden na de legers. Minstens{' '}
+            <strong>{o.nobles.min} edels</strong>; je trein deel je zelf in in de verzamelplaats (sjablonen werken gewoon). Telt zodra er een edel landt. Gaat een leger van de stam niet, dan
+            vertrekt je ingeplande trein niet en telt het niet tegen je.
+          </li>
+        ) : o.landAt !== undefined ? (
           <li>
             Landen om <strong class="mono">{formatGameTime(o.landAt)}</strong> (over {duration(o.landAt - s.time)}), samen met de anderen; de edels komen er direct
             achteraan.
@@ -61,7 +69,7 @@ function OneOrder({ o }: { o: LeaderOrderView }) {
         )}
         {o.order === 'scout' ? (o.underway.length > 0 && <li class="good">Verkenners onderweg, landen {o.underway.map((m) => formatGameTime(m.arrives)).join(' · ')}</li>) : sent.length > 0 ? (
           <li class="good">
-            Onderweg: {sent.map((m) => `${num(m.attack)} aanval, landt ${formatGameTime(m.arrives)}`).join(' · ')} ✓
+            Onderweg: {sent.map((m) => (o.nobles ? `${num(m.nobles)} edel, landt ${formatGameTime(m.arrives)}` : `${num(m.attack)} aanval, landt ${formatGameTime(m.arrives)}`)).join(' · ')} ✓
           </li>
         ) : o.underway.length > 0 ? (
           <li class="warn">
@@ -76,7 +84,17 @@ function OneOrder({ o }: { o: LeaderOrderView }) {
             Ingepland: {o.planned.map((p) => `${o.order === 'scout' ? `${num(p.spies)} verkenners` : `${num(p.attack)} aanval`}, landt ${formatGameTime(p.landAt)}`).join(' · ')} ⏱
           </li>
         )}
-        {o.order === 'attack' && !sent.length && !(o.planned ?? []).length && (
+        {o.nobles && !sent.length && !(o.planned ?? []).length && (
+          o.best?.nobles ? (
+            <li class={o.best.nobles >= o.nobles.min && o.landAt !== undefined && o.best.arrives <= o.landAt ? '' : 'warn'}>
+              Je meeste edels: {o.best.name} met {num(o.best.nobles)}, landt bij nu versturen om {formatGameTime(o.best.arrives)}
+              {o.best.nobles < o.nobles.min ? ' · te weinig voor een trein' : o.landAt !== undefined && o.best.arrives > o.landAt ? ' · te laat' : ' ✓'}
+            </li>
+          ) : (
+            <li class="warn">Je hebt geen vrije edels binnen bereik.</li>
+          )
+        )}
+        {o.order === 'attack' && !o.nobles && !sent.length && !(o.planned ?? []).length && (
           o.best ? (
             <li class={bestOk ? '' : 'warn'}>
               Je sterkste dorp: {o.best.name} met {num(o.best.attack)} aanval thuis, landt bij nu versturen om {formatGameTime(o.best.arrives)}{' '}
@@ -95,7 +113,7 @@ function OneOrder({ o }: { o: LeaderOrderView }) {
             <button class="small" onClick={() => send({ type: 'inboxAnswer', id: o.message!, accept: false })}>Nee</button>
           </>
         )}
-        {o.order === 'attack' && o.landAt !== undefined && o.status === 'accepted' && o.best && enough(o.best.attack) && o.best.arrives <= o.landAt && !sent.length && !(o.planned ?? []).length && (
+        {o.order === 'attack' && !o.nobles && o.landAt !== undefined && o.status === 'accepted' && o.best && enough(o.best.attack) && o.best.arrives <= o.landAt && !sent.length && !(o.planned ?? []).length && (
           <button
             class="small primary"
             title="Je vrije aanvallende troepen in dat dorp vertrekken vanzelf, zodat ze precies om de landingstijd aankomen. Tot dan blijven ze thuis."
@@ -104,6 +122,10 @@ function OneOrder({ o }: { o: LeaderOrderView }) {
             ⏱ Inplannen vanuit {o.best.name}
           </button>
         )}
+        {o.nobles && o.nobles.giveTo.length > 0 && o.status === 'accepted' && !sent.length &&
+          o.nobles.giveTo.slice(0, 3).map((g) => (
+            <Confirm key={g.id} label={`Geef aan ${g.name} (${g.d} velden)`} sure={`De edels aan ${g.name} geven? Je ingeplande edeltrein naar dit doel vervalt.`} onConfirm={() => send({ type: 'giveNobles', op: o.nobles!.op, to: g.id })} />
+          ))}
         {o.order !== 'support' ? (
           <button class="small" onClick={() => attackVillage(o.target.x, o.target.y, o.landAt)}>Naar verzamelplaats</button>
         ) : (

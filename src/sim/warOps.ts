@@ -26,6 +26,7 @@ import { HUMAN_ID, nextId, villagesOf, type Player, type WorldState } from './st
 import { type Tribe } from './tribes';
 import { addNews } from './news';
 import { MAX_SCOUT_ORDERS, giveOpOrder, giveScoutOrder, scoutOrders } from './tribeOrders';
+import { NOBLE_LAG, chooseNobles, nobleCandidates, offerAppeal } from './nobleRole';
 import type { Village } from './village';
 import { isOperational } from './village';
 
@@ -46,6 +47,8 @@ export interface TribeOp {
   roles: OpRole[];
   /** You were asked to join. */
   human?: boolean;
+  /** There was an appeal about the nobles (one per attack). */
+  appealed?: true;
 }
 
 /**
@@ -138,7 +141,7 @@ function plan(state: WorldState, t: Tribe, enemy: Tribe): void {
     if (def === undefined) continue;
     const roles = nukes(state, t, target, def);
     if (!roles) continue;
-    if (launch(state, t, enemy, target, roles)) return;
+    if (launch(state, t, enemy, target, roles, def)) return;
   }
   // nothing known that we can break: scout the nearest unknown front village. After scouts died
   // there, only a group of more than double gets through: the tribe's scout goes (the member with
@@ -178,11 +181,11 @@ function humanScoutFree(state: WorldState, t: Tribe, v: Village): boolean {
  * yours when a bot leads (you get the order with the landing time). Each must land within the
  * tribe's reach (OP_HOURS of marching).
  */
-function nukes(state: WorldState, t: Tribe, target: Village, def: number): OpRole[] | null {
+function nukes(state: WorldState, t: Tribe, target: Village, def: number, withoutYou = false): OpRole[] | null {
   const need = def * 1.3;
   const busy = new Set((t.ops ?? []).flatMap((o) => o.roles.map((r) => r.village)));
   const budget = travelBudget(state, OP_HOURS);
-  const you = humanFree(state, t);
+  const you = !withoutYou && humanFree(state, t);
   const options = t.members
     .filter((m) => state.players[m]?.bot || (m === HUMAN_ID && you))
     .flatMap((m) => villagesOf(state, m))
@@ -202,31 +205,36 @@ function nukes(state: WorldState, t: Tribe, target: Village, def: number): OpRol
 }
 
 /** Hands out the roles; false when it is no joint attack after all (or your order could not go out). */
-function launch(state: WorldState, t: Tribe, enemy: Tribe, target: Village, roles: OpRole[]): boolean {
+function launch(state: WorldState, t: Tribe, enemy: Tribe, target: Village, roles: OpRole[], def: number): boolean {
   const travel = (r: OpRole) => {
     const v = state.villages[r.village]!;
     return travelTimeMs(state, r.kind === 'nobles' ? { snob: 1 } : armyOf(v), distance(v, target));
   };
-  // a bot member with a full noble train in reach lands right behind the armies
-  const nobleVillage = t.members
-    .filter((m) => state.players[m]?.bot)
-    .flatMap((m) => villagesOf(state, m))
-    .filter((v) => v.units.snob >= 4 && distance(v, target) <= state.config.conquest.maxDistance && isOperational(state.config, v, 'place'))
-    // rather one that isn't sending an army too
-    .sort((a, b) => Number(roles.some((r) => r.village === a.id)) - Number(roles.some((r) => r.village === b.id)) || distance(a, target) - distance(b, target))[0];
-  if (nobleVillage) roles.push({ member: nobleVillage.owner, village: nobleVillage.id, kind: 'nobles', launchAt: 0 });
+  // the nobles: drawn among everyone with a train in reach, the closer the likelier (see nobleRole).
+  // You bring either an army or the nobles; drawn for the nobles, your army is left out if the
+  // others still break it without you, else you keep your army and the draw is among the bots.
+  let cands = nobleCandidates(state, t, target, humanFree(state, t));
+  const yourArmy = roles.some((r) => r.member === HUMAN_ID);
+  const without = yourArmy && cands.some((c) => c.member === HUMAN_ID) ? nukes(state, t, target, def, true) : null;
+  if (yourArmy && !without) cands = cands.filter((c) => c.member !== HUMAN_ID);
+  const draw = cands.length ? chooseNobles(state, t, cands) : undefined;
+  if (draw?.member === HUMAN_ID && without) roles = without;
+  if (draw) roles.push({ member: draw.member, village: draw.village, kind: 'nobles', launchAt: 0 });
   // your army alone is no joint attack: that is what a plain order is for
   if (!roles.some((r) => r.member !== HUMAN_ID)) return false;
   const leader = state.players[t.leader];
-  const yours = roles.some((r) => r.member === HUMAN_ID);
+  const yours = roles.find((r) => r.member === HUMAN_ID);
   // with you in it: an hour (game time) to read the order and send
   const landAt = state.time + Math.max(...roles.map(travel)) + (yours ? HOUR : 15 * MINUTE);
-  for (const r of roles) r.launchAt = landAt + (r.kind === 'nobles' ? 30_000 : 0) - travel(r);
+  for (const r of roles) r.launchAt = landAt + (r.kind === 'nobles' ? NOBLE_LAG : 0) - travel(r);
   const op: TribeOp = { id: nextId(state), enemy: enemy.id, target: target.id, landAt, roles };
   if (yours) {
-    if (!leader || !giveOpOrder(state, leader, target, landAt)) return false;
+    if (!leader || !giveOpOrder(state, leader, target, yours.kind === 'nobles' ? landAt + NOBLE_LAG : landAt, yours.kind === 'nobles' ? op.id : undefined)) return false;
     op.human = true;
   }
+  // you were a candidate but someone else brings them: you may appeal
+  const you = cands.find((c) => c.member === HUMAN_ID);
+  if (you && draw && draw.member !== HUMAN_ID && !yours && leader?.bot) offerAppeal(state, t, op, draw, you);
   (t.ops ??= []).push(op);
   // your part is yours to send: no event for it (see humanOpSent)
   roles.forEach((r, i) => { if (r.member !== HUMAN_ID) push(state.queue, r.launchAt, { kind: 'opLaunch', tribe: t.id, op: op.id, role: i }); });
@@ -249,7 +257,10 @@ export function humanOpSent(state: WorldState, targetId: number): void {
     if (op.target !== targetId) continue;
     const r = op.roles.find((x) => x.member === HUMAN_ID && !x.state);
     if (!r) continue;
-    const ok = Object.values(state.movements).some((m) => m.owner === HUMAN_ID && m.kind === 'attack' && m.to === targetId && m.arrives <= op.landAt + 20_000 && attackOf(state, armyOf({ units: m.units as Village['units'] })) >= MIN_NUKE);
+    const ok = r.kind === 'nobles'
+      // your train: a nobleman that lands right behind the armies
+      ? Object.values(state.movements).some((m) => m.owner === HUMAN_ID && m.kind === 'attack' && m.to === targetId && (m.units.snob ?? 0) > 0 && m.arrives >= op.landAt && m.arrives <= op.landAt + NOBLE_LAG + 10 * MINUTE)
+      : Object.values(state.movements).some((m) => m.owner === HUMAN_ID && m.kind === 'attack' && m.to === targetId && m.arrives <= op.landAt + 20_000 && attackOf(state, armyOf({ units: m.units as Village['units'] })) >= MIN_NUKE);
     if (ok) r.state = 'sent';
   }
 }

@@ -6,6 +6,7 @@ import { autoFarmInterval, setAutoFarm } from './farmAll';
 import { isFarmLetter } from '../shared/farmTemplates';
 import { humanOpSent, setFront, warFrontView } from './warOps';
 import { cancelPlanned, planAttack, planOrder, plannedViews } from './planned';
+import { giveNobles } from './nobleRole';
 import { faceOf } from './faces';
 import { deleteGroup, saveGroup, setGroup } from './groups';
 import { askPermission, askTribeHelp, askTribeResources, attackedWithoutPermission, cancelOrder, giveOrder, leaderOrderView, scoutOrderViews } from './tribeOrders';
@@ -1068,6 +1069,12 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       const error = planOrder(state, cmd.from, cmd.to, cmd.landAt, !!cmd.spies);
       notice(error ?? 'Ingepland: hij vertrekt vanzelf op tijd.', error ? 'error' : 'info');
+      break;
+    }
+    case 'giveNobles': {
+      if (!state) return;
+      const error = giveNobles(state, cmd.op, cmd.to);
+      notice(error ?? 'Edels weggegeven.', error ? 'error' : 'info');
       break;
     }
     case 'cancelPlanned': {

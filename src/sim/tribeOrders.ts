@@ -21,6 +21,7 @@ import { nextFloat } from './rng';
 import { BARBARIAN, HUMAN_ID, addLog, movementIndex, nextId, villagesOf, type BotRequest, type BotState, type InboxMessage, type Player, type WorldState } from './state';
 import { AGGRESSION, mayAttack, relationBetween, tribeOf } from './tribes';
 import { changeStanding, mateEvent, moodAll } from './loyalty';
+import { NOBLE_LAG, NOBLE_MIN, answerAppeal, answerVerdict, giveOptions, passNobles } from './nobleRole';
 import { storageCapacity } from './formulas';
 import { currentResources, isOperational, type Village } from './village';
 
@@ -155,6 +156,17 @@ export function answerRequest(state: WorldState, m: InboxMessage, accept: boolea
   const p = state.players[m.from];
   if (!r || !p?.bot) return 'Dit verzoek bestaat niet meer.';
   if (r.type === 'order') return answerLeaderOrder(state, m, r, p, accept);
+  if (r.type === 'appeal') {
+    const error = answerAppeal(state, r.op, r.village, accept);
+    if (error) { m.status = 'expired'; return error; }
+    m.status = accept ? 'accepted' : 'declined';
+    return null;
+  }
+  if (r.type === 'verdict') {
+    const error = answerVerdict(state, accept);
+    m.status = accept ? 'accepted' : 'declined';
+    return error;
+  }
   if (!accept) {
     m.status = 'declined';
     mateEvent(state, p, r.type === 'support' ? -10 : -6, -3, r.type === 'support' ? 'je stuurde geen support' : r.type === 'resources' ? 'je hield je grondstoffen voor jezelf' : 'je gaf geen toestemming');
@@ -218,7 +230,7 @@ export function scoutOrders(state: WorldState, village?: number): number {
 /** One order for the screens, accepted or still open in your inbox. */
 function orderView(
   state: WorldState,
-  o: { order: 'attack' | 'support' | 'scout'; village: number; until: number; from: number; landAt?: number; spies?: number } | undefined,
+  o: { order: 'attack' | 'support' | 'scout'; village: number; until: number; from: number; landAt?: number; spies?: number; nobles?: true; op?: number } | undefined,
   open: InboxMessage | undefined,
 ): LeaderOrderView | null {
   const r = open?.request?.type === 'order' ? open.request : undefined;
@@ -230,14 +242,24 @@ function orderView(
   const from = state.players[o?.from ?? open?.from ?? -1]?.name ?? '?';
   const landAt = o ? o.landAt : r?.arrives;
   const until = o?.until ?? r?.arrives ?? open?.expires ?? state.time + DAY / 2;
+  const nobles = !!(o?.nobles ?? r?.nobles);
+  const opId = o?.op ?? r?.op;
   // attacks: from the movement index (no scan over every movement); supports are rare, a scan is fine
   const ids = order !== 'support' ? [...(movementIndex(state).incoming.get(v.id) ?? [])].map((id) => state.movements[id]) : Object.values(state.movements);
   const underway = ids
     .filter((m) => m !== undefined && m.owner === HUMAN_ID && m.kind === (order === 'support' ? 'support' : 'attack') && m.to === v.id && (order !== 'scout' || (m.units.spy ?? 0) > 0))
     .map((m) => m!)
-    .map((m) => ({ attack: Math.round(orderAttack(state, m.units)), arrives: m.arrives }));
+    .map((m) => ({ attack: Math.round(orderAttack(state, m.units)), arrives: m.arrives, nobles: m.units.snob ?? 0 }));
   let best: LeaderOrderView['best'];
-  if (order === 'attack') {
+  if (order === 'attack' && nobles) {
+    // the village with the most free nobles in noble range
+    for (const h of villagesOf(state, HUMAN_ID)) {
+      const snob = freeUnits(state, h).snob;
+      if (snob <= 0 || distance(h, v) > state.config.conquest.maxDistance || (best && snob <= (best.nobles ?? 0))) continue;
+      best = { id: h.id, name: h.name, attack: 0, nobles: snob, arrives: state.time + travelTimeMs(state, { snob: 1 }, distance(h, v)) };
+    }
+  }
+  if (order === 'attack' && !nobles) {
     for (const h of villagesOf(state, HUMAN_ID)) {
       // what is free: troops held for a planned attack are spoken for
       const free = freeUnits(state, h);
@@ -260,7 +282,8 @@ function orderView(
     order, status: o ? 'accepted' : 'open', ...(open && !o ? { message: open.id } : {}),
     target: { id: v.id, name: v.name, x: v.x, y: v.y, owner: v.owner, ownerName: state.players[v.owner]?.name ?? 'barbaren' },
     until, ...(landAt !== undefined ? { landAt } : {}), from,
-    ...(order === 'attack' ? { minAttack: ORDER_MIN_ATTACK } : {}),
+    ...(order === 'attack' && !nobles ? { minAttack: ORDER_MIN_ATTACK } : {}),
+    ...(nobles ? { nobles: { min: NOBLE_MIN, op: opId ?? -1, giveTo: opId !== undefined ? giveOptions(state, opId).map((c) => ({ id: c.member, name: state.players[c.member]?.name ?? '?', d: Math.round(c.d * 10) / 10 })) : [] } } : {}),
     ...(order === 'scout' ? { minSpies: o?.spies ?? (r?.spies ?? 0) } : {}),
     underway, ...(best ? { best } : {}),
     planned: (state.planned ?? []).filter((p) => p.to === v.id).map((p) => ({ id: p.id, attack: Math.round(p.waves.reduce((a, w) => a + orderAttack(state, w), 0)), landAt: p.landAt, spies: p.waves.reduce((a, w) => a + (w.spy ?? 0), 0) })),
@@ -282,7 +305,9 @@ export function scoutOrderViews(state: WorldState): LeaderOrderView[] {
 function answerLeaderOrder(state: WorldState, m: InboxMessage, r: Extract<BotRequest, { type: 'order' }>, leader: Player, accept: boolean): string | null {
   if (!accept) {
     m.status = 'declined';
-    changeStanding(state, -4, r.order === 'attack' ? 'je weigerde mijn aanvalsorder' : r.order === 'scout' ? 'je weigerde te verkennen' : 'je weigerde support te sturen');
+    changeStanding(state, -4, r.nobles ? 'je wilde de edels niet brengen' : r.order === 'attack' ? 'je weigerde mijn aanvalsorder' : r.order === 'scout' ? 'je weigerde te verkennen' : 'je weigerde support te sturen');
+    // the next candidate brings the nobles instead
+    if (r.nobles && r.op !== undefined) passNobles(state, r.op);
     return null;
   }
   m.status = 'accepted';
@@ -291,7 +316,7 @@ function answerLeaderOrder(state: WorldState, m: InboxMessage, r: Extract<BotReq
     return null;
   }
   // a joint attack: landing a little after the others still counts
-  state.leaderOrder = { order: r.order, village: r.village, until: r.arrives !== undefined ? r.arrives + 10 * MINUTE : state.time + DAY / 2, from: leader.id, ...(r.arrives !== undefined ? { landAt: r.arrives } : {}), ...(r.spies ? { spies: r.spies } : {}) };
+  state.leaderOrder = { order: r.order, village: r.village, until: r.arrives !== undefined ? r.arrives + 10 * MINUTE : state.time + DAY / 2, from: leader.id, ...(r.arrives !== undefined ? { landAt: r.arrives } : {}), ...(r.spies ? { spies: r.spies } : {}), ...(r.nobles ? { nobles: true as const } : {}), ...(r.op !== undefined ? { op: r.op } : {}) };
   return null;
 }
 
@@ -309,6 +334,14 @@ export function leaderOrderLanded(state: WorldState, villageId: number, units: U
   const o = state.leaderOrder;
   if (!o || o.order !== 'attack' || o.village !== villageId) return;
   const v = state.villages[villageId];
+  if (o.nobles) {
+    // the nobles: it counts once a nobleman lands (taking the village is up to loyalty)
+    if (!(units.snob ?? 0)) return;
+    delete state.leaderOrder;
+    changeStanding(state, 6, 'je bracht de edels');
+    addLog(state, { time: state.time, text: `Order uitgevoerd: je edels zijn geland bij ${v?.name ?? '?'}.` });
+    return;
+  }
   const a = orderAttack(state, units);
   if (a < ORDER_MIN_ATTACK) {
     addLog(state, { time: state.time, text: `Je aanval op ${v?.name ?? '?'} telt niet voor de order: ${Math.round(a).toLocaleString('nl-NL')} aanvalskracht, de leider wil er minstens ${ORDER_MIN_ATTACK.toLocaleString('nl-NL')}.` });
@@ -370,15 +403,18 @@ export function checkLeaderOrder(state: WorldState): void {
  * A joint operation of your bot tribe includes you: attack `target`, landing at `landAt`.
  * Only when no order of yours is open. Returns whether the order went out.
  */
-export function giveOpOrder(state: WorldState, leader: Player, target: Village, landAt: number): boolean {
+export function giveOpOrder(state: WorldState, leader: Player, target: Village, landAt: number, noblesOp?: number): boolean {
   const open = !!openOrder(state);
   if (open || state.leaderOrder) return false;
-  const request: Extract<BotRequest, { type: 'order' }> = { type: 'order', order: 'attack', village: target.id, x: target.x, y: target.y, arrives: landAt };
-  const title = `${leader.name}: gezamenlijke aanval op ${target.name}`;
+  const nobles = noblesOp !== undefined;
+  const request: Extract<BotRequest, { type: 'order' }> = { type: 'order', order: 'attack', village: target.id, x: target.x, y: target.y, arrives: landAt, ...(nobles ? { nobles: true as const, op: noblesOp } : {}) };
+  const title = nobles ? `${leader.name}: jij brengt de edels naar ${target.name}` : `${leader.name}: gezamenlijke aanval op ${target.name}`;
   state.leaderOrderAt = state.time;
   addMessage(state, {
     kind: 'request', from: leader.id, title, request, status: 'open', expires: landAt,
-    text: `${leader.name}: we vallen ${target.name} (${target.x}|${target.y}) van ${state.players[target.owner]?.name ?? '?'} samen aan. De legers landen om ${formatGameTime(landAt)}. Stuur je leger zodat het rond die tijd aankomt; de edels komen er direct achteraan.`,
+    text: nobles
+      ? `${leader.name}: we vallen ${target.name} (${target.x}|${target.y}) van ${state.players[target.owner]?.name ?? '?'} samen aan, en jij bent getrokken voor de edels. De legers landen om ${formatGameTime(landAt - NOBLE_LAG)}; laat je edeltrein (minstens ${NOBLE_MIN} edels) landen om ${formatGameTime(landAt)}. Niet jouw ding? Geef de edels aan een ander of zeg nee, dan gaan ze naar de volgende.`
+      : `${leader.name}: we vallen ${target.name} (${target.x}|${target.y}) van ${state.players[target.owner]?.name ?? '?'} samen aan. De legers landen om ${formatGameTime(landAt)}. Stuur je leger zodat het rond die tijd aankomt; de edels komen er direct achteraan.`,
   });
   if (pauses(state, 'requests')) alertHuman(state, title);
   return true;

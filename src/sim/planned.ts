@@ -14,6 +14,7 @@ import { OFFENSE } from './tribeOrders';
 import { attackedWithoutPermission } from './tribeOrders';
 import { humanOpSent } from './warOps';
 import { onPlanFailed } from './alerts';
+import { dropNoblesOrder, nobleArmiesMissing } from './nobleRole';
 
 /** How many attacks you can have planned at once (all villages together). */
 export const MAX_PLANNED = 50;
@@ -105,6 +106,14 @@ export function onPlanned(state: WorldState, id: number): void {
   const from = state.villages[p.from], to = state.villages[p.to];
   const where = `${from?.name ?? '?'} → ${to?.name ?? '?'}${to ? ` (${to.x}|${to.y})` : ''}`;
   if (!from || !to || from.owner !== HUMAN_ID) return onPlanFailed(state, `Ingeplande aanval ${where} vervalt: het dorp is niet meer van jou.`);
+  // your nobles in a joint attack: not when an army that should have gone didn't (dead noblemen)
+  const op = p.waves.some((w) => w.snob) ? nobleArmiesMissing(state, p.to) : undefined;
+  if (op) {
+    const role = op.roles.find((r) => r.kind === 'nobles' && r.member === HUMAN_ID);
+    if (role) role.state = 'failed';
+    dropNoblesOrder(state, op.id);
+    return onPlanFailed(state, `Ingeplande edeltrein ${where} is niet vertrokken: een van de legers van de stam ging niet. Dat telt niet tegen je.`);
+  }
 
   // hand out what is home (and not held for another plan), wave by wave; a wave without its nobleman drops
   const left = freeUnits(state, from);
