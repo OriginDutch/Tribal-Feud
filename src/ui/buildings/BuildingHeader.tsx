@@ -22,7 +22,9 @@ export function BuildingHeader({ village, id }: { village: VillageView; id: Buil
   const now = b.effect?.byLevel[b.level];
   const next = b.next ? b.effect?.byLevel[b.next.level] : undefined;
   return (
-    <section class="panel building-head">
+    <section class="panel building-head has-art">
+      <img class="building-art" src={`/buildings/${id}.webp`} alt="" width={400} height={400} />
+      <div class="building-body">
       <p class="building-text">{BUILDING_TEXT[id]}</p>
       <div class="building-row">
         {b.effect && (
@@ -45,6 +47,7 @@ export function BuildingHeader({ village, id }: { village: VillageView; id: Buil
         )}
       </div>
       {b.planned !== b.level && <p class="muted">In de bouwqueue: naar level {b.planned}.</p>}
+      </div>
     </section>
   );
 }

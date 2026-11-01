@@ -81,17 +81,17 @@ export function MainScreen() {
         <h3>Gebouwen</h3>
         <table class="table fixed">
           <colgroup>
-            <col />
-            <col style={{ width: '240px' }} />
-            <col style={{ width: '80px' }} />
-            <col style={{ width: '90px' }} />
-            <col style={{ width: '240px' }} />
+            <col style={{ width: '29%' }} />
+            <col style={{ width: '31%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '22%' }} />
           </colgroup>
           <thead>
             <tr>
               <th>Gebouw</th>
               <th>Kosten volgende level</th>
-              <th class="right">Arbeiders</th>
+              <th class="right" title="Arbeiders: extra boerderijplaatsen die het volgende level kost">Arb.</th>
               <th class="right">Bouwtijd</th>
               <th />
             </tr>
@@ -100,6 +100,7 @@ export function MainScreen() {
             {v.buildings.map((b) => (
               <tr key={b.id} class={!b.operational && b.level === 0 ? 'locked' : ''}>
                 <td class="ellipsis">
+                  <img class="building-thumb" src={`/buildings/${b.id}-s.webp`} alt="" width={36} height={36} loading="lazy" />
                   <strong>{b.name}</strong> <span class="muted">{b.level > 0 ? `level ${b.level}` : 'niet gebouwd'}</span>
                   {b.planned !== b.level && <span class="muted"> (→ {b.planned})</span>}
                   {b.level > 0 && !b.operational && <span class="warn"> · werkt niet</span>}

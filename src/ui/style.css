@@ -1072,3 +1072,11 @@ button.world-open:hover strong { color: var(--accent); }
 .uc-portrait::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, var(--panel-2) 100%); pointer-events: none; }
 .unit-card:hover .uc-portrait img { transform: scale(1.04); }
 .unit-card.blocked .uc-portrait img { filter: grayscale(0.6); }
+
+/* building pictures (public/buildings, painted): beside the text on a building's screen, small in the list */
+.building-head.has-art { flex-direction: row; align-items: center; gap: 20px; }
+.building-art { width: 170px; height: 170px; flex: none; border-radius: 12px; border: 1px solid var(--border); object-fit: cover; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+.building-body { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; }
+@media (max-width: 700px) { .building-head.has-art { flex-direction: column; align-items: stretch; } .building-art { width: 100%; height: 180px; } }
+.building-thumb { width: 36px; height: 36px; border-radius: 7px; vertical-align: middle; margin-right: 10px; border: 1px solid var(--border); object-fit: cover; }
+tr.locked .building-thumb { filter: grayscale(0.7); opacity: 0.7; }
