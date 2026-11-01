@@ -50,7 +50,7 @@ export interface LogEntry {
 
 export type BotTier = 'pro' | 'mid' | 'casual';
 
-export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty' | 'talks';
+export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty' | 'talks' | 'lead';
 export interface InboxMessage {
   id: number;
   time: number;

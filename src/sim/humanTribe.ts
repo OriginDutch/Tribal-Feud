@@ -37,6 +37,7 @@ import {
   tribeContacts,
   warNeed,
   join,
+  setLeader,
   leaderAccepts,
   leave,
   playerCentre,
@@ -317,6 +318,17 @@ export function setOwnRelation(state: WorldState, tribeId: number, action: 'war'
 }
 
 /** Your answer to an invitation or proposal in the inbox. */
+/** Your tribe lost its leader and wants you: a bot leads until you say yes. */
+export function offerLeadership(state: WorldState, t: Tribe, old: Player, interim: Player): void {
+  for (const m of state.inbox ?? []) if (m.status === 'open' && m.kind === 'lead') m.status = 'expired';
+  const title = `[${t.tag}] wil jou als leider`;
+  addMessage(state, {
+    kind: 'lead', from: interim.id, tribe: t.id, title, status: 'open', expires: expiry(state),
+    text: `${old.name} is weg. De stam kijkt naar jou: wil jij [${t.tag}] leiden? Dan bepaal jij oorlog, vrede en wie erbij mag, en geeft niemand jou nog opdrachten. Tot je antwoordt houdt ${interim.name} de boel bij elkaar; zeg je nee, dan blijft hij leider.`,
+  });
+  alertHuman(state, title);
+}
+
 export function answerMessage(state: WorldState, id: number, accept: boolean): string | null {
   const m = (state.inbox ?? []).find((x) => x.id === id);
   if (!m || m.status !== 'open') return 'Dit bericht vraagt geen antwoord meer.';
@@ -327,12 +339,26 @@ export function answerMessage(state: WorldState, id: number, accept: boolean): s
     return 'Vrede loopt nu via vredesbesprekingen (Stammen).';
   }
   const t = m.tribe !== undefined ? state.tribes?.[m.tribe] : undefined;
-  if (!accept && m.kind !== 'request') {
+  if (!accept && m.kind !== 'request' && m.kind !== 'lead') {
     m.status = 'declined';
     if (t && m.kind === 'invite') addLog(state, { time: state.time, text: `Je slaat de uitnodiging van ${tag(t)} af.` });
     return null;
   }
   if (m.kind === 'request') return answerRequest(state, m, accept);
+  if (m.kind === 'lead') {
+    if (!t || human(state).tribe !== t.id) { m.status = 'expired'; return 'Je zit niet meer in die stam.'; }
+    if (!accept) {
+      m.status = 'declined';
+      addLog(state, { time: state.time, text: `Je laat het leiderschap van ${tag(t)} aan ${state.players[t.leader]?.name ?? '?'}.` });
+      return null;
+    }
+    setLeader(state, t, HUMAN_ID);
+    m.status = 'accepted';
+    const text = `Je bent nu de leider van ${tag(t)} ${t.name}.`;
+    addLog(state, { time: state.time, text });
+    (state.tribeNews ??= []).push({ time: state.time, text });
+    return null;
+  }
   if (!t) { m.status = 'expired'; return 'Die stam bestaat niet meer.'; }
   if (m.kind === 'invite') {
     const me = human(state);

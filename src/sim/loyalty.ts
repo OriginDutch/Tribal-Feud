@@ -20,7 +20,7 @@ import { nextFloat } from './rng';
 import { HUMAN_ID, addLog, type Player, type WorldState } from './state';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { checkLeaderOrder } from './tribeOrders';
-import { REACH, SOCIAL, declareWar, fits, found, join, leave, playerCentre, reachOf, tribeCentre, tribeOf, type Tribe } from './tribes';
+import { REACH, SOCIAL, declareWar, fits, found, join, leave, playerCentre, reachOf, setLeader, tribeCentre, tribeOf, type Tribe } from './tribes';
 
 export const BASE_MOOD = 60;
 export interface MoodNote { time: number; delta: number; why: string }
@@ -70,7 +70,9 @@ export function onVillageLost(state: WorldState, owner: number, helped: boolean,
   const p = state.players[owner];
   if (!p?.bot || p.tribe === undefined) return;
   const t = state.tribes?.[p.tribe];
-  if (!t || t.leader === owner) return;
+  if (!t) return;
+  // a leader who can't hold his own villages loses authority
+  if (t.leader === owner) return moodAll(state, t, -4, `leider ${p.name} verloor ${name}`);
   if (t.leader === HUMAN_ID) changeMood(state, p, helped ? -3 : -12, helped ? `${name} verloren, ondanks je hulp` : `${name} verloren, jij hielp niet`);
   else changeMood(state, p, -6, `${name} verloren`);
 }
@@ -194,7 +196,7 @@ function coup(state: WorldState, t: Tribe): void {
   if (avg >= 30 || nextFloat(state.rng) > 0.2) return;
   const old = state.players[t.leader];
   const next = others.sort((a, b) => moodOf(state.players[b]!) - moodOf(state.players[a]!))[0]!;
-  t.leader = next;
+  setLeader(state, t, next);
   for (const m of t.members) if (state.players[m]?.bot) { state.players[m]!.bot!.mood = BASE_MOOD; delete state.players[m]!.bot!.moodNotes; }
   const text = `${state.players[next]?.name ?? '?'} neemt de leiding van ${tag(t)} over van ${old?.name ?? '?'}.`;
   addLog(state, { time: state.time, text });

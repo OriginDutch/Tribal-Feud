@@ -23,7 +23,10 @@ import { flagsTick } from './flags';
 import { HOUR, MINUTE } from '../shared/time';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { sawAttack } from './botReact';
-import { applyToHuman, humanTribeTick, proposeToHuman, warOnHuman } from './humanTribe';
+import { addMessage, applyToHuman, humanTribeTick, offerLeadership, proposeToHuman, warOnHuman } from './humanTribe';
+
+/** Where your standing with a leader drifts back to (BASE_MOOD in loyalty). */
+const BASE_STANDING = 60;
 import { push } from './eventQueue';
 import { villagePoints } from './barbarians';
 import { nextFloat } from './rng';
@@ -282,9 +285,55 @@ export function leave(state: WorldState, player: Player): void {
       dry: `Stam ${T(t)} ${t.name} is opgeheven.`, head: [`Het doek valt voor ${T(t)} ${t.name}`, `${T(t)} ${t.name} houdt op te bestaan`] });
     return;
   }
-  if (t.leader === player.id) {
-    // the strongest member takes over
-    t.leader = [...t.members].sort((a, b) => (playerCentre(state, b)?.points ?? 0) - (playerCentre(state, a)?.points ?? 0))[0]!;
+  if (t.leader === player.id) succeed(state, t, player);
+}
+
+/**
+ * A new leader for a tribe whose leader is gone: the strongest active member (serious players
+ * before casuals and those who are away, then points). When that would be you, a bot leads for
+ * now and you are asked: you never lead a tribe you didn't say yes to.
+ */
+function succeed(state: WorldState, t: Tribe, old: Player): void {
+  const rank = (p: Player) => (p.bot ? (p.bot.awayUntil !== undefined && p.bot.awayUntil > state.time ? -1 : { pro: 2, mid: 1, casual: 0 }[p.bot.tier ?? 'pro']) : 2);
+  const order = t.members
+    .map((m) => state.players[m])
+    .filter((p): p is Player => !!p)
+    .sort((a, b) => rank(b) - rank(a) || (playerCentre(state, b.id)?.points ?? 0) - (playerCentre(state, a.id)?.points ?? 0));
+  const you = order[0]?.id === HUMAN_ID;
+  const next = order.find((p) => p.id !== HUMAN_ID) ?? order[0]!;
+  setLeader(state, t, next.id);
+  const c = tribeCentre(state, t);
+  addNews(state, { kind: 'leader', tribes: [t.id], players: [next.id, old.id], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
+    dry: `[${t.tag}]: ${old.name} is weg, ${next.name} leidt nu de stam.`,
+    head: [`Machtsvacuüm bij [${t.tag}]: ${next.name} grijpt het roer`, `${old.name} weg, ${next.name} leidt nu [${t.tag}]`] });
+  if (next.id === HUMAN_ID) {
+    addWorldLog(state, { time: state.time, text: `${old.name} is weg: jij bent nu de leider van [${t.tag}].` });
+    return;
+  }
+  if (t.members.includes(HUMAN_ID)) {
+    if (you) offerLeadership(state, t, old, next);
+    else addMessage(state, { kind: 'info', from: next.id, tribe: t.id, title: `Nieuwe leider in [${t.tag}]`, text: `${old.name} is weg. ${next.name} leidt nu [${t.tag}].` });
+  }
+}
+
+/**
+ * Puts a new leader in charge. As a member you keep part of your standing: the new leader
+ * starts from what the old one thought of you, halfway back to neutral.
+ */
+export function setLeader(state: WorldState, t: Tribe, next: number): void {
+  if (t.leader === next) return;
+  t.leader = next;
+  if (!t.members.includes(HUMAN_ID)) return;
+  if (next === HUMAN_ID) {
+    // you lead now: no leader above you, no orders from one
+    delete state.standing; delete state.standingNotes; delete state.standingWarned;
+    delete state.leaderOrder; delete state.scoutOrders;
+    for (const m of state.inbox ?? []) if (m.status === 'open' && m.kind === 'request' && m.tribe === t.id) m.status = 'expired';
+    return;
+  }
+  if (state.standing !== undefined) {
+    state.standing = Math.round(BASE_STANDING + (state.standing - BASE_STANDING) / 2);
+    state.standingNotes = [{ time: state.time, delta: 0, why: 'nieuwe leider: je reputatie telt half mee' }];
   }
 }
 
@@ -347,7 +396,7 @@ function handOverLeadership(state: WorldState): void {
       .filter((p): p is Player => !!p?.bot && p.id !== leader.id && !(p.bot.awayUntil !== undefined && p.bot.awayUntil > state.time))
       .sort((a, b) => rank[b.bot!.tier ?? 'pro'] - rank[a.bot!.tier ?? 'pro'] || (playerCentre(state, b.id)?.points ?? 0) - (playerCentre(state, a.id)?.points ?? 0))[0];
     if (!next || (!away && rank[next.bot!.tier ?? 'pro'] === 0)) continue;
-    t.leader = next.id;
+    setLeader(state, t, next.id);
     const c = tribeCentre(state, t);
     addNews(state, { kind: 'leader', tribes: [t.id], players: [next.id, leader.id], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
       dry: `[${t.tag}]: ${next.name} neemt de leiding over van ${leader.name}${away ? ' (die is er een tijd niet)' : ''}.`,
