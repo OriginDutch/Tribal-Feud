@@ -15,7 +15,7 @@ import { answerRequest } from './tribeOrders';
 import { grudge } from './botReact';
 import { nextFloat } from './rng';
 import { rankWeight } from './ranks';
-import { answerRhAsk, myRightHandTribe, rhTreatyAnswered, rhTreatyTick } from './rightHand';
+import { answerRh, answerRhAsk, myRightHandTribe, rhTreatyAnswered, rhTreatyTick } from './rightHand';
 import type { FrictionRow, WarAskInfo } from '../shared/protocol';
 import { WAR_FRICTION, frictionBetween, topWhy, tribeStrength } from './warCause';
 import {
@@ -348,6 +348,7 @@ export function answerMessage(state: WorldState, id: number, accept: boolean): s
     m.status = 'expired';
     return 'Vrede loopt nu via vredesbesprekingen (Stammen).';
   }
+  if (m.kind === 'rhTreaty' || m.kind === 'rhAsk') return answerRh(state, m, accept);
   const t = m.tribe !== undefined ? state.tribes?.[m.tribe] : undefined;
   if (!accept && m.kind !== 'request' && m.kind !== 'lead') {
     m.status = 'declined';

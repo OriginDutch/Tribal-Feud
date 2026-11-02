@@ -357,7 +357,8 @@ export interface PlannedView {
 export interface InboxView {
   id: number;
   time: number;
-  kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty' | 'talks' | 'lead';
+  kind: 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty' | 'talks' | 'lead' | 'rhTreaty' | 'rhAsk';
+  rhAsk?: 'ally' | 'war';
   from: number;
   fromName: string;
   /** The sender's portrait (a bot). */

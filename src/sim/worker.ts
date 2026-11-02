@@ -656,6 +656,7 @@ function inboxViews(s: WorldState): InboxView[] {
     ...((() => { const f = m.from >= 0 ? faceOf(s, m.from) : null; return f ? { fromFace: f } : {}; })()),
     ...(m.tribe !== undefined ? { tribe: m.tribe } : {}),
     ...(m.request ? { request: m.request } : {}),
+    ...(m.rhAsk ? { rhAsk: m.rhAsk } : {}),
     ...(m.status ? { status: m.status } : {}),
     ...(m.expires !== undefined ? { expires: m.expires } : {}),
   }));

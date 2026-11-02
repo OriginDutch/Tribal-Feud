@@ -10,6 +10,8 @@ const KIND: Record<InboxView['kind'], string> = {
   invite: 'Uitnodiging',
   application: 'Aanmelding',
   proposal: 'Voorstel',
+  rhTreaty: 'Rechterhand',
+  rhAsk: 'Rechterhand',
   answer: 'Antwoord',
   war: 'Oorlog',
   info: 'Bericht',
@@ -60,13 +62,13 @@ export function InboxScreen() {
                 if (m.request?.type === 'order' && (m.request.order === 'attack' || m.request.order === 'scout')) attackVillage(m.request.x, m.request.y, m.request.nobles ? m.request.arrives : undefined);
               }}
             >
-              {m.kind === 'treaty' ? 'Tekenen' : m.kind === 'lead' ? 'Ik leid de stam' : ACCEPT[m.request?.type ?? 'none']}
+              {m.kind === 'treaty' ? 'Tekenen' : m.kind === 'lead' ? 'Ik leid de stam' : m.kind === 'rhTreaty' ? 'Opzeggen' : m.kind === 'rhAsk' ? (m.rhAsk === 'war' ? 'Oorlog verklaren' : 'Voorstellen') : ACCEPT[m.request?.type ?? 'none']}
             </button>
             {m.request?.type === 'verdict' ? (
               <Confirm label="Oneens: stam verlaten" cls="warn" sure="Je verlaat de stam en bent een tijd vogelvrij. Zeker?" onConfirm={() => send({ type: 'inboxAnswer', id: m.id, accept: false })} />
             ) : (
               <button class="small" onClick={() => send({ type: 'inboxAnswer', id: m.id, accept: false })}>
-                {m.kind === 'treaty' || m.kind === 'lead' ? 'Weigeren' : m.request?.type === 'permission' ? 'Weigeren' : m.request?.type === 'appeal' ? 'Laat maar' : 'Afwijzen'}
+                {m.kind === 'rhTreaty' ? 'Laten staan' : m.kind === 'rhAsk' ? 'Nee' : m.kind === 'treaty' || m.kind === 'lead' ? 'Weigeren' : m.request?.type === 'permission' ? 'Weigeren' : m.request?.type === 'appeal' ? 'Laat maar' : 'Afwijzen'}
               </button>
             )}
             {m.expires !== undefined && <span class="muted">verloopt {formatGameTime(m.expires)}</span>}

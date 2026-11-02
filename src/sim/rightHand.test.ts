@@ -10,9 +10,9 @@ vi.mock('./rng', async (orig) => {
 import { createConfig } from '../shared/config';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { DAY } from '../shared/time';
-import { humanTribeTick } from './humanTribe';
+import { addMessage, answerMessage, humanTribeTick } from './humanTribe';
 import { MERIT, RECRUIT_DAYS, addMerit, meritOf, rightHand, updateRanks } from './ranks';
-import { RH_GRUDGE_STANDING, myRightHandTribe, rhAskAlly, rhPropose } from './rightHand';
+import { RH_GRUDGE_STANDING, UNJUST, myRightHandTribe, rhAskAlly, rhPropose, rhRound } from './rightHand';
 import { HUMAN_ID, createWorld, villagesOf, type WorldState } from './state';
 import { found, join, type Tribe } from './tribes';
 
@@ -111,3 +111,78 @@ describe('the right hand speaks for the tribe', () => {
 });
 
 void MAX_MEMBERS; void ({} as Tribe);
+
+describe('a bot as right hand (part 2)', () => {
+  beforeEach(() => { dice.roll = null; });
+
+  /** Two bot tribes; tribe x has bot `rh` as right hand (and you nowhere, or as x's leader). */
+  function bots2(youLead = false) {
+    const s = world();
+    const bots = s.players.filter((p) => p.bot && villagesOf(s, p.id).length);
+    const x = youLead ? found(s, s.players[HUMAN_ID]!, { name: 'Wij', tag: 'WIJ' }) : found(s, bots[0]!);
+    for (const b of bots.slice(1, 4)) join(s, x, b);
+    const y = found(s, bots[10]!);
+    for (const b of bots.slice(11, 13)) join(s, y, b);
+    s.time += RECRUIT_DAYS * DAY + 1;
+    x.merit = {}; x.seeded = 2;
+    const rh = bots[1]!;
+    addMerit(s, rh.id, 100);
+    updateRanks(s, x);
+    rh.bot!.archetype = 'diplomat';
+    bots[10]!.bot!.archetype = 'diplomat';
+    if (!youLead) bots[0]!.bot!.archetype = 'diplomat';
+    dice.roll = 0;
+    return { s, x, y, rh, leader: bots[0]! };
+  }
+
+  it('in a bot tribe he makes a NAP himself (news, rank points)', () => {
+    const { s, x, y, rh } = bots2();
+    expect(rightHand(s, x)).toBe(rh.id);
+    const before = meritOf(s, x, rh.id);
+    expect(rhRound(s, x, y)).toBe(true);
+    expect(x.relations[y.id]).toBe('nap');
+    expect(meritOf(s, x, rh.id)).toBeCloseTo(before + MERIT.treaty, 5);
+    expect((s.news ?? []).some((n) => n.dry.includes(`rechterhand ${rh.name}`))).toBe(true);
+  });
+
+  it('against his leader\'s grudge: he loses mood, and an aggressive leader ends it the next round', () => {
+    const { s, x, y, rh, leader } = bots2();
+    leader.bot!.archetype = 'rusher';
+    leader.bot!.grudges = { [y.members[0]!]: { score: 2, at: s.time } };
+    const mood = rh.bot!.mood ?? 60;
+    rhRound(s, x, y);
+    expect(x.relations[y.id]).toBe('nap');
+    expect(rh.bot!.mood).toBe(mood + RH_GRUDGE_STANDING);
+    rhRound(s, x, y); // his look: roll 0 < aggression
+    expect(x.relations[y.id]).toBeUndefined();
+    expect(rhRound(s, x, y)).toBe(false); // and the right hand lets it rest
+    expect(x.relations[y.id]).toBeUndefined();
+  });
+
+  it('you lead: you hear of it, and may undo it (a stronger neighbour: the tribe takes that badly)', () => {
+    const { s, x, y, rh } = bots2(true);
+    expect(rhRound(s, x, y)).toBe(true);
+    expect(s.inbox?.some((m) => m.kind === 'info' && m.title.includes('stelt'))).toBe(true);
+    const undo = s.inbox!.find((m) => m.kind === 'rhTreaty')!;
+    expect(undo.status).toBe('open');
+    // make them the stronger tribe
+    for (const v of villagesOf(s, y.members[0]!)) v.units.axe = 100000;
+    s.time += DAY / 2; // strength is cached for a while
+    const mood = rh.bot!.mood ?? 60;
+    expect(answerMessage(s, undo.id, true)).toBeNull();
+    expect(x.relations[y.id]).toBeUndefined();
+    expect(rh.bot!.mood).toBe(mood + UNJUST.rightHand);
+  });
+
+  it('you lead and say no to an alliance against a shared enemy: unjust', () => {
+    const { s, x, y, rh } = bots2(true);
+    x.relations[y.id] = 'nap'; y.relations[x.id] = 'nap';
+    const z = Object.values(s.tribes!).find((t) => t.id !== x.id && t.id !== y.id) ?? found(s, s.players.find((p) => p.bot && p.tribe === undefined && villagesOf(s, p.id).length)!);
+    x.relations[z.id] = 'war'; y.relations[z.id] = 'war';
+    addMessage(s, { kind: 'rhAsk', rhAsk: 'ally', from: rh.id, tribe: y.id, title: 't', text: 't', status: 'open', expires: s.time + DAY });
+    const m = s.inbox!.at(-1)!;
+    const mood = rh.bot!.mood ?? 60;
+    answerMessage(s, m.id, false);
+    expect(rh.bot!.mood).toBe(mood + UNJUST.rightHand);
+  });
+});

@@ -50,7 +50,7 @@ export interface LogEntry {
 
 export type BotTier = 'pro' | 'mid' | 'casual';
 
-export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty' | 'talks' | 'lead';
+export type InboxKind = 'invite' | 'application' | 'proposal' | 'answer' | 'war' | 'info' | 'request' | 'merge' | 'treaty' | 'talks' | 'lead' | 'rhTreaty' | 'rhAsk';
 export interface InboxMessage {
   id: number;
   time: number;
@@ -71,6 +71,8 @@ export interface InboxMessage {
   treaty?: number;
   /** kind 'talks': the peace talks it is about. */
   talks?: number;
+  /** kind 'rhAsk': what your right hand asks you (the tribe is `tribe`). */
+  rhAsk?: 'ally' | 'war';
   /** Messages with a choice: open until answered or expired. */
   status?: 'open' | 'accepted' | 'declined' | 'expired';
   expires?: number;

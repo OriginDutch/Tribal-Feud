@@ -35,6 +35,7 @@ import { WAR_FRICTION, clearFriction, frictionBetween, frictionTick, tribeStreng
 import { addNews } from './news';
 import { isRecruit, meritOf, nextPlace, rankOf, onJoin, onLeave, rankRows, rightHand, updateRanks } from './ranks';
 import type { TribeView } from '../shared/protocol';
+import { rhRound } from './rightHand';
 import { BARBARIAN, HUMAN_ID, addLog as addWorldLog, movementIndex, villagesOf, type Player, type WorldState } from './state';
 
 export type Relation = 'ally' | 'nap' | 'war';
@@ -52,6 +53,10 @@ export interface Tribe {
   relations: Record<number, Relation>;
   /** When each relation started (for peace after a long war, alliances after a long NAP). */
   since?: Record<number, number>;
+  /** NAPs the (bot) right hand made against the leader's grudge: the leader takes one look at each. */
+  rhNaps?: { tribe: number; at: number }[];
+  /** Until when the right hand leaves a tribe alone (his leader ended his NAP with it). */
+  rhBlock?: Record<number, number>;
   /** Friction with other tribes (attacks, conquests, living close); kept symmetric. See warCause. */
   friction?: Record<number, number>;
   /** Where that friction came from, per tribe (fades with it). */
@@ -643,6 +648,8 @@ function diplomacy(state: WorldState): void {
         news: (x, y, dry, head) => addNews(state, { kind: 'allyEnd', tribes: [x.id, y.id], ...between(state, x, y), dry, head }),
       });
     }
+    // the right hands speak first (a bot right hand proposes, asks his leader, or opens talks)
+    if (rhRound(state, a, b) || rhRound(state, b, a)) continue;
     const rel = a.relations[b.id];
     const since = state.time - (a.since?.[b.id] ?? state.time);
     // troops decide, not points: strength with allies on both sides
