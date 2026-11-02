@@ -1,6 +1,7 @@
 /**
- * Background music. One tab of the game plays: the one you looked at last. It keeps playing when
- * you switch away from the game; switch to another tab of the game and that one carries on where
+ * Background music. One tab of the game plays: the one you looked at last. In a desktop browser it
+ * keeps playing when you switch away from the game; as an installed app or on a phone it pauses when
+ * the game goes to the background and carries on when you come back; switch to another tab of the game and that one carries on where
  * the music was, with a short cross-fade. Tracks cross-fade. Browsers allow
  * sound only after the first click or key press, so music starts then at the latest.
  */
@@ -61,7 +62,12 @@ let fadeTimer: number | undefined;
 let lastPaused = 0;
 
 const target = () => (musicSettings.value.muted ? 0 : musicSettings.value.volume);
-const mayPlay = () => unlocked && active && !musicSettings.value.muted;
+const mayPlay = () => unlocked && active && !background && !musicSettings.value.muted;
+/** As an app (installed, or on a touch screen) the music stops while the game is in the background. */
+const appLike = () => {
+  try { return matchMedia('(display-mode: standalone)').matches || matchMedia('(pointer: coarse)').matches; } catch { return false; }
+};
+let background = false;
 /** This tab is the one that plays (the last one you looked at). */
 let active = true;
 
@@ -230,7 +236,15 @@ export function initMusic(): void {
   };
   for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, unlock, { capture: true });
   // looking at a tab moves the music there; looking away keeps it playing
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') take(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { background = false; take(); return; }
+    if (!appLike()) return;
+    // minimised: stop right away (timers for a fade barely run in the background)
+    background = true;
+    window.clearInterval(quieting);
+    if (fading) { fading.pause(); fading.src = ''; fading = null; }
+    if (current && !current.el.paused) { current.el.pause(); lastPaused = Date.now(); broadcast('state'); }
+  });
   window.addEventListener('focus', take);
   // settings changed in another tab
   window.addEventListener('storage', (e) => {
