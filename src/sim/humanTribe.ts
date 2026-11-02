@@ -14,6 +14,8 @@ import { isOnline } from './bots';
 import { answerRequest } from './tribeOrders';
 import { grudge } from './botReact';
 import { nextFloat } from './rng';
+import { rankWeight } from './ranks';
+import { answerRhAsk, myRightHandTribe, rhTreatyAnswered, rhTreatyTick } from './rightHand';
 import type { FrictionRow, WarAskInfo } from '../shared/protocol';
 import { WAR_FRICTION, frictionBetween, topWhy, tribeStrength } from './warCause';
 import {
@@ -260,7 +262,10 @@ export function warAskInfo(state: WorldState): WarAskInfo {
 function askedNeed(state: WorldState, leader: Player): number {
   const arch = leader.bot?.archetype ?? 'diplomat';
   const ask = Math.max(0.4, Math.min(1, 0.7 - ((state.standing ?? 60) - 60) / 200));
-  return WAR_FRICTION * (1.6 - AGGRESSION[arch]) * ask;
+  // your rank weighs in: a right hand's ask needs less friction than a recruit's
+  const t = tribeOf(state, HUMAN_ID);
+  const weight = t ? rankWeight(state, t, HUMAN_ID) : 1;
+  return (WAR_FRICTION * (1.6 - AGGRESSION[arch]) * ask) / weight;
 }
 
 /** Your tribe's friction with every other tribe, highest first (empty without a tribe). */
@@ -434,6 +439,7 @@ export function humanTribeTick(state: WorldState): void {
     if (!answered) keep.push(ask);
   }
   state.tribeAsks = keep;
+  rhTreatyTick(state);
 
   inviteHuman(state, me);
 }
@@ -504,10 +510,11 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
     }
     return true;
   }
-  // a treaty you proposed
-  const mine = tribeOf(state, HUMAN_ID);
+  if (ask.kind === 'allyAsk') return answerRhAsk(state, ask);
+  // a treaty you proposed (as leader, or as right hand: then only while you still are)
+  const mine = ask.by === 'rh' ? myRightHandTribe(state) : tribeOf(state, HUMAN_ID);
   const o = state.tribes?.[ask.tribe];
-  if (!mine || mine.leader !== HUMAN_ID || !o) return true;
+  if (!mine || (ask.by !== 'rh' && mine.leader !== HUMAN_ID) || !o) return true;
   const leader = state.players[o.leader];
   if (!leader?.bot) return true;
   if (!isOnline(state, leader.id, leader.bot)) return false;
@@ -525,6 +532,7 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
   if (ask.relation === 'peace') chance = (1 - AGGRESSION[arch]) * 0.6 + (strongerUs ? 0.3 : 0) - g * 0.3;
   if (chance > 0) chance += kindness(state.config).treaty;
   const ok = (ask.relation === 'peace' ? o.relations[mine.id] === 'war' : o.relations[mine.id] !== 'war') && nextFloat(state.rng) < chance;
+  if (ask.by === 'rh') rhTreatyAnswered(state, mine, o, ask.relation, ok);
   if (ok) {
     setRelation(state, mine, o, ask.relation === 'peace' ? null : ask.relation);
     addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: `${tag(o)} gaat akkoord`, text: `${leader.name} gaat akkoord met ${REL_NAME[ask.relation]}.` });

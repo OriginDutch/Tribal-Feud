@@ -20,6 +20,8 @@ export const RANK_NAMES: Record<Rank, string> = { leider: 'Leider', rechterhand:
 export const MERIT = {
   order: 10, scoutOrder: 4, nuke: 8, nobles: 12, conquestWar: 15, conquest: 5, support: 3,
   orderFailed: -10, scoutFailed: -4, appealLost: -5,
+  /** As right hand: a treaty you proposed was accepted; your leader ended your NAP again. */
+  treaty: 6, treatyUndone: -5,
 } as const;
 /**
  * Merit halves in this many game days, on every world: orders and joint attacks come in game

@@ -115,7 +115,9 @@ export interface TribeOrder {
 export type TribeAsk =
   | { kind: 'apply'; tribe: number; at: number }
   | { kind: 'invite'; player: number; at: number }
-  | { kind: 'propose'; tribe: number; relation: 'nap' | 'ally' | 'peace'; at: number }
+  | { kind: 'propose'; tribe: number; relation: 'nap' | 'ally' | 'peace'; at: number; by?: 'rh' }
+  /** As right hand: you asked your leader to offer this tribe an alliance. */
+  | { kind: 'allyAsk'; tribe: number; at: number }
   /** As a member: you asked your leader to declare war on this tribe. */
   | { kind: 'war'; tribe: number; at: number };
 
@@ -341,6 +343,10 @@ export interface WorldState {
   tribeAsks?: TribeAsk[];
   /** When your leader last said no to a war you asked for (you wait a game day before asking again). */
   warAskNo?: number;
+  /** As right hand: when a tribe (or your leader, about it) last said no to your proposal. */
+  rhNo?: Record<number, number>;
+  /** NAPs you made as right hand against your leader's grudge: he may still end them. */
+  rhTreaties?: { tribe: number; at: number }[];
   /** How often a bot turned down your invitation, and a tribe your application (for a note in the lists). */
   tribeRefusals?: { invites: Record<number, number>; applications: Record<number, number> };
   /** Your requests for help to your tribe. */

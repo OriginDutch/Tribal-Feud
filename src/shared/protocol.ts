@@ -102,6 +102,8 @@ export type Command =
   | { type: 'tribeRelation'; tribe: number; action: 'war' | 'end' }
   /** As a member: ask your leader to declare war on a tribe. */
   | { type: 'tribeAskWar'; tribe: number }
+  /** As right hand: a NAP or peace talks yourself, an alliance through your leader. */
+  | { type: 'rhPropose'; tribe: number; relation: 'nap' | 'peace' | 'ally' }
   /** Leader: the war front your bot members fight (enemy tribe, optionally one village). null = let them choose. */
   | { type: 'tribeFront'; enemy: number | null; target?: number }
   | { type: 'inboxAnswer'; id: number; accept: boolean }
@@ -294,7 +296,8 @@ export interface FrictionRow {
 export type TribeAskView =
   | { kind: 'apply'; tribe: number; at: number }
   | { kind: 'invite'; player: number; at: number }
-  | { kind: 'propose'; tribe: number; relation: 'nap' | 'ally' | 'peace'; at: number }
+  | { kind: 'propose'; tribe: number; relation: 'nap' | 'ally' | 'peace'; at: number; by?: 'rh' }
+  | { kind: 'allyAsk'; tribe: number; at: number }
   | { kind: 'war'; tribe: number; at: number };
 export interface OrderView {
   id: number;

@@ -78,7 +78,7 @@ export const REACH = 16;
 const CORE = 6;
 /** How often the diplomacy layer runs (game time). */
 export const DIPLOMACY_EVERY = 90 * MINUTE;
-const MAX_ALLIES = 2;
+export const MAX_ALLIES = 2;
 
 // --- naming -------------------------------------------------------------------
 

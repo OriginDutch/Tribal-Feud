@@ -1,6 +1,6 @@
 import { PlayerLink } from '../components/PlayerLink';
 import { useEffect, useState } from 'preact/hooks';
-import type { FrictionRow, RankId, TribeRelation, TribeView } from '../../shared/protocol';
+import type { FrictionRow, RankId, TribeAskView, TribeRelation, TribeView } from '../../shared/protocol';
 import { MAX_MEMBERS } from '../../shared/tribes';
 import { formatGameTime } from '../../shared/time';
 import { Confirm } from '../components/Confirm';
@@ -362,6 +362,9 @@ export function TribesScreen() {
   const applied = new Set(tribeAsks.value.flatMap((a) => (a.kind === 'apply' ? [a.tribe] : [])));
   const proposed = new Map(tribeAsks.value.flatMap((a) => (a.kind === 'propose' ? [[a.tribe, a.relation] as const] : [])));
   const askedWar = tribeAsks.value.find((a) => a.kind === 'war')?.tribe;
+  // as right hand you speak for the tribe: a NAP and peace talks yourself, an alliance through your leader
+  const rightHand = !leader && !!mine && mine.ranks?.find((r) => r.id === MY_ID)?.rank === 'rechterhand';
+  const rhAsk = tribeAsks.value.find((a): a is Extract<TribeAskView, { kind: 'propose' | 'allyAsk' }> => (a.kind === 'propose' && a.by === 'rh') || a.kind === 'allyAsk');
   const relToMine = open && mine && open.id !== mine.id ? (mine.relations.find((r) => r.id === open.id)?.rel ?? null) : null;
 
   return (
@@ -485,6 +488,25 @@ export function TribesScreen() {
                     </p>
                   ) : null;
                 })()}
+                {rightHand && mine && open.id !== mine.id && (
+                  <div class="row wrap tribe-actions" data-right-hand>
+                    {rhAsk ? (
+                      <span class="muted">
+                        {rhAsk.tribe !== open.id
+                          ? 'Je hebt als rechterhand al een voorstel lopen.'
+                          : rhAsk.kind === 'allyAsk'
+                            ? 'Je vroeg je leider om een bondgenootschap. Hij antwoordt als hij online is.'
+                            : `Je voorstel (${rhAsk.kind === 'propose' ? ASK_REL[rhAsk.relation] : ''}) loopt — hun leider antwoordt als hij online is.`}
+                      </span>
+                    ) : relToMine === 'war' ? (
+                      <button class="small" onClick={() => send({ type: 'rhPropose', tribe: open.id, relation: 'peace' })} title="Als rechterhand mag je zelf vredesbesprekingen openen">Vredesbesprekingen openen</button>
+                    ) : relToMine === 'nap' ? (
+                      <button class="small" onClick={() => send({ type: 'rhPropose', tribe: open.id, relation: 'ally' })} title="Je leider beslist; als rechterhand weegt je stem zwaar">Leider om bondgenootschap vragen</button>
+                    ) : !relToMine ? (
+                      <button class="small" onClick={() => send({ type: 'rhPropose', tribe: open.id, relation: 'nap' })} title="Als rechterhand spreek je namens de stam. Heeft je leider een wrok tegen deze stam, dan kost het aanzien en kan hij het opzeggen.">NAP voorstellen</button>
+                    ) : null}
+                  </div>
+                )}
                 {!leader && mine && open.id !== mine.id && relToMine !== 'war' && (
                   <div class="row wrap tribe-actions" data-war-ask>
                     {askedWar === open.id ? (

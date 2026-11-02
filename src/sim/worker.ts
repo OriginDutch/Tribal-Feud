@@ -90,6 +90,7 @@ import type { FarmAllView } from '../shared/protocol';
 import { SCAV_UNITS, scavEnabled, scavOf, scavParams, sendPlan } from './scavenge';
 import { DEFAULT_SCAV_TEMPLATE, type ScavTemplate } from '../shared/scavenge';
 import type { ScavView } from '../shared/protocol';
+import { rhAskAlly, rhPropose } from './rightHand';
 import { DEFAULT_MINT, DEFAULT_SURPLUS, mintAll, setMint, planMintAll, planSurplus, sendSurplus, setSurplus } from './surplus';
 
 /** Minimal typing for the worker global, so the project only needs the DOM lib. */
@@ -1330,6 +1331,7 @@ async function handle(cmd: Command): Promise<void> {
     case 'tribePropose':
     case 'tribeRelation':
     case 'tribeAskWar':
+    case 'rhPropose':
     case 'inboxAnswer': {
       if (!state) return;
       const s = state;
@@ -1340,6 +1342,7 @@ async function handle(cmd: Command): Promise<void> {
         : cmd.type === 'tribeInvite' ? invitePlayer(s, cmd.player)
         : cmd.type === 'tribeKick' ? kickMember(s, cmd.player)
         : cmd.type === 'tribePropose' ? proposeRelation(s, cmd.tribe, cmd.relation)
+        : cmd.type === 'rhPropose' ? (cmd.relation === 'ally' ? rhAskAlly(s, cmd.tribe) : rhPropose(s, cmd.tribe, cmd.relation))
         : cmd.type === 'tribeRelation' ? setOwnRelation(s, cmd.tribe, cmd.action)
         : cmd.type === 'tribeAskWar' ? askLeaderWar(s, cmd.tribe)
         : answerMessage(s, cmd.id, cmd.accept);
