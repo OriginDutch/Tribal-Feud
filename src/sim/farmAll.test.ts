@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { farmAll, planFarmAll, type FarmAllOptions } from './farmAll';
 import { distance, sendAttack } from './movement';
-import { BARBARIAN, createWorld, playerVillage } from './state';
+import { BARBARIAN, createWorld, invalidateOwners, playerVillage } from './state';
 
 const opts = (o: Partial<FarmAllOptions> = {}): FarmAllOptions => ({ template: 'A', skipLost: true, maxWall: null, maxDistance: null, ...o });
 
@@ -133,5 +133,43 @@ describe('farm templates with "Meldingen tonen"', () => {
     const sent = Object.values(s.movements).filter((m) => m.kind === 'attack');
     expect(sent.every((m) => m.farm === false && !m.auto)).toBe(true);
     expect(s.sfx).toContain('march');
+  });
+});
+
+/** The plain version the planner replaced: every pair, sorted by distance (stable), greedy. */
+function referencePlan(s: ReturnType<typeof setup>['s'], o: FarmAllOptions, pools: Map<number, Record<string, number>>, own: { id: number; x: number; y: number }[]) {
+  const pairs: { from: number; to: number; d: number }[] = [];
+  for (const t of Object.values(s.villages)) {
+    if (t.owner !== BARBARIAN) continue;
+    for (const v of own) { const d = distance(v, t); if (d <= (o.maxDistance ?? Infinity)) pairs.push({ from: v.id, to: t.id, d }); }
+  }
+  pairs.sort((a, b) => a.d - b.d);
+  const tpl = s.farmTemplates[o.template as 'A'] as Record<string, number>;
+  const done = new Set<number>();
+  const out: [number, number][] = [];
+  for (const p of pairs) {
+    if (done.has(p.to)) continue;
+    const pool = pools.get(p.from)!;
+    if (!Object.entries(tpl).every(([u, n]) => (pool[u] ?? 0) >= n)) continue;
+    for (const [u, n] of Object.entries(tpl)) pool[u] = (pool[u] ?? 0) - n;
+    done.add(p.to);
+    out.push([p.from, p.to]);
+  }
+  return out;
+}
+
+describe('farm alles: the fast planner', () => {
+  it('picks exactly the same attacks as sorting every pair, with many villages', () => {
+    const { s, v } = setup();
+    // 40 more own villages with different troop counts: some run dry fast, others last
+    const mine = [v, ...Object.values(s.villages).filter((x) => x.owner === BARBARIAN).slice(0, 40)];
+    mine.forEach((x, i) => { x.owner = 0; x.buildings.place = 1; x.units.light = 5 * ((i * 7) % 9); });
+    invalidateOwners(s);
+    for (const maxDistance of [null, 8, 20]) {
+      const o = opts({ maxDistance });
+      const pools = new Map(mine.map((x) => [x.id, { light: x.units.light }]));
+      const want = referencePlan(s, o, pools, mine.filter((x) => x.units.light >= 5));
+      expect(planFarmAll(s, o).sends.map((x) => [x.from, x.to])).toEqual(want);
+    }
   });
 });

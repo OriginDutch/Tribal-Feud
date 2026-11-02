@@ -46,47 +46,96 @@ export function planFarmAll(state: WorldState, opts: FarmAllOptions): FarmAllPla
   for (const m of Object.values(state.movements)) if (m.owner === HUMAN_ID && m.kind === 'attack') busy.add(m.to);
 
   const skipped = { busy: 0, lost: 0, wall: 0, noScout: 0 };
-  const pairs: { from: number; to: number; d: number }[] = [];
   const reach = opts.maxDistance ?? Infinity;
   const canSend = own.filter((v) => { const p = pools.get(v.id)!; return template ? hasTemplate && fits(template, p) : (p[FARM_C_UNIT] ?? 0) > 0; });
+
+  // Closest pairs first, as if every (village, target) pair were sorted by distance (ties: target
+  // order, then village order). Instead of building and sorting all pairs, a heap holds each target's
+  // nearest village still in play. A village that can't send any more never can again (its pool only
+  // shrinks), so a target then moves on to the next nearest live village; once no village can send,
+  // planning stops.
+  const n = canSend.length;
+  const ids: number[] = [];
+  const dist: number[] = []; // target t, village i: dist[t * n + i] (Infinity beyond reach)
   for (const t of Object.values(state.villages)) {
     if (t.owner !== BARBARIAN) continue;
-    const local: { from: number; to: number; d: number }[] = [];
-    for (const v of canSend) {
-      const d = distance(v, t);
-      if (d <= reach) local.push({ from: v.id, to: t.id, d });
-    }
-    if (!local.length) continue;
+    const row = new Array<number>(n);
+    let k = 0;
+    for (let i = 0; i < n; i++) { const d = distance(canSend[i]!, t); row[i] = d <= reach ? d : Infinity; if (d <= reach) k++; }
+    if (!k) continue;
     if (busy.has(t.id)) { skipped.busy++; continue; }
     if (opts.skipLost && state.lastAttack[t.id]?.result === 'loss') { skipped.lost++; continue; }
     const wall = state.intel[t.id]?.wall;
     if (opts.maxWall !== null && wall !== undefined && wall > opts.maxWall) { skipped.wall++; continue; }
     if (opts.template === '*' && estimateLoot(state, t.id) === undefined) { skipped.noScout++; continue; }
-    pairs.push(...local);
+    ids.push(t.id);
+    for (let i = 0; i < n; i++) dist.push(row[i]!);
   }
-  pairs.sort((a, b) => a.d - b.d);
-
-  const done = new Set<number>();
-  const targets = new Set(pairs.map((p) => p.to));
-  const sends: FarmAllPlan['sends'] = [];
-  for (const p of pairs) {
-    if (done.has(p.to)) continue;
-    const pool = pools.get(p.from)!;
-    let units: UnitCounts;
-    if (template) {
-      if (!fits(template, pool)) continue;
-      units = { ...template };
-    } else {
-      const have = pool[FARM_C_UNIT] ?? 0;
-      if (have <= 0) continue;
-      const need = Math.max(1, Math.ceil((estimateLoot(state, p.to) ?? 0) / state.config.units[FARM_C_UNIT].carry));
-      units = { [FARM_C_UNIT]: Math.min(need, have) };
+  const targets = ids.length;
+  const dead = new Uint8Array(n);
+  let alive = n;
+  /** Target t's nearest live village after village `after` (by distance, then index); -1 = none. */
+  const cur = new Int32Array(targets);
+  const nextFor = (t: number, after: number): number => {
+    const base = t * n;
+    const da = after < 0 ? -Infinity : dist[base + after]!;
+    let best = -1, bd = Infinity;
+    for (let i = 0; i < n; i++) {
+      if (dead[i]) continue;
+      const d = dist[base + i]!;
+      if (d === Infinity || d < da || (d === da && i <= after)) continue;
+      if (d < bd) { bd = d; best = i; }
     }
-    for (const u of UNIT_IDS) if (units[u]) pool[u] = (pool[u] ?? 0) - units[u]!;
-    done.add(p.to);
-    sends.push({ from: p.from, to: p.to, units, distance: p.d });
+    return best;
+  };
+  const key = (t: number) => dist[t * n + cur[t]!]!;
+  const heap: number[] = [];
+  const less = (a: number, b: number) => { const ka = key(a), kb = key(b); return ka !== kb ? ka < kb : a < b; };
+  const up = (i: number) => { while (i > 0) { const p = (i - 1) >> 1; if (!less(heap[i]!, heap[p]!)) break; [heap[i], heap[p]] = [heap[p]!, heap[i]!]; i = p; } };
+  const down = (i: number) => {
+    for (;;) {
+      const l = 2 * i + 1, r = l + 1;
+      let m = i;
+      if (l < heap.length && less(heap[l]!, heap[m]!)) m = l;
+      if (r < heap.length && less(heap[r]!, heap[m]!)) m = r;
+      if (m === i) return;
+      [heap[i], heap[m]] = [heap[m]!, heap[i]!];
+      i = m;
+    }
+  };
+  for (let t = 0; t < targets; t++) { cur[t] = nextFor(t, -1); heap.push(t); up(heap.length - 1); }
+
+  const sends: FarmAllPlan['sends'] = [];
+  while (heap.length && alive > 0) {
+    const t = heap[0]!;
+    const vi = cur[t]!;
+    let units: UnitCounts | null = null;
+    if (!dead[vi]) {
+      const pool = pools.get(canSend[vi]!.id)!;
+      if (template) {
+        if (fits(template, pool)) units = { ...template };
+        else { dead[vi] = 1; alive--; }
+      } else {
+        const have = pool[FARM_C_UNIT] ?? 0;
+        if (have > 0) {
+          const need = Math.max(1, Math.ceil((estimateLoot(state, ids[t]!) ?? 0) / state.config.units[FARM_C_UNIT].carry));
+          units = { [FARM_C_UNIT]: Math.min(need, have) };
+        } else { dead[vi] = 1; alive--; }
+      }
+      if (units) {
+        for (const u of UNIT_IDS) if (units[u]) pool[u] = (pool[u] ?? 0) - units[u]!;
+        sends.push({ from: canSend[vi]!.id, to: ids[t]!, units, distance: dist[t * n + vi]! });
+      }
+    }
+    if (!units) {
+      const nx = nextFor(t, vi);
+      if (nx >= 0) { cur[t] = nx; down(0); continue; } // same target, a village further away: it sinks
+    }
+    // this target is done (sent, or no village left for it)
+    const last = heap.pop()!;
+    if (heap.length) { heap[0] = last; down(0); }
   }
-  return { sends, villages: own.length, able, skipped, left: targets.size - done.size };
+  return { sends, villages: own.length, able, skipped, left: targets - sends.length };
 }
 
 /** Sends the plan; returns how many attacks left and the first error. */

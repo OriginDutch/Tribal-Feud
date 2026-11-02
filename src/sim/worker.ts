@@ -99,8 +99,11 @@ const ctx = self as unknown as {
 };
 
 const TICK_MS = 50;
-/** Longest real-time step per tick. Stops huge jumps after the browser throttled us. */
-const MAX_STEP_MS = 250;
+/**
+ * Longest real-time step per tick. Stops huge jumps after the browser throttled us (a sleeping
+ * phone), but is long enough that one slow tick (a big auto-farm round on a phone) costs no game time.
+ */
+const MAX_STEP_MS = 1000;
 const SNAPSHOT_EVERY_TICKS = 2;
 /** Saves are cheap since they are stored as text (~70 ms on a big world): often, so a closed browser costs little. */
 const AUTOSAVE_EVERY_MS = 10 * SECOND;
