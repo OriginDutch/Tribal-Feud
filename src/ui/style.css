@@ -1222,3 +1222,5 @@ details.coup summary { cursor: pointer; color: var(--muted); }
 .fold-chev.open { transform: rotate(90deg); }
 .panel .fold-head, .panel .fold-head:hover, .panel .fold-head:focus { background: none; border: 0; box-shadow: none; }
 .panel .fold-head:hover h3, .panel .fold-head:hover .fold-chev { color: var(--text); }
+.perf-meter .perf-slow { font-weight: 700; }
+@media (max-width: 720px) { .perf-meter { top: auto; bottom: calc(76px + env(safe-area-inset-bottom)); right: 6px; } }

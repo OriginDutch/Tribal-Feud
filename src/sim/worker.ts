@@ -299,6 +299,7 @@ function snapshot(): Snapshot | null {
     speed: state.speed,
     paused: state.paused,
     suspended,
+    simPerf,
     queueSize: state.queue.heap.length,
     multipliers: {
       world: state.config.worldSpeed,
@@ -842,9 +843,27 @@ function autosave(cloudWhen: 'auto' | 'now' = 'auto'): void {
     .catch((e: unknown) => notice(`Autosave mislukt: ${String(e)}`, 'error'));
 }
 
+/** Simulation cost for the performance meter: per real second, how busy, the slowest tick and game time lost. */
+let simPerf = { busy: 0, max: 0, lost: 0, snap: 0 };
+let perfWindow = { start: performance.now(), busy: 0, max: 0, lost: 0, snap: 0 };
+
+function notePerf(now: number, gap: number, cost: number, snap: number): void {
+  const w = perfWindow;
+  w.busy += cost;
+  w.snap += snap;
+  w.max = Math.max(w.max, cost);
+  if (gap > MAX_STEP_MS) w.lost += gap - MAX_STEP_MS;
+  const span = now - w.start;
+  if (span >= 1000) {
+    simPerf = { busy: Math.round((w.busy * 1000) / span), max: Math.round(w.max), lost: Math.round((w.lost * 1000) / span), snap: Math.round((w.snap * 1000) / span) };
+    perfWindow = { start: now, busy: 0, max: 0, lost: 0, snap: 0 };
+  }
+}
+
 function tick(): void {
   const now = performance.now();
-  const dt = Math.min(now - lastTick, MAX_STEP_MS);
+  const gap = now - lastTick;
+  const dt = Math.min(gap, MAX_STEP_MS);
   lastTick = now;
   if (!state) return;
 
@@ -860,7 +879,11 @@ function tick(): void {
     }
   }
 
+  const before = performance.now();
   if (++ticks % SNAPSHOT_EVERY_TICKS === 0) postSnapshot();
+  // the whole tick (game time and the update for the screens) counts; the update also on its own
+  const end = performance.now();
+  if (state && !state.paused && !suspended) notePerf(now, gap, end - now, end - before);
 }
 
 async function handle(cmd: Command): Promise<void> {

@@ -224,7 +224,7 @@ port.onmessage = (e: MessageEvent<WorkerMessage>) => {
       if (next && msg.same?.length && prev) for (const k of msg.same) (next as unknown as Record<string, unknown>)[k] = (prev as unknown as Record<string, unknown>)[k];
       snapshot.value = next;
       rememberVillage(msg.snapshot?.village?.id ?? null);
-      noteSnapshot(performance.now() - t0);
+      noteSnapshot(performance.now() - t0, next);
       break;
     }
     case 'blocked':

@@ -548,6 +548,8 @@ export interface Snapshot {
   paused: boolean;
   /** Tab hidden: time stops without touching the player's pause/speed choice. */
   suspended: boolean;
+  /** For the performance meter, per real second: ms the simulation was busy (of which building updates), its slowest tick, game time lost (ms real). */
+  simPerf: { busy: number; max: number; lost: number; snap: number };
   queueSize: number;
   /** World speed settings, for display. */
   multipliers: { world: number; production: number; build: number; recruit: number; farm: number };
