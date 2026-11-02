@@ -1224,3 +1224,8 @@ details.coup summary { cursor: pointer; color: var(--muted); }
 .panel .fold-head:hover h3, .panel .fold-head:hover .fold-chev { color: var(--text); }
 .perf-meter .perf-slow { font-weight: 700; }
 @media (max-width: 720px) { .perf-meter { top: auto; bottom: calc(76px + env(safe-area-inset-bottom)); right: 6px; } }
+.m-layout .content .village-scene .village-label.dot { padding: 0; gap: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; min-width: 0; }
+.village-label.dot b { min-width: 26px; height: 22px; font-size: 12px; background: rgba(20, 17, 13, 0.78); border: 1px solid var(--accent-line); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); }
+/* the village picture keeps its own small controls (the 44px rule would blow the labels up) */
+.m-layout .content .village-scene button:not(.link) { min-height: 0; }
+.m-layout .village-light button { padding: 6px 9px; }

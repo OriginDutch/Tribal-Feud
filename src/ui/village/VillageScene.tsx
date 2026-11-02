@@ -3,6 +3,13 @@ import type { BuildingId } from '../../shared/gameData';
 import type { VillageView } from '../../sim/view';
 import { openBuilding, setVillageLight, villageLight } from '../store';
 import { walkers } from './villageLife';
+import { isMobile } from '../mobile';
+import { useSaved } from '../useSaved';
+
+/** Phone: labels as level dots (default), full labels or none. A desktop always shows full labels. */
+type LabelMode = 'dots' | 'full' | 'none';
+const NEXT_MODE: Record<LabelMode, LabelMode> = { dots: 'full', full: 'none', none: 'dots' };
+const MODE_TEXT: Record<LabelMode, string> = { dots: '● Levels', full: '▤ Labels', none: '○ Geen' };
 import { type Baked, type Piece, type Sprite, hits, loadVillage, piecesFor, project, stageFor } from './villageSprites';
 
 /** The part of the baked frame that is shown at zoom 1 (scene pixels). */
@@ -214,6 +221,9 @@ export function VillageScene({ village }: { village: VillageView }) {
     return null;
   };
 
+  const [savedMode, setMode] = useSaved<LabelMode>('village-labels-mobile', 'dots');
+  const mode: LabelMode = isMobile.value ? savedMode : 'full';
+
   // label spots: under each building's footprint (scene px)
   const labels = useMemo(() => {
     if (!baked) return [];
@@ -250,19 +260,21 @@ export function VillageScene({ village }: { village: VillageView }) {
         onClick={(e) => { if (drag.current?.moved) return; const h = pick(e); if (h) openBuilding(h as BuildingId); }}
       />
       {!baked && <div class="village-loading">{error ?? 'Dorp laden…'}</div>}
-      {labels.map((l) => {
+      {mode !== 'none' && labels.map((l) => {
         const built = l!.b.level > 0;
+        if (mode === 'dots' && !built) return null;
         return (
           <button
             key={l!.b.id}
-            class={`village-label ${built ? '' : 'unbuilt'} ${hover === l!.b.id ? 'hot' : ''}`}
+            class={`village-label ${mode === 'dots' ? 'dot' : ''} ${built ? '' : 'unbuilt'} ${hover === l!.b.id ? 'hot' : ''}`}
+            aria-label={built ? `${l!.b.name} level ${l!.b.level}` : `${l!.b.name}: nog niet gebouwd`}
             style={{ left: `${l!.x}%`, top: `${l!.y}%` }}
             title={built ? `${l!.b.name} level ${l!.b.level}` : `${l!.b.name}: nog niet gebouwd`}
             onMouseEnter={() => setHover(l!.b.id)}
             onMouseLeave={() => setHover(null)}
             onClick={() => openBuilding(l!.b.id)}
           >
-            <span>{l!.b.name}</span>
+            {mode === 'full' && <span>{l!.b.name}</span>}
             {built && <b>{l!.b.level}</b>}
           </button>
         );
@@ -275,6 +287,9 @@ export function VillageScene({ village }: { village: VillageView }) {
       <div class="village-light" role="group" aria-label="Licht">
         <button class={light === 'day' ? 'on' : ''} onClick={() => setVillageLight('day')}>☀ Dag</button>
         <button class={light === 'dusk' ? 'on' : ''} onClick={() => setVillageLight('dusk')}>☾ Schemer</button>
+        {isMobile.value && (
+          <button onClick={() => setMode(NEXT_MODE[mode])} title="Wisselen tussen levels, volledige labels en geen labels">{MODE_TEXT[mode]}</button>
+        )}
       </div>
     </div>
   );
