@@ -178,6 +178,9 @@ interface Client {
   /** When this tab last got the village rows (they change with every resource tick), and how many. */
   villagesAt?: number;
   villagesLen?: number;
+  /** The screen it shows, and when it last got the movements (only the map and the rally point use them). */
+  screen?: string;
+  movesAt?: number;
   /** The village this tab shows. */
   current: number | null;
   visible: boolean;
@@ -289,7 +292,30 @@ function talksViews(s: WorldState): TalksView[] {
   return out;
 }
 
-function snapshot(): Snapshot | null {
+/** Stands in for a snapshot field this tab doesn't need right now: it keeps what it has. */
+const SKIP = Symbol('skip');
+/** Screens that show your troop movements (the map's arrows, the rally point's list). */
+const MOVEMENT_SCREENS = new Set(['map', 'place']);
+
+/**
+ * Builds field `k` for tab `c` only when it is due: the village rows at most every VILLAGES_EVERY_MS
+ * (sooner when villages came or went), the movements only for a screen that shows them and at most as
+ * often. A tab always gets each field once, so nothing it reads is ever missing.
+ */
+function lazy<T>(c: Client | undefined, k: 'villages' | 'movements', build: () => T): T {
+  if (!c?.sent?.has(k) || !state) return build();
+  const now = Date.now();
+  if (k === 'villages') {
+    if (now - (c.villagesAt ?? 0) < VILLAGES_EVERY_MS && villagesOf(state, HUMAN_ID).length === c.villagesLen) return SKIP as never;
+    c.villagesAt = now;
+  } else {
+    if (!MOVEMENT_SCREENS.has(c.screen ?? '') || now - (c.movesAt ?? 0) < VILLAGES_EVERY_MS) return SKIP as never;
+    c.movesAt = now;
+  }
+  return build();
+}
+
+function snapshot(c?: Client): Snapshot | null {
   if (!state) return null;
   return {
     worldName: state.config.name,
@@ -320,8 +346,8 @@ function snapshot(): Snapshot | null {
       const v = currentVillage(state);
       return v ? villageView(state, v) : null;
     })(),
-    villages: ownVillageRows(state),
-    movements: movementViews(state),
+    villages: lazy(c, 'villages', () => ownVillageRows(state!)),
+    movements: lazy(c, 'movements', () => movementViews(state!)),
     incoming: incomingViews(state),
     protectionEndsAt: protectionEndsAt(state),
     alertMode: state.alertMode ?? 'perVillage',
@@ -793,13 +819,14 @@ function postTo(c: Client, snap: Snapshot | null): void {
   const now = Date.now();
   for (const [k, value] of Object.entries(snap)) {
     const prev = sent.get(k);
-    // the village rows: not more often than VILLAGES_EVERY_MS, unless villages came or went
-    if (k === 'villages' && prev !== undefined && now - (c.villagesAt ?? 0) < VILLAGES_EVERY_MS && (value as unknown[]).length === c.villagesLen) { same.push(k); continue; }
+    // not built for this tab now (see lazy): it keeps what it has
+    if (value === SKIP) { same.push(k); continue; }
     const json = JSON.stringify(value ?? null);
     if (json === prev) { same.push(k); continue; }
     sent.set(k, json);
     out[k] = value;
     if (k === 'villages') { c.villagesAt = now; c.villagesLen = (value as unknown[]).length; }
+    if (k === 'movements') c.movesAt = now;
   }
   // fields that are gone now (optional ones): the tab must drop them, so they are not 'same'
   for (const k of [...sent.keys()]) if (!(k in snap)) sent.delete(k);
@@ -810,7 +837,7 @@ function postSnapshot(): void {
   // inside a command: what the command did to the current village is that tab's choice
   if (from && state) { from.current = state.current ?? null; fromSettled = true; }
   // a hidden tab gets no snapshots (it gets a fresh one when it shows again)
-  for (const c of clients) if (c.visible || c === from) asClient(c, () => postTo(c, snapshot()));
+  for (const c of clients) if (c.visible || c === from) asClient(c, () => postTo(c, snapshot(c)));
   if (state?.sfx?.length) {
     const sounds = state.sfx;
     state.sfx = [];
@@ -910,6 +937,9 @@ async function handle(cmd: Command): Promise<void> {
         setPaused(state, cmd.paused);
         if (cmd.paused) autosave('now');
       }
+      break;
+    case 'setScreen':
+      if (from) from.screen = cmd.screen;
       break;
     case 'setVisible': {
       if (from) from.visible = cmd.visible;

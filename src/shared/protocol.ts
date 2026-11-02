@@ -26,6 +26,8 @@ export type Command =
   | { type: 'setSpeed'; speed: Speed }
   | { type: 'setPaused'; paused: boolean }
   | { type: 'setVisible'; visible: boolean }
+  /** The screen this tab shows: heavy snapshot fields only go to screens that use them. */
+  | { type: 'setScreen'; screen: string }
   /** A tab closes (shared worker: it stops getting messages). */
   | { type: 'bye' }
   /** A tab (re)opens: the village it showed before (kept per tab in the browser). */

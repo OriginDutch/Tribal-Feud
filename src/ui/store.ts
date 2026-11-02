@@ -4,7 +4,7 @@ import { noteSnapshot } from './perf';
  * Components read these signals; only the parts that use a changed signal re-render.
  */
 import { playSounds } from './sfx';
-import { signal } from '@preact/signals';
+import { effect, signal } from '@preact/signals';
 import type { BuildingId, RecruitBuilding, UnitCounts } from '../shared/gameData';
 import type { ReportOwners, CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, SupportRow, SurplusRow, ScavView, FarmAllView, OpinionsView, WorldStatsView, SimResult, TribeAskView, TribeView, WarAskInfo, FrictionRow, WorkerMessage } from '../shared/protocol';
 import type { Report } from '../sim/movement';
@@ -306,6 +306,9 @@ port.onmessage = (e: MessageEvent<WorkerMessage>) => {
 };
 
 // worker errors show up as notices from the worker itself (a SharedWorker has no onerror on the page side)
+
+// the worker sends heavy parts (troop movements) only to screens that show them
+effect(() => send({ type: 'setScreen', screen: screen.value }));
 
 document.addEventListener('visibilitychange', () => {
   send({ type: 'setVisible', visible: document.visibilityState === 'visible' });
