@@ -34,6 +34,14 @@ function play(row: WorldRow): void {
   else if (row.cloud) send({ type: 'cloudLoad', slot: row.cloud.slot });
 }
 
+/** The furthest version of a world: the cloud's when it is ahead (this device's copy stays as a backup). */
+const fromCloud = (row: WorldRow) => !!row.cloud && row.cloudAhead;
+function playFurthest(row: WorldRow): void {
+  play(fromCloud(row) ? { ...row, local: null } : row);
+}
+/** Game time of the version playFurthest opens. */
+const furthestTime = (row: WorldRow) => (fromCloud(row) ? row.cloud!.gameTime : (row.local?.gameTime ?? row.gameTime));
+
 const Icon = {
   cloud: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">
@@ -145,13 +153,13 @@ function WorldItem({ row, signedIn, onToggle, onCloudOff }: { row: WorldRow; sig
   const [menu, setMenu] = useState<DOMRect | null>(null);
   return (
     <li class="world-row">
-      <button type="button" class="world-info world-open" onClick={() => play(row)} title={row.local ? 'Spelen' : 'Downloaden en spelen'}>
+      <button type="button" class="world-info world-open" onClick={() => playFurthest(row)} title={fromCloud(row) ? (row.local ? 'Cloudversie laden en spelen (deze versie blijft als backup)' : 'Downloaden en spelen') : 'Spelen'}>
         <strong>{row.name}</strong>
         <Status row={row} signedIn={signedIn} />
       </button>
       <div class="world-actions">
         {signedIn && <CloudSwitch row={row} onToggle={onToggle} />}
-        <button type="button" class="world-play" onClick={() => play(row)}>
+        <button type="button" class="world-play" onClick={() => playFurthest(row)}>
           {row.local ? 'Spelen' : 'Downloaden'}
         </button>
         <div class="row-menu-wrap">
@@ -311,11 +319,11 @@ export function StartScreen() {
           </div>
 
           {signedIn && latest ? (
-            <button type="button" class="home-continue" onClick={() => play(latest)}>
+            <button type="button" class="home-continue" onClick={() => playFurthest(latest)}>
               <span>
                 <b>Verder spelen</b>
                 <small>
-                  {latest.name} · {day(latest.gameTime)}
+                  {latest.name} · {day(furthestTime(latest))}{latest.cloud && latest.local ? (fromCloud(latest) ? ' · uit de cloud' : ' · van dit apparaat') : ''}
                 </small>
               </span>
               <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">

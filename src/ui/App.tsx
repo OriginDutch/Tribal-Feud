@@ -140,7 +140,7 @@ export function App() {
     <>
       {hasWorld && (mobile ? <MobileTopBar /> : <TopBar />)}
       {hasWorld && mobile && <MobileStatus />}
-      <PerfMeter />
+      {hasWorld && <PerfMeter />}
       {/* overlays: they float over the page so nothing below them moves */}
       <div class="overlays">
         {paused && (
