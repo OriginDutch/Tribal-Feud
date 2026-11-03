@@ -9,7 +9,7 @@ import { SFX_PRIORITY, type Sfx } from '../shared/reportOutcome';
 
 const SETTINGS_KEY = 'tf-sfx';
 /** Bump when the sound files change (they are cached for a year). */
-const VERSION = 2;
+const VERSION = 3;
 /** At most one sound per this many ms (real time). */
 const GAP_MS = 2000;
 
@@ -120,8 +120,8 @@ export function testSound(id: UiSfx): void {
 
 // --- the click: Web Audio, so it plays without delay and many times in a row -------------------
 
-/** Clicks are softer than the game's sounds. */
-const CLICK_GAIN = 0.5;
+/** Clicks play at the effects volume (the file itself is at full level). */
+const CLICK_GAIN = 1;
 let ctx: AudioContext | null = null;
 let buffer: AudioBuffer | null = null;
 let loading = false;
