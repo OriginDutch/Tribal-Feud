@@ -8,6 +8,7 @@ import { watchAdmin } from '../cloud/admin';
 import { initCloudPrefs } from './cloudPrefs';
 import { watchTitle } from './title';
 import { initMusic } from './music/player';
+import { initClicks } from './sfx';
 
 const root = document.getElementById('app');
 if (!root) throw new Error('#app ontbreekt in index.html');
@@ -15,5 +16,6 @@ render(<App />, root);
 initCloudPrefs();
 watchTitle();
 initMusic();
+initClicks();
 initAuth();
 watchAdmin();

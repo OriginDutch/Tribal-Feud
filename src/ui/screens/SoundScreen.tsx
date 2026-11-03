@@ -1,6 +1,6 @@
 import { musicSettings, nowPlaying, setMusic } from '../music/player';
 import { TRACK_NAMES } from '../music/playlist';
-import { SFX_IDS, SFX_NAMES, setSfx, sfxSettings, testSound } from '../sfx';
+import { ALL_SFX, SFX_NAMES, setSfx, sfxSettings, testSound } from '../sfx';
 
 /** Settings › Geluid: music volume and on/off. */
 export function SoundScreen() {
@@ -36,7 +36,7 @@ export function SoundScreen() {
         <span class="mono">{Math.round(fx.volume * 100)}%</span>
       </label>
       <ul class="sfx-list">
-        {SFX_IDS.map((id) => (
+        {ALL_SFX.map((id) => (
           <li key={id}>
             <label class="check">
               <input

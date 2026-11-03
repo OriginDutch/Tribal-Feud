@@ -14,7 +14,12 @@ const VERSION = 2;
 const GAP_MS = 2000;
 
 export const SFX_IDS: Sfx[] = ['battle-won', 'battle-heavy', 'battle-lost', 'mission-received', 'mission-complete', 'mission-failed', 'march'];
-export const SFX_NAMES: Record<Sfx, string> = {
+/** Sounds of the interface itself (not from the game): a click on buttons. */
+export type UiSfx = Sfx | 'click';
+/** What the settings list: the game's sounds and the click. */
+export const ALL_SFX: UiSfx[] = [...SFX_IDS, 'click'];
+export const SFX_NAMES: Record<UiSfx, string> = {
+  click: 'Klik op knoppen (proef)',
   'battle-won': 'Veldslag gewonnen',
   'battle-heavy': 'Gewonnen met zware verliezen',
   'battle-lost': 'Veldslag verloren',
@@ -28,7 +33,7 @@ interface Settings {
   volume: number;
   muted: boolean;
   /** Sounds turned off one by one. */
-  off: Sfx[];
+  off: UiSfx[];
 }
 
 function load(): Settings {
@@ -37,7 +42,7 @@ function load(): Settings {
     return {
       volume: typeof s.volume === 'number' ? Math.min(1, Math.max(0, s.volume)) : 0.6,
       muted: s.muted === true,
-      off: Array.isArray(s.off) ? s.off.filter((x): x is Sfx => SFX_IDS.includes(x)) : [],
+      off: Array.isArray(s.off) ? s.off.filter((x): x is UiSfx => ALL_SFX.includes(x)) : [],
     };
   } catch {
     return { volume: 0.6, muted: false, off: [] };
@@ -105,9 +110,62 @@ export function playSounds(list: Sfx[]): void {
 }
 
 /** For the settings: play one now (ignores the gap). */
-export function testSound(id: Sfx): void {
+export function testSound(id: UiSfx): void {
+  if (id === 'click') { click(true); return; }
   const a = el(id);
   a.volume = sfxSettings.value.volume;
   a.currentTime = 0;
   a.play().catch(() => undefined);
+}
+
+// --- the click: Web Audio, so it plays without delay and many times in a row -------------------
+
+/** Clicks are softer than the game's sounds. */
+const CLICK_GAIN = 0.5;
+let ctx: AudioContext | null = null;
+let buffer: AudioBuffer | null = null;
+let loading = false;
+
+function loadClick(): void {
+  if (loading || typeof window === 'undefined') return;
+  loading = true;
+  try {
+    ctx = new AudioContext();
+    fetch(`/sfx/click.${ext}?v=${VERSION}`)
+      .then((r) => r.arrayBuffer())
+      .then((b) => ctx!.decodeAudioData(b))
+      .then((b) => { buffer = b; })
+      .catch(() => { loading = false; });
+  } catch {
+    loading = false;
+  }
+}
+
+/** One click (when it is on, or always for the settings' test button). */
+export function click(force = false): void {
+  const s = sfxSettings.value;
+  if (!force && (s.muted || s.off.includes('click') || s.volume <= 0)) return;
+  if (!ctx) loadClick();
+  if (!ctx || !buffer) return;
+  if (ctx.state === 'suspended') void ctx.resume();
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const gain = ctx.createGain();
+  gain.gain.value = s.volume * CLICK_GAIN;
+  src.connect(gain).connect(ctx.destination);
+  src.start();
+}
+
+/** Every press on something you can click (buttons, links, tabs, checkboxes) clicks. */
+export function initClicks(): void {
+  if (typeof window === 'undefined') return;
+  const CLICKABLE = 'button, a[href], [role="button"], [role="tab"], input[type="checkbox"], input[type="radio"], select, summary';
+  window.addEventListener('pointerdown', (e) => {
+    // the first press only wakes the sound up (browsers allow sound after a press)
+    if (!ctx) { loadClick(); return; }
+    const t = e.target as Element | null;
+    const hit = t?.closest?.(CLICKABLE) as HTMLElement | null;
+    if (!hit || (hit as HTMLButtonElement).disabled) return;
+    click();
+  }, { capture: true, passive: true });
 }
