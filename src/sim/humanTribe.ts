@@ -156,8 +156,10 @@ export function applyToTribe(state: WorldState, tribeId: number): string | null 
   const me = human(state);
   const t = state.tribes?.[tribeId];
   if (!t) return 'Die stam bestaat niet meer.';
-  if (me.tribe !== undefined) return 'Verlaat eerst je huidige stam.';
+  if (me.tribe === t.id) return 'Daar zit je al.';
   if (isOutlaw(state, HUMAN_ID)) return 'Je bent vogelvrij: geen stam neemt je nu aan.';
+  // switching while in a tribe: one application at a time (you only leave when they take you)
+  if (me.tribe !== undefined && (state.tribeAsks ?? []).some((a) => a.kind === 'apply')) return 'Je hebt al een aanmelding lopen.';
   if (t.members.length >= MAX_MEMBERS && !bumpCandidate(state, t, HUMAN_ID)) return 'Die stam is vol, en niemand daar is zwak genoeg om voor jou plaats te maken.';
   if ((state.tribeAsks ?? []).some((a) => a.kind === 'apply' && a.tribe === tribeId)) return 'Je aanmelding loopt al.';
   (state.tribeAsks ??= []).push({ kind: 'apply', tribe: tribeId, at: state.time });
@@ -439,17 +441,35 @@ export function humanTribeTick(state: WorldState): void {
     const answered = answerAsk(state, me, ask);
     if (!answered) keep.push(ask);
   }
-  state.tribeAsks = keep;
+  // a switch to another tribe drops the asks of the old one (see switchAway)
+  const still = new Set(state.tribeAsks ?? []);
+  state.tribeAsks = keep.filter((a) => still.has(a));
   rhTreatyTick(state);
 
   inviteHuman(state, me);
+}
+
+/** Grudge your old leader holds when you switch to another tribe (an application that is turned down stays secret). */
+export const SWITCH_GRUDGE = 0.4;
+
+/** You leave your tribe for another that took you: your old leader takes it badly, the old tribe's asks lapse. */
+function switchAway(state: WorldState, old: Tribe): void {
+  const leader = state.players[old.leader];
+  if (leader?.bot && leader.id !== HUMAN_ID) (leader.bot.grudges ??= {})[HUMAN_ID] = { score: grudge(state, leader, HUMAN_ID) + SWITCH_GRUDGE, at: state.time };
+  leave(state, human(state));
+  state.tribeAsks = (state.tribeAsks ?? []).filter((a) => a.kind === 'apply');
+  const text = `${state.players[HUMAN_ID]?.name ?? 'Jij'} verlaat ${tag(old)} voor een andere stam.`;
+  addLog(state, { time: state.time, text });
+  (state.tribeNews ??= []).push({ time: state.time, text });
 }
 
 /** One of your asks: the bot answers if it is online now. Returns true when it is settled. */
 function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
   if (ask.kind === 'apply') {
     const t = state.tribes?.[ask.tribe];
-    if (!t || me.tribe !== undefined) return true;
+    if (!t || me.tribe === t.id) return true;
+    // in a tribe already: you switch when they take you
+    const old = me.tribe !== undefined ? state.tribes?.[me.tribe] : undefined;
     const leader = state.players[t.leader];
     if (!leader?.bot) return true;
     if (!isOnline(state, leader.id, leader.bot)) return false;
@@ -461,8 +481,9 @@ function answerAsk(state: WorldState, me: Player, ask: TribeAsk): boolean {
       grudge(state, leader, HUMAN_ID) < 0.5 &&
       nextFloat(state.rng) < Math.min(0.97, (arch === 'opportunist' ? (strongEnough(state, t, HUMAN_ID) ? 0.9 : 0.3) : TAKES_YOU[arch] ?? 0.6) * kindness(state.config).accept * trustFactor(state));
     if (ok) {
+      if (old) switchAway(state, old);
       join(state, t, me);
-      addMessage(state, { kind: 'answer', from: leader.id, tribe: t.id, title: `Welkom bij ${tag(t)}`, text: `${leader.name} heeft je aanmelding geaccepteerd. Je bent nu lid van ${tag(t)} ${t.name}.` });
+      addMessage(state, { kind: 'answer', from: leader.id, tribe: t.id, title: `Welkom bij ${tag(t)}`, text: `${leader.name} heeft je aanmelding geaccepteerd. Je bent nu lid van ${tag(t)} ${t.name}${old ? ` en hebt ${tag(old)} verlaten` : ''}.` });
     } else {
       addMessage(state, { kind: 'answer', from: leader.id, tribe: t.id, title: `${tag(t)} wijst je af`, text: rejectReason(state, t, me, leader) });
       refused(state, 'applications', t.id);

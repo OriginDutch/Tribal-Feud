@@ -392,7 +392,7 @@ export function TribesScreen() {
                 <col style={{ width: '70px' }} />
                 <col style={{ width: '110px' }} />
                 <col style={{ width: '70px' }} />
-                {!mine && <col style={{ width: '120px' }} />}
+                <col style={{ width: '130px' }} />
               </colgroup>
               <thead>
                 <tr>
@@ -401,7 +401,7 @@ export function TribesScreen() {
                   <th class="right">Leden</th>
                   <th class="right">Punten</th>
                   <th class="right">Dorpen</th>
-                  {!mine && <th />}
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -410,7 +410,7 @@ export function TribesScreen() {
                     <td class="right mono">{i + 1}</td>
                     <td class="ellipsis">
                       <Tag t={t} /> {t.name}
-                      {!mine && refusedApplications.value[t.id] ? (
+                      {refusedApplications.value[t.id] && mine?.id !== t.id ? (
                         <span class="refused" title="Zo vaak wees deze stam je aanmelding af"> · {refusedApplications.value[t.id]}× afgewezen</span>
                       ) : null}
                     </td>
@@ -419,18 +419,28 @@ export function TribesScreen() {
                     </td>
                     <td class="right mono">{num(t.points)}</td>
                     <td class="right mono">{t.villages}</td>
-                    {!mine && (
+                    {mine?.id === t.id ? <td /> : (
                       <td class="right" onClick={(e) => e.stopPropagation()}>
                         {applied.has(t.id) ? (
                           <span class="muted">aangemeld</span>
+                        ) : mine && applied.size > 0 ? (
+                          <span class="muted" title="Vanuit een stam meld je je bij één stam tegelijk aan">—</span>
                         ) : t.members.length < MAX_MEMBERS ? (
-                          <button class="small" onClick={() => send({ type: 'tribeApply', tribe: t.id })}>
-                            Aanmelden
-                          </button>
+                          mine ? (
+                            <Confirm
+                              label="Overstappen"
+                              sure={`Aanmelden bij [${t.tag}]? Nemen ze je aan, dan verlaat je [${mine.tag}]${leader ? ' en krijgt die een nieuwe leider' : ' en neemt je leider je dat kwalijk'}. Wijzen ze je af, dan merkt [${mine.tag}] niets.`}
+                              onConfirm={() => send({ type: 'tribeApply', tribe: t.id })}
+                            />
+                          ) : (
+                            <button class="small" onClick={() => send({ type: 'tribeApply', tribe: t.id })}>
+                              Aanmelden
+                            </button>
+                          )
                         ) : t.bump ? (
                           <Confirm
                             label="Aankloppen"
-                            sure={`Vol: nemen ze je, dan moet ${t.bump.name} (${RANK_LABEL[t.bump.rank].toLowerCase()}, ${num(t.bump.merit)} rangpunten) eruit. Aankloppen?`}
+                            sure={`Vol: nemen ze je, dan moet ${t.bump.name} (${RANK_LABEL[t.bump.rank].toLowerCase()}, ${num(t.bump.merit)} rangpunten) eruit${mine ? `, en verlaat jij [${mine.tag}]${leader ? ' (die krijgt een nieuwe leider)' : ' (je leider neemt je dat kwalijk; een afwijzing merkt hij niet)'}` : ''}. Aankloppen?`}
                             onConfirm={() => send({ type: 'tribeApply', tribe: t.id })}
                           />
                         ) : (
