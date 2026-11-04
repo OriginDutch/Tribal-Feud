@@ -1,18 +1,24 @@
-const nf = new Intl.NumberFormat('nl-NL');
-// formatters are costly to make: one per style, made once (toLocaleString with options makes a new one per call)
-const nf1 = new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
-const upTo1 = new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 1 });
-const upTo2 = new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 2 });
+import { lang } from '../shared/i18n';
 
-/** Always one decimal: 3,0 */
-export const dec1 = (n: number): string => nf1.format(n);
+// formatters are costly to make: one set per language, made once (toLocaleString with options makes a new one per call)
+const make = (loc: string) => ({
+  nf: new Intl.NumberFormat(loc),
+  nf1: new Intl.NumberFormat(loc, { maximumFractionDigits: 1, minimumFractionDigits: 1 }),
+  upTo1: new Intl.NumberFormat(loc, { maximumFractionDigits: 1 }),
+  upTo2: new Intl.NumberFormat(loc, { maximumFractionDigits: 2 }),
+});
+const F = { nl: make('nl-NL'), en: make('en-US') };
+const f = () => F[lang.value];
+
+/** Always one decimal: 3,0 / 3.0 */
+export const dec1 = (n: number): string => f().nf1.format(n);
 /** Up to one decimal: 3 or 3,5 */
-export const upToDec1 = (n: number): string => upTo1.format(n);
+export const upToDec1 = (n: number): string => f().upTo1.format(n);
 /** Up to two decimals. */
-export const upToDec2 = (n: number): string => upTo2.format(n);
+export const upToDec2 = (n: number): string => f().upTo2.format(n);
 
 export function num(n: number): string {
-  return nf.format(Math.floor(n));
+  return f().nf.format(Math.floor(n));
 }
 
 /** Duration in game ms as h:mm:ss (or d:hh:mm:ss past a day). */

@@ -32,6 +32,7 @@ try {
 
   // count pointless resets of a dropdown option to the value it already has: each one closes an
   // open dropdown (Preact does that when an option's value is a number instead of a string)
+  await page.addInitScript(() => { try { localStorage.setItem('tf-lang', 'nl'); } catch {} });
   await page.addInitScript(() => {
     const d = Object.getOwnPropertyDescriptor(HTMLOptionElement.prototype, 'value');
     window.__optionResets = 0;

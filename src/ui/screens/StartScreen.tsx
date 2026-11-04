@@ -9,6 +9,7 @@ import { formatGameTime } from '../../shared/time';
 import { worldsOverview, type WorldRow } from '../../shared/worlds';
 import { cloudLine } from '../components/Account';
 import { MusicButton } from '../music/MusicButton';
+import { LangToggle } from '../i18n';
 import { cloudOff, setCloudOff } from '../cloudPrefs';
 import { NewWorldPanel } from '../panels/NewWorldPanel';
 import { SavesPanel, exportSlots } from '../panels/SavesPanel';
@@ -299,6 +300,7 @@ export function StartScreen() {
       <div class="home-shade" aria-hidden="true" />
       <div class="home-inner">
         <header class="home-head">
+          <LangToggle class="home-music" />
           <MusicButton class="home-music" />
           {signedIn && (
             <button type="button" class={`home-account cloud-${cloudStatus.value.state}`} data-cloud-at={cloudStatus.value.at ?? ''} onClick={() => openAccount('in')} title={cloudLine(cloudStatus.value)}>

@@ -9,9 +9,11 @@ import { initCloudPrefs } from './cloudPrefs';
 import { watchTitle } from './title';
 import { initMusic } from './music/player';
 import { initClicks } from './sfx';
+import { initLanguage } from './i18n';
 
 const root = document.getElementById('app');
 if (!root) throw new Error('#app ontbreekt in index.html');
+initLanguage();
 render(<App />, root);
 initCloudPrefs();
 watchTitle();

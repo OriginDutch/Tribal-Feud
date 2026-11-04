@@ -28,6 +28,8 @@ export type Command =
   | { type: 'setVisible'; visible: boolean }
   /** The screen this tab shows: heavy snapshot fields only go to screens that use them. */
   | { type: 'setScreen'; screen: string }
+  /** The language this tab shows: the worker writes notices and the log in it. */
+  | { type: 'setLang'; lang: 'en' | 'nl' }
   /** A tab closes (shared worker: it stops getting messages). */
   | { type: 'bye' }
   /** A tab (re)opens: the village it showed before (kept per tab in the browser). */

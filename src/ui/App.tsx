@@ -1,6 +1,7 @@
 import { BuildingsScreen } from './screens/BuildingsScreen';
 import { MobileNav, MobileSheets, MobileStatus, MobileTopBar } from './components/MobileShell';
 import { isMobile } from './mobile';
+import { LanguagePanel } from './i18n';
 import { PerfMeter } from './components/PerfMeter';
 import { PlayerScreen } from './screens/PlayerScreen';
 import { SupportScreen } from './screens/SupportScreen';
@@ -109,7 +110,7 @@ function CurrentScreen() {
     case 'sound':
       return <SoundScreen />;
     case 'rules':
-      return <main class="grid rules-grid"><WorldPanel /></main>;
+      return <main class="grid rules-grid"><LanguagePanel /><WorldPanel /></main>;
     default:
       return <RecruitScreen building={screen.value} />;
   }

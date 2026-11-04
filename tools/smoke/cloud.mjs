@@ -37,6 +37,7 @@ try {
   browser = await chromium.launch();
   const device = async () => {
     const ctx = await browser.newContext({ viewport: { width: 1500, height: 950 } });
+    await ctx.addInitScript(() => { try { localStorage.setItem('tf-lang', 'nl'); } catch {} });
     const p = await ctx.newPage();
     p.on('pageerror', (e) => problems.push(`page error: ${e.message}`));
     p.on('console', (m) => { if (m.type() === 'error' && !/the server responded with a status of (400|403|404|409)/.test(m.text())) problems.push(`console error: ${m.text()}`); });

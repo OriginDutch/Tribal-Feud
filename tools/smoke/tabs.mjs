@@ -21,6 +21,7 @@ try {
   for (let i = 0; i < 60; i++) { try { if ((await fetch(URL)).ok) break; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 500)); }
   browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 900 } });
+  await ctx.addInitScript(() => { try { localStorage.setItem('tf-lang', 'nl'); } catch {} });
   const open = async (url = URL) => {
     const p = await ctx.newPage();
     p.on('pageerror', (e) => problems.push(`page error: ${e.message}`));
@@ -117,7 +118,7 @@ try {
 
   // without SharedWorker a second tab must not start a second world
   const solo = await browser.newContext();
-  await solo.addInitScript(() => { delete window.SharedWorker; });
+  await solo.addInitScript(() => { delete window.SharedWorker; try { localStorage.setItem('tf-lang', 'nl'); } catch {} });
   const S1 = await solo.newPage();
   await S1.goto(URL);
   await S1.click('.home-new-top');

@@ -2,6 +2,8 @@
  * Simulation worker: owns the world state, runs the clock, handles saves.
  * The UI never touches the state directly.
  */
+import { lang } from '../shared/i18n';
+import '../shared/i18n/en';
 import { autoFarmInterval, setAutoFarm } from './farmAll';
 import { isFarmLetter } from '../shared/farmTemplates';
 import { humanOpSent, setFront, warFrontView } from './warOps';
@@ -939,6 +941,9 @@ async function handle(cmd: Command): Promise<void> {
         setPaused(state, cmd.paused);
         if (cmd.paused) autosave('now');
       }
+      break;
+    case 'setLang':
+      lang.value = cmd.lang;
       break;
     case 'setScreen':
       if (from) from.screen = cmd.screen;
