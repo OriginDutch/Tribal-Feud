@@ -1,3 +1,4 @@
+import { txt } from '../shared/i18n';
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { DAY } from '../shared/time';
@@ -67,6 +68,6 @@ describe('aankloppen bij een volle stam', () => {
     expect(bumpCandidate(s, t, strong.id)?.id).toBe(HUMAN_ID);
     join(s, t, strong);
     expect(t.members).not.toContain(HUMAN_ID);
-    expect(s.inbox?.some((m) => /Uit \[/.test(m.title))).toBe(true);
+    expect(s.inbox?.some((m) => /Uit \[/.test(txt(m.title)))).toBe(true);
   });
 });

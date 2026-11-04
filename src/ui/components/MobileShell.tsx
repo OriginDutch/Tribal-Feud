@@ -16,7 +16,7 @@ import { ResIcon } from './ResIcon';
 import { OrderChip } from './OrderPanel';
 import { groupBadge } from './Nav';
 import { stepVillage } from './VillageSwitcher';
-import { tr } from '../../shared/i18n';
+import { tr, txt } from '../../shared/i18n';
 
 const open = (to: Screen) => { mobileSheet.value = null; screen.value = to; };
 
@@ -174,7 +174,7 @@ function MoreSheet() {
       </div>
       <div class="m-list">
         <button onClick={() => { mobileSheet.value = null; openAccount(); }}><span>{tr('Account')}</span><small>{account.value?.email ?? tr('niet ingelogd')} ›</small></button>
-        <button onClick={() => open('news')}><span>{tr('Nieuws')}</span><small>{news ? news.head : ''} ›</small></button>
+        <button onClick={() => open('news')}><span>{tr('Nieuws')}</span><small>{news ? txt(news.head) : ''} ›</small></button>
       </div>
     </Sheet>
   );

@@ -10,7 +10,7 @@ import { OrderPanel } from '../components/OrderPanel';
 import { FaceIcon } from '../components/FaceIcon';
 import { MapLink } from '../components/MapLink';
 import { dec1, duration, num, upToDec1 } from '../format';
-import { tr } from '../../shared/i18n';
+import { tr, txt } from '../../shared/i18n';
 import { trx } from '../i18n';
 import { inviteCandidates, mapData, ranking, refusedApplications, send, showOnMap, snapshot, tribeAsks, tribeFocus, tribeNews, tribes, warAsk, friction } from '../store';
 
@@ -616,7 +616,7 @@ export function TribesScreen() {
                 <ul class="news">
                   {tribeNews.value.slice(0, 15).map((n, i) => (
                     <li key={i}>
-                      <span class="mono muted">{formatGameTime(n.time)}</span> {n.text}
+                      <span class="mono muted">{formatGameTime(n.time)}</span> {txt(n.text)}
                     </li>
                   ))}
                 </ul>

@@ -4,7 +4,7 @@ import { Confirm } from '../components/Confirm';
 import { useEffect } from 'preact/hooks';
 import type { InboxView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
-import { tr } from '../../shared/i18n';
+import { tr, txt } from '../../shared/i18n';
 import { attackVillage, inbox, openSupport, openTribe, send, snapshot } from '../store';
 
 const KIND: Record<InboxView['kind'], string> = {
@@ -45,11 +45,11 @@ export function InboxScreen() {
       <div class="inbox-head">
         <FaceIcon face={m.fromFace} size={36} />
         <span class={`inbox-kind kind-${m.kind}`}>{tr(KIND[m.kind])}</span>
-        <strong class="inbox-title">{m.title}</strong>
+        <strong class="inbox-title">{txt(m.title)}</strong>
         {m.from >= 0 && <PlayerLink id={m.from} name={m.fromName} />}
         <span class="mono muted">{formatGameTime(m.time)}</span>
       </div>
-      <p>{m.text}</p>
+      <p>{txt(m.text)}</p>
       <div class="row inbox-actions">
         {m.status === 'open' ? (
           <>

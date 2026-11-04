@@ -1,3 +1,4 @@
+import { txt } from '../shared/i18n';
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { answerMessage } from './humanTribe';
@@ -33,7 +34,7 @@ describe('opvolging', () => {
     leave(s, lead);
     expect(t.leader).not.toBe(HUMAN_ID);
     expect(t.members).not.toContain(lead.id);
-    expect(s.inbox?.some((m) => m.kind === 'info' && /Nieuwe leider/.test(m.title))).toBe(true);
+    expect(s.inbox?.some((m) => m.kind === 'info' && /Nieuwe leider/.test(txt(m.title)))).toBe(true);
     expect(s.news?.some((n) => n.kind === 'leader')).toBe(true);
   });
 

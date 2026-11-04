@@ -1,3 +1,4 @@
+import { txt } from '../shared/i18n';
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { DAY } from '../shared/time';
@@ -54,7 +55,7 @@ describe('war needs a cause', () => {
     addFriction(s, a.id, b.id, WAR_FRICTION * 1.1);
     for (let i = 0; i < 3; i++) onDiplomacy(s);
     // if anyone declared, it was the strong turtle, never the weak rusher
-    expect((s.tribeNews ?? []).some((n) => n.text.includes('[A] verklaart'))).toBe(false);
+    expect((s.tribeNews ?? []).some((n) => txt(n.text).includes('[A] verklaart'))).toBe(false);
   });
 
   it('a small bot is outclassed by someone with more offensive villages than it has villages', () => {

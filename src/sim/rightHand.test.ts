@@ -1,3 +1,4 @@
+import { txt } from '../shared/i18n';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // the dice: a test says how they fall (null = real dice, for building the world)
@@ -75,7 +76,7 @@ describe('the right hand speaks for the tribe', () => {
     humanTribeTick(s); // accepted; then his look at it: roll 0 < aggression, so he ends it
     expect(s.standing).toBe(60 + RH_GRUDGE_STANDING);
     expect(t.relations[o.id]).toBeUndefined();
-    expect(s.inbox?.some((m) => m.title.includes('zegt de NAP'))).toBe(true);
+    expect(s.inbox?.some((m) => txt(m.title).includes('zegt de NAP'))).toBe(true);
   });
 
   it('turned down: wait half a day before asking that tribe again', () => {
@@ -96,7 +97,7 @@ describe('the right hand speaks for the tribe', () => {
     (o.since ??= {})[t.id] = s.time - DAY; (t.since ??= {})[o.id] = s.time - DAY;
     expect(rhAskAlly(s, o.id)).toBeNull();
     humanTribeTick(s);
-    expect(s.inbox?.some((m) => m.title.includes('bondgenootschap met'))).toBe(true);
+    expect(s.inbox?.some((m) => txt(m.title).includes('bondgenootschap met'))).toBe(true);
     expect(t.relations[o.id]).toBe('ally');
   });
 
@@ -142,7 +143,7 @@ describe('a bot as right hand (part 2)', () => {
     expect(rhRound(s, x, y)).toBe(true);
     expect(x.relations[y.id]).toBe('nap');
     expect(meritOf(s, x, rh.id)).toBeCloseTo(before + MERIT.treaty, 5);
-    expect((s.news ?? []).some((n) => n.dry.includes(`rechterhand ${rh.name}`))).toBe(true);
+    expect((s.news ?? []).some((n) => txt(n.dry).includes(`rechterhand ${rh.name}`))).toBe(true);
   });
 
   it('against his leader\'s grudge: he loses mood, and an aggressive leader ends it the next round', () => {
@@ -162,7 +163,7 @@ describe('a bot as right hand (part 2)', () => {
   it('you lead: you hear of it, and may undo it (a stronger neighbour: the tribe takes that badly)', () => {
     const { s, x, y, rh } = bots2(true);
     expect(rhRound(s, x, y)).toBe(true);
-    expect(s.inbox?.some((m) => m.kind === 'info' && m.title.includes('stelt'))).toBe(true);
+    expect(s.inbox?.some((m) => m.kind === 'info' && txt(m.title).includes('stelt'))).toBe(true);
     const undo = s.inbox!.find((m) => m.kind === 'rhTreaty')!;
     expect(undo.status).toBe('open');
     // make them the stronger tribe

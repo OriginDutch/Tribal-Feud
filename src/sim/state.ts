@@ -1,3 +1,4 @@
+import type { Txt } from '../shared/i18n';
 import { nameAllBotVillages, renameStartVillages } from './botNames';
 import { nameBots } from './names/apply';
 import type { BuildTemplate, NobleTemplate, TroopTemplate } from './manager';
@@ -57,8 +58,9 @@ export interface InboxMessage {
   kind: InboxKind;
   /** Player that sent it (-1: the world). */
   from: number;
-  title: string;
-  text: string;
+  /** Kept text: shown in the reader's language (see shared/i18n). */
+  title: Txt;
+  text: Txt;
   read: boolean;
   /** invite: the tribe inviting you. proposal: the tribe proposing, with the relation. application: the bot (from) asking to join yours. */
   tribe?: number;
@@ -333,7 +335,7 @@ export interface WorldState {
   /** Tribes by id. */
   tribes?: Record<number, Tribe>;
   /** Recent diplomacy news. */
-  tribeNews?: LogEntry[];
+  tribeNews?: { time: number; text: Txt }[];
   /** World news for the ticker and the news screen (see news). */
   news?: import('./news').NewsItem[];
   newsSeq?: number;

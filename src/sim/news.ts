@@ -1,3 +1,4 @@
+import { txt, type Txt } from '../shared/i18n';
 /**
  * World news: wars, peace, treaties, tribes, big conquests and the ranking, for the news ticker
  * and the news screen. Every item has a dry text and a headline; the player picks the style.
@@ -30,8 +31,8 @@ export interface NewsItem {
   id: number;
   time: number;
   kind: NewsKind;
-  dry: string;
-  head: string;
+  dry: Txt;
+  head: Txt;
   /** Tribes and players it is about (for "my tribe"). */
   tribes?: number[];
   players?: number[];
@@ -77,7 +78,7 @@ export const NEWS_GROUP: Record<NewsKind, 'war' | 'conquest' | 'tribe'> = {
   wiped: 'conquest',
 };
 
-type Item = Omit<NewsItem, 'id' | 'time' | 'head'> & { head?: string | string[] };
+type Item = Omit<NewsItem, 'id' | 'time' | 'head'> & { head?: Txt | Txt[] };
 
 /** Adds a news item (and its dry text to the world log). */
 export function addNews(state: WorldState, item: Item): NewsItem {
@@ -88,7 +89,7 @@ export function addNews(state: WorldState, item: Item): NewsItem {
   const news: NewsItem = { ...item, id, time: state.time, head };
   (state.news ??= []).push(news);
   if (state.news.length > NEWS_KEPT) state.news.splice(0, state.news.length - NEWS_KEPT);
-  addLog(state, { time: state.time, text: item.dry });
+  addLog(state, { time: state.time, text: txt(item.dry) });
   (state.tribeNews ??= []).push({ time: state.time, text: item.dry });
   if (state.tribeNews.length > 60) state.tribeNews.splice(0, state.tribeNews.length - 60);
   return news;

@@ -1,3 +1,4 @@
+import type { Txt } from './i18n';
 /**
  * Typed messages between the UI (main thread) and the simulation worker.
  * The UI only sends commands; the worker is the single source of truth and sends state back.
@@ -366,8 +367,9 @@ export interface InboxView {
   /** The sender's portrait (a bot). */
   fromFace?: Face;
   request?: BotRequest;
-  title: string;
-  text: string;
+  /** Shown with txt() in the reader's language. */
+  title: Txt;
+  text: Txt;
   read: boolean;
   tribe?: number;
   status?: 'open' | 'accepted' | 'declined' | 'expired';
@@ -706,7 +708,7 @@ export type WorkerMessage =
   | { type: 'reports'; reports: Report[]; now: ReportOwners }
   | { type: 'news'; news: import('../sim/news').NewsItem[] }
   | { type: 'village'; info: VillageInfo | null }
-  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: string }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number>; warAsk: WarAskInfo; friction: FrictionRow[] }
+  | { type: 'ranking'; ranking: RankingRow[]; tribes: TribeView[]; news: { time: number; text: Txt }[]; asks: TribeAskView[]; candidates: CandidateView[]; refusedApplications: Record<number, number>; refusedInvites: Record<number, number>; warAsk: WarAskInfo; friction: FrictionRow[] }
   | { type: 'inbox'; inbox: InboxView[] }
   | { type: 'supportList'; rows: SupportRow[] }
   | { type: 'opinions'; opinions: OpinionsView }

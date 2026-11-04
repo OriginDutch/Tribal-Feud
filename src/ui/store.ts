@@ -1,3 +1,4 @@
+import type { Txt } from '../shared/i18n';
 import { noteSnapshot } from './perf';
 /**
  * Connection to the simulation worker + UI state as signals.
@@ -102,7 +103,7 @@ export function openTribe(id: number): void {
   tribeFocus.value = id;
   screen.value = 'tribes';
 }
-export const tribeNews = signal<{ time: number; text: string }[]>([]);
+export const tribeNews = signal<{ time: number; text: Txt }[]>([]);
 export const tribeAsks = signal<TribeAskView[]>([]);
 export const warAsk = signal<WarAskInfo>({ contact: [] });
 export const friction = signal<FrictionRow[]>([]);

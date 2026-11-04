@@ -1,3 +1,4 @@
+import { txt } from '../shared/i18n';
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { DAY } from '../shared/time';
@@ -100,7 +101,7 @@ describe('asking your leader for a war', () => {
     expect(askLeaderWar(s, tb.id)).toMatch(/al om een oorlog/);
     answer(s);
     expect(ta.relations[tb.id]).toBe('war');
-    expect((s.tribeNews ?? []).some((n) => n.text.includes('op jouw verzoek'))).toBe(true);
+    expect((s.tribeNews ?? []).some((n) => txt(n.text).includes('op jouw verzoek'))).toBe(true);
   });
 
   it('no reason: the leader says no, with why, and you wait a game day', () => {

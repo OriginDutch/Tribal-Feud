@@ -5,7 +5,7 @@ import { newsList, ranking, send, snapshot } from '../store';
 import { PlayerLink } from '../components/PlayerLink';
 import { newsStyle, setNewsStyle } from '../newsStyle';
 import { useSaved } from '../useSaved';
-import { tr } from '../../shared/i18n';
+import { tr, txt } from '../../shared/i18n';
 import { trx } from '../i18n';
 
 type Filter = 'all' | 'mine' | 'near' | 'war' | 'conquest' | 'tribe';
@@ -75,7 +75,7 @@ export function NewsScreen() {
             <li key={n.id} class={`news-item kind-${n.kind} ${myTribe !== null && n.tribes?.includes(myTribe) ? 'mine' : ''}`}>
               <span class="news-icon" aria-hidden="true">{NEWS_ICON[n.kind]}</span>
               <span class="news-text">
-                {style === 'dry' ? n.dry : n.head}
+                {txt(style === 'dry' ? n.dry : n.head)}
                 {n.players?.length ? (
                   <span class="news-players">
                     {n.players.map((pid) => {

@@ -1,3 +1,4 @@
+import { txt } from '../shared/i18n';
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { HOUR, MINUTE } from '../shared/time';
@@ -81,8 +82,8 @@ describe('ingeplande aanvallen', () => {
     expect(m!.units).toEqual({ axe: 250 });
     expect(m!.arrives).toBe(landAt); // on time
     expect(attacksTo(s, barbs[1]!.id)).toHaveLength(0);
-    expect(s.log.some((l) => /vervalt: er staan geen troepen meer/.test(l.text))).toBe(true);
-    expect(s.log.some((l) => /minder troepen dan gepland/.test(l.text))).toBe(true);
+    expect(s.log.some((l) => /vervalt: er staan geen troepen meer/.test(txt(l.text)))).toBe(true);
+    expect(s.log.some((l) => /minder troepen dan gepland/.test(txt(l.text)))).toBe(true);
   });
 
   it('a lighter army than planned still lands at the planned time', () => {

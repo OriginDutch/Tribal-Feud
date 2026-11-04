@@ -1,3 +1,4 @@
+import type { Txt } from '../shared/i18n';
 /**
  * Tribes (stammen) and diplomacy between them — the bots' strategy layer.
  *
@@ -784,6 +785,6 @@ export function tribeViews(state: WorldState): TribeView[] {
 }
 
 /** Diplomacy news (newest first). */
-export function tribeNews(state: WorldState): { time: number; text: string }[] {
+export function tribeNews(state: WorldState): { time: number; text: Txt }[] {
   return [...(state.tribeNews ?? [])].reverse();
 }

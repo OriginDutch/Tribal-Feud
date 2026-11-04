@@ -1,3 +1,4 @@
+import { txt } from '../shared/i18n';
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { foundTribe } from './humanTribe';
@@ -23,7 +24,7 @@ describe('satisfaction and betrayal', () => {
     expect(mate.bot!.moodNotes?.at(-1)?.why).toBe('je liet me in de steek');
     for (let i = 0; i < 300 && mate.tribe === t.id; i++) { mate.bot!.mood = 5; loyaltyTick(s); }
     expect(mate.tribe).not.toBe(t.id);
-    expect((s.inbox ?? []).some((m) => m.title.includes('ontevreden'))).toBe(true);
+    expect((s.inbox ?? []).some((m) => txt(m.title).includes('ontevreden'))).toBe(true);
   });
 
   it('as a member of a bot tribe, a leader who thinks little of you throws you out', () => {
