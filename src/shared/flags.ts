@@ -27,11 +27,14 @@ export const FLAG_TEXT: Record<FlagType, (p: number) => string> = {
 };
 
 /**
- * The level a new flag comes with: each level about three times rarer than the one below (the top
- * ones a bit more), so every level adds about as much on average (~5.8 level-1 flags per flag).
- * Level 9 only by merging. Index = level - 1.
+ * The level a new flag comes with: generous, each level about half as likely as the one below, so a
+ * flag is worth ~39 level-1 flags on average and the higher levels carry most of it. Level 9 only by
+ * merging. Index = level - 1.
  */
-export const FLAG_DROP = [0.6, 0.25, 0.1, 0.035, 0.011, 0.003, 0.0008, 0.0002, 0];
+export const FLAG_DROP = [0.3, 0.3, 0.2, 0.1, 0.05, 0.03, 0.015, 0.005, 0];
+
+/** Enemies killed per flag. */
+export const KILLS_PER_FLAG = 500;
 
 /** A level from FLAG_DROP for a roll in [0, 1); `bonus` levels higher (a conquest on a player: 1). */
 export function dropLevel(roll: number, bonus = 0): number {

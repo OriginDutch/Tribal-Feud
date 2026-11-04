@@ -85,7 +85,7 @@ import { fight } from './combat';
 import { endgameRules } from './endgame';
 import { liveTribes } from './worldStats';
 import { hasFaith } from './church';
-import { FLAG_TYPES, freeFlags, mergeAll, redrawOnLoad, setFlag, upgradeFlag, type FlagType } from './flags';
+import { FLAG_NAMES, FLAG_TYPES, autoHang, freeFlags, meltAll, mergeAll, redrawOnLoad, setFlag, upgradeFlag, type FlagType } from './flags';
 import { ITEMS, ITEM_IDS, equipItem, type ItemId } from './paladin';
 import { BASE_MOOD, humanBetray, moodOf } from './loyalty';
 import { farmAll, farmNotifies, markFarm, planFarmAll, type FarmAllOptions } from './farmAll';
@@ -503,6 +503,7 @@ function flagsView(s: WorldState): NonNullable<Snapshot['flags']> {
     free: Object.fromEntries(FLAG_TYPES.map((t) => [t, Array.from({ length: 9 }, (_, i) => freeFlags(s, p, t, i + 1))])),
     kills: p.flags?.kills ?? 0,
     auto: !!p.flags?.auto,
+    hang: p.flags?.hang ?? null,
   };
 }
 
@@ -1406,13 +1407,34 @@ async function handle(cmd: Command): Promise<void> {
     case 'mergeFlags': {
       if (!state) return;
       const n = mergeAll(state, state.players[HUMAN_ID]!, cmd.flag as FlagType | undefined);
+      if (n) autoHang(state, state.players[HUMAN_ID]!);
       notice(n ? tr('{n}× samengevoegd.', { n }) : tr('Niets samen te voegen (of je houdt ze nodig voor je dorpen).'), n ? 'info' : 'error');
       break;
     }
     case 'flagAuto': {
       if (!state) return;
       const p = state.players[HUMAN_ID]!;
-      if (p.flags) { p.flags.auto = cmd.on; if (cmd.on) mergeAll(state, p); }
+      if (p.flags) { p.flags.auto = cmd.on; if (cmd.on && mergeAll(state, p)) autoHang(state, p); }
+      break;
+    }
+    case 'flagHang': {
+      if (!state) return;
+      const p = state.players[HUMAN_ID]!;
+      if (!p.flags) return;
+      const hang = cmd.hang === 'keep' || FLAG_TYPES.includes(cmd.hang as FlagType) ? (cmd.hang as 'keep' | FlagType) : undefined;
+      if (hang) p.flags.hang = hang;
+      else delete p.flags.hang;
+      const n = autoHang(state, p);
+      if (n) notice(tr('{n} dorpen kregen een betere vlag.', { n }));
+      break;
+    }
+    case 'meltFlags': {
+      if (!state || !FLAG_TYPES.includes(cmd.to as FlagType)) return;
+      const p = state.players[HUMAN_ID]!;
+      const n = meltAll(state, p, cmd.to as FlagType);
+      if (n && p.flags?.auto) mergeAll(state, p);
+      if (n) autoHang(state, p);
+      notice(n ? tr('{n} vlaggen omgesmolten tot {flag}.', { n, flag: FLAG_NAMES[cmd.to as FlagType] }) : tr('Niets om te smelten: je hebt drie losse vlaggen van hetzelfde level nodig (of je houdt ze nodig voor je dorpen).'), n ? 'info' : 'error');
       break;
     }
     case 'upgradeFlag':

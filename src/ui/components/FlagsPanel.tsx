@@ -1,6 +1,7 @@
-import { FLAG_NAMES, FLAG_TYPES, FLAG_VALUES, type FlagType } from '../../shared/flags';
+import { useState } from 'preact/hooks';
+import { FLAG_DROP, FLAG_NAMES, FLAG_TYPES, FLAG_VALUES, KILLS_PER_FLAG, type FlagType } from '../../shared/flags';
 import { send, snapshot } from '../store';
-import { tr } from '../../shared/i18n';
+import { fmtNum, tr } from '../../shared/i18n';
 
 const pct = (x: number) => Math.round(x * 100);
 
@@ -21,7 +22,10 @@ function flagText(t: FlagType, p: number): string {
 /** Your flags: free flags per kind and level, three of a level make one of the next. */
 export function FlagsPanel() {
   const f = snapshot.value?.flags;
+  const [melt, setMelt] = useState<FlagType | null>(null);
   if (!f) return null;
+  const meltTo: FlagType = melt ?? (f.hang && f.hang !== 'keep' ? (f.hang as FlagType) : 'recruit');
+  const odds = FLAG_DROP.flatMap((q, i) => (q > 0 ? [`L${i + 1} ${fmtNum(q * 100)}%`] : [])).join(', ');
   return (
     <div class="flags-panel">
       <table class="table compact">
@@ -61,8 +65,29 @@ export function FlagsPanel() {
           <input type="checkbox" checked={f.auto} onChange={(e) => send({ type: 'flagAuto', on: e.currentTarget.checked })} /> {tr('Automatisch samenvoegen')}
         </label>
       </div>
+      <div class="row">
+        <label class="inline">
+          {tr('Ophangen:')}{' '}
+          <select value={f.hang ?? ''} onChange={(e) => send({ type: 'flagHang', hang: e.currentTarget.value || null })}>
+            <option value="">{tr('zelf kiezen')}</option>
+            <option value="keep">{tr('elk dorp zijn eigen soort, steeds de beste')}</option>
+            {FLAG_TYPES.map((t) => <option key={t} value={String(t)}>{tr('alle dorpen: {flag}', { flag: tr(FLAG_NAMES[t]) })}</option>)}
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="inline">
+          {tr('Omsmelten naar')}{' '}
+          <select value={meltTo} onChange={(e) => setMelt(e.currentTarget.value as FlagType)}>
+            {FLAG_TYPES.map((t) => <option key={t} value={String(t)}>{tr(FLAG_NAMES[t])}</option>)}
+          </select>
+        </label>
+        <button class="small" title={tr('Drie losse vlaggen van hetzelfde level, welke soort ook, worden één vlag van dat level van deze soort. Op elk level, zolang je genoeg vlaggen voor je dorpen houdt.')} onClick={() => send({ type: 'meltFlags', to: meltTo })}>
+          {tr('Alles omsmelten')}
+        </button>
+      </div>
       <p class="hint">
-        {tr('Losse vlaggen (niet opgehangen). Drie van hetzelfde soort en level maken er één van het volgende level (▲). Samenvoegen houdt altijd genoeg vlaggen over om in al je dorpen één te hangen. Eén vlag per dorp: kies hem in de kolom Vlag hieronder. Nieuwe vlaggen krijg je voor elk veroverd dorp en per 1.500 verslagen vijanden ({kills}/1.500), met een willekeurig level: L1 60%, L2 25%, L3 10%, L4 3,5%, L5 1,1%, L6 0,3%, L7 0,08%, L8 0,02%. Een verovering op een speler geeft een level hoger.', { kills: f.kills })}
+        {tr('Losse vlaggen (niet opgehangen). Drie van hetzelfde soort en level maken er één van het volgende level (▲); samenvoegen brengt eerst al je dorpen naar L5 en duwt dan de top omhoog, en houdt altijd genoeg vlaggen over om in elk dorp één te hangen. Omsmelten maakt van drie losse vlaggen van één level, welke soort ook, één van de soort die je kiest. Eén vlag per dorp: kies hem in de kolom Vlag hieronder, of laat ze vanzelf ophangen. Nieuwe vlaggen krijg je voor elk veroverd dorp en per {per} verslagen vijanden ({kills}/{per}), met een willekeurig level: {odds}. Een verovering op een speler geeft een level hoger.', { kills: f.kills, per: KILLS_PER_FLAG, odds })}
       </p>
     </div>
   );

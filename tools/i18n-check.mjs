@@ -24,7 +24,7 @@ let dynamic = 0;
 for (const f of files) {
   const src = readFileSync(f, 'utf8');
   for (const m of src.matchAll(KEY)) {
-    const k = m[2].replace(/\\(['"\\])/g, '$1');
+    const k = m[2].replace(/\\n/g, '\n').replace(/\\(['"\\])/g, '$1');
     if (!have.has(k)) missing.set(k, f);
   }
   for (const m of src.matchAll(DYN)) { dynamic++; console.log(`template literal key (use {placeholders}): ${f}:${src.slice(0, m.index).split('\n').length}`); }

@@ -19,4 +19,28 @@ export const fixes: Record<string, string> = {
   Taal: 'Language',
   'Jouw dorp': 'Your village',
   'Je hebt {n} dorpen': 'You have {n} villages',
+  // flags
+  '{flag} ×{n}': '{flag} ×{n}',
+  '{n}× L{level}: {kinds}': '{n}× L{level}: {kinds}',
+  '{a}\n{b}': '{a}\n{b}',
+  '{n} vlaggen ontvangen (tot L{level})': '{n} flags received (up to L{level})',
+  '{n} vlaggen ontvangen': '{n} flags received',
+  '{why}:\n{flags}': '{why}:\n{flags}',
+  'Voor {kills} verslagen vijanden': 'For {kills} defeated enemies',
+  Startvlaggen: 'Starting flags',
+  'Vlaggen opnieuw getrokken': 'Flags drawn again',
+  'Nieuwe vlaggenregels: een vlag per {kills} verslagen vijanden en hogere levels. Je hele voorraad, ook de opgehangen vlaggen, is opnieuw getrokken alsof dit altijd zo was: 3 startvlaggen, {took} veroveringen op spelers, {barb} op barbaren en {n} vlaggen voor verslagen vijanden. Je dorpen houden hun soort met de beste nieuwe vlag daarvan.\n{flags}':
+    'New flag rules: a flag per {kills} defeated enemies and higher levels. Your whole stock, hung flags included, was drawn again as if it had always been this way: 3 starting flags, {took} conquests from players, {barb} from barbarians and {n} flags for defeated enemies. Your villages keep their kind, with the best new flag of it.\n{flags}',
+  '{n} dorpen kregen een betere vlag.': '{n} villages got a better flag.',
+  '{n} vlaggen omgesmolten tot {flag}.': '{n} flags melted into {flag}.',
+  'Niets om te smelten: je hebt drie losse vlaggen van hetzelfde level nodig (of je houdt ze nodig voor je dorpen).': 'Nothing to melt: you need three loose flags of the same level (or you need them for your villages).',
+  'Ophangen:': 'Hang:',
+  'zelf kiezen': 'choose myself',
+  'elk dorp zijn eigen soort, steeds de beste': 'each village its own kind, always the best',
+  'alle dorpen: {flag}': 'all villages: {flag}',
+  'Omsmelten naar': 'Melt into',
+  'Drie losse vlaggen van hetzelfde level, welke soort ook, worden één vlag van dat level van deze soort. Op elk level, zolang je genoeg vlaggen voor je dorpen houdt.': 'Three loose flags of the same level, any kind, become one flag of that level of this kind. On every level, as long as you keep enough flags for your villages.',
+  'Alles omsmelten': 'Melt all',
+  'Losse vlaggen (niet opgehangen). Drie van hetzelfde soort en level maken er één van het volgende level (▲); samenvoegen brengt eerst al je dorpen naar L5 en duwt dan de top omhoog, en houdt altijd genoeg vlaggen over om in elk dorp één te hangen. Omsmelten maakt van drie losse vlaggen van één level, welke soort ook, één van de soort die je kiest. Eén vlag per dorp: kies hem in de kolom Vlag hieronder, of laat ze vanzelf ophangen. Nieuwe vlaggen krijg je voor elk veroverd dorp en per {per} verslagen vijanden ({kills}/{per}), met een willekeurig level: {odds}. Een verovering op een speler geeft een level hoger.':
+    'Loose flags (not hung). Three of the same kind and level make one of the next level (▲); merging first brings all your villages to L5, then pushes the top up, and always keeps enough flags to hang one in every village. Melting turns three loose flags of one level, any kind, into one of the kind you choose. One flag per village: pick it in the Flag column below, or let them hang by themselves. You get new flags for every conquered village and per {per} defeated enemies ({kills}/{per}), with a random level: {odds}. A conquest from a player gives one level higher.',
 };

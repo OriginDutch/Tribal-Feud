@@ -182,6 +182,10 @@ export type Command =
   | { type: 'mergeFlags'; flag?: string }
   /** Merge by itself whenever flags come in. */
   | { type: 'flagAuto'; on: boolean }
+  /** Hang flags by themselves: each village its own kind ('keep'), every village one kind, or off (null). */
+  | { type: 'flagHang'; hang: string | null }
+  /** Three free flags of a level, any kinds, make one of that level of this kind. */
+  | { type: 'meltFlags'; to: string }
   | { type: 'setFlag'; village: number; flag: { type: string; level: number } | null }
   | { type: 'setDifficulty'; difficulty: 'easy' | 'normal' | 'hard' }
   | { type: 'mintAll'; keep: number }
@@ -626,7 +630,7 @@ export interface Snapshot {
   /** Domination endgame. */
   endgame: EndgameView;
   /** Flags worlds: your free flags per kind and level (index 0 = level 1), and progress to the next. */
-  flags?: { free: Record<string, number[]>; kills: number; auto: boolean };
+  flags?: { free: Record<string, number[]>; kills: number; auto: boolean; hang: string | null };
   /** Paladin items worlds: your weapon chamber. */
   items?: { found: { id: string; name: string; text: string }[]; equipped?: string; progress: number; all: number };
   /** Bot difficulty of this world (can be changed while playing). */

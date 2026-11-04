@@ -49,7 +49,7 @@ export function InboxScreen() {
         {m.from >= 0 && <PlayerLink id={m.from} name={m.fromName} />}
         <span class="mono muted">{formatGameTime(m.time)}</span>
       </div>
-      <p>{txt(m.text)}</p>
+      <p class="inbox-text">{txt(m.text)}</p>
       <div class="row inbox-actions">
         {m.status === 'open' ? (
           <>
