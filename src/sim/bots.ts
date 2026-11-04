@@ -471,7 +471,7 @@ function toBarbarians(state: WorldState, player: Player): void {
   for (const v of villagesOf(state, player.id)) {
     settle(config, v, state.time);
     v.owner = BARBARIAN;
-    v.name = 'Barbarendorp';
+    v.name = tr('Barbarendorp');
     delete v.scav;
     for (const u of UNIT_IDS) {
       v.units[u] = 0;

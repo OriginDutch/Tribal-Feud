@@ -400,7 +400,7 @@ export function createWorld(config: WorldConfig): WorldState {
     rng: seedRng(config.seed),
     queue: createQueue<GameEvent>(),
     log: [{ time: 0, text: tr('Wereld "{name}" aangemaakt (seed {seed}).', { name: config.name, seed: String(config.seed) }) }],
-    players: [{ id: HUMAN_ID, name: 'Jij', isBot: false }],
+    players: [{ id: HUMAN_ID, name: tr('Jij'), isBot: false }],
     villages: {},
     movements: {},
     reports: [],
@@ -413,7 +413,7 @@ export function createWorld(config: WorldConfig): WorldState {
     stats: { plunders: 0, loot: 0, rewardsClaimed: 0 },
     nextId: 1,
   };
-  const village = createVillage(config, nextId(state), HUMAN_ID, 'Jouw dorp', 500, 500, 0);
+  const village = createVillage(config, nextId(state), HUMAN_ID, tr('Jouw dorp'), 500, 500, 0);
   state.villages[village.id] = village;
   state.players[HUMAN_ID]!.home = village.id;
   generateMap(state);

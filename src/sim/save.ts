@@ -44,9 +44,9 @@ const MIGRATIONS: Record<number, (data: SaveData) => SaveData> = {
   1: (data) => {
     const state = data.state as WorldState & Partial<Pick<WorldState, 'players' | 'villages' | 'nextId'>>;
     state.config = { ...defaultTables(), ...state.config };
-    state.players = [{ id: HUMAN_ID, name: 'Jij', isBot: false }];
+    state.players = [{ id: HUMAN_ID, name: tr('Jij'), isBot: false }];
     state.nextId = 1;
-    const village = createVillage(state.config, state.nextId++, HUMAN_ID, 'Jouw dorp', 500, 500, state.time);
+    const village = createVillage(state.config, state.nextId++, HUMAN_ID, tr('Jouw dorp'), 500, 500, state.time);
     state.villages = { [village.id]: village };
     return { ...data, version: 2, state };
   },

@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n';
 /** Map, movement and report data for the UI. Computed in the worker. */
 import type { IncomingView, MapData, MapVillage, MovementView, VillageInfo } from '../shared/protocol';
 import { UNIT_IDS, type UnitCounts } from '../shared/gameData';
@@ -21,7 +22,7 @@ export function mapData(state: WorldState): MapData {
       y: v.y,
       name: v.name,
       owner: v.owner,
-      ownerName: v.owner === BARBARIAN ? 'Barbaren' : (state.players[v.owner]?.name ?? '?'),
+      ownerName: v.owner === BARBARIAN ? tr('Barbaren') : (state.players[v.owner]?.name ?? '?'),
       kind,
       points: villagePoints(state.config, v),
     };

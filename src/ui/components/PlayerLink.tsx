@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { FaceIcon } from './FaceIcon';
 import { mapData, openPlayer, ranking, send, tribes } from '../store';
 import { num } from '../format';
-import { tr } from '../../shared/i18n';
+import { tr, txt } from '../../shared/i18n';
 
 const HOVER_DELAY_MS = 600;
 let rankingAsked = false;
@@ -16,6 +16,7 @@ export function PlayerLink({ id, name, strong = false }: { id: number; name: str
   const timer = useRef<number | null>(null);
   const [card, setCard] = useState<{ x: number; y: number } | null>(null);
   useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
+  if (id <= 0) name = txt(name); // 'Barbaren', and 'Jij' in old reports
   if (id < 0) return <span class="muted">{name}</span>;
   const enter = () => {
     if (!ranking.value.length && !rankingAsked) { rankingAsked = true; send({ type: 'getRanking' }); }

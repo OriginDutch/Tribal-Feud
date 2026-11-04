@@ -171,7 +171,7 @@ export function ReportDetail({ r }: { r: Report }) {
 
       <div class="report-side">
         <h4>
-          {tr('Aanvaller')} · {r.attacker.owner !== undefined ? <PlayerLink id={r.attacker.owner} name={r.attacker.ownerName} /> : r.attacker.ownerName} <span class="muted">· {r.attacker.name} <Coords x={r.attacker.x} y={r.attacker.y} /></span>
+          {tr('Aanvaller')} · {r.attacker.owner !== undefined ? <PlayerLink id={r.attacker.owner} name={r.attacker.ownerName} /> : txt(r.attacker.ownerName)} <span class="muted">· {r.attacker.name} <Coords x={r.attacker.x} y={r.attacker.y} /></span>
         </h4>
         <UnitTable
           rows={[
@@ -183,7 +183,7 @@ export function ReportDetail({ r }: { r: Report }) {
 
       <div class="report-side">
         <h4>
-          {tr('Verdediger')} · {r.defender.owner !== undefined ? <PlayerLink id={r.defender.owner} name={r.defender.ownerName} /> : r.defender.ownerName} <span class="muted">· {r.defender.name} <Coords x={r.defender.x} y={r.defender.y} /></span>
+          {tr('Verdediger')} · {r.defender.owner !== undefined ? <PlayerLink id={r.defender.owner} name={r.defender.ownerName} /> : txt(r.defender.ownerName)} <span class="muted">· {r.defender.name} <Coords x={r.defender.x} y={r.defender.y} /></span>
         </h4>
         {r.defenderUnits ? (
           <UnitTable

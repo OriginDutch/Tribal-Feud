@@ -17,5 +17,6 @@ export const fixes: Record<string, string> = {
   'Opdracht: {title}': 'Quest: {title}',
   '{building} level {level}': '{building} level {level}',
   Taal: 'Language',
+  'Jouw dorp': 'Your village',
   'Je hebt {n} dorpen': 'You have {n} villages',
 };

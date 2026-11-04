@@ -2,6 +2,7 @@
  * Simulation worker: owns the world state, runs the clock, handles saves.
  * The UI never touches the state directly.
  */
+import { localizeNames } from './defaultNames';
 import { lang, tr } from '../shared/i18n';
 import '../shared/i18n/en';
 import { autoFarmInterval, setAutoFarm } from './farmAll';
@@ -320,6 +321,7 @@ function lazy<T>(c: Client | undefined, k: 'villages' | 'movements', build: () =
 
 function snapshot(c?: Client): Snapshot | null {
   if (!state) return null;
+  localizeNames(state, lang.value);
   return {
     worldName: state.config.name,
     seed: state.config.seed,
@@ -682,7 +684,7 @@ function playerView(s: WorldState, id: number): PlayerView | null {
   let cx = 0, cy = 0, w = 0;
   for (const v of villages) { const k = v.points + 1; cx += v.x * k; cy += v.y * k; w += k; }
   const t = p.tribe !== undefined ? s.tribes?.[p.tribe] : undefined;
-  const is = (r: { owner?: number; ownerName: string }) => (r.owner !== undefined ? r.owner === id : r.ownerName === p.name);
+  const is = (r: { owner?: number; ownerName: string }) => (r.owner !== undefined ? r.owner === id : r.ownerName === p.name || (id === HUMAN_ID && (r.ownerName === 'Jij' || r.ownerName === 'You')));
   const history: PlayerView['history'] = { theirAttacks: 0, theirWins: 0, yourAttacks: 0, yourWins: 0, villagesTakenFromYou: 0, villagesYouTook: 0 };
   for (const r of s.reports) {
     const won = r.result !== 'loss';

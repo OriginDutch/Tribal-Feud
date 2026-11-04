@@ -47,7 +47,7 @@ export function onHumanVillageLost(state: WorldState, text: string): void {
   if ((state.alertMode ?? 'perVillage') !== 'off') raise(state, text);
   if (villagesOf(state, HUMAN_ID).length > 0) return;
   const [x, y] = restartSpot(state);
-  const v = createVillage(state.config, nextId(state), HUMAN_ID, 'Jouw dorp', x, y, state.time);
+  const v = createVillage(state.config, nextId(state), HUMAN_ID, tr('Jouw dorp'), x, y, state.time);
   state.villages[v.id] = v;
   state.players[HUMAN_ID]!.joinedAt = state.time;
   state.players[HUMAN_ID]!.home = v.id;

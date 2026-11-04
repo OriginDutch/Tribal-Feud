@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n';
 /**
  * World generation: bot players with one village each, and barbarian villages, in a circle
  * around 500|500. Your village is in the middle, or (playerStart: random) anywhere among the bots.
@@ -75,7 +76,7 @@ export function generateMap(state: WorldState): void {
 
   for (let i = 0; i < config.map.barbarianCount; i++) {
     const [x, y] = freeSpot(radius, 0);
-    const v = createVillage(config, nextId(state), BARBARIAN, 'Barbarendorp', x, y, state.time);
+    const v = createVillage(config, nextId(state), BARBARIAN, tr('Barbarendorp'), x, y, state.time);
     v.res = [0, 0, 0];
     const target = barbarianStartPoints(config, v, nextFloat(state.rng));
     seedBarbarian(config, v, target, state.time);
@@ -146,7 +147,7 @@ export function restartSpot(state: WorldState): [number, number] {
     const by = Math.round(y + r * Math.sin(angle));
     if (occupied.has(key(bx, by))) continue;
     occupied.add(key(bx, by));
-    const v = createVillage(config, nextId(state), BARBARIAN, 'Barbarendorp', bx, by, state.time);
+    const v = createVillage(config, nextId(state), BARBARIAN, tr('Barbarendorp'), bx, by, state.time);
     v.res = [0, 0, 0];
     seedBarbarian(config, v, barbarianStartPoints(config, v, nextFloat(state.rng)), state.time);
     state.villages[v.id] = v;
