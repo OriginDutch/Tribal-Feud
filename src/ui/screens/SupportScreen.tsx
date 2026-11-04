@@ -7,6 +7,7 @@ import { duration, num } from '../format';
 import { send, snapshot, supportPlan } from '../store';
 import { UNIT_SHORT, distance } from '../units';
 import { UnitIcon } from '../units/UnitIcon';
+import { tr } from '../../shared/i18n';
 
 /** Units you can pick; nobles stay home. */
 const PICKABLE: UnitId[] = ['spear', 'sword', 'axe', 'archer', 'spy', 'light', 'marcher', 'heavy', 'ram', 'catapult', 'knight'];
@@ -23,10 +24,10 @@ function loadUnits(): UnitId[] {
   return DEFAULT_UNITS;
 }
 
-/** "Dag 5 14:30", "dag 5 14:30:15" or just "14:30" (the next time it is that o'clock). */
+/** "Dag 5 14:30", "dag 5 14:30:15" (or "Day 5 14:30") or just "14:30" (the next time it is that o'clock). */
 function parseTime(text: string, now: number): number | null {
   const t = text.trim().toLowerCase();
-  const full = /^dag\s*(\d+)\D+(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(t);
+  const full = /^(?:dag|day)\s*(\d+)\D+(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(t);
   if (full) return (Number(full[1]) - 1) * DAY + Number(full[2]) * HOUR + Number(full[3]) * MINUTE + Number(full[4] ?? 0) * SECOND;
   const clock = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(t);
   if (!clock) return null;
@@ -115,7 +116,7 @@ export function SupportScreen() {
     return t;
   };
   const fmt = (t: UnitCounts) =>
-    (Object.entries(t) as [UnitId, number][]).map(([u, n]) => `${num(n)} ${UNIT_SHORT[u]}`).join(' · ') || '—';
+    (Object.entries(t) as [UnitId, number][]).map(([u, n]) => `${num(n)} ${tr(UNIT_SHORT[u])}`).join(' · ') || '—';
   const incomingHere = s.incoming.filter((m) => m.to.id === target);
   const go = () => {
     send({ type: 'sendSupportMany', to: target!, orders: sending.map((p) => ({ from: p.v.id, units: p.c })) });
@@ -124,11 +125,11 @@ export function SupportScreen() {
 
   return (
     <div class="screen">
-      <h2>Support</h2>
+      <h2>{tr('Support')}</h2>
       <section class="panel support-head">
         <div class="support-controls">
           <label>
-            Naar
+            {tr('Naar')}
             <select value={String(target ?? '')} onChange={(e) => { setTarget(Number(e.currentTarget.value)); setAmounts({}); }}>
               {s.villages.map((v) => (
                 <option key={v.id} value={String(v.id)}>
@@ -139,7 +140,7 @@ export function SupportScreen() {
           </label>
           {s.groups.length > 0 && (
             <label>
-              Vanuit groep
+              {tr('Vanuit groep')}
               <select
                 value={fromGroup}
                 onChange={(e) => {
@@ -149,7 +150,7 @@ export function SupportScreen() {
                   try { localStorage.setItem('tf-support-group', g); } catch { /* fine */ }
                 }}
               >
-                <option value="">Alle dorpen</option>
+                <option value="">{tr('Alle dorpen')}</option>
                 {s.groups.map((g) => (
                   <option key={g.id} value={String(g.id)}>{g.name}</option>
                 ))}
@@ -157,11 +158,11 @@ export function SupportScreen() {
             </label>
           )}
           <label>
-            Moet er zijn vóór
+            {tr('Moet er zijn vóór')}
             <div class="row">
               <input
                 type="text"
-                placeholder="geen deadline — bijv. Dag 5 14:30"
+                placeholder={tr('geen deadline — bijv. Dag 5 14:30')}
                 value={deadlineText}
                 onInput={(e) => {
                   const text = e.currentTarget.value;
@@ -171,17 +172,17 @@ export function SupportScreen() {
               />
               {deadlineText && (
                 <button class="small" onClick={() => { setDeadlineText(''); setDeadline(null); }}>
-                  Geen
+                  {tr('Geen')}
                 </button>
               )}
             </div>
-            {deadlineText.trim() && deadline === null && <span class="error">Snap ik niet. Schrijf bijv. "Dag 5 14:30" of "14:30".</span>}
-            {deadline !== null && <span class="muted">{formatGameTime(deadline)} · nog {duration(deadline - s.time)}</span>}
+            {deadlineText.trim() && deadline === null && <span class="error">{tr('Snap ik niet. Schrijf bijv. "Dag 5 14:30" of "14:30".')}</span>}
+            {deadline !== null && <span class="muted">{formatGameTime(deadline)} · {tr('nog {time}', { time: duration(deadline - s.time) })}</span>}
           </label>
         </div>
         {incomingHere.length > 0 && (
           <div class="row wrap support-incoming">
-            <span class="muted">Aanvallen op dit dorp:</span>
+            <span class="muted">{tr('Aanvallen op dit dorp:')}</span>
             {incomingHere.map((m) => (
               <button
                 key={m.id}
@@ -194,52 +195,52 @@ export function SupportScreen() {
             {s.myTribe !== null && incomingHere.some((m) => !s.helpAsked.includes(m.id)) && (
               <button
                 class="small"
-                title="Vraagt je stam om hulp bij alle aanvallen op dit dorp"
+                title={tr('Vraagt je stam om hulp bij alle aanvallen op dit dorp')}
                 onClick={() => { for (const m of incomingHere) if (!s.helpAsked.includes(m.id)) send({ type: 'askTribeHelp', movement: m.id }); }}
               >
-                Stam om hulp vragen
+                {tr('Stam om hulp vragen')}
               </button>
             )}
           </div>
         )}
         <div class="row wrap support-units">
-          <span class="muted">Eenheden:</span>
+          <span class="muted">{tr('Eenheden:')}</span>
           {PICKABLE.map((u) => (
             <label key={u} class={`unit-toggle ${units.includes(u) ? 'on' : ''}`}>
               <input type="checkbox" checked={units.includes(u)} onChange={() => setUnits(units.includes(u) ? units.filter((x) => x !== u) : [...units, u])} />
-              <UnitIcon id={u} size={16} /> {UNIT_SHORT[u]}
+              <UnitIcon id={u} size={16} /> {tr(UNIT_SHORT[u])}
             </label>
           ))}
         </div>
       </section>
 
       {!to ? (
-        <section class="panel"><p class="muted">Kies een dorp.</p></section>
+        <section class="panel"><p class="muted">{tr('Kies een dorp.')}</p></section>
       ) : rows.length === 0 ? (
-        <section class="panel"><p class="muted">Je hebt geen andere dorpen met een verzamelplaats.</p></section>
+        <section class="panel"><p class="muted">{tr('Je hebt geen andere dorpen met een verzamelplaats.')}</p></section>
       ) : (
         <section class="panel">
           <div class="row">
-            <h3 style={{ flex: 1 }}>Vanuit je dorpen</h3>
+            <h3 style={{ flex: 1 }}>{tr('Vanuit je dorpen')}</h3>
             <button class="small" onClick={() => setAmounts(rows.reduce((a, r) => fillRow(r.v.id, r.dist, a), {} as typeof amounts))}>
-              Alles wat op tijd komt
+              {tr('Alles wat op tijd komt')}
             </button>
             <button class="small" onClick={() => setAmounts({})}>
-              Alles leeg
+              {tr('Alles leeg')}
             </button>
           </div>
           <div class="table-scroll">
             <table class="table support-table">
               <thead>
                 <tr>
-                  <th>Dorp</th>
-                  <th class="right">Afstand</th>
+                  <th>{tr('Dorp')}</th>
+                  <th class="right">{tr('Afstand')}</th>
                   {units.map((u) => (
-                    <th key={u} class="right" title={UNIT_SHORT[u]}>
+                    <th key={u} class="right" title={tr(UNIT_SHORT[u])}>
                       <UnitIcon id={u} size={16} />
                     </th>
                   ))}
-                  <th class="right">Aankomst</th>
+                  <th class="right">{tr('Aankomst')}</th>
                   <th />
                 </tr>
               </thead>
@@ -254,7 +255,7 @@ export function SupportScreen() {
                       const have = v.units[u] ?? 0;
                       const ok = inTime(u, dist);
                       return (
-                        <td key={u} class={`right unit-cell ${have === 0 ? 'none' : ok ? '' : 'too-late'}`} title={have ? `${UNIT_SHORT[u]}: aankomst ${formatGameTime(s.time + travel(u, dist))}${ok ? '' : ' — te laat'}` : ''}>
+                        <td key={u} class={`right unit-cell ${have === 0 ? 'none' : ok ? '' : 'too-late'}`} title={have ? (ok ? tr('{unit}: aankomst {time}', { unit: tr(UNIT_SHORT[u]), time: formatGameTime(s.time + travel(u, dist)) }) : tr('{unit}: aankomst {time} — te laat', { unit: tr(UNIT_SHORT[u]), time: formatGameTime(s.time + travel(u, dist)) })) : ''}>
                           {have > 0 ? (
                             <>
                               <input type="number" min={0} max={have} placeholder="0" value={amounts[v.id]?.[u] ?? ''} onInput={(e) => setCell(v.id, u, e.currentTarget.value)} />
@@ -273,14 +274,14 @@ export function SupportScreen() {
                         <>
                           {formatGameTime(at)}
                           <div class={isLate ? 'error' : 'good'}>
-                            {deadline === null ? `over ${duration(at - s.time)}` : isLate ? `✗ ${duration(at - deadline)} te laat` : `✓ ${duration(deadline - at)} marge`}
+                            {deadline === null ? tr('over {time}', { time: duration(at - s.time) }) : isLate ? `✗ ${tr('{time} te laat', { time: duration(at - deadline) })}` : `✓ ${tr('{time} marge', { time: duration(deadline - at) })}`}
                           </div>
                         </>
                       )}
                     </td>
                     <td class="right nowrap">
                       <button class="small" onClick={() => setAmounts(fillRow(v.id, dist, amounts))}>
-                        Max
+                        {tr('Max')}
                       </button>
                     </td>
                   </tr>
@@ -291,19 +292,19 @@ export function SupportScreen() {
           <div class="support-foot">
             <div>
               <div>
-                <strong>{deadline === null ? 'Gaat mee' : 'Op tijd'}:</strong> {fmt(total(sending.filter((p) => !p.late)))}
+                <strong>{deadline === null ? tr('Gaat mee:') : tr('Op tijd:')}</strong> {fmt(total(sending.filter((p) => !p.late)))}
               </div>
               {late.length > 0 && (
                 <div class="error">
-                  Te laat ({late.length} {late.length === 1 ? 'dorp' : 'dorpen'}): {fmt(total(late))}
+                  {late.length === 1 ? tr('Te laat (1 dorp): {units}', { units: fmt(total(late)) }) : tr('Te laat ({n} dorpen): {units}', { n: late.length, units: fmt(total(late)) })}
                 </div>
               )}
             </div>
             {late.length > 0 ? (
-              <Confirm label={`Versturen (${sending.length})`} sure={`${late.length} te laat — toch versturen?`} cls="primary" onConfirm={go} />
+              <Confirm label={tr('Versturen ({n})', { n: sending.length })} sure={tr('{n} te laat — toch versturen?', { n: late.length })} cls="primary" onConfirm={go} />
             ) : (
               <button class="primary" disabled={sending.length === 0} onClick={go}>
-                Versturen ({sending.length})
+                {tr('Versturen ({n})', { n: sending.length })}
               </button>
             )}
           </div>

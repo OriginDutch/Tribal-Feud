@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { tr } from '../../shared/i18n';
 
 const STEPS = ['Zeker? Dit is verraad.', 'Echt? Er is geen weg terug.', 'Laatste kans: VERRAAD PLEGEN'];
 
@@ -18,7 +19,7 @@ export function TripleConfirm({ label, onConfirm }: { label: string; onConfirm: 
         else { setStep(0); onConfirm(); }
       }}
     >
-      {step === 0 ? label : STEPS[step - 1]}
+      {step === 0 ? label : tr(STEPS[step - 1]!)}
     </button>
   );
 }

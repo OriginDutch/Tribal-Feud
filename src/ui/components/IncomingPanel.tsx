@@ -7,6 +7,7 @@ import { duration } from '../format';
 import { openSupport, send, snapshot } from '../store';
 import { UnitIcon } from '../units/UnitIcon';
 import { PlayerLink } from './PlayerLink';
+import { tr } from '../../shared/i18n';
 
 /** What the walking time says, in the words TW players use. */
 const PACE: Record<IncomingView['pace'], { unit: 'snob' | 'ram' | 'sword' | 'axe' | 'heavy' | 'light' | 'spy'; label: string; danger: number }> = {
@@ -22,8 +23,8 @@ const PACE: Record<IncomingView['pace'], { unit: 'snob' | 'ram' | 'sword' | 'axe
 function Pace({ m }: { m: IncomingView }) {
   const p = PACE[m.pace];
   return (
-    <span class={`pace pace-${p.danger}`} title="De langzaamste eenheid die bij deze looptijd past. Sneller kan, langzamer niet.">
-      <UnitIcon id={p.unit} size={16} /> {p.label}
+    <span class={`pace pace-${p.danger}`} title={tr('De langzaamste eenheid die bij deze looptijd past. Sneller kan, langzamer niet.')}>
+      <UnitIcon id={p.unit} size={16} /> {tr(p.label)}
     </span>
   );
 }
@@ -61,14 +62,14 @@ export function IncomingPanel() {
       <td class="right mono">{duration(m.arrives - s.time)}</td>
       <td class="right nowrap">
         <button class="small" onClick={() => openSupport(m.to.id, m.arrives)}>
-          Verdediging
+          {tr('Verdediging')}
         </button>
         {s.myTribe !== null && (
           s.helpAsked.includes(m.id) ? (
-            <span class="muted small-text"> stam gevraagd</span>
+            <span class="muted small-text"> {tr('stam gevraagd')}</span>
           ) : (
-            <button class="small" title="Je stamgenoten beslissen zelf, als ze online zijn" onClick={() => send({ type: 'askTribeHelp', movement: m.id })}>
-              Stam om hulp
+            <button class="small" title={tr('Je stamgenoten beslissen zelf, als ze online zijn')} onClick={() => send({ type: 'askTribeHelp', movement: m.id })}>
+              {tr('Stam om hulp')}
             </button>
           )
         )}
@@ -79,21 +80,21 @@ export function IncomingPanel() {
   return (
     <section class="panel incoming">
       <div class="row">
-        <h3 style={{ flex: 1 }}>⚔ Inkomende aanvallen ({s.incoming.length})</h3>
+        <h3 style={{ flex: 1 }}>⚔ {tr('Inkomende aanvallen ({n})', { n: s.incoming.length })}</h3>
         <label class="inline-check">
-          <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.currentTarget.checked)} /> per aanvallend dorp
+          <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.currentTarget.checked)} /> {tr('per aanvallend dorp')}
         </label>
       </div>
       <table class="table">
         <thead>
           <tr>
-            <th>Doel</th>
-            {!grouped && <th>Van</th>}
-            {!grouped && <th>Speler</th>}
-            <th class="right">Afstand</th>
-            <th>Tempo</th>
-            <th>Aankomst</th>
-            <th class="right">Nog</th>
+            <th>{tr('Doel')}</th>
+            {!grouped && <th>{tr('Van')}</th>}
+            {!grouped && <th>{tr('Speler')}</th>}
+            <th class="right">{tr('Afstand')}</th>
+            <th>{tr('Tempo')}</th>
+            <th>{tr('Aankomst')}</th>
+            <th class="right">{tr('Nog')}</th>
             <th />
           </tr>
         </thead>
@@ -106,7 +107,7 @@ export function IncomingPanel() {
                   <td colSpan={6}>
                     <strong>{f.name}</strong> <Coords x={f.x} y={f.y} />{' · '}<PlayerLink id={f.owner} name={f.ownerName} /> ·{' '}
                     <span class="muted">
-                      {list.length} {list.length === 1 ? 'aanval' : 'aanvallen'}
+                      {list.length === 1 ? tr('1 aanval') : tr('{n} aanvallen', { n: list.length })}
                     </span>
                   </td>
                 </tr>

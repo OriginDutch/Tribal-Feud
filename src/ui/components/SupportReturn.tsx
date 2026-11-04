@@ -5,6 +5,7 @@ import { duration } from '../format';
 import { groupFilter, send, snapshot, supportRows } from '../store';
 import { unitsText } from '../units';
 import { Confirm } from './Confirm';
+import { tr } from '../../shared/i18n';
 
 const SECTIONS: { kind: SupportRow['kind']; title: string; empty: string; button: string; hint: string }[] = [
   { kind: 'foreign', title: 'Vreemde steun in je dorpen', empty: 'Geen troepen van andere spelers in deze dorpen.', button: 'Alles wegsturen', hint: 'Troepen van andere spelers die in jouw dorpen staan. Ze lopen terug naar hun eigen dorp.' },
@@ -45,18 +46,18 @@ export function SupportReturn({ village, onClose }: { village?: number; onClose?
     <div class="support-return">
       <div class="row wrap">
         <label class="row">
-          Dorpen
+          {tr('Dorpen')}
           <select value={scope} onChange={(e) => setScope(e.currentTarget.value)}>
-            <option value="all">Alle dorpen</option>
-            {s.groups.map((g) => <option key={g.id} value={String(g.id)}>Groep {g.name}</option>)}
-            {here !== undefined && <option value="village">Alleen {s.villages.find((v) => v.id === here)?.name ?? 'dit dorp'}</option>}
+            <option value="all">{tr('Alle dorpen')}</option>
+            {s.groups.map((g) => <option key={g.id} value={String(g.id)}>{tr('Groep {name}', { name: g.name })}</option>)}
+            {here !== undefined && <option value="village">{tr('Alleen {name}', { name: s.villages.find((v) => v.id === here)?.name ?? tr('dit dorp') })}</option>}
           </select>
         </label>
         <span style={{ flex: 1 }} />
-        {onClose && <button class="small" onClick={onClose}>Sluiten</button>}
+        {onClose && <button class="small" onClick={onClose}>{tr('Sluiten')}</button>}
       </div>
       {rows === null ? (
-        <p class="muted">Laden…</p>
+        <p class="muted">{tr('Laden…')}</p>
       ) : (
         SECTIONS.map((sec) => {
           const list = rows.filter((r) => r.kind === sec.kind && matches(r)).sort((a, b) => a.host.name.localeCompare(b.host.name));
@@ -64,26 +65,26 @@ export function SupportReturn({ village, onClose }: { village?: number; onClose?
           return (
             <section key={sec.kind} class="support-return-section">
               <div class="row wrap">
-                <h4 title={sec.hint}>{sec.title} ({list.length})</h4>
+                <h4 title={tr(sec.hint)}>{tr(sec.title)} ({list.length})</h4>
                 <span style={{ flex: 1 }} />
                 {list.length > 0 && (
                   <Confirm
-                    label={`${sec.button} (${list.length})`}
-                    sure={`Zeker? ${list.length}× terug, laatste is over ${duration(slowest)} thuis`}
+                    label={`${tr(sec.button)} (${list.length})`}
+                    sure={tr('Zeker? {n}× terug, laatste is over {time} thuis', { n: list.length, time: duration(slowest) })}
                     onConfirm={() => sendHome(list)}
                   />
                 )}
               </div>
               {list.length === 0 ? (
-                <p class="muted">{sec.empty}</p>
+                <p class="muted">{tr(sec.empty)}</p>
               ) : (
                 <table class="table compact">
                   <thead>
                     <tr>
-                      <th>Staat in</th>
-                      <th>Komt uit</th>
-                      <th>Troepen</th>
-                      <th class="right">Terug in</th>
+                      <th>{tr('Staat in')}</th>
+                      <th>{tr('Komt uit')}</th>
+                      <th>{tr('Troepen')}</th>
+                      <th class="right">{tr('Terug in')}</th>
                       <th />
                     </tr>
                   </thead>
@@ -95,12 +96,12 @@ export function SupportReturn({ village, onClose }: { village?: number; onClose?
                         <td class="muted">{unitsText(r.units)}</td>
                         <td class="right mono">{duration(r.travel)}</td>
                         <td class="right">
-                          <button class="small" onClick={() => sendHome([r])}>Terug</button>
+                          <button class="small" onClick={() => sendHome([r])}>{tr('Terug')}</button>
                         </td>
                       </tr>
                     ))}
                     <tr class="total-row">
-                      <td colSpan={2}><strong>Totaal</strong></td>
+                      <td colSpan={2}><strong>{tr('Totaal')}</strong></td>
                       <td class="muted">{unitsText(total(list))}</td>
                       <td colSpan={2} />
                     </tr>

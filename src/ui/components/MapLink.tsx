@@ -1,12 +1,13 @@
 import { showOnMap } from '../store';
+import { tr } from '../../shared/i18n';
 
 /** Small "Kijk op de kaart" button: a player's villages, or the village at x|y and its owner. */
 export function MapLink({ owner, x, y }: { owner?: number; x?: number; y?: number }) {
   return (
     <button
       class="link map-link"
-      title="Kijk op de kaart"
-      aria-label="Kijk op de kaart"
+      title={tr('Kijk op de kaart')}
+      aria-label={tr('Kijk op de kaart')}
       onClick={(e) => {
         e.stopPropagation();
         showOnMap({ owner, x, y });

@@ -1,9 +1,11 @@
+import { tr } from '../../shared/i18n';
 import { formatGameTime } from '../../shared/time';
 import { UnitIcon } from '../units/UnitIcon';
 import { BuildingHeader } from '../buildings/BuildingHeader';
 import { Cost } from '../components/Cost';
 import { duration, upToDec2 } from '../format';
 import { send, snapshot } from '../store';
+import { trx } from '../i18n';
 
 export function SmithScreen() {
   const s = snapshot.value;
@@ -15,13 +17,13 @@ export function SmithScreen() {
   return (
     <div class="screen">
       <div class="screen-head">
-        <h2>Smederij</h2>
-        {smith && smith.level > 0 && <span class="chip gold">Level {smith.level}</span>}
+        <h2>{tr('Smederij')}</h2>
+        {smith && smith.level > 0 && <span class="chip gold">{tr('Level {n}', { n: smith.level })}</span>}
       </div>
       <BuildingHeader village={v} id="smith" />
       {smith && smith.level === 0 && (
         <section class="panel">
-          <p class="muted">Je hebt nog geen smederij. Speerdragers en zwaardvechters kun je zonder smederij rekruteren.</p>
+          <p class="muted">{tr('Je hebt nog geen smederij. Speerdragers en zwaardvechters kun je zonder smederij rekruteren.')}</p>
         </section>
       )}
       <section class="panel">
@@ -34,9 +36,9 @@ export function SmithScreen() {
           </colgroup>
           <thead>
             <tr>
-              <th>Eenheid</th>
-              <th>Kosten</th>
-              <th class="right" title="Voorlopige waarde: de echte ontwikkeltijden zijn nog niet gevonden">Tijd*</th>
+              <th>{tr('Eenheid')}</th>
+              <th>{tr('Kosten')}</th>
+              <th class="right" title={tr('Voorlopige waarde: de echte ontwikkeltijden zijn nog niet gevonden')}>{tr('Tijd')}*</th>
               <th />
             </tr>
           </thead>
@@ -52,7 +54,7 @@ export function SmithScreen() {
                   u.tech.next ? (
                     <>
                       <td>
-                        <span class="chip">Level {u.tech.level}/{u.tech.max}</span>{' '}
+                        <span class="chip">{tr('Level {n}/{max}', { n: u.tech.level, max: u.tech.max })}</span>{' '}
                         <span class="muted">×{upToDec2(u.tech.multiplier)}</span>
                         <br />
                         <Cost cost={u.tech.next.cost} have={v.res} />
@@ -65,20 +67,20 @@ export function SmithScreen() {
                           title={u.tech.next.blocker ?? ''}
                           onClick={() => send({ type: 'research', villageId: v.id, unit: u.id })}
                         >
-                          {u.tech.next.blocker ?? `Naar level ${u.tech.next.level}`}
+                          {u.tech.next.blocker ?? tr('Naar level {n}', { n: u.tech.next.level })}
                         </button>
                       </td>
                     </>
                   ) : (
                     <>
-                      <td colSpan={2} class="muted">Level {u.tech.level}/{u.tech.max} · ×{upToDec2(u.tech.multiplier)} sterker</td>
+                      <td colSpan={2} class="muted">{tr('Level {n}/{max} · ×{mult} sterker', { n: u.tech.level, max: u.tech.max, mult: upToDec2(u.tech.multiplier) })}</td>
                       <td class="right good">✓</td>
                     </>
                   )
                 ) : u.researched ? (
                   <>
                     <td colSpan={2} class="muted">
-                      {u.research ? 'Ontwikkeld' : u.id === 'spear' || u.id === 'sword' ? 'Beschikbaar vanaf de start' : 'Geen ontwikkeling nodig'}
+                      {u.research ? tr('Ontwikkeld') : u.id === 'spear' || u.id === 'sword' ? tr('Beschikbaar vanaf de start') : tr('Geen ontwikkeling nodig')}
                     </td>
                     <td class="right good">✓</td>
                   </>
@@ -95,13 +97,13 @@ export function SmithScreen() {
                         title={u.research.blocker ?? ''}
                         onClick={() => send({ type: 'research', villageId: v.id, unit: u.id })}
                       >
-                        {u.research.blocker ?? 'Ontwikkel'}
+                        {u.research.blocker ?? tr('Ontwikkel')}
                       </button>
                     </td>
                   </>
                 ) : (
                   <td colSpan={3} class="muted">
-                    Geen ontwikkeling nodig
+                    {tr('Geen ontwikkeling nodig')}
                   </td>
                 )}
               </tr>
@@ -109,18 +111,18 @@ export function SmithScreen() {
           </tbody>
         </table>
         <p class="hint">
-          * Ontwikkeltijden zijn voorlopig: de echte TW-waardes zijn nog niet gevonden.
-          {units.some((u) => u.tech) && ' Researchlevels: elk level maakt de eenheid sterker in aanval en verdediging (troepen uit dit dorp, ook als support elders).'}
+          * {tr('Ontwikkeltijden zijn voorlopig: de echte TW-waardes zijn nog niet gevonden.')}
+          {units.some((u) => u.tech) && ' ' + tr('Researchlevels: elk level maakt de eenheid sterker in aanval en verdediging (troepen uit dit dorp, ook als support elders).')}
         </p>
       </section>
       {v.research && (
         <section class="panel">
-          <h3>Bezig met ontwikkelen</h3>
+          <h3>{tr('Bezig met ontwikkelen')}</h3>
           <p>
-            {v.research.name} · nog <span class="mono">{duration(v.research.end - s.time)}</span>{' '}
-            <span class="muted">(klaar op {formatGameTime(v.research.end)})</span>{' '}
+            {trx('{name} · nog {time}', { name: v.research.name, time: <span class="mono">{duration(v.research.end - s.time)}</span> })}{' '}
+            <span class="muted">{tr('(klaar op {time})', { time: formatGameTime(v.research.end) })}</span>{' '}
             <button class="danger small" onClick={() => send({ type: 'cancelResearch', villageId: v.id })}>
-              Annuleer
+              {tr('Annuleer')}
             </button>
           </p>
         </section>

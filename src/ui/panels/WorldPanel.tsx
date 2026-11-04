@@ -1,4 +1,5 @@
 import { send, snapshot } from '../store';
+import { tr } from '../../shared/i18n';
 
 const HINT = {
   easy: 'Bots letten minder op (elke 2 uur) en zijn aardiger tegen jou en je stam: ze nemen je uitnodiging en aanmelding vaker aan, je stam neemt spelers tot 4 velden verder aan, ze sluiten makkelijker een verdrag met je, verklaren je stam half zo vaak de oorlog en vergeten hun wrok twee keer zo snel.',
@@ -12,41 +13,41 @@ export function WorldPanel() {
   if (!s) return null;
   return (
     <section class="panel">
-      <h2>Deze wereld</h2>
-      <p class="hint">Alleen instellingen die veilig halverwege kunnen veranderen. Wereldsnelheid, kaart en dergelijke liggen vast bij het maken van de wereld.</p>
-      <h3 class="world-sub">Bots en tempo</h3>
+      <h2>{tr('Deze wereld')}</h2>
+      <p class="hint">{tr('Alleen instellingen die veilig halverwege kunnen veranderen. Wereldsnelheid, kaart en dergelijke liggen vast bij het maken van de wereld.')}</p>
+      <h3 class="world-sub">{tr('Bots en tempo')}</h3>
       <label>
         Bots
         <select value={s.difficulty} onChange={(e) => send({ type: 'setDifficulty', difficulty: e.currentTarget.value as 'easy' | 'normal' | 'hard' })}>
-          <option value="easy">Makkelijk</option>
-          <option value="normal">Normaal</option>
-          <option value="hard">Moeilijk</option>
+          <option value="easy">{tr('Makkelijk')}</option>
+          <option value="normal">{tr('Normaal')}</option>
+          <option value="hard">{tr('Moeilijk')}</option>
         </select>
       </label>
-      <p class="hint">{HINT[s.difficulty]} Geldt meteen, ook in een lopende wereld. Bots onderling veranderen niet.</p>
-      <SpeedPicker label="Bouwsnelheid" value={s.multipliers.build} onPick={(build) => send({ type: 'setSpeeds', build, recruit: s.multipliers.recruit })} />
-      <SpeedPicker label="Rekruteersnelheid" value={s.multipliers.recruit} onPick={(recruit) => send({ type: 'setSpeeds', build: s.multipliers.build, recruit })} />
-      <p class="hint">Bovenop de wereldsnelheid (×{s.multipliers.world}). Geldt voor iedereen, ook de bots. Wat al in een wachtrij staat houdt zijn oude tijd.</p>
-      <h3 class="world-sub">Gevechten</h3>
+      <p class="hint">{tr(HINT[s.difficulty])} {tr('Geldt meteen, ook in een lopende wereld. Bots onderling veranderen niet.')}</p>
+      <SpeedPicker label={tr('Bouwsnelheid')} value={s.multipliers.build} onPick={(build) => send({ type: 'setSpeeds', build, recruit: s.multipliers.recruit })} />
+      <SpeedPicker label={tr('Rekruteersnelheid')} value={s.multipliers.recruit} onPick={(recruit) => send({ type: 'setSpeeds', build: s.multipliers.build, recruit })} />
+      <p class="hint">{tr('Bovenop de wereldsnelheid (×{speed}). Geldt voor iedereen, ook de bots. Wat al in een wachtrij staat houdt zijn oude tijd.', { speed: s.multipliers.world })}</p>
+      <h3 class="world-sub">{tr('Gevechten')}</h3>
       <label>
-        Moraal
+        {tr('Moraal')}
         <select value={s.rules.morale} onChange={(e) => send({ type: 'setRules', morale: e.currentTarget.value as 'off' | 'points' | 'pointsTime' })}>
-          <option value="off">Uit (altijd 100%)</option>
-          <option value="points">Op punten (TW)</option>
-          <option value="pointsTime">Op punten en tijd</option>
+          <option value="off">{tr('Uit (altijd 100%)')}</option>
+          <option value="points">{tr('Op punten (TW)')}</option>
+          <option value="pointsTime">{tr('Op punten en tijd')}</option>
         </select>
       </label>
-      <p class="hint">Moraal verzwakt een aanval op een speler die veel kleiner is dan de aanvaller. Barbarendorpen hebben nooit moraal.</p>
+      <p class="hint">{tr('Moraal verzwakt een aanval op een speler die veel kleiner is dan de aanvaller. Barbarendorpen hebben nooit moraal.')}</p>
       <label class="row">
-        <input type="checkbox" checked={s.rules.luck} onChange={(e) => send({ type: 'setRules', luck: e.currentTarget.checked })} /> Geluk (aanvallen tot 25% sterker of zwakker)
+        <input type="checkbox" checked={s.rules.luck} onChange={(e) => send({ type: 'setRules', luck: e.currentTarget.checked })} /> {tr('Geluk (aanvallen tot 25% sterker of zwakker)')}
       </label>
       <label class="row">
-        <input type="checkbox" checked={s.rules.nightBonus} onChange={(e) => send({ type: 'setRules', nightBonus: e.currentTarget.checked })} /> Nachtbonus (verdediging ×2 tussen 0 en 8 uur)
+        <input type="checkbox" checked={s.rules.nightBonus} onChange={(e) => send({ type: 'setRules', nightBonus: e.currentTarget.checked })} /> {tr('Nachtbonus (verdediging ×2 tussen 0 en 8 uur)')}
       </label>
-      <p class="hint">Geldt voor gevechten vanaf nu, voor iedereen. Aanvallen die al onderweg zijn, rekenen bij aankomst met de nieuwe regels.</p>
-      <h3 class="world-sub">Overig</h3>
-      <label class="row" title="Lopende rooftochten komen gewoon nog terug.">
-        <input type="checkbox" checked={s.scavenging} onChange={(e) => send({ type: 'setScavenging', on: e.currentTarget.checked })} /> Rooftochten (ook voor bots)
+      <p class="hint">{tr('Geldt voor gevechten vanaf nu, voor iedereen. Aanvallen die al onderweg zijn, rekenen bij aankomst met de nieuwe regels.')}</p>
+      <h3 class="world-sub">{tr('Overig')}</h3>
+      <label class="row" title={tr('Lopende rooftochten komen gewoon nog terug.')}>
+        <input type="checkbox" checked={s.scavenging} onChange={(e) => send({ type: 'setScavenging', on: e.currentTarget.checked })} /> {tr('Rooftochten (ook voor bots)')}
       </label>
     </section>
   );

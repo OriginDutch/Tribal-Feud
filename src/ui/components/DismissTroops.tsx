@@ -5,6 +5,7 @@ import { send } from '../store';
 import { UNIT_SHORT } from '../units';
 import { UnitIcon } from '../units/UnitIcon';
 import { Confirm } from './Confirm';
+import { tr } from '../../shared/i18n';
 
 /** Send troops home for good (wrong ones built): only troops at home, nothing back. */
 export function DismissTroops({ villageId, units }: { villageId: number; units: { id: UnitId; home: number }[] }) {
@@ -18,17 +19,17 @@ export function DismissTroops({ villageId, units }: { villageId: number; units: 
   }
   return (
     <details class="panel dismiss">
-      <summary>Troepen weggooien</summary>
+      <summary>{tr('Troepen weggooien')}</summary>
       {!here.length ? (
-        <p class="muted">Er staan geen troepen thuis.</p>
+        <p class="muted">{tr('Er staan geen troepen thuis.')}</p>
       ) : (
         <>
-          <p class="hint">Voor als je de verkeerde troepen hebt gebouwd. Ze verdwijnen voorgoed: je krijgt geen grondstoffen terug. Alleen troepen die thuis staan.</p>
+          <p class="hint">{tr('Voor als je de verkeerde troepen hebt gebouwd. Ze verdwijnen voorgoed: je krijgt geen grondstoffen terug. Alleen troepen die thuis staan.')}</p>
           <div class="template-units">
             {here.map((u) => (
               <label key={u.id}>
                 <span class="unit-name">
-                  <UnitIcon id={u.id} size={18} /> {UNIT_SHORT[u.id]}
+                  <UnitIcon id={u.id} size={18} /> {tr(UNIT_SHORT[u.id])}
                 </span>
                 <input type="number" min={0} max={u.home} placeholder="0" value={counts[u.id] ?? ''} onInput={(e) => setCounts({ ...counts, [u.id]: e.currentTarget.value })} />
                 <button class="link avail" onClick={() => setCounts({ ...counts, [u.id]: String(u.home) })}>
@@ -39,8 +40,8 @@ export function DismissTroops({ villageId, units }: { villageId: number; units: 
           </div>
           <div class="row">
             <Confirm
-              label={total ? `${num(total)} weggooien` : 'Weggooien'}
-              sure={`${num(total)} troepen weg, zonder terugbetaling?`}
+              label={total ? tr('{n} weggooien', { n: num(total) }) : tr('Weggooien')}
+              sure={tr('{n} troepen weg, zonder terugbetaling?', { n: num(total) })}
               cls="warn"
               disabled={!total}
               onConfirm={() => { send({ type: 'dismissUnits', villageId, units: chosen }); setCounts({}); }}

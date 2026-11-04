@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { num } from '../format';
 import { groupFilter, groupVillages, send, snapshot } from '../store';
 import { keyLabel, keyOf } from '../keys';
+import { tr } from '../../shared/i18n';
 
 const NAME_MAX = 32;
 
@@ -38,7 +39,7 @@ export function VillageSwitcher() {
           autoFocus
           maxLength={NAME_MAX}
           value={editing}
-          aria-label="Nieuwe naam"
+          aria-label={tr('Nieuwe naam')}
           onInput={(e) => setEditing(e.currentTarget.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') save();
@@ -52,13 +53,13 @@ export function VillageSwitcher() {
 
   return (
     <div class="vswitch">
-      <button class="vstep" title={`Vorig dorp (${keyLabel(keyOf('prevVillage'))})`} aria-label="Vorig dorp" disabled={!many} onClick={() => stepVillage(-1)}>
+      <button class="vstep" title={tr('Vorig dorp ({key})', { key: keyLabel(keyOf('prevVillage')) })} aria-label={tr('Vorig dorp')} disabled={!many} onClick={() => stepVillage(-1)}>
         ‹
       </button>
       <div class="vname">
         <div class="vname-top">
           <b>{v.name}</b>
-          <button class="link rename" title="Dorp hernoemen" aria-label="Dorp hernoemen" onClick={() => setEditing(v.name)}>
+          <button class="link rename" title={tr('Dorp hernoemen')} aria-label={tr('Dorp hernoemen')} onClick={() => setEditing(v.name)}>
             ✎
           </button>
         </div>
@@ -69,7 +70,7 @@ export function VillageSwitcher() {
           {(() => {
             const g = s.groups.find((x) => x.id === groupFilter.value);
             return g ? (
-              <span class="group-chip filter" style={{ '--gc': g.color }} title={`Groepsfilter: ${g.name}. A/D en de dorpenlijst volgen deze groep`}>
+              <span class="group-chip filter" style={{ '--gc': g.color }} title={tr('Groepsfilter: {name}. A/D en de dorpenlijst volgen deze groep', { name: g.name })}>
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M3 4h18l-7 8.5V20l-4-2v-5.5z" />
                 </svg>
@@ -82,7 +83,7 @@ export function VillageSwitcher() {
           <select
             class="vselect"
             value={String(v.id)}
-            aria-label="Kies een dorp"
+            aria-label={tr('Kies een dorp')}
             onChange={(e) => send({ type: 'selectVillage', id: Number(e.currentTarget.value) })}
           >
             {(() => {
@@ -97,7 +98,7 @@ export function VillageSwitcher() {
           </select>
         )}
       </div>
-      <button class="vstep" title={`Volgend dorp (${keyLabel(keyOf('nextVillage'))})`} aria-label="Volgend dorp" disabled={!many} onClick={() => stepVillage(1)}>
+      <button class="vstep" title={tr('Volgend dorp ({key})', { key: keyLabel(keyOf('nextVillage')) })} aria-label={tr('Volgend dorp')} disabled={!many} onClick={() => stepVillage(1)}>
         ›
       </button>
     </div>

@@ -5,6 +5,7 @@ import { openBuilding, setVillageLight, villageLight } from '../store';
 import { walkers } from './villageLife';
 import { isMobile } from '../mobile';
 import { useSaved } from '../useSaved';
+import { tr } from '../../shared/i18n';
 
 /** Phone: labels as level dots (default), full labels or none. A desktop always shows full labels. */
 type LabelMode = 'dots' | 'full' | 'none';
@@ -242,7 +243,7 @@ export function VillageScene({ village }: { village: VillageView }) {
       <canvas
         ref={canvas}
         role="img"
-        aria-label={`Dorpsoverzicht van ${village.name}`}
+        aria-label={tr('Dorpsoverzicht van {name}', { name: village.name })}
         style={{ cursor: hover ? 'pointer' : 'default' }}
         onMouseMove={(e) => {
           const d = drag.current;
@@ -259,7 +260,7 @@ export function VillageScene({ village }: { village: VillageView }) {
         onMouseLeave={() => { setHover(null); drag.current = null; }}
         onClick={(e) => { if (drag.current?.moved) return; const h = pick(e); if (h) openBuilding(h as BuildingId); }}
       />
-      {!baked && <div class="village-loading">{error ?? 'Dorp laden…'}</div>}
+      {!baked && <div class="village-loading">{error ?? tr('Dorp laden…')}</div>}
       {mode !== 'none' && labels.map((l) => {
         const built = l!.b.level > 0;
         if (mode === 'dots' && !built) return null;
@@ -267,9 +268,9 @@ export function VillageScene({ village }: { village: VillageView }) {
           <button
             key={l!.b.id}
             class={`village-label ${mode === 'dots' ? 'dot' : ''} ${built ? '' : 'unbuilt'} ${hover === l!.b.id ? 'hot' : ''}`}
-            aria-label={built ? `${l!.b.name} level ${l!.b.level}` : `${l!.b.name}: nog niet gebouwd`}
+            aria-label={built ? tr('{name} level {n}', { name: l!.b.name, n: l!.b.level }) : tr('{name}: nog niet gebouwd', { name: l!.b.name })}
             style={{ left: `${l!.x}%`, top: `${l!.y}%` }}
-            title={built ? `${l!.b.name} level ${l!.b.level}` : `${l!.b.name}: nog niet gebouwd`}
+            title={built ? tr('{name} level {n}', { name: l!.b.name, n: l!.b.level }) : tr('{name}: nog niet gebouwd', { name: l!.b.name })}
             onMouseEnter={() => setHover(l!.b.id)}
             onMouseLeave={() => setHover(null)}
             onClick={() => openBuilding(l!.b.id)}
@@ -279,16 +280,16 @@ export function VillageScene({ village }: { village: VillageView }) {
           </button>
         );
       })}
-      <div class="village-zoom" role="group" aria-label="Zoom">
-        <button onClick={() => zoomAt(0.5, 0.5, 1.4)} title="Inzoomen">+</button>
-        <button onClick={() => zoomAt(0.5, 0.5, 1 / 1.4)} title="Uitzoomen">−</button>
-        <button onClick={() => setView(HOME)} title="Heel dorp">⤢</button>
+      <div class="village-zoom" role="group" aria-label={tr('Zoom')}>
+        <button onClick={() => zoomAt(0.5, 0.5, 1.4)} title={tr('Inzoomen')}>+</button>
+        <button onClick={() => zoomAt(0.5, 0.5, 1 / 1.4)} title={tr('Uitzoomen')}>−</button>
+        <button onClick={() => setView(HOME)} title={tr('Heel dorp')}>⤢</button>
       </div>
-      <div class="village-light" role="group" aria-label="Licht">
-        <button class={light === 'day' ? 'on' : ''} onClick={() => setVillageLight('day')}>☀ Dag</button>
-        <button class={light === 'dusk' ? 'on' : ''} onClick={() => setVillageLight('dusk')}>☾ Schemer</button>
+      <div class="village-light" role="group" aria-label={tr('Licht')}>
+        <button class={light === 'day' ? 'on' : ''} onClick={() => setVillageLight('day')}>{tr('☀ Dag')}</button>
+        <button class={light === 'dusk' ? 'on' : ''} onClick={() => setVillageLight('dusk')}>{tr('☾ Schemer')}</button>
         {isMobile.value && (
-          <button onClick={() => setMode(NEXT_MODE[mode])} title="Wisselen tussen levels, volledige labels en geen labels">{MODE_TEXT[mode]}</button>
+          <button onClick={() => setMode(NEXT_MODE[mode])} title={tr('Wisselen tussen levels, volledige labels en geen labels')}>{tr(MODE_TEXT[mode])}</button>
         )}
       </div>
     </div>

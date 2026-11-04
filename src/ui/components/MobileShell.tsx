@@ -16,6 +16,7 @@ import { ResIcon } from './ResIcon';
 import { OrderChip } from './OrderPanel';
 import { groupBadge } from './Nav';
 import { stepVillage } from './VillageSwitcher';
+import { tr } from '../../shared/i18n';
 
 const open = (to: Screen) => { mobileSheet.value = null; screen.value = to; };
 
@@ -37,25 +38,25 @@ export function MobileTopBar() {
   return (
     <header class="m-top">
       <div class="m-row">
-        <button class="m-step" aria-label="Vorig dorp" disabled={!many} onClick={() => stepVillage(-1)}>‹</button>
+        <button class="m-step" aria-label={tr('Vorig dorp')} disabled={!many} onClick={() => stepVillage(-1)}>‹</button>
         <button class="m-vname" aria-haspopup="dialog" onClick={() => (mobileSheet.value = mobileSheet.value === 'villages' ? null : 'villages')}>
           <b>{v.name} <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 L5 6.5 L8 3.5" fill="none" stroke="currentColor" stroke-width="1.5" /></svg></b>
-          <small>{v.x}|{v.y} · {s.villages.findIndex((x) => x.id === v.id) + 1}/{s.villages.length} dorpen</small>
+          <small>{v.x}|{v.y} · {tr('{i}/{n} dorpen', { i: s.villages.findIndex((x) => x.id === v.id) + 1, n: s.villages.length })}</small>
         </button>
-        <button class="m-step" aria-label="Volgend dorp" disabled={!many} onClick={() => stepVillage(1)}>›</button>
-        <button class={`m-clock ${speedOpen ? 'open' : ''} ${s.paused ? 'paused' : ''}`} aria-label="Snelheid en pauze" aria-expanded={speedOpen} onClick={() => (mobileSheet.value = speedOpen ? null : 'speed')}>
+        <button class="m-step" aria-label={tr('Volgend dorp')} disabled={!many} onClick={() => stepVillage(1)}>›</button>
+        <button class={`m-clock ${speedOpen ? 'open' : ''} ${s.paused ? 'paused' : ''}`} aria-label={tr('Snelheid en pauze')} aria-expanded={speedOpen} onClick={() => (mobileSheet.value = speedOpen ? null : 'speed')}>
           {s.paused ? (
             <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="5" height="16" rx="1" fill="currentColor" /><rect x="14" y="4" width="5" height="16" rx="1" fill="currentColor" /></svg>
           ) : (
             <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l13-8z" fill="currentColor" /></svg>
           )}
-          <span><b>{formatGameTime(s.time).split(' · ')[0]} · {h}:{m}</b><small>{s.paused ? 'pauze' : `${s.speed}×`}</small></span>
+          <span><b>{formatGameTime(s.time).split(' · ')[0]} · {h}:{m}</b><small>{s.paused ? tr('pauze') : `${s.speed}×`}</small></span>
         </button>
       </div>
       <div class="m-res-row">
-        <Res kind="wood" value={v.res[0] ?? 0} sub="hout" full={(v.res[0] ?? 0) >= v.storage} />
-        <Res kind="stone" value={v.res[1] ?? 0} sub="leem" full={(v.res[1] ?? 0) >= v.storage} />
-        <Res kind="iron" value={v.res[2] ?? 0} sub="ijzer" full={(v.res[2] ?? 0) >= v.storage} />
+        <Res kind="wood" value={v.res[0] ?? 0} sub={tr('hout')} full={(v.res[0] ?? 0) >= v.storage} />
+        <Res kind="stone" value={v.res[1] ?? 0} sub={tr('leem')} full={(v.res[1] ?? 0) >= v.storage} />
+        <Res kind="iron" value={v.res[2] ?? 0} sub={tr('ijzer')} full={(v.res[2] ?? 0) >= v.storage} />
         <Res kind="pop" value={v.pop.used} sub={`/ ${num(v.pop.max)}`} full={v.pop.used >= v.pop.max} />
       </div>
     </header>
@@ -76,7 +77,7 @@ export function MobileStatus() {
       {inc.length > 0 && (
         <a href="#overview" class="m-incoming" onClick={(e) => { e.preventDefault(); open('overview'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 19 L19 5 M15 5 H19 V9" /><path d="M19 19 L5 5 M5 9 V5 H9" /></svg>
-          <span>{inc.length} {inc.length === 1 ? 'aanval' : 'aanvallen'} · eerste over {eta}</span>
+          <span>{inc.length === 1 ? tr('1 aanval · eerste over {eta}', { eta }) : tr('{n} aanvallen · eerste over {eta}', { n: inc.length, eta })}</span>
         </a>
       )}
       {order ? <OrderChip /> : null}
@@ -101,9 +102,9 @@ export function MobileNav() {
   const moreBadge = [...MORE_IDS.map((id) => GROUPS.find((g) => g.id === id)!), SETTINGS].map(groupBadge).filter(Boolean);
   const inBuilding = isMenuBuilding(screen.value);
   return (
-    <nav class="m-nav" aria-label="Hoofdmenu">
+    <nav class="m-nav" aria-label={tr('Hoofdmenu')}>
       {MOBILE_GROUPS.map((g) => (
-        <NavLink key={g.id} g={g} label={g.label} active={!inMore && (cur?.id === g.id || (g.id === 'dorp' && inBuilding))} onClick={() => open(visibleTabs(g, account.value?.admin ?? false, true)[0]!.screen)} />
+        <NavLink key={g.id} g={g} label={tr(g.label)} active={!inMore && (cur?.id === g.id || (g.id === 'dorp' && inBuilding))} onClick={() => open(visibleTabs(g, account.value?.admin ?? false, true)[0]!.screen)} />
       ))}
       <button class={`m-nav-item ${inMore || (cur && !MOBILE_GROUPS.includes(cur)) ? 'on' : ''}`} aria-expanded={inMore} onClick={() => (mobileSheet.value = inMore ? null : 'more')}>
         {inMore ? (
@@ -111,7 +112,7 @@ export function MobileNav() {
         ) : (
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7 H20 M4 12 H20 M4 17 H20" /></svg>
         )}
-        <span>{inMore ? 'Sluiten' : 'Meer'}</span>
+        <span>{inMore ? tr('Sluiten') : tr('Meer')}</span>
         {!inMore && moreBadge.length > 0 && <i class="m-badge good">{moreBadge.reduce((a, b) => a + b!.n, 0)}</i>}
       </button>
     </nav>
@@ -121,7 +122,7 @@ export function MobileNav() {
 function Sheet({ label, children, top = false }: { label: string; children: preact.ComponentChildren; top?: boolean }) {
   return (
     <>
-      <button class="m-scrim" aria-label="Sluiten" onClick={() => (mobileSheet.value = null)} />
+      <button class="m-scrim" aria-label={tr('Sluiten')} onClick={() => (mobileSheet.value = null)} />
       <section class={`m-sheet ${top ? 'top' : ''}`} role="dialog" aria-label={label}>
         {!top && <div class="m-grip" aria-hidden="true" />}
         {children}
@@ -134,20 +135,20 @@ function SpeedSheet() {
   const s = snapshot.value!;
   const music = musicSettings.value;
   return (
-    <Sheet label="Spelsnelheid" top>
+    <Sheet label={tr('Spelsnelheid')} top>
       <div class="m-sheet-head">
-        <h2>Spelsnelheid</h2>
+        <h2>{tr('Spelsnelheid')}</h2>
         <span class="muted mono">{formatGameTime(s.time)}</span>
       </div>
-      <button class="m-big primary" onClick={() => togglePause()}>{s.paused ? '▶ Start' : '❚❚ Pauze'}</button>
-      <div class="m-speeds" role="group" aria-label="Snelheid">
+      <button class="m-big primary" onClick={() => togglePause()}>{s.paused ? tr('▶ Start') : tr('❚❚ Pauze')}</button>
+      <div class="m-speeds" role="group" aria-label={tr('Snelheid')}>
         {SPEEDS.map((sp) => (
           <button key={sp} class={s.speed === sp ? 'on' : ''} aria-pressed={s.speed === sp} onClick={() => send({ type: 'setSpeed', speed: sp })}>{sp}×</button>
         ))}
       </div>
       <div class="m-two">
-        <button onClick={() => { send({ type: 'saveWorld' }); mobileSheet.value = null; }}>Opslaan</button>
-        <button onClick={() => setMusic({ muted: !music.muted })}>Muziek: {music.muted ? 'uit' : 'aan'}</button>
+        <button onClick={() => { send({ type: 'saveWorld' }); mobileSheet.value = null; }}>{tr('Opslaan')}</button>
+        <button onClick={() => setMusic({ muted: !music.muted })}>{music.muted ? tr('Muziek: uit') : tr('Muziek: aan')}</button>
       </div>
     </Sheet>
   );
@@ -158,22 +159,22 @@ function MoreSheet() {
   const groups = [...MORE_IDS.map((id) => GROUPS.find((g) => g.id === id)!), SETTINGS];
   const news = s.news[0];
   return (
-    <Sheet label="Meer">
+    <Sheet label={tr('Meer')}>
       <div class="m-tiles">
         {groups.map((g) => {
           const b = groupBadge(g);
           return (
             <button key={g.id} class="m-tile" onClick={() => open(visibleTabs(g, account.value?.admin ?? false, true)[0]!.screen)}>
               <NavIcon name={g.icon} size={24} />
-              <span>{g.label}</span>
+              <span>{tr(g.label)}</span>
               {b && <i class={`m-badge ${b.kind}`}>{b.n}</i>}
             </button>
           );
         })}
       </div>
       <div class="m-list">
-        <button onClick={() => { mobileSheet.value = null; openAccount(); }}><span>Account</span><small>{account.value?.email ?? 'niet ingelogd'} ›</small></button>
-        <button onClick={() => open('news')}><span>Nieuws</span><small>{news ? news.head : ''} ›</small></button>
+        <button onClick={() => { mobileSheet.value = null; openAccount(); }}><span>{tr('Account')}</span><small>{account.value?.email ?? tr('niet ingelogd')} ›</small></button>
+        <button onClick={() => open('news')}><span>{tr('Nieuws')}</span><small>{news ? news.head : ''} ›</small></button>
       </div>
     </Sheet>
   );
@@ -190,14 +191,14 @@ function VillageSheet() {
     .filter((v) => !g || v.groups.includes(g))
     .filter((v) => !needle || v.name.toLowerCase().includes(needle) || `${v.x}|${v.y}`.includes(needle));
   return (
-    <Sheet label="Dorp kiezen">
+    <Sheet label={tr('Dorp kiezen')}>
       <label class="m-search">
-        <span class="sr-only">Zoek een dorp</span>
-        <input type="search" placeholder="Zoek op naam of 515|479" value={q} onInput={(e) => setQ(e.currentTarget.value)} />
+        <span class="sr-only">{tr('Zoek een dorp')}</span>
+        <input type="search" placeholder={tr('Zoek op naam of 515|479')} value={q} onInput={(e) => setQ(e.currentTarget.value)} />
       </label>
       {s.groups.length > 0 && (
         <div class="m-chips">
-          <button class={!g ? 'on' : ''} onClick={() => setGroupFilter(null)}>Alle {s.villages.length}</button>
+          <button class={!g ? 'on' : ''} onClick={() => setGroupFilter(null)}>{tr('Alle {n}', { n: s.villages.length })}</button>
           {s.groups.map((x) => (
             <button key={x.id} class={g === x.id ? 'on' : ''} onClick={() => setGroupFilter(x.id)}>{x.name} {s.villages.filter((v) => v.groups.includes(x.id)).length}</button>
           ))}
@@ -209,11 +210,11 @@ function VillageSheet() {
           return (
             <button key={v.id} class={v.id === s.village?.id ? 'on' : ''} onClick={() => { send({ type: 'selectVillage', id: v.id }); mobileSheet.value = null; }}>
               <span><b>{v.name}</b><small>{v.x}|{v.y} · {num(v.points)} p</small></span>
-              {at !== undefined && <em>aanval over {Math.max(0, Math.round((at - s.time) / 60_000))} min</em>}
+              {at !== undefined && <em>{tr('aanval over {n} min', { n: Math.max(0, Math.round((at - s.time) / 60_000)) })}</em>}
             </button>
           );
         })}
-        {!list.length && <p class="muted">Geen dorp gevonden.</p>}
+        {!list.length && <p class="muted">{tr('Geen dorp gevonden.')}</p>}
       </div>
     </Sheet>
   );

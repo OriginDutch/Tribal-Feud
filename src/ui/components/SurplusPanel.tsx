@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { tr } from '../../shared/i18n';
 import { Coords } from './Coords';
 import { duration, num } from '../format';
 import { send, snapshot, surplusPlan } from '../store';
@@ -25,47 +26,45 @@ export function SurplusPanel() {
   const pct = Math.round(keep * 100);
   return (
     <section class="panel surplus">
-      <h3>Overschot naar bouwende dorpen</h3>
+      <h3>{tr('Overschot naar bouwende dorpen')}</h3>
       <div class="row wrap">
-        <label class="row" title="Elk dorp houdt dit deel van zijn opslag; alleen wat daarboven zit mag weg.">
-          Houd {pct}% van de opslag
+        <label class="row" title={tr('Elk dorp houdt dit deel van zijn opslag; alleen wat daarboven zit mag weg.')}>
+          {tr('Houd {pct}% van de opslag', { pct })}
           <input
             type="range" min={0} max={0.95} step={0.05} value={keep}
             onInput={(e) => setKeep(Number(e.currentTarget.value))}
             onChange={(e) => save(Number(e.currentTarget.value), s.surplus.auto)}
           />
         </label>
-        <label class="row" title="Doet dit vanzelf bij elke controle van de accountmanager.">
-          <input type="checkbox" checked={s.surplus.auto} onChange={(e) => save(keep, e.currentTarget.checked)} /> Automatisch
+        <label class="row" title={tr('Doet dit vanzelf bij elke controle van de accountmanager.')}>
+          <input type="checkbox" checked={s.surplus.auto} onChange={(e) => save(keep, e.currentTarget.checked)} /> {tr('Automatisch')}
         </label>
         <span style={{ flex: 1 }} />
         <Confirm
-          label={`Versturen${plan ? ` (${plan.length})` : ''}`}
-          sure={`Zeker? ${plan?.length ?? 0} zendingen`}
+          label={plan ? tr('Versturen ({n})', { n: plan.length }) : tr('Versturen')}
+          sure={tr('Zeker? {n} zendingen', { n: plan?.length ?? 0 })}
           disabled={!plan?.length}
           onConfirm={() => send({ type: 'sendSurplus', keep })}
         />
       </div>
       <p class="hint">
-        Alles boven {pct}% van de opslag gaat met vrije handelaren naar je dorpen die met de accountmanager aan het bouwen zijn en
-        grondstoffen tekortkomen (genoeg voor hun volgende twee gebouwen, min wat al onderweg is). Dichtstbijzijnde dorp eerst. Wat een
-        dorp zelf tekortkomt om te bouwen, geeft het niet weg.
+        {tr('Alles boven {pct}% van de opslag gaat met vrije handelaren naar je dorpen die met de accountmanager aan het bouwen zijn en grondstoffen tekortkomen (genoeg voor hun volgende twee gebouwen, min wat al onderweg is). Dichtstbijzijnde dorp eerst. Wat een dorp zelf tekortkomt om te bouwen, geeft het niet weg.', { pct })}
       </p>
       {plan === null ? (
-        <p class="muted">Berekenen…</p>
+        <p class="muted">{tr('Berekenen…')}</p>
       ) : plan.length === 0 ? (
-        <p class="muted">Nu niets te versturen: geen overschot boven {pct}%, geen vrije handelaren, of geen dorp dat bouwt en tekortkomt.</p>
+        <p class="muted">{tr('Nu niets te versturen: geen overschot boven {pct}%, geen vrije handelaren, of geen dorp dat bouwt en tekortkomt.', { pct })}</p>
       ) : (
         <table class="table compact">
           <thead>
             <tr>
-              <th>Van</th>
-              <th>Naar</th>
-              <th class="right">Hout</th>
-              <th class="right">Leem</th>
-              <th class="right">IJzer</th>
-              <th class="right">Handelaren</th>
-              <th class="right">Onderweg</th>
+              <th>{tr('Van')}</th>
+              <th>{tr('Naar')}</th>
+              <th class="right">{tr('Hout')}</th>
+              <th class="right">{tr('Leem')}</th>
+              <th class="right">{tr('IJzer')}</th>
+              <th class="right">{tr('Handelaren')}</th>
+              <th class="right">{tr('Onderweg')}</th>
             </tr>
           </thead>
           <tbody>
@@ -81,7 +80,7 @@ export function SurplusPanel() {
               </tr>
             ))}
             <tr class="total-row">
-              <td colSpan={2}><strong>Totaal</strong></td>
+              <td colSpan={2}><strong>{tr('Totaal')}</strong></td>
               <td class="right mono"><strong>{num(total[0])}</strong></td>
               <td class="right mono"><strong>{num(total[1])}</strong></td>
               <td class="right mono"><strong>{num(total[2])}</strong></td>

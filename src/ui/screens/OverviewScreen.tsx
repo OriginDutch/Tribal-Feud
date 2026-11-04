@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n';
 import { formatGameTime } from '../../shared/time';
 import { Coords } from '../components/Coords';
 import { UnitIcon } from '../units/UnitIcon';
@@ -20,38 +21,37 @@ export function OverviewScreen() {
 
   return (
     <div class="screen wide">
-      <h2 class="sr-only">Dorpsoverzicht</h2>
+      <h2 class="sr-only">{tr('Dorpsoverzicht')}</h2>
       <IncomingPanel />
-      {v.loyalty < 100 && <p class="warn">Toestemming van dit dorp: {v.loyalty}</p>}
+      {v.loyalty < 100 && <p class="warn">{tr('Toestemming van dit dorp: {n}', { n: v.loyalty })}</p>}
       {s.time < s.protectionEndsAt && (
-        <p class="muted">Beginnersbescherming tot {formatGameTime(s.protectionEndsAt)}: niemand kan jou aanvallen, en jij hen niet.</p>
+        <p class="muted">{tr('Beginnersbescherming tot {time}: niemand kan jou aanvallen, en jij hen niet.', { time: formatGameTime(s.protectionEndsAt) })}</p>
       )}
       <div class="ov-layout">
       <div class="ov-main">
       <VillageScene village={v} />
       <p class="muted">
-        Wereld: snelheid ×{s.multipliers.world} · productie ×{s.multipliers.production} · bouwen ×{s.multipliers.build} ·
-        rekruteren ×{s.multipliers.recruit}
-        {s.multipliers.farm !== 1 && <> · bevolking ×{s.multipliers.farm.toLocaleString('nl-NL')}</>}
+        {tr('Wereld: snelheid ×{world} · productie ×{production} · bouwen ×{build} · rekruteren ×{recruit}', { world: s.multipliers.world, production: s.multipliers.production, build: s.multipliers.build, recruit: s.multipliers.recruit })}
+        {s.multipliers.farm !== 1 && <> · {tr('bevolking ×{n}', { n: s.multipliers.farm })}</>}
       </p>
       </div>
       <div class="grid ov-side">
         <section class="panel">
-          <h3>Productie per uur</h3>
+          <h3>{tr('Productie per uur')}</h3>
           <table class="table compact">
             <tbody>
               {v.rates.map((r, i) => (
                 <tr key={i}>
-                  <td>{names[i]}</td>
+                  <td>{tr(names[i]!)}</td>
                   <td class="right mono">{num(r)}</td>
                 </tr>
               ))}
               <tr>
-                <td>Opslag</td>
+                <td>{tr('Opslag')}</td>
                 <td class="right mono">{num(v.storage)}</td>
               </tr>
               <tr>
-                <td>Verborgen in schuilplaats</td>
+                <td>{tr('Verborgen in schuilplaats')}</td>
                 <td class="right mono">{num(v.hide)}</td>
               </tr>
             </tbody>
@@ -59,14 +59,14 @@ export function OverviewScreen() {
         </section>
 
         <section class="panel">
-          <h3>Gebouwen</h3>
+          <h3>{tr('Gebouwen')}</h3>
           <table class="table compact">
             <tbody>
               {built.map((b) => (
                 <tr key={b.id}>
                   <td>
                     {b.name}
-                    {!b.operational && <span class="warn"> · werkt niet</span>}
+                    {!b.operational && <span class="warn"> · {tr('werkt niet')}</span>}
                   </td>
                   <td class="right mono">{b.level}</td>
                 </tr>
@@ -76,7 +76,7 @@ export function OverviewScreen() {
         </section>
 
         <section class="panel">
-          <h3>Troepen</h3>
+          <h3>{tr('Troepen')}</h3>
           {(() => {
             // own troops: at home, away (on the move, scavenging, support elsewhere), total; support standing here apart
             const support: Partial<Record<UnitId, number>> = {};
@@ -85,10 +85,10 @@ export function OverviewScreen() {
             const ids = UNIT_IDS.filter((u) => (view(u)?.home ?? 0) + (view(u)?.away.total ?? 0) > 0 || (support[u] ?? 0) > 0);
             const hasSupport = v.supportHere.length > 0;
             const hasAway = ids.some((u) => (view(u)?.away.total ?? 0) > 0);
-            if (!ids.length) return <p class="muted">Nog geen troepen.</p>;
+            if (!ids.length) return <p class="muted">{tr('Nog geen troepen.')}</p>;
             const awayTitle = (u: UnitId) => {
               const a = view(u)!.away;
-              const parts = [a.moving && `${num(a.moving)} onderweg`, a.scavenging && `${num(a.scavenging)} op rooftocht`, a.support && `${num(a.support)} als steun elders`].filter(Boolean);
+              const parts = [a.moving && tr('{n} onderweg', { n: num(a.moving) }), a.scavenging && tr('{n} op rooftocht', { n: num(a.scavenging) }), a.support && tr('{n} als steun elders', { n: num(a.support) })].filter(Boolean);
               return parts.join(' · ');
             };
             return (
@@ -97,10 +97,10 @@ export function OverviewScreen() {
                   <thead>
                     <tr>
                       <th />
-                      <th class="right">Thuis</th>
-                      {hasAway && <th class="right">Buiten</th>}
-                      <th class="right">Totaal</th>
-                      {hasSupport && <th class="right" title="Troepen van anderen die hier als steun staan">Steun hier</th>}
+                      <th class="right">{tr('Thuis')}</th>
+                      {hasAway && <th class="right">{tr('Buiten')}</th>}
+                      <th class="right">{tr('Totaal')}</th>
+                      {hasSupport && <th class="right" title={tr('Troepen van anderen die hier als steun staan')}>{tr('Steun hier')}</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -111,7 +111,7 @@ export function OverviewScreen() {
                         <tr key={u}>
                           <td>
                             <span class="unit-name">
-                              <UnitIcon id={u} size={20} /> {x.name ?? UNIT_SHORT[u]}
+                              <UnitIcon id={u} size={20} /> {x.name ?? tr(UNIT_SHORT[u])}
                             </span>
                           </td>
                           <td class="right mono">{num(x.home)}</td>
@@ -127,7 +127,7 @@ export function OverviewScreen() {
                   <ul class="support-from">
                     {v.supportHere.map((x) => (
                       <li key={x.origin.id}>
-                        <span class="muted">Steun van</span> {x.origin.name} <Coords x={x.origin.x} y={x.origin.y} />
+                        <span class="muted">{tr('Steun van')}</span> {x.origin.name} <Coords x={x.origin.x} y={x.origin.y} />
                         {!s.villages.some((o) => o.id === x.origin.id) && <span class="muted"> · {x.origin.ownerName}</span>}
                         <div class="muted small-text">{unitsText(x.units)}</div>
                       </li>
@@ -141,37 +141,37 @@ export function OverviewScreen() {
 
         <div class="ov-stack">
           <section class="panel">
-            <h3>Bouwen</h3>
+            <h3>{tr('Bouwen')}</h3>
             {v.buildQueue.length === 0 ? (
-              <p class="muted">Niets in aanbouw.</p>
+              <p class="muted">{tr('Niets in aanbouw.')}</p>
             ) : (
               <ul class="plain">
                 {v.buildQueue.map((job) => (
                   <li key={job.id}>
                     <button class="link" onClick={() => (screen.value = 'main')}>
-                      {job.demolish ? 'Afbreken: ' : ''}
+                      {job.demolish ? tr('Afbreken:') + ' ' : ''}
                       {job.name} → {job.level}
                     </button>{' '}
-                    <span class="mono muted">klaar over {duration(job.end - s.time)}</span>
+                    <span class="mono muted">{tr('klaar over {time}', { time: duration(job.end - s.time) })}</span>
                   </li>
                 ))}
               </ul>
             )}
           </section>
           <section class="panel">
-            <h3>Rekruteren</h3>
+            <h3>{tr('Rekruteren')}</h3>
             {recruiting.length === 0 && !v.research ? (
-              <p class="muted">Niets in opleiding.</p>
+              <p class="muted">{tr('Niets in opleiding.')}</p>
             ) : (
               <ul class="plain">
                 {recruiting.map((job) => (
                   <li key={job.id}>
-                    {job.total - job.done}× {job.name} <span class="mono muted">klaar over {duration(job.end - s.time)}</span>
+                    {job.total - job.done}× {job.name} <span class="mono muted">{tr('klaar over {time}', { time: duration(job.end - s.time) })}</span>
                   </li>
                 ))}
                 {v.research && (
                   <li>
-                    Ontwikkelen: {v.research.name} <span class="mono muted">{duration(v.research.end - s.time)}</span>
+                    {tr('Ontwikkelen:')} {v.research.name} <span class="mono muted">{duration(v.research.end - s.time)}</span>
                   </li>
                 )}
               </ul>

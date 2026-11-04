@@ -5,13 +5,15 @@ import { attackVillage, openSupport, screen, send, snapshot } from '../store';
 import { Coords } from './Coords';
 import { Confirm } from './Confirm';
 import { PlayerLink } from './PlayerLink';
+import { tr } from '../../shared/i18n';
+import { trx } from '../i18n';
 
 /** What your leader wants, in his words: the target, the deadline and what counts. */
 function what(o: LeaderOrderView): string {
-  if (o.order === 'support') return 'Stuur verdediging naar';
-  if (o.order === 'scout') return 'Verken';
-  if (o.nobles) return 'Breng de edels naar';
-  return o.landAt !== undefined ? 'Gezamenlijke aanval op' : 'Val aan:';
+  if (o.order === 'support') return tr('Stuur verdediging naar');
+  if (o.order === 'scout') return tr('Verken');
+  if (o.nobles) return tr('Breng de edels naar');
+  return o.landAt !== undefined ? tr('Gezamenlijke aanval op') : tr('Val aan:');
 }
 
 /** Your orders from your bot leader: the normal one and the scout orders beside it. */
@@ -32,104 +34,115 @@ function OneOrder({ o }: { o: LeaderOrderView }) {
   return (
     <div class="order-panel" data-order>
       <div class="row wrap" style={{ gap: '8px', alignItems: 'baseline' }}>
-        <strong class="order-kicker">{o.status === 'open' ? 'Nieuwe opdracht' : 'Je opdracht'}</strong>
+        <strong class="order-kicker">{o.status === 'open' ? tr('Nieuwe opdracht') : tr('Je opdracht')}</strong>
         <span>
           {what(o)} <strong>{o.target.name}</strong> <Coords x={o.target.x} y={o.target.y} />
-          {o.target.owner >= 0 && <> van <PlayerLink id={o.target.owner} name={o.target.ownerName} /></>}
+          {o.target.owner >= 0 && <> {trx('van {player}', { player: <PlayerLink id={o.target.owner} name={o.target.ownerName} /> })}</>}
         </span>
-        <span class="muted">· van {o.from}</span>
+        <span class="muted">{tr('· van {name}', { name: o.from })}</span>
       </div>
       <ul class="order-facts">
         {o.nobles && o.landAt !== undefined ? (
           <li>
-            Edeltrein laten landen om <strong class="mono">{formatGameTime(o.landAt)}</strong> (over {duration(o.landAt - s.time)}), 30 seconden na de legers. Minstens{' '}
-            <strong>{o.nobles.min} edels</strong>; je trein deel je zelf in in de verzamelplaats (sjablonen werken gewoon). Telt zodra er een edel landt. Gaat een leger van de stam niet, dan
-            vertrekt je ingeplande trein niet en telt het niet tegen je.
+            {trx('Edeltrein laten landen om {time} (over {left}), 30 seconden na de legers. Minstens {min}; je trein deel je zelf in in de verzamelplaats (sjablonen werken gewoon). Telt zodra er een edel landt. Gaat een leger van de stam niet, dan vertrekt je ingeplande trein niet en telt het niet tegen je.', {
+              time: <strong class="mono">{formatGameTime(o.landAt)}</strong>,
+              left: duration(o.landAt - s.time),
+              min: <strong>{tr('{n} edels', { n: o.nobles.min })}</strong>,
+            })}
           </li>
         ) : o.landAt !== undefined ? (
           <li>
-            Landen om <strong class="mono">{formatGameTime(o.landAt)}</strong> (over {duration(o.landAt - s.time)}), samen met de anderen; de edels komen er direct
-            achteraan.
+            {trx('Landen om {time} (over {left}), samen met de anderen; de edels komen er direct achteraan.', {
+              time: <strong class="mono">{formatGameTime(o.landAt)}</strong>,
+              left: duration(o.landAt - s.time),
+            })}
           </li>
         ) : (
           <li>
-            Uiterlijk <strong class="mono">{formatGameTime(o.until)}</strong> geland{' '}
-            <span class={left < 2 * 3600_000 ? 'warn' : 'muted'}>(nog {duration(left)})</span>
+            {trx('Uiterlijk {time} geland {left}', {
+              time: <strong class="mono">{formatGameTime(o.until)}</strong>,
+              left: <span class={left < 2 * 3600_000 ? 'warn' : 'muted'}>{tr('(nog {t})', { t: duration(left) })}</span>,
+            })}
           </li>
         )}
         {o.order === 'scout' && (
           <li>
-            Telt zodra je verkenners erdoorheen komen{o.minSpies ? <> — de vorige {num(o.minSpies)} sneuvelden, stuur er dus <strong>meer dan {num(o.minSpies * 2)}</strong></> : ''}. Wat je ziet, weet de stam: daarmee plant je leider de aanval.
+            {o.minSpies
+              ? trx('Telt zodra je verkenners erdoorheen komen — de vorige {n} sneuvelden, stuur er dus {more}. Wat je ziet, weet de stam: daarmee plant je leider de aanval.', {
+                  n: num(o.minSpies),
+                  more: <strong>{tr('meer dan {n}', { n: num(o.minSpies * 2) })}</strong>,
+                })
+              : tr('Telt zodra je verkenners erdoorheen komen. Wat je ziet, weet de stam: daarmee plant je leider de aanval.')}
           </li>
         )}
         {o.minAttack !== undefined && (
           <li>
-            Telt bij minstens <strong>{num(o.minAttack)}</strong> aanvalskracht in één aanval (verkenners tellen niet), en pas als hij landt: terugroepen = niet gedaan.
+            {trx('Telt bij minstens {n} aanvalskracht in één aanval (verkenners tellen niet), en pas als hij landt: terugroepen = niet gedaan.', { n: <strong>{num(o.minAttack)}</strong> })}
           </li>
         )}
-        {o.order === 'scout' ? (o.underway.length > 0 && <li class="good">Verkenners onderweg, landen {o.underway.map((m) => formatGameTime(m.arrives)).join(' · ')}</li>) : sent.length > 0 ? (
+        {o.order === 'scout' ? (o.underway.length > 0 && <li class="good">{tr('Verkenners onderweg, landen {times}', { times: o.underway.map((m) => formatGameTime(m.arrives)).join(' · ') })}</li>) : sent.length > 0 ? (
           <li class="good">
-            Onderweg: {sent.map((m) => (o.nobles ? `${num(m.nobles)} edel, landt ${formatGameTime(m.arrives)}` : `${num(m.attack)} aanval, landt ${formatGameTime(m.arrives)}`)).join(' · ')} ✓
+            {tr('Onderweg: {list}', { list: sent.map((m) => (o.nobles ? tr('{n} edel, landt {time}', { n: num(m.nobles), time: formatGameTime(m.arrives) }) : tr('{n} aanval, landt {time}', { n: num(m.attack), time: formatGameTime(m.arrives) }))).join(' · ') })} ✓
           </li>
         ) : o.underway.length > 0 ? (
           <li class="warn">
-            Onderweg, maar telt niet: {o.underway.map((m) => `${num(m.attack)} aanval${!enough(m.attack) ? ' (te klein)' : ''}${m.arrives > o.until ? ' (te laat)' : ''}`).join(' · ')}
+            {tr('Onderweg, maar telt niet: {list}', { list: o.underway.map((m) => `${tr('{n} aanval', { n: num(m.attack) })}${!enough(m.attack) ? ` ${tr('(te klein)')}` : ''}${m.arrives > o.until ? ` ${tr('(te laat)')}` : ''}`).join(' · ') })}
           </li>
         ) : null}
         {o.order === 'scout' && !o.underway.length && o.best?.spies !== undefined && (
-          <li>Je meeste verkenners: {o.best.name} met {num(o.best.spies)}, landt bij nu versturen om {formatGameTime(o.best.arrives)}</li>
+          <li>{tr('Je meeste verkenners: {name} met {n}, landt bij nu versturen om {time}', { name: o.best.name, n: num(o.best.spies), time: formatGameTime(o.best.arrives) })}</li>
         )}
         {(o.planned ?? []).length > 0 && (
           <li class={o.planned.some((p) => (o.order === 'scout' ? p.spies > 0 : enough(p.attack)) && p.landAt <= o.until) ? 'good' : 'warn'}>
-            Ingepland: {o.planned.map((p) => `${o.order === 'scout' ? `${num(p.spies)} verkenners` : `${num(p.attack)} aanval`}, landt ${formatGameTime(p.landAt)}`).join(' · ')} ⏱
+            {tr('Ingepland: {list}', { list: o.planned.map((p) => (o.order === 'scout' ? tr('{n} verkenners, landt {time}', { n: num(p.spies), time: formatGameTime(p.landAt) }) : tr('{n} aanval, landt {time}', { n: num(p.attack), time: formatGameTime(p.landAt) }))).join(' · ') })} ⏱
           </li>
         )}
         {o.nobles && !sent.length && !(o.planned ?? []).length && (
           o.best?.nobles ? (
             <li class={o.best.nobles >= o.nobles.min && o.landAt !== undefined && o.best.arrives <= o.landAt ? '' : 'warn'}>
-              Je meeste edels: {o.best.name} met {num(o.best.nobles)}, landt bij nu versturen om {formatGameTime(o.best.arrives)}
-              {o.best.nobles < o.nobles.min ? ' · te weinig voor een trein' : o.landAt !== undefined && o.best.arrives > o.landAt ? ' · te laat' : ' ✓'}
+              {tr('Je meeste edels: {name} met {n}, landt bij nu versturen om {time}', { name: o.best.name, n: num(o.best.nobles), time: formatGameTime(o.best.arrives) })}
+              {o.best.nobles < o.nobles.min ? ` · ${tr('te weinig voor een trein')}` : o.landAt !== undefined && o.best.arrives > o.landAt ? ` · ${tr('te laat')}` : ' ✓'}
             </li>
           ) : (
-            <li class="warn">Je hebt geen vrije edels binnen bereik.</li>
+            <li class="warn">{tr('Je hebt geen vrije edels binnen bereik.')}</li>
           )
         )}
         {o.order === 'attack' && !o.nobles && !sent.length && !(o.planned ?? []).length && (
           o.best ? (
             <li class={bestOk ? '' : 'warn'}>
-              Je sterkste dorp: {o.best.name} met {num(o.best.attack)} aanval thuis, landt bij nu versturen om {formatGameTime(o.best.arrives)}{' '}
-              {bestOk ? '✓' : !enough(o.best.attack) ? '· te weinig' : '· te laat'}
+              {tr('Je sterkste dorp: {name} met {n} aanval thuis, landt bij nu versturen om {time}', { name: o.best.name, n: num(o.best.attack), time: formatGameTime(o.best.arrives) })}{' '}
+              {bestOk ? '✓' : !enough(o.best.attack) ? `· ${tr('te weinig')}` : `· ${tr('te laat')}`}
             </li>
           ) : (
-            <li class="warn">Je hebt nu geen aanvallende troepen thuis.</li>
+            <li class="warn">{tr('Je hebt nu geen aanvallende troepen thuis.')}</li>
           )
         )}
-        {o.status === 'accepted' && <li class="muted">Gedaan: +6 aanzien bij je leider. Niet op tijd: {o.order === 'scout' ? '−4' : '−8, meer dan een nee had gekost'}.</li>}
+        {o.status === 'accepted' && <li class="muted">{tr('Gedaan: +6 aanzien bij je leider. Niet op tijd: {penalty}.', { penalty: o.order === 'scout' ? '−4' : tr('−8, meer dan een nee had gekost') })}</li>}
       </ul>
       <div class="row wrap" style={{ gap: '8px' }}>
         {o.status === 'open' && o.message !== undefined && (
           <>
-            <button class="small primary" onClick={() => send({ type: 'inboxAnswer', id: o.message!, accept: true })}>Ja, doe ik</button>
-            <button class="small" onClick={() => send({ type: 'inboxAnswer', id: o.message!, accept: false })}>Nee</button>
+            <button class="small primary" onClick={() => send({ type: 'inboxAnswer', id: o.message!, accept: true })}>{tr('Ja, doe ik')}</button>
+            <button class="small" onClick={() => send({ type: 'inboxAnswer', id: o.message!, accept: false })}>{tr('Nee')}</button>
           </>
         )}
         {o.order === 'attack' && !o.nobles && o.landAt !== undefined && o.status === 'accepted' && o.best && enough(o.best.attack) && o.best.arrives <= o.landAt && !sent.length && !(o.planned ?? []).length && (
           <button
             class="small primary"
-            title="Je vrije aanvallende troepen in dat dorp vertrekken vanzelf, zodat ze precies om de landingstijd aankomen. Tot dan blijven ze thuis."
+            title={tr('Je vrije aanvallende troepen in dat dorp vertrekken vanzelf, zodat ze precies om de landingstijd aankomen. Tot dan blijven ze thuis.')}
             onClick={() => send({ type: 'planOrder', from: o.best!.id, to: o.target.id, landAt: o.landAt! })}
           >
-            ⏱ Inplannen vanuit {o.best.name}
+            ⏱ {tr('Inplannen vanuit {name}', { name: o.best.name })}
           </button>
         )}
         {o.nobles && o.nobles.giveTo.length > 0 && o.status === 'accepted' && !sent.length &&
           o.nobles.giveTo.slice(0, 3).map((g) => (
-            <Confirm key={g.id} label={`Geef aan ${g.name} (${g.d} velden)`} sure={`De edels aan ${g.name} geven? Je ingeplande edeltrein naar dit doel vervalt.`} onConfirm={() => send({ type: 'giveNobles', op: o.nobles!.op, to: g.id })} />
+            <Confirm key={g.id} label={tr('Geef aan {name} ({d} velden)', { name: g.name, d: g.d })} sure={tr('De edels aan {name} geven? Je ingeplande edeltrein naar dit doel vervalt.', { name: g.name })} onConfirm={() => send({ type: 'giveNobles', op: o.nobles!.op, to: g.id })} />
           ))}
         {o.order !== 'support' ? (
-          <button class="small" onClick={() => attackVillage(o.target.x, o.target.y, o.landAt)}>Naar verzamelplaats</button>
+          <button class="small" onClick={() => attackVillage(o.target.x, o.target.y, o.landAt)}>{tr('Naar verzamelplaats')}</button>
         ) : (
-          <button class="small" onClick={() => openSupport(o.target.id, o.until)}>Support plannen</button>
+          <button class="small" onClick={() => openSupport(o.target.id, o.until)}>{tr('Support plannen')}</button>
         )}
       </div>
     </div>
@@ -149,9 +162,12 @@ export function OrderChip() {
       class={`order-chip ${all.some((x) => x.status === 'open') ? 'open' : ''}`}
       data-order-chip
       onClick={() => (screen.value = 'tribes')}
-      title={`${o.status === 'open' ? 'Nieuwe opdracht' : 'Opdracht'} van ${o.from}: ${o.order === 'attack' ? 'val' : o.order === 'scout' ? 'verken' : 'support naar'} ${o.target.name} (${o.target.x}|${o.target.y})${o.order === 'attack' ? ' aan' : ''}`}
+      title={(() => {
+        const p = { kind: o.status === 'open' ? tr('Nieuwe opdracht') : tr('Opdracht|bevel'), from: o.from, target: `${o.target.name} (${o.target.x}|${o.target.y})` };
+        return o.order === 'attack' ? tr('{kind} van {from}: val {target} aan', p) : o.order === 'scout' ? tr('{kind} van {from}: verken {target}', p) : tr('{kind} van {from}: support naar {target}', p);
+      })()}
     >
-      <span aria-hidden="true">⚑</span> {all.some((x) => x.status === 'open') ? 'Opdracht' : duration(at - s.time)}{more}
+      <span aria-hidden="true">⚑</span> {all.some((x) => x.status === 'open') ? tr('Opdracht|bevel') : duration(at - s.time)}{more}
     </button>
   );
 }

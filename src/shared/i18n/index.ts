@@ -8,6 +8,9 @@
  * - Text the simulation shows once (notices, errors, the log): `tr(...)` in the worker, in the language
  *   the tab told it (setLang).
  *
+ * Same Dutch, different meaning: add a context after a bar, `tr('Opdracht|bevel')` (an order) next to
+ * `tr('Opdracht')` (a quest). Dutch shows the part before the bar.
+ *
  * Dictionaries live in ./en/*.ts (Dutch -> English) and are added in ./en/index.ts.
  * `npm run i18n:check` lists keys that have no English yet.
  */
@@ -50,9 +53,11 @@ function fill(s: string, p?: Params): string {
 
 /** The interface text for a Dutch key, in the current language. */
 export function tr(nl: string, p?: Params): string {
-  const t = lang.value === 'nl' ? nl : (en[nl] ?? nl);
+  const t = (lang.value === 'nl' ? undefined : en[nl]) ?? plainKey(nl);
   return fill(t, p);
 }
+/** A key without its context ('Opdracht|bevel' -> 'Opdracht'). */
+const plainKey = (k: string) => { const i = k.indexOf('|'); return i < 0 ? k : k.slice(0, i); };
 
 /** Text to keep (inbox, news): the Dutch template and its values, translated when shown. */
 export function T(nl: string, p?: Params): Txt {

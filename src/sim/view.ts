@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n';
 /**
  * Read-only views for the UI. Computed in the worker, sent in snapshots.
  * The UI never computes game rules itself: it only shows what is in here.
@@ -202,7 +203,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
         : null;
     return {
       id: b,
-      name: def.name,
+      name: tr(def.name),
       level: v.buildings[b],
       planned,
       maxLevel: def.maxLevel,
@@ -235,7 +236,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
     const support = Math.min(total - scavenging, supportAway[u] ?? 0);
     return {
       id: u,
-      name: def.name,
+      name: tr(def.name),
       building: def.building,
       enabled: isUnitEnabled(config, u),
       home: v.units[u],
@@ -286,7 +287,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
     recruitQueues[b] = v.recruitQueues[b].map((job) => ({
       id: job.id,
       unit: job.unit,
-      name: config.units[job.unit].name,
+      name: tr(config.units[job.unit].name),
       total: job.total,
       done: job.done,
       nextAt: job.nextAt,
@@ -312,7 +313,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
     buildQueue: v.buildQueue.map((j) => ({
       id: j.id,
       building: j.building,
-      name: config.buildings[j.building].name,
+      name: tr(config.buildings[j.building].name),
       level: j.level,
       start: j.start,
       end: j.end,
@@ -320,7 +321,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
     })),
     units,
     recruitQueues,
-    research: v.research ? { unit: v.research.unit, name: config.units[v.research.unit].name, end: v.research.end } : null,
+    research: v.research ? { unit: v.research.unit, name: tr(config.units[v.research.unit].name), end: v.research.end } : null,
     buildQueueSlots: config.village.buildQueueSlots,
     loyalty: Math.floor(loyaltyNow(config, v, state.time)),
     nobles: (() => {
@@ -354,7 +355,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
 }
 
 function brief(state: WorldState, v: Village): SupportView['origin'] {
-  const owner = v.owner < 0 ? 'Barbaren' : (state.players[v.owner]?.name ?? '?');
+  const owner = v.owner < 0 ? tr('Barbaren') : (state.players[v.owner]?.name ?? '?');
   return { id: v.id, name: v.name, x: v.x, y: v.y, ownerName: owner };
 }
 

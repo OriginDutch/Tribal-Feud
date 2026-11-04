@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useSaved } from '../useSaved';
+import { tr } from '../../shared/i18n';
 import { CATAPULT_TARGETS, DEFAULT_BUILDINGS, UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../../shared/gameData';
 import { num } from '../format';
 import { send, simPrefill, simResult, snapshot } from '../store';
@@ -65,19 +66,19 @@ export function SimulatorScreen() {
 
   return (
     <div class="screen">
-      <h2>Gevechtssimulator</h2>
+      <h2>{tr('Gevechtssimulator')}</h2>
       <div class="sim-layout">
         <section class="panel">
           <div class="row wrap">
-            <button class="small" onClick={() => setAtt(toStrings(Object.fromEntries((s.village?.units ?? []).filter((u) => u.home > 0).map((u) => [u.id, u.home])) as UnitCounts))}>Troepen van dit dorp als aanvaller</button>
-            <button class="small" onClick={() => { setAtt({}); setDef({}); }}>Leegmaken</button>
+            <button class="small" onClick={() => setAtt(toStrings(Object.fromEntries((s.village?.units ?? []).filter((u) => u.home > 0).map((u) => [u.id, u.home])) as UnitCounts))}>{tr('Troepen van dit dorp als aanvaller')}</button>
+            <button class="small" onClick={() => { setAtt({}); setDef({}); }}>{tr('Leegmaken')}</button>
           </div>
           <table class="table compact">
-            <thead><tr><th>Eenheid</th><th class="right">Aanvaller</th><th class="right">Verdediger</th><th class="right">Verlies aanv.</th><th class="right">Verlies verd.</th><th class="right">Over aanv.</th><th class="right">Over verd.</th></tr></thead>
+            <thead><tr><th>{tr('Eenheid')}</th><th class="right">{tr('Aanvaller')}</th><th class="right">{tr('Verdediger')}</th><th class="right">{tr('Verlies aanv.')}</th><th class="right">{tr('Verlies verd.')}</th><th class="right">{tr('Over aanv.')}</th><th class="right">{tr('Over verd.')}</th></tr></thead>
             <tbody>
               {enabled.map((u) => (
                 <tr key={u}>
-                  <td class="nowrap"><UnitIcon id={u} size={18} /> {UNIT_SHORT[u]}</td>
+                  <td class="nowrap"><UnitIcon id={u} size={18} /> {tr(UNIT_SHORT[u])}</td>
                   <td class="right"><input type="number" min={0} value={att[u] ?? ''} placeholder="0" onInput={(e) => setAtt({ ...att, [u]: e.currentTarget.value })} /></td>
                   <td class="right"><input type="number" min={0} value={def[u] ?? ''} placeholder="0" onInput={(e) => setDef({ ...def, [u]: e.currentTarget.value })} /></td>
                   <td class="right mono bad">{r?.attackerLost[u] ? num(r.attackerLost[u]!) : ''}</td>
@@ -90,33 +91,33 @@ export function SimulatorScreen() {
           </table>
         </section>
         <section class="panel sim-knobs">
-          <h3>Omstandigheden</h3>
-          <label>Muur <input type="number" min={0} max={20} value={wall} onInput={(e) => setWall(e.currentTarget.value)} /></label>
-          <label>Moraal % <input type="number" min={30} max={100} value={morale} onInput={(e) => setMorale(e.currentTarget.value)} /></label>
-          <label>Geluk % <input type="number" min={-25} max={25} value={luck} onInput={(e) => setLuck(e.currentTarget.value)} /></label>
+          <h3>{tr('Omstandigheden')}</h3>
+          <label>{tr('Muur')} <input type="number" min={0} max={20} value={wall} onInput={(e) => setWall(e.currentTarget.value)} /></label>
+          <label>{tr('Moraal')} % <input type="number" min={30} max={100} value={morale} onInput={(e) => setMorale(e.currentTarget.value)} /></label>
+          <label>{tr('Geluk')} % <input type="number" min={-25} max={25} value={luck} onInput={(e) => setLuck(e.currentTarget.value)} /></label>
           {(input.attacker.catapult ?? 0) > 0 && (
             <label>
-              Katapulten op
+              {tr('Katapulten op')}
               <select value={cat} onChange={(e) => setCat(e.currentTarget.value as BuildingId)}>
-                {CATAPULT_TARGETS.map((b) => <option key={b} value={String(b)}>{DEFAULT_BUILDINGS[b].name}</option>)}
+                {CATAPULT_TARGETS.map((b) => <option key={b} value={String(b)}>{tr(DEFAULT_BUILDINGS[b].name)}</option>)}
               </select>
-              level <input type="number" min={0} max={30} value={catLevel} onInput={(e) => setCatLevel(e.currentTarget.value)} />
+              {tr('level')} <input type="number" min={0} max={30} value={catLevel} onInput={(e) => setCatLevel(e.currentTarget.value)} />
             </label>
           )}
-          <h3>Bonussen</h3>
-          <label title="Geloof (50 = zonder kerk), vlag aanvalskracht (bv. 104)">Aanvaller kracht % <input type="number" min={1} value={attPct} onInput={(e) => setAttPct(e.currentTarget.value)} /></label>
-          <label title="Geloof, vlag verdedigingskracht, nachtbonus (200)">Verdediger kracht % <input type="number" min={1} value={defPct} onInput={(e) => setDefPct(e.currentTarget.value)} /></label>
-          <label>Item aanvaller <select value={attItem} onChange={(e) => setAttItem(e.currentTarget.value)}>{ITEM_OPTIONS.map(([v, l]) => <option key={v} value={String(v)}>{l}</option>)}</select></label>
-          <label>Item verdediger <select value={defItem} onChange={(e) => setDefItem(e.currentTarget.value)}>{ITEM_OPTIONS.filter(([v]) => v !== 'morningstar').map(([v, l]) => <option key={v} value={String(v)}>{l}</option>)}</select></label>
-          {levelsWorld && <label class="row"><input type="checkbox" checked={tech} onChange={(e) => setTech(e.currentTarget.checked)} /> Researchlevels van dit dorp voor de aanvaller</label>}
+          <h3>{tr('Bonussen')}</h3>
+          <label title={tr('Geloof (50 = zonder kerk), vlag aanvalskracht (bv. 104)')}>{tr('Aanvaller kracht %')} <input type="number" min={1} value={attPct} onInput={(e) => setAttPct(e.currentTarget.value)} /></label>
+          <label title={tr('Geloof, vlag verdedigingskracht, nachtbonus (200)')}>{tr('Verdediger kracht %')} <input type="number" min={1} value={defPct} onInput={(e) => setDefPct(e.currentTarget.value)} /></label>
+          <label>{tr('Item aanvaller')} <select value={attItem} onChange={(e) => setAttItem(e.currentTarget.value)}>{ITEM_OPTIONS.map(([v, l]) => <option key={v} value={String(v)}>{tr(l)}</option>)}</select></label>
+          <label>{tr('Item verdediger')} <select value={defItem} onChange={(e) => setDefItem(e.currentTarget.value)}>{ITEM_OPTIONS.filter(([v]) => v !== 'morningstar').map(([v, l]) => <option key={v} value={String(v)}>{tr(l)}</option>)}</select></label>
+          {levelsWorld && <label class="row"><input type="checkbox" checked={tech} onChange={(e) => setTech(e.currentTarget.checked)} /> {tr('Researchlevels van dit dorp voor de aanvaller')}</label>}
           {r && (
             <div class={`sim-result ${r.attackerWon ? 'good' : 'bad'}`}>
-              <strong>{r.attackerWon ? 'Aanvaller wint' : 'Verdediger houdt stand'}</strong>
-              <div class="muted">Aanval {num(Math.round(r.attackStrength))} · verdediging {num(Math.round(r.defenseStrength))}</div>
-              <div>Muur {wall} → {r.wallAfter}{r.buildingAfter !== undefined ? ` · ${DEFAULT_BUILDINGS[cat].name} ${catLevel} → ${r.buildingAfter}` : ''}</div>
+              <strong>{r.attackerWon ? tr('Aanvaller wint') : tr('Verdediger houdt stand')}</strong>
+              <div class="muted">{tr('Aanval {att} · verdediging {def}', { att: num(Math.round(r.attackStrength)), def: num(Math.round(r.defenseStrength)) })}</div>
+              <div>{tr('Muur')} {wall} → {r.wallAfter}{r.buildingAfter !== undefined ? ` · ${tr(DEFAULT_BUILDINGS[cat].name)} ${catLevel} → ${r.buildingAfter}` : ''}</div>
             </div>
           )}
-          <p class="hint">Dezelfde rekenregels als in het spel. Kracht %: zonder geloof 50, met een vlag bijvoorbeeld 104, nachtbonus 200 (verdediger).</p>
+          <p class="hint">{tr('Dezelfde rekenregels als in het spel. Kracht %: zonder geloof 50, met een vlag bijvoorbeeld 104, nachtbonus 200 (verdediger).')}</p>
         </section>
       </div>
     </div>

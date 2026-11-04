@@ -4,6 +4,8 @@ import { duration } from '../format';
 import { useState } from 'preact/hooks';
 import type { BuildingId } from '../../shared/gameData';
 import { send, snapshot } from '../store';
+import { tr } from '../../shared/i18n';
+import { trx } from '../i18n';
 
 const DEMOLISH_HQ = 15;
 
@@ -26,14 +28,14 @@ export function MainScreen() {
   return (
     <div class="screen">
       <div class="screen-head">
-        <h2>Hoofdgebouw</h2>
-        <span class="chip gold">Level {v.buildings.find((b) => b.id === 'main')?.level}</span>
+        <h2>{tr('Hoofdgebouw')}</h2>
+        <span class="chip gold">{tr('Level {n}', { n: v.buildings.find((b) => b.id === 'main')?.level })}</span>
       </div>
 
       <div class="main-grid">
       <section class="panel mg-queue" style={{ '--slots': v.buildQueueSlots } as Record<string, number>}>
         <h3>
-          Bouwqueue {v.buildQueue.length}/{v.buildQueueSlots}
+          {tr('Bouwqueue {n}/{max}', { n: v.buildQueue.length, max: v.buildQueueSlots })}
         </h3>
         <table class="table fixed">
           <colgroup>
@@ -49,26 +51,26 @@ export function MainScreen() {
                   <td class="ellipsis">
                     {job.demolish ? (
                       <>
-                        <span class="warn">Afbreken</span> {job.name} → level {job.level}
+                        {trx('{tag} {name} → level {n}', { tag: <span class="warn">{tr('Afbreken')}</span>, name: job.name, n: job.level })}
                       </>
                     ) : (
                       <>
-                        {job.name} → level {job.level}
+                        {tr('{name} → level {n}', { name: job.name, n: job.level })}
                       </>
                     )}
                   </td>
-                  <td class="mono">{i === 0 ? `nog ${duration(job.end - s.time)}` : <span class="muted">duurt {duration(job.end - job.start)}</span>}</td>
+                  <td class="mono">{i === 0 ? tr('nog {time}', { time: duration(job.end - s.time) }) : <span class="muted">{tr('duurt {time}', { time: duration(job.end - job.start) })}</span>}</td>
                   <td class="mono muted">{formatGameTime(job.end)}</td>
                   <td class="right">
                     <button class="danger small" onClick={() => send({ type: 'cancelBuild', villageId: v.id, jobId: job.id })}>
-                      Annuleer
+                      {tr('Annuleer')}
                     </button>
                   </td>
                 </tr>
               ) : (
                 <tr key={`slot-${i}`} class="empty-slot">
                   <td colSpan={4} class="muted">
-                    {free === 1 ? '1 plek vrij' : `${free} plekken vrij`}
+                    {free === 1 ? tr('1 plek vrij') : tr('{n} plekken vrij', { n: free })}
                   </td>
                 </tr>
               ),
@@ -78,7 +80,7 @@ export function MainScreen() {
       </section>
 
       <section class="panel mg-list">
-        <h3>Gebouwen</h3>
+        <h3>{tr('Gebouwen')}</h3>
         <table class="table fixed">
           <colgroup>
             <col style={{ width: '29%' }} />
@@ -89,10 +91,10 @@ export function MainScreen() {
           </colgroup>
           <thead>
             <tr>
-              <th>Gebouw</th>
-              <th>Kosten volgende level</th>
-              <th class="right" title="Arbeiders: extra boerderijplaatsen die het volgende level kost">Arb.</th>
-              <th class="right">Bouwtijd</th>
+              <th>{tr('Gebouw')}</th>
+              <th>{tr('Kosten volgende level')}</th>
+              <th class="right" title={tr('Arbeiders: extra boerderijplaatsen die het volgende level kost')}>{tr('Arb.')}</th>
+              <th class="right">{tr('Bouwtijd')}</th>
               <th />
             </tr>
           </thead>
@@ -101,9 +103,9 @@ export function MainScreen() {
               <tr key={b.id} class={!b.operational && b.level === 0 ? 'locked' : ''}>
                 <td class="ellipsis">
                   <img class="building-thumb" src={`/buildings/${b.id}-s.webp`} alt="" width={36} height={36} loading="lazy" />
-                  <strong>{b.name}</strong> <span class="muted">{b.level > 0 ? `level ${b.level}` : 'niet gebouwd'}</span>
+                  <strong>{b.name}</strong> <span class="muted">{b.level > 0 ? tr('level {n}', { n: b.level }) : tr('niet gebouwd')}</span>
                   {b.planned !== b.level && <span class="muted"> (→ {b.planned})</span>}
-                  {b.level > 0 && !b.operational && <span class="warn"> · werkt niet</span>}
+                  {b.level > 0 && !b.operational && <span class="warn"> · {tr('werkt niet')}</span>}
                 </td>
                 <td>{b.next ? <Cost cost={b.next.cost} have={v.res} /> : <span class="muted">—</span>}</td>
                 <td class="right mono">{b.next && b.next.pop > 0 ? `+${b.next.pop}` : '—'}</td>
@@ -115,7 +117,7 @@ export function MainScreen() {
                     title={b.blocker ?? ''}
                     onClick={() => send({ type: 'build', villageId: v.id, building: b.id })}
                   >
-                    {!b.next ? 'Volledig uitgebouwd' : b.blocker ?? (b.planned === 0 ? 'Bouwen' : `Naar level ${b.next.level}`)}
+                    {!b.next ? tr('Volledig uitgebouwd') : b.blocker ?? (b.planned === 0 ? tr('Bouwen') : tr('Naar level {n}', { n: b.next.level }))}
                   </button>
                 </td>
               </tr>
@@ -125,14 +127,14 @@ export function MainScreen() {
       </section>
 
       <section class="panel mg-tear">
-        <h3>Afbreken</h3>
+        <h3>{tr('Afbreken')}</h3>
         {hq < DEMOLISH_HQ ? (
-          <p class="muted">Vanaf hoofdgebouw {DEMOLISH_HQ} kun je gebouwen afbreken.</p>
+          <p class="muted">{tr('Vanaf hoofdgebouw {n} kun je gebouwen afbreken.', { n: DEMOLISH_HQ })}</p>
         ) : (
           <>
             <div class="row">
               <select value={tear} onChange={(e) => setTear(e.currentTarget.value as BuildingId | '')}>
-                <option value="">Kies een gebouw…</option>
+                <option value="">{tr('Kies een gebouw…')}</option>
                 {tearable.map((b) => (
                   <option key={b.id} value={String(b.id)}>
                     {b.name} {b.planned} → {b.demolish?.level}
@@ -145,11 +147,11 @@ export function MainScreen() {
                 title={picked?.demolish?.blocker ?? ''}
                 onClick={() => picked && send({ type: 'demolish', villageId: v.id, building: picked.id })}
               >
-                {picked?.demolish?.blocker ?? 'Eén level afbreken'}
+                {picked?.demolish?.blocker ?? tr('Eén level afbreken')}
               </button>
-              {picked?.demolish && <span class="muted mono">duurt {duration(picked.demolish.time)}</span>}
+              {picked?.demolish && <span class="muted mono">{tr('duurt {time}', { time: duration(picked.demolish.time) })}</span>}
             </div>
-            <p class="muted">Afbreken kost niets en geeft niets terug. Het neemt een plek in de bouwqueue; de arbeiders komen vrij als het klaar is.</p>
+            <p class="muted">{tr('Afbreken kost niets en geeft niets terug. Het neemt een plek in de bouwqueue; de arbeiders komen vrij als het klaar is.')}</p>
           </>
         )}
       </section>

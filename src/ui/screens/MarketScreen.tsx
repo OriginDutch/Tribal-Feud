@@ -9,13 +9,15 @@ import { formatGameTime } from '../../shared/time';
 import { duration, num } from '../format';
 import { mapData, send, snapshot } from '../store';
 import { distance } from '../units';
+import { tr } from '../../shared/i18n';
+import { trx } from '../i18n';
 
 const RES_LABELS = ['Hout', 'Leem', 'IJzer'] as const;
 const RES_KEYS = ['wood', 'stone', 'iron'] as const;
 
 function Amount({ side }: { side: TradeSide }) {
   return (
-    <span class={`res res-${RES_KEYS[side.res]}`} title={RES_LABELS[side.res]}>
+    <span class={`res res-${RES_KEYS[side.res]}`} title={tr(RES_LABELS[side.res])}>
       {num(side.amount)}
     </span>
   );
@@ -31,7 +33,7 @@ function ResSelect({ value, onChange }: { value: 0 | 1 | 2; onChange: (r: 0 | 1 
     <select value={String(value)} onChange={(e) => onChange(Number(e.currentTarget.value) as 0 | 1 | 2)}>
       {RES_LABELS.map((l, i) => (
         <option key={i} value={String(i)}>
-          {l}
+          {tr(l)}
         </option>
       ))}
     </select>
@@ -64,10 +66,10 @@ export function MarketScreen() {
   if (!m || level === 0) {
     return (
       <div class="screen narrow">
-        <h2>Marktplaats</h2>
+        <h2>{tr('Marktplaats')}</h2>
         <BuildingHeader village={v} id="market" />
         <section class="panel">
-          <p class="muted">Je hebt een marktplaats nodig om te handelen. Bouw hem in het hoofdgebouw (hoofdgebouw 3, opslag 2).</p>
+          <p class="muted">{tr('Je hebt een marktplaats nodig om te handelen. Bouw hem in het hoofdgebouw (hoofdgebouw 3, opslag 2).')}</p>
         </section>
       </div>
     );
@@ -81,17 +83,17 @@ export function MarketScreen() {
   const dist = target ? distance(v, target) : 0;
   const eta = Math.round(dist * m.minutesPerField * 60_000);
   const sendBlocker = !target
-    ? 'Kies een doel'
+    ? tr('Kies een doel')
     : target.id === v.id
-      ? 'Dat is dit dorp'
+      ? tr('Dat is dit dorp')
       : target.kind === 'barb'
-        ? 'Niet naar barbaren'
+        ? tr('Niet naar barbaren')
         : total === 0
-          ? 'Vul grondstoffen in'
+          ? tr('Vul grondstoffen in')
           : res.some((r, i) => r > (v.res[i] ?? 0))
-            ? 'Niet genoeg grondstoffen'
+            ? tr('Niet genoeg grondstoffen')
             : merchantsNeeded > m.merchantsFree
-              ? `${merchantsNeeded} handelaren nodig`
+              ? tr('{n} handelaren nodig', { n: merchantsNeeded })
               : null;
   const maxFor = (i: number) => {
     const others = res.reduce((a, r, j) => (j === i ? a : a + r), 0);
@@ -110,13 +112,13 @@ export function MarketScreen() {
   const n = Math.max(1, Math.floor(Number(count) || 1));
   const offerBlocker =
     g <= 0 || w <= 0
-      ? 'Vul beide hoeveelheden in'
+      ? tr('Vul beide hoeveelheden in')
       : giveRes === wantRes
-        ? 'Kies twee verschillende grondstoffen'
+        ? tr('Kies twee verschillende grondstoffen')
         : g * n > (v.res[giveRes] ?? 0)
-          ? 'Niet genoeg grondstoffen'
+          ? tr('Niet genoeg grondstoffen')
           : Math.ceil(g / m.carry) * n > m.merchantsFree
-            ? `${Math.ceil(g / m.carry) * n} handelaren nodig`
+            ? tr('{n} handelaren nodig', { n: Math.ceil(g / m.carry) * n })
             : null;
   const doOffer = () => {
     if (offerBlocker) return;
@@ -127,30 +129,29 @@ export function MarketScreen() {
   const offers = m.offers.filter((o) => filter === 'all' || o.give.res === filter);
   const acceptBlocker = (o: OfferView): string | null =>
     (v.res[o.want.res] ?? 0) < o.want.amount
-      ? `Niet genoeg ${RES_LABELS[o.want.res].toLowerCase()}`
+      ? tr('Niet genoeg {res}', { res: tr(RES_LABELS[o.want.res].toLowerCase()) })
       : Math.ceil(o.want.amount / m.carry) > m.merchantsFree
-        ? `${Math.ceil(o.want.amount / m.carry)} handelaren nodig`
+        ? tr('{n} handelaren nodig', { n: Math.ceil(o.want.amount / m.carry) })
         : null;
 
   return (
     <div class="screen narrow">
       <div class="screen-head">
-        <h2>Marktplaats</h2>
-        <span class="chip gold">Level {level}</span>
+        <h2>{tr('Marktplaats')}</h2>
+        <span class="chip gold">{tr('Level {n}', { n: level })}</span>
       </div>
       <BuildingHeader village={v} id="market" />
       <p class="muted">
-        Handelaren: <strong>{m.merchantsFree}</strong> / {m.merchantsTotal} vrij · elk draagt {num(m.carry)} · {duration(m.minutesPerField * 60_000)}{' '}
-        per veld
+        {trx('Handelaren: {free} / {total} vrij · elk draagt {carry} · {time} per veld', { free: <strong>{m.merchantsFree}</strong>, total: m.merchantsTotal, carry: num(m.carry), time: duration(m.minutesPerField * 60_000) })}
       </p>
 
       <section class="panel">
-        <h3>Grondstoffen sturen</h3>
+        <h3>{tr('Grondstoffen sturen')}</h3>
         <div class="send-grid">
           {RES_LABELS.map((label, i) => (
             <label key={i} class="send-unit">
               <span>
-                {label}{' '}
+                {tr(label)}{' '}
                 <button
                   class="link"
                   onClick={() => {
@@ -178,7 +179,7 @@ export function MarketScreen() {
         </div>
         <div class="row">
           <label class="coord">
-            Doel x
+            {tr('Doel x')}
             <input type="number" value={x} onInput={(e) => setX(e.currentTarget.value)} />
           </label>
           <label class="coord">
@@ -187,7 +188,7 @@ export function MarketScreen() {
           </label>
           {ownOthers.length > 0 && (
             <label>
-              of eigen dorp
+              {tr('of eigen dorp')}
               <select
                 value=""
                 onChange={(e) => {
@@ -208,21 +209,21 @@ export function MarketScreen() {
             </label>
           )}
           <button class="primary" disabled={sendBlocker !== null} title={sendBlocker ?? ''} onClick={doSend}>
-            Versturen
+            {tr('Versturen')}
           </button>
           {ownOthers.length > 0 && (
             <button
-              title="Verdeelt hout, leem en ijzer over al je dorpen naar rato van hun opslag, met de vrije handelaren"
+              title={tr('Verdeelt hout, leem en ijzer over al je dorpen naar rato van hun opslag, met de vrije handelaren')}
               onClick={() => send({ type: 'balanceVillages' })}
             >
-              Balanceer al mijn dorpen
+              {tr('Balanceer al mijn dorpen')}
             </button>
           )}
         </div>
         <p class="muted">
-          {x && y && !target && 'Geen dorp op deze coördinaten. '}
+          {x && y && !target && tr('Geen dorp op deze coördinaten. ')}
           {target &&
-            `${target.name} van ${target.ownerName} · ${dist.toFixed(1)} velden · ${merchantsNeeded} handelaren · aankomst over ${duration(eta)} (${formatGameTime(s.time + eta)})`}
+            tr('{village} van {owner} · {dist} velden · {n} handelaren · aankomst over {eta} ({at})', { village: target.name, owner: target.ownerName, dist: dist.toFixed(1), n: merchantsNeeded, eta: duration(eta), at: formatGameTime(s.time + eta) })}
           {sendBlocker && target && ` · ${sendBlocker}`}
         </p>
       </section>
@@ -230,15 +231,15 @@ export function MarketScreen() {
       {ownOthers.length > 0 && <SurplusPanel />}
 
       <section class="panel">
-        <h3>Eigen aanbod</h3>
+        <h3>{tr('Eigen aanbod')}</h3>
         <div class="row">
           <label>
-            Ik bied
+            {tr('Ik bied')}
             <input type="number" min={1} value={giveAmount} onInput={(e) => setGiveAmount(e.currentTarget.value)} />
           </label>
           <ResSelect value={giveRes} onChange={setGiveRes} />
           <label>
-            voor
+            {tr('voor')}
             <input type="number" min={1} value={wantAmount} onInput={(e) => setWantAmount(e.currentTarget.value)} />
           </label>
           <ResSelect value={wantRes} onChange={setWantRes} />
@@ -247,22 +248,21 @@ export function MarketScreen() {
             <input type="number" min={1} max={50} value={count} onInput={(e) => setCount(e.currentTarget.value)} />
           </label>
           <button class="primary" disabled={offerBlocker !== null} title={offerBlocker ?? ''} onClick={doOffer}>
-            Aanbieden
+            {tr('Aanbieden')}
           </button>
         </div>
         <p class="muted">
-          De grondstoffen en handelaren gaan opzij tot iemand het aanbod aanneemt of je het intrekt. Bots nemen alleen deals die ze de moeite
-          waard vinden.
+          {tr('De grondstoffen en handelaren gaan opzij tot iemand het aanbod aanneemt of je het intrekt. Bots nemen alleen deals die ze de moeite waard vinden.')}
           {offerBlocker && g > 0 && w > 0 ? ` · ${offerBlocker}` : ''}
         </p>
         {m.myOffers.length > 0 && (
           <table class="table">
             <thead>
               <tr>
-                <th>Biedt</th>
-                <th>Vraagt</th>
-                <th>Verhouding</th>
-                <th>Geplaatst</th>
+                <th>{tr('Biedt')}</th>
+                <th>{tr('Vraagt')}</th>
+                <th>{tr('Verhouding')}</th>
+                <th>{tr('Geplaatst')}</th>
                 <th />
               </tr>
             </thead>
@@ -279,7 +279,7 @@ export function MarketScreen() {
                   <td class="mono muted">{formatGameTime(o.created)}</td>
                   <td class="right">
                     <button class="small" onClick={() => send({ type: 'cancelOffer', id: o.id })}>
-                      Intrekken
+                      {tr('Intrekken')}
                     </button>
                   </td>
                 </tr>
@@ -290,34 +290,34 @@ export function MarketScreen() {
       </section>
 
       <section class="panel">
-        <h3>Aanbiedingen in de buurt</h3>
+        <h3>{tr('Aanbiedingen in de buurt')}</h3>
         <div class="row">
           <label>
-            Ik zoek
+            {tr('Ik zoek')}
             <select
               value={String(filter)}
               onChange={(e) => setFilter(e.currentTarget.value === 'all' ? 'all' : (Number(e.currentTarget.value) as 0 | 1 | 2))}
             >
-              <option value="all">alles</option>
+              <option value="all">{tr('alles')}</option>
               {RES_LABELS.map((l, i) => (
                 <option key={i} value={String(i)}>
-                  {l.toLowerCase()}
+                  {tr(l.toLowerCase())}
                 </option>
               ))}
             </select>
           </label>
         </div>
         {offers.length === 0 ? (
-          <p class="muted">Geen aanbiedingen binnen 40 velden.</p>
+          <p class="muted">{tr('Geen aanbiedingen binnen 40 velden.')}</p>
         ) : (
           <table class="table">
             <thead>
               <tr>
-                <th>Dorp</th>
-                <th>Biedt</th>
-                <th>Vraagt</th>
-                <th>Verhouding</th>
-                <th class="right">Afstand</th>
+                <th>{tr('Dorp')}</th>
+                <th>{tr('Biedt')}</th>
+                <th>{tr('Vraagt')}</th>
+                <th>{tr('Verhouding')}</th>
+                <th class="right">{tr('Afstand')}</th>
                 <th />
               </tr>
             </thead>
@@ -341,10 +341,10 @@ export function MarketScreen() {
                       <button
                         class="small"
                         disabled={blocker !== null}
-                        title={blocker ?? `Aankomst over ${duration(Math.round(o.distance * m.minutesPerField * 60_000))}`}
+                        title={blocker ?? tr('Aankomst over {eta}', { eta: duration(Math.round(o.distance * m.minutesPerField * 60_000)) })}
                         onClick={() => send({ type: 'acceptOffer', id: o.id, villageId: v.id })}
                       >
-                        Aannemen
+                        {tr('Aannemen')}
                       </button>
                     </td>
                   </tr>
@@ -356,17 +356,17 @@ export function MarketScreen() {
       </section>
 
       <section class="panel">
-        <h3>Handelaren onderweg</h3>
+        <h3>{tr('Handelaren onderweg')}</h3>
         {m.trades.length === 0 ? (
-          <p class="muted">Geen handelaren onderweg.</p>
+          <p class="muted">{tr('Geen handelaren onderweg.')}</p>
         ) : (
           <table class="table">
             <thead>
               <tr>
-                <th>Opdracht</th>
-                <th>Lading</th>
-                <th>Aankomst</th>
-                <th class="right">Nog</th>
+                <th>{tr('Opdracht')}</th>
+                <th>{tr('Lading')}</th>
+                <th>{tr('Aankomst')}</th>
+                <th class="right">{tr('Nog')}</th>
                 <th />
               </tr>
             </thead>
@@ -376,15 +376,15 @@ export function MarketScreen() {
                   <td>
                     {t.kind === 'tradeReturn' ? (
                       <>
-                        <span class="tag-return">Terug</span> van {t.from.name} <Coords x={t.from.x} y={t.from.y} />
+                        {trx('{tag} van {name} {coords}', { tag: <span class="tag-return">{tr('Terug')}</span>, name: t.from.name, coords: <Coords x={t.from.x} y={t.from.y} /> })}
                       </>
                     ) : t.to.id === v.id ? (
                       <>
-                        <span class="tag-support">Binnenkomend</span> van {t.from.name} <Coords x={t.from.x} y={t.from.y} />
+                        {trx('{tag} van {name} {coords}', { tag: <span class="tag-support">{tr('Binnenkomend')}</span>, name: t.from.name, coords: <Coords x={t.from.x} y={t.from.y} /> })}
                       </>
                     ) : (
                       <>
-                        <span class="tag-support">Levering</span> naar {t.to.name} <Coords x={t.to.x} y={t.to.y} />
+                        {trx('{tag} naar {name} {coords}', { tag: <span class="tag-support">{tr('Levering')}</span>, name: t.to.name, coords: <Coords x={t.to.x} y={t.to.y} /> })}
                       </>
                     )}
                   </td>
@@ -397,7 +397,7 @@ export function MarketScreen() {
                             </span>
                           ) : null,
                         )
-                      : <span class="muted">leeg</span>}
+                      : <span class="muted">{tr('leeg')}</span>}
                   </td>
                   <td class="mono muted">{formatGameTime(t.arrives)}</td>
                   <td class="right mono">{duration(t.arrives - s.time)}</td>

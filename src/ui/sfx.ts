@@ -23,9 +23,9 @@ export const SFX_NAMES: Record<UiSfx, string> = {
   'battle-won': 'Veldslag gewonnen',
   'battle-heavy': 'Gewonnen met zware verliezen',
   'battle-lost': 'Veldslag verloren',
-  'mission-received': 'Opdracht ontvangen',
-  'mission-complete': 'Opdracht voltooid',
-  'mission-failed': 'Opdracht mislukt',
+  'mission-received': 'Opdracht ontvangen|bevel',
+  'mission-complete': 'Opdracht voltooid|bevel',
+  'mission-failed': 'Opdracht mislukt|bevel',
   march: 'Aanval vertrekt',
 };
 

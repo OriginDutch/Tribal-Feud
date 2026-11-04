@@ -1,6 +1,8 @@
 import { pickable } from '../templatesVisible';
 import { useEffect, useState } from 'preact/hooks';
 import { useSaved } from '../useSaved';
+import { tr } from '../../shared/i18n';
+import { trx } from '../i18n';
 import { Coords } from '../components/Coords';
 import { PlayerLink } from '../components/PlayerLink';
 
@@ -136,14 +138,14 @@ export function PlaceScreen() {
   delete first.snob;
   const trainBlocker = (() => {
     if (trainSize < 2) return null;
-    if (!target || target.kind === 'own') return 'Kies een doel';
+    if (!target || target.kind === 'own') return tr('Kies een doel');
     const nobles = trainSize - (clearFirst ? 1 : 0);
-    if (homeOf('snob') < nobles) return `${nobles} edels nodig, ${homeOf('snob')} thuis`;
-    if (clearFirst && Object.keys(first).length === 0) return 'De clear heeft troepen nodig';
-    if (dist > v.nobles.maxDistance) return `Verder dan ${v.nobles.maxDistance} velden`;
+    if (homeOf('snob') < nobles) return tr('{n} edels nodig, {home} thuis', { n: nobles, home: homeOf('snob') });
+    if (clearFirst && Object.keys(first).length === 0) return tr('De clear heeft troepen nodig');
+    if (dist > v.nobles.maxDistance) return tr('Verder dan {n} velden', { n: v.nobles.maxDistance });
     const total: UnitCounts = { ...first };
     for (const e of escortCounts) for (const u of UNIT_IDS) if (e[u]) total[u] = (total[u] ?? 0) + (e[u] ?? 0);
-    for (const u of UNIT_IDS) if ((total[u] ?? 0) > homeOf(u)) return `Te weinig ${v.units.find((x) => x.id === u)?.name.toLowerCase()}`;
+    for (const u of UNIT_IDS) if ((total[u] ?? 0) > homeOf(u)) return tr('Te weinig {unit}', { unit: v.units.find((x) => x.id === u)?.name.toLowerCase() });
     return null;
   })();
   const sendTrain = () => {
@@ -184,21 +186,21 @@ export function PlaceScreen() {
 
   return (
     <div class="screen narrow">
-      <h2>Verzamelplaats</h2>
+      <h2>{tr('Verzamelplaats')}</h2>
       <BuildingHeader village={v} id="place" />
       {place && place.level === 0 ? (
         <section class="panel">
-          <p class="muted">Je hebt een verzamelplaats nodig om troepen te sturen. Bouw hem in het hoofdgebouw.</p>
+          <p class="muted">{tr('Je hebt een verzamelplaats nodig om troepen te sturen. Bouw hem in het hoofdgebouw.')}</p>
         </section>
       ) : (
         <section class="panel">
-          <h3>Troepen sturen</h3>
+          <h3>{tr('Troepen sturen')}</h3>
           <div class="send-actions">
             <button class="small" onClick={() => setCounts(Object.fromEntries(units.filter((u) => freeOf(u) > 0).map((u) => [u.id, String(freeOf(u))])))}>
-              Alles selecteren
+              {tr('Alles selecteren')}
             </button>
             <button class="small" onClick={() => setCounts({})}>
-              Leegmaken
+              {tr('Leegmaken')}
             </button>
           </div>
           <div class="send-grid">
@@ -206,7 +208,7 @@ export function PlaceScreen() {
               <label key={u.id} class="send-unit">
                 <span class="unit-name">
                   <UnitIcon id={u.id} size={20} /> <span class="nm" title={u.name}>{u.name}</span>
-                  <button class="link" onClick={() => setCounts({ ...counts, [u.id]: String(freeOf(u)) })} title={u.reserved ? `${num(u.reserved)} staan klaar voor een ingeplande aanval` : undefined}>
+                  <button class="link" onClick={() => setCounts({ ...counts, [u.id]: String(freeOf(u)) })} title={u.reserved ? tr('{n} staan klaar voor een ingeplande aanval', { n: num(u.reserved) }) : undefined}>
                     ({num(freeOf(u))}{u.reserved ? <span class="reserved"> +{num(u.reserved)}⏱</span> : null})
                   </button>
                 </span>
@@ -223,7 +225,7 @@ export function PlaceScreen() {
           </div>
           <div class="row">
             <label class="coord">
-              Doel x
+              {tr('Doel x')}
               <input type="number" value={x} onInput={(e) => setX(e.currentTarget.value)} />
             </label>
             <label class="coord">
@@ -232,7 +234,7 @@ export function PlaceScreen() {
             </label>
             {s.villages.length > 1 && (
               <label>
-                Eigen dorp
+                {tr('Eigen dorp')}
                 <select
                   value={s.villages.find((o) => String(o.x) === x && String(o.y) === y)?.id ?? ''}
                   onChange={(e) => {
@@ -240,20 +242,20 @@ export function PlaceScreen() {
                     if (o) { setX(String(o.x)); setY(String(o.y)); }
                   }}
                 >
-                  <option value="">kies…</option>
+                  <option value="">{tr('kies…')}</option>
                   {s.villages
                     .filter((o) => o.id !== v.id)
                     .map((o) => ({ o, d: distance(v, o) }))
                     .sort((p, q) => p.d - q.d)
                     .map(({ o, d }) => (
-                      <option key={o.id} value={String(o.id)}>{o.name} ({o.x}|{o.y}) · {d.toFixed(1)} velden</option>
+                      <option key={o.id} value={String(o.id)}>{o.name} ({o.x}|{o.y}) · {tr('{n} velden', { n: d.toFixed(1) })}</option>
                     ))}
                 </select>
               </label>
             )}
             {(chosen.catapult ?? 0) > 0 && (
               <label>
-                Katapulten op
+                {tr('Katapulten op')}
                 <select value={catTarget} onChange={(e) => setCatTarget(e.currentTarget.value as BuildingId)}>
                   {CATAPULT_TARGETS.map((b) => (
                     <option key={b} value={String(b)}>
@@ -264,10 +266,10 @@ export function PlaceScreen() {
               </label>
             )}
             <button class="primary" disabled={!target || !hasUnits || target.id === v.id || ownTarget} onClick={attack}>
-              Aanvallen
+              {tr('Aanvallen')}
             </button>
             <button disabled={!target || !hasUnits || target.id === v.id || target.kind === 'barb'} onClick={support}>
-              Ondersteunen
+              {tr('Ondersteunen')}
             </button>
           </div>
           {target && !ownTarget && target.id !== v.id && (
@@ -299,29 +301,29 @@ export function PlaceScreen() {
           )}
           <div class="row">
             <button class="small" onClick={() => openSupport(v.id)}>
-              Support naar dit dorp plannen
+              {tr('Support naar dit dorp plannen')}
             </button>
           </div>
           <div class="row">
             <label class="inline">
-              Edeltrein
+              {tr('Edeltrein')}
               <select value={String(trainSize)} onChange={(e) => startTrain(Number(e.currentTarget.value))}>
-                <option value="0">uit</option>
+                <option value="0">{tr('uit')}</option>
                 {[2, 3, 4, 5].map((n) => (
                   <option key={n} value={String(n)}>
-                    {n} edels
+                    {tr('{n} edels', { n })}
                   </option>
                 ))}
               </select>
             </label>
             {s.nobleTemplates.length > 0 && (
               <label class="inline">
-                Sjabloon
+                {tr('Sjabloon')}
                 <select value={s.nobleTemplates.some((t) => t.id === trainTpl) ? trainTpl : ''} onChange={(e) => applyTemplate(e.currentTarget.value)}>
-                  <option value="">kies…</option>
+                  <option value="">{tr('kies…')}</option>
                   {pickable(s.nobleTemplates, trainTpl).map((t) => (
                     <option key={t.id} value={String(t.id)}>
-                      {t.name} ({t.escorts.length + (t.clearFirst ? 0 : 1)} edels{t.clearFirst ? ' + clear' : ''})
+                      {t.name} ({t.clearFirst ? tr('{n} edels + clear', { n: t.escorts.length }) : tr('{n} edels', { n: t.escorts.length + 1 })})
                     </option>
                   ))}
                 </select>
@@ -330,9 +332,9 @@ export function PlaceScreen() {
             {trainSize > 1 && (
               <>
                 <button class="small" onClick={() => setEscorts(suggest(trainSize))}>
-                  Escort opnieuw voorstellen
+                  {tr('Escort opnieuw voorstellen')}
                 </button>
-                <label class="inline" title="De eerste aanval is een pure clear zonder edelman; de edels zitten in de waves daarna.">
+                <label class="inline" title={tr('De eerste aanval is een pure clear zonder edelman; de edels zitten in de waves daarna.')}>
                   <input
                     type="checkbox"
                     checked={clearFirst}
@@ -342,25 +344,25 @@ export function PlaceScreen() {
                       setCounts({ ...counts, snob: on ? '' : '1' });
                     }}
                   />{' '}
-                  Eerste wave zonder edel
+                  {tr('Eerste wave zonder edel')}
                 </label>
                 {saveName === null ? (
                   <>
                     {s.nobleTemplates.some((t) => t.id === trainTpl) && (
                       <>
                         <Confirm
-                          label="Bijwerken"
-                          sure={`"${s.nobleTemplates.find((t) => t.id === trainTpl)!.name}" overschrijven?`}
+                          label={tr('Bijwerken')}
+                          sure={tr('"{name}" overschrijven?', { name: s.nobleTemplates.find((t) => t.id === trainTpl)!.name })}
                           onConfirm={() => {
                             const t = s.nobleTemplates.find((x) => x.id === trainTpl)!;
                             send({ type: 'saveNobleTemplate', template: { id: t.id, name: t.name, first, escorts: escortCounts, ...((first.catapult ?? 0) > 0 ? { catapultTarget: catTarget } : {}), ...(clearFirst ? { clearFirst: true } : {}) } });
                           }}
                         />
-                        <Confirm label="Verwijderen" sure="Sjabloon verwijderen?" cls="warn" onConfirm={() => { send({ type: 'deleteNobleTemplate', id: trainTpl }); setTrainTpl(''); }} />
+                        <Confirm label={tr('Verwijderen')} sure={tr('Sjabloon verwijderen?')} cls="warn" onConfirm={() => { send({ type: 'deleteNobleTemplate', id: trainTpl }); setTrainTpl(''); }} />
                       </>
                     )}
                     <button class="small" onClick={() => setSaveName('')}>
-                      {s.nobleTemplates.some((t) => t.id === trainTpl) ? 'Als nieuw opslaan' : 'Opslaan als sjabloon'}
+                      {s.nobleTemplates.some((t) => t.id === trainTpl) ? tr('Als nieuw opslaan') : tr('Opslaan als sjabloon')}
                     </button>
                   </>
                 ) : (
@@ -377,9 +379,9 @@ export function PlaceScreen() {
                       setSaveName(null);
                     }}
                   >
-                    <input autoFocus placeholder="Naam van het sjabloon" maxLength={40} value={saveName} onInput={(e) => setSaveName(e.currentTarget.value)} />
+                    <input autoFocus placeholder={tr('Naam van het sjabloon')} maxLength={40} value={saveName} onInput={(e) => setSaveName(e.currentTarget.value)} />
                     <button class="small primary" type="submit" disabled={!saveName.trim()}>
-                      Opslaan
+                      {tr('Opslaan')}
                     </button>
                     <button class="small" type="button" onClick={() => setSaveName(null)}>
                       ✕
@@ -387,7 +389,7 @@ export function PlaceScreen() {
                   </form>
                 )}
                 <button class="primary" disabled={trainBlocker !== null} title={trainBlocker ?? ''} onClick={sendTrain}>
-                  {trainBlocker ?? `Edeltrein sturen (${trainSize})`}
+                  {trainBlocker ?? tr('Edeltrein sturen ({n})', { n: trainSize })}
                 </button>
               </>
             )}
@@ -406,14 +408,14 @@ export function PlaceScreen() {
               </thead>
               <tbody>
                 <tr>
-                  <td>Edel 1</td>
+                  <td>{tr('Edel {n}', { n: 1 })}</td>
                   <td colSpan={ESCORT_UNITS.length} class="muted">
-                    met de troepen hierboven{hasUnits ? `: ${unitsText(first)}` : ' (nog niets ingevuld)'}
+                    {hasUnits ? tr('met de troepen hierboven: {units}', { units: unitsText(first) }) : tr('met de troepen hierboven (nog niets ingevuld)')}
                   </td>
                 </tr>
                 {escorts.map((e, i) => (
                   <tr key={i}>
-                    <td>Edel {i + 2}</td>
+                    <td>{tr('Edel {n}', { n: i + 2 })}</td>
                     {ESCORT_UNITS.map((u) => (
                       <td key={u} class="right">
                         <input
@@ -437,16 +439,16 @@ export function PlaceScreen() {
           )}
           {trainSize > 1 && (
             <p class="hint">
-              Alles vertrekt tegelijk op edelsnelheid en komt in deze volgorde aan
-              {target ? `, over ${duration(trainEta)} (${formatGameTime(s.time + trainEta)})` : ''}. De voorgestelde escort is genoeg om
-              een muur van een barbarendorp te breken; pas hem aan als je meer of minder wilt sturen.
+              {target
+                ? tr('Alles vertrekt tegelijk op edelsnelheid en komt in deze volgorde aan, over {time} ({at}). De voorgestelde escort is genoeg om een muur van een barbarendorp te breken; pas hem aan als je meer of minder wilt sturen.', { time: duration(trainEta), at: formatGameTime(s.time + trainEta) })
+                : tr('Alles vertrekt tegelijk op edelsnelheid en komt in deze volgorde aan. De voorgestelde escort is genoeg om een muur van een barbarendorp te breken; pas hem aan als je meer of minder wilt sturen.')}
             </p>
           )}
           <p class="muted">
-            {x && y && !target && 'Geen dorp op deze coördinaten.'}
+            {x && y && !target && tr('Geen dorp op deze coördinaten.')}
             {target &&
-              `${target.name} van ${target.ownerName} · ${num(target.points)} punten · ${dist.toFixed(1)} velden${
-                hasUnits ? ` · aankomst over ${duration(eta)} (${formatGameTime(s.time + eta)})` : ''
+              `${tr('{name} van {owner} · {points} punten · {dist} velden', { name: target.name, owner: target.ownerName, points: num(target.points), dist: dist.toFixed(1) })}${
+                hasUnits ? ` · ${tr('aankomst over {time} ({at})', { time: duration(eta), at: formatGameTime(s.time + eta) })}` : ''
               }`}
           </p>
         </section>
@@ -457,13 +459,13 @@ export function PlaceScreen() {
 
       <section class="panel">
         <div class="row">
-          <h3>Ondersteuning in dit dorp</h3>
+          <h3>{tr('Ondersteuning in dit dorp')}</h3>
           <span style={{ flex: 1 }} />
-          <button class="small" onClick={() => setBulk(!bulk)}>{bulk ? 'Verbergen' : 'Alles terugsturen…'}</button>
+          <button class="small" onClick={() => setBulk(!bulk)}>{bulk ? tr('Verbergen') : tr('Alles terugsturen…')}</button>
         </div>
         {bulk && <SupportReturn village={v.id} onClose={() => setBulk(false)} />}
         {v.supportHere.length === 0 ? (
-          <p class="muted">Geen troepen van andere dorpen.</p>
+          <p class="muted">{tr('Geen troepen van andere dorpen.')}</p>
         ) : (
           <table class="table">
             <tbody>
@@ -475,7 +477,7 @@ export function PlaceScreen() {
                   <td class="muted">{unitsText(x.units)}</td>
                   <td class="right">
                     <button class="small" onClick={() => send({ type: 'returnSupport', hostId: v.id, originId: x.origin.id })}>
-                      Terugsturen
+                      {tr('Terugsturen')}
                     </button>
                   </td>
                 </tr>
@@ -488,21 +490,21 @@ export function PlaceScreen() {
       <DismissTroops villageId={v.id} units={v.units} />
 
       <section class="panel">
-        <h3>Troepen van dit dorp elders</h3>
+        <h3>{tr('Troepen van dit dorp elders')}</h3>
         {v.supportAway.length === 0 ? (
-          <p class="muted">Dit dorp ondersteunt niemand.</p>
+          <p class="muted">{tr('Dit dorp ondersteunt niemand.')}</p>
         ) : (
           <table class="table">
             <tbody>
               {v.supportAway.map((x) => (
                 <tr key={x.host.id}>
                   <td>
-                    In {x.host.name} <Coords x={x.host.x} y={x.host.y} /> <span class="muted">· {x.host.ownerName}</span>
+                    {tr('In {village}', { village: x.host.name })} <Coords x={x.host.x} y={x.host.y} /> <span class="muted">· {x.host.ownerName}</span>
                   </td>
                   <td class="muted">{unitsText(x.units)}</td>
                   <td class="right">
                     <button class="small" onClick={() => send({ type: 'returnSupport', hostId: x.host.id, originId: v.id })}>
-                      Terugtrekken
+                      {tr('Terugtrekken')}
                     </button>
                   </td>
                 </tr>
@@ -534,8 +536,8 @@ function PlanRow(p: {
   if (!p.on) {
     return (
       <div class="row">
-        <button class="small" onClick={() => p.setOn(true)} title="Kies wanneer hij moet landen; het spel stuurt hem zelf op het juiste moment, de troepen blijven tot dan thuis.">
-          ⏱ Laten landen om…
+        <button class="small" onClick={() => p.setOn(true)} title={tr('Kies wanneer hij moet landen; het spel stuurt hem zelf op het juiste moment, de troepen blijven tot dan thuis.')}>
+          ⏱ {tr('Laten landen om…')}
         </button>
       </div>
     );
@@ -547,27 +549,27 @@ function PlanRow(p: {
   return (
     <div class="plan-row">
       <div class="row wrap">
-        <strong>⏱ Laten landen om</strong>
-        <label class="inline">Dag <input type="number" min={1} style={{ width: '64px' }} value={p.day} onInput={(e) => p.setDay(e.currentTarget.value)} /></label>
+        <strong>⏱ {tr('Laten landen om')}</strong>
+        <label class="inline">{tr('Dag')} <input type="number" min={1} style={{ width: '64px' }} value={p.day} onInput={(e) => p.setDay(e.currentTarget.value)} /></label>
         <input class="mono" style={{ width: '96px' }} placeholder="14:32:00" value={p.clock} onInput={(e) => p.setClock(e.currentTarget.value)} />
         {order !== undefined && (
           <button class="small" onClick={() => { const sec = Math.floor(order / 1000); p.setDay(String(Math.floor(sec / 86400) + 1)); p.setClock(formatGameTime(order).split(' · ')[1]!); }}>
-            Zoals de opdracht
+            {tr('Zoals de opdracht')}
           </button>
         )}
         <button class="primary" disabled={!p.ready || landAt === null || leave === null || late} onClick={() => landAt !== null && p.onPlan(landAt)}>
-          {p.train ? 'Edeltrein inplannen' : 'Inplannen'}
+          {p.train ? tr('Edeltrein inplannen') : tr('Inplannen')}
         </button>
         <button class="small" onClick={() => p.setOn(false)}>✕</button>
       </div>
       <p class={late ? 'warn' : 'muted'}>
         {landAt === null
-          ? 'Vul een dag en tijd in (uu:mm of uu:mm:ss).'
+          ? tr('Vul een dag en tijd in (uu:mm of uu:mm:ss).')
           : !p.ready || p.walk <= 0
-            ? 'Kies eerst de troepen hierboven.'
+            ? tr('Kies eerst de troepen hierboven.')
             : late
-              ? `Te laat: zo landt hij op z'n vroegst om ${formatGameTime(s.time + p.walk)}.`
-              : `Vertrekt vanzelf om ${formatGameTime(leave!)} (over ${duration(leave! - s.time)}). Tot dan blijven de troepen thuis en verdedigen ze mee, maar farmen, rooftochten en andere aanvallen laten ze met rust. Sneuvelt er iets, dan gaat hij met wat er is.`}
+              ? tr("Te laat: zo landt hij op z'n vroegst om {time}.", { time: formatGameTime(s.time + p.walk) })
+              : tr('Vertrekt vanzelf om {time} (over {left}). Tot dan blijven de troepen thuis en verdedigen ze mee, maar farmen, rooftochten en andere aanvallen laten ze met rust. Sneuvelt er iets, dan gaat hij met wat er is.', { time: formatGameTime(leave!), left: duration(leave! - s.time) })}
       </p>
     </div>
   );
@@ -580,14 +582,14 @@ function Planned() {
   if (!list.length) return null;
   return (
     <section class="panel">
-      <h3>Ingepland <span class="muted">{list.length}</span></h3>
+      <h3>{tr('Ingepland')} <span class="muted">{list.length}</span></h3>
       <table class="table">
         <thead>
           <tr>
-            <th>Aanval</th>
-            <th>Troepen</th>
-            <th>Vertrekt</th>
-            <th>Landt</th>
+            <th>{tr('Aanval')}</th>
+            <th>{tr('Troepen')}</th>
+            <th>{tr('Vertrekt')}</th>
+            <th>{tr('Landt')}</th>
             <th />
           </tr>
         </thead>
@@ -595,15 +597,15 @@ function Planned() {
           {list.map((p) => (
             <tr key={p.id} class={p.from.id === s.village?.id ? '' : 'muted-row'}>
               <td>
-                <span class="tag-attack">{p.waves > 1 ? `Edeltrein ${p.waves}` : 'Aanval'}</span> {p.from.name} → {p.to.name} <Coords x={p.to.x} y={p.to.y} />
+                <span class="tag-attack">{p.waves > 1 ? tr('Edeltrein {n}', { n: p.waves }) : tr('Aanval')}</span> {p.from.name} → {p.to.name} <Coords x={p.to.x} y={p.to.y} />
                 <Owner o={p.to} />
-                {p.short && <span class="warn" title="Niet alles staat nu thuis; hij gaat met wat er op het vertrekmoment is."> · niet alles thuis</span>}
+                {p.short && <span class="warn" title={tr('Niet alles staat nu thuis; hij gaat met wat er op het vertrekmoment is.')}> · {tr('niet alles thuis')}</span>}
               </td>
               <td class="muted">{unitsText(p.units)}</td>
               <td class="mono">{formatGameTime(p.sendAt)} <span class="muted">({duration(p.sendAt - s.time)})</span></td>
               <td class="mono muted">{formatGameTime(p.landAt)}</td>
               <td class="right">
-                <Confirm label="Annuleren" sure="Deze ingeplande aanval annuleren?" cls="warn" onConfirm={() => send({ type: 'cancelPlanned', id: p.id })} />
+                <Confirm label={tr('Annuleren')} sure={tr('Deze ingeplande aanval annuleren?')} cls="warn" onConfirm={() => send({ type: 'cancelPlanned', id: p.id })} />
               </td>
             </tr>
           ))}
@@ -622,7 +624,7 @@ function Owner({ o }: { o: { owner?: number; ownerName?: string } }) {
 type MoveFilter = 'all' | 'attack' | 'farm' | 'support' | 'return';
 const FILTERS: { id: MoveFilter; label: string }[] = [
   { id: 'all', label: 'Alles' },
-  { id: 'attack', label: 'Aanvallen' },
+  { id: 'attack', label: 'Aanvallen|lijst' },
   { id: 'farm', label: 'Farm' },
   { id: 'support', label: 'Steun' },
   { id: 'return', label: 'Terugkerend' },
@@ -653,38 +655,38 @@ function Movements() {
   return (
     <section class="panel">
       <div class="row moves-head">
-        <h3>Onderweg</h3>
-        <div class="seg moves-filter" role="tablist" aria-label="Soort beweging">
+        <h3>{tr('Onderweg')}</h3>
+        <div class="seg moves-filter" role="tablist" aria-label={tr('Soort beweging')}>
           {FILTERS.map((f) => {
             const n = count(f.id);
             return (
               <button key={f.id} type="button" role="tab" aria-selected={filter === f.id} class={filter === f.id ? 'on' : ''} disabled={f.id !== 'all' && n === 0} onClick={() => pick(f.id)}>
-                {f.label} <span class="muted">{n}</span>
+                {tr(f.label)} <span class="muted">{n}</span>
               </button>
             );
           })}
         </div>
       </div>
       {all.length === 0 ? (
-        <p class="muted">Geen troepen onderweg.</p>
+        <p class="muted">{tr('Geen troepen onderweg.')}</p>
       ) : (
         <>
           {filter === 'all' && farm.length > 0 && (
             <button type="button" class="farm-fold" onClick={() => pick('farm')}>
               <span>
-                <strong>{num(farm.length)} farmruns</strong> <span class="muted">· {num(farmOut)} op weg naar barbaren · {num(farm.length - farmOut)} terug</span>
+                <strong>{tr('{n} farmruns', { n: num(farm.length) })}</strong> <span class="muted">· {tr('{out} op weg naar barbaren · {back} terug', { out: num(farmOut), back: num(farm.length - farmOut) })}</span>
               </span>
-              <span class="muted">{Number.isFinite(firstBack) ? `eerste terug over ${duration(firstBack - s.time)}` : ''} · tonen ›</span>
+              <span class="muted">{Number.isFinite(firstBack) ? tr('eerste terug over {time}', { time: duration(firstBack - s.time) }) : ''} · {tr('tonen ›')}</span>
             </button>
           )}
           {list.length > 0 && (
             <table class="table">
               <thead>
                 <tr>
-                  <th>Opdracht</th>
-                  <th>Troepen</th>
-                  <th>Aankomst</th>
-                  <th class="right">Nog</th>
+                  <th>{tr('Opdracht')}</th>
+                  <th>{tr('Troepen')}</th>
+                  <th>{tr('Aankomst')}</th>
+                  <th class="right">{tr('Nog')}</th>
                   <th />
                 </tr>
               </thead>
@@ -694,16 +696,16 @@ function Movements() {
                     <td>
                       {m.kind === 'attack' ? (
                         <>
-                          <span class="tag-attack">Aanval</span> op {m.to.name} <Coords x={m.to.x} y={m.to.y} /><Owner o={m.to} />
+                          {trx('{tag} op {village}', { tag: <span class="tag-attack">{tr('Aanval')}</span>, village: m.to.name })} <Coords x={m.to.x} y={m.to.y} /><Owner o={m.to} />
                         </>
                       ) : m.kind === 'support' ? (
                         <>
-                          <span class="tag-support">Steun</span> naar {m.to.name} <Coords x={m.to.x} y={m.to.y} /><Owner o={m.to} />
+                          {trx('{tag} naar {village}', { tag: <span class="tag-support">{tr('Steun')}</span>, village: m.to.name })} <Coords x={m.to.x} y={m.to.y} /><Owner o={m.to} />
                         </>
                       ) : (
                         <>
-                          <span class="tag-return">Terug</span> van {m.from.name} <Coords x={m.from.x} y={m.from.y} /><Owner o={m.from} />
-                          {m.loot && <span class="muted"> · buit {num(m.loot[0] + m.loot[1] + m.loot[2])}</span>}
+                          {trx('{tag} van {village}', { tag: <span class="tag-return">{tr('Terug')}</span>, village: m.from.name })} <Coords x={m.from.x} y={m.from.y} /><Owner o={m.from} />
+                          {m.loot && <span class="muted"> · {tr('buit {n}', { n: num(m.loot[0] + m.loot[1] + m.loot[2]) })}</span>}
                         </>
                       )}
                     </td>
@@ -720,7 +722,7 @@ function Movements() {
           )}
           {list.length > shown && (
             <button type="button" class="small more-moves" onClick={() => setShown(shown + PAGE)}>
-              Meer tonen ({num(Math.min(PAGE, list.length - shown))} van {num(list.length - shown)})
+              {tr('Meer tonen ({n} van {total})', { n: num(Math.min(PAGE, list.length - shown)), total: num(list.length - shown) })}
             </button>
           )}
         </>

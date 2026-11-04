@@ -6,6 +6,7 @@ import { account } from '../../cloud/auth';
 import { newAccounts } from '../../cloud/admin';
 import { buildingsMenuOpen, keyHint } from '../keys';
 import { isMobile } from '../mobile';
+import { tr } from '../../shared/i18n';
 
 type Badge = { n: number; kind: 'danger' | 'good' | 'plain' } | null;
 
@@ -43,10 +44,10 @@ function RailButton({ g, active }: { g: MenuGroup; active: boolean }) {
   const key = keyHint(`group:${g.id}`);
   const to = g.tabs[0]!.screen;
   return (
-    <a href={`#${to}`} class={`rail-item ${active ? 'active' : ''}`} aria-label={g.label} aria-current={active ? 'page' : undefined} onClick={(e) => go(e, to, () => (buildingsMenuOpen.value = false))}>
+    <a href={`#${to}`} class={`rail-item ${active ? 'active' : ''}`} aria-label={tr(g.label)} aria-current={active ? 'page' : undefined} onClick={(e) => go(e, to, () => (buildingsMenuOpen.value = false))}>
       {key && <small class="rail-key" aria-hidden="true">{key}</small>}
       <NavIcon name={g.icon} size={20} />
-      <span class="rail-label">{g.label}</span>
+      <span class="rail-label">{tr(g.label)}</span>
       {badge && <span class={`rail-badge ${badge.kind}`}>{badge.n}</span>}
     </a>
   );
@@ -70,8 +71,8 @@ function BuildingsMenu({ anchor }: { anchor: HTMLElement | null }) {
   }, [anchor]);
   const top = anchor ? Math.max(70, Math.min(anchor.getBoundingClientRect().top - 40, window.innerHeight - 470)) : 120;
   return (
-    <div class="bmenu" ref={ref} style={{ top: `${top}px` }} role="menu" aria-label="Gebouwen">
-      <div class="bmenu-head">Gebouwen · {v.name}</div>
+    <div class="bmenu" ref={ref} style={{ top: `${top}px` }} role="menu" aria-label={tr('Gebouwen')}>
+      <div class="bmenu-head">{tr('Gebouwen')} · {v.name}</div>
       {MENU_BUILDINGS.map((b) => {
         const lvl = v.buildings.find((x) => x.id === b.building)?.level ?? 0;
         const key = keyHint(`building:${b.building}`);
@@ -79,8 +80,8 @@ function BuildingsMenu({ anchor }: { anchor: HTMLElement | null }) {
           <a key={b.screen} href={`#${b.screen}`} role="menuitem" class={`bmenu-item ${screen.value === b.screen ? 'active' : ''} ${lvl === 0 ? 'unbuilt' : ''}`}
             onClick={(e) => go(e, b.screen, () => (buildingsMenuOpen.value = false))}>
             <NavIcon name={b.screen} size={18} />
-            <span>{b.label}</span>
-            <small>{key ? <kbd>{key}</kbd> : null} {lvl ? `lv ${lvl}` : 'niet gebouwd'}</small>
+            <span>{tr(b.label)}</span>
+            <small>{key ? <kbd>{key}</kbd> : null} {lvl ? tr('lv {n}', { n: lvl }) : tr('niet gebouwd')}</small>
           </a>
         );
       })}
@@ -101,11 +102,11 @@ export function Nav() {
     <nav class="rail" aria-label="Menu">
       {GROUPS.map((g) => <RailButton key={g.id} g={g} active={current?.id === g.id} />)}
       <div class="rail-sep" />
-      <button ref={anchor} class={`rail-item ${inBuilding || open ? 'active' : ''}`} aria-label="Gebouwen" aria-haspopup="menu" aria-expanded={open}
+      <button ref={anchor} class={`rail-item ${inBuilding || open ? 'active' : ''}`} aria-label={tr('Gebouwen')} aria-haspopup="menu" aria-expanded={open}
         onClick={() => (buildingsMenuOpen.value = !open)}>
         {key && <small class="rail-key" aria-hidden="true">{key}</small>}
         <NavIcon name="main" size={20} />
-        <span class="rail-label">Gebouwen</span>
+        <span class="rail-label">{tr('Gebouwen')}</span>
       </button>
       <div class="rail-fill" />
       <RailButton g={SETTINGS} active={current?.id === SETTINGS.id} />
@@ -120,13 +121,13 @@ export function ScreenTabs() {
   const tabs = g ? visibleTabs(g, account.value?.admin ?? false, isMobile.value) : [];
   if (!g || tabs.length < 2 || !snapshot.value) return null;
   return (
-    <div class="screen-tabs" role="tablist" aria-label={g.label}>
+    <div class="screen-tabs" role="tablist" aria-label={tr(g.label)}>
       {tabs.map((t) => {
         const b = screenBadge(t.screen);
         const on = t.screen === screen.value;
         return (
           <a key={t.screen} href={`#${t.screen}`} role="tab" aria-selected={on} class={on ? 'on' : ''} onClick={(e) => go(e, t.screen)}>
-            {t.label}
+            {tr(t.label)}
             {b && b.kind !== 'plain' && <span class={`tab-badge ${b.kind}`}>{b.n}</span>}
           </a>
         );

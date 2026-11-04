@@ -1,6 +1,7 @@
 /** Small UI helpers around units and travel. */
 import { UNIT_IDS, type UnitCounts, type UnitId } from '../shared/gameData';
 import type { UnitView } from '../sim/view';
+import { tr } from '../shared/i18n';
 
 export const UNIT_SHORT: Record<UnitId, string> = {
   spear: 'Speer',
@@ -30,6 +31,6 @@ export function travelMs(units: UnitCounts, views: UnitView[], dist: number, mar
 
 export function unitsText(units: UnitCounts): string {
   return UNIT_IDS.filter((u) => (units[u] ?? 0) > 0)
-    .map((u) => `${units[u]} ${UNIT_SHORT[u]}`)
+    .map((u) => `${units[u]} ${tr(UNIT_SHORT[u])}`)
     .join(', ');
 }

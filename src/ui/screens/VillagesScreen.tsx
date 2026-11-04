@@ -14,6 +14,8 @@ import { SupportReturn } from '../components/SupportReturn';
 import { FlagSelect, FlagsPanel } from '../components/FlagsPanel';
 import { groupFilter, groupVillages, screen, send, setGroupFilter, snapshot } from '../store';
 import { UNIT_SHORT } from '../units';
+import { tr } from '../../shared/i18n';
+import { trx } from '../i18n';
 
 /** All own villages in one table (TW "Overzichten"). Clicking a name selects that village. */
 export function VillagesScreen() {
@@ -40,7 +42,7 @@ export function VillagesScreen() {
         {v.name}
       </button>{' '}
       <Coords x={v.x} y={v.y} />{' '}
-      {v.faith === false && <span class="group-chip" style={{ '--gc': '#e5533f' }} title="Geen kerk in de buurt: troepen uit dit dorp vechten op halve kracht">geen geloof</span>}{' '}
+      {v.faith === false && <span class="group-chip" style={{ '--gc': '#e5533f' }} title={tr('Geen kerk in de buurt: troepen uit dit dorp vechten op halve kracht')}>{tr('geen geloof')}</span>}{' '}
       {chips(v)}
     </>
   );
@@ -51,11 +53,11 @@ export function VillagesScreen() {
 
   return (
     <div class="screen">
-      <h2>Dorpen ({list.length}{list.length !== s.villages.length ? ` van ${s.villages.length}` : ''})</h2>
+      <h2>{tr('Dorpen')} ({list.length}{list.length !== s.villages.length ? ` ${tr('van {n}', { n: s.villages.length })}` : ''})</h2>
       <section class="panel group-bar">
         <div class="row wrap">
           <button class={`small ${!groupFilter.value ? 'active' : ''}`} onClick={() => { setGroupFilter(null); setPicked(new Set()); }}>
-            Alle ({s.villages.length})
+            {tr('Alle')} ({s.villages.length})
           </button>
           {s.groups.map((g) => (
             <button key={g.id} class={`small group-btn ${groupFilter.value === g.id ? 'active' : ''}`} style={{ '--gc': g.color }} onClick={() => { setGroupFilter(g.id); setPicked(new Set()); }}>
@@ -63,23 +65,23 @@ export function VillagesScreen() {
             </button>
           ))}
           <span style={{ flex: 1 }} />
-          {s.flags && <button class="small" onClick={() => setFlagsOpen(!flagsOpen)}>Vlaggen</button>}
-          <button class="small" onClick={() => { setSupports(!supports); setSuggest(false); setManage(false); }}>Ondersteuning terugsturen</button>
-          <button class="small" onClick={() => { setSuggest(!suggest); setManage(false); setSupports(false); }}>Voorstellen</button>
-          <button class="small" onClick={() => { setManage(!manage); setSuggest(false); setSupports(false); }}>Groepen beheren</button>
+          {s.flags && <button class="small" onClick={() => setFlagsOpen(!flagsOpen)}>{tr('Vlaggen')}</button>}
+          <button class="small" onClick={() => { setSupports(!supports); setSuggest(false); setManage(false); }}>{tr('Ondersteuning terugsturen')}</button>
+          <button class="small" onClick={() => { setSuggest(!suggest); setManage(false); setSupports(false); }}>{tr('Voorstellen|groepen')}</button>
+          <button class="small" onClick={() => { setManage(!manage); setSuggest(false); setSupports(false); }}>{tr('Groepen beheren')}</button>
         </div>
         {picked.size > 0 && (
           <div class="row wrap group-actions">
-            <span><strong>{picked.size}</strong> geselecteerd:</span>
+            <span>{trx('{n} geselecteerd:', { n: <strong>{picked.size}</strong> })}</span>
             {s.groups.map((g) => (
               <span key={g.id} class="group-act">
                 <span class="group-chip" style={{ '--gc': g.color }}>{g.name}</span>
-                <button class="small" onClick={() => send({ type: 'setGroup', group: g.id, villages: [...picked], member: true })}>+ erin</button>
-                <button class="small" onClick={() => send({ type: 'setGroup', group: g.id, villages: [...picked], member: false })}>− eruit</button>
+                <button class="small" onClick={() => send({ type: 'setGroup', group: g.id, villages: [...picked], member: true })}>{tr('+ erin')}</button>
+                <button class="small" onClick={() => send({ type: 'setGroup', group: g.id, villages: [...picked], member: false })}>{tr('− eruit')}</button>
               </span>
             ))}
-            {!s.groups.length && <span class="muted">Maak eerst een groep (Groepen beheren).</span>}
-            <button class="small" onClick={() => setPicked(new Set())}>Selectie wissen</button>
+            {!s.groups.length && <span class="muted">{tr('Maak eerst een groep (Groepen beheren).')}</span>}
+            <button class="small" onClick={() => setPicked(new Set())}>{tr('Selectie wissen')}</button>
           </div>
         )}
         {manage && <GroupManager groups={s.groups} />}
@@ -88,7 +90,7 @@ export function VillagesScreen() {
         {suggest && <GroupSuggestions villages={s.villages} groups={s.groups} onDone={() => setSuggest(false)} />}
       </section>
       <section class="panel">
-        <FoldHead id="prod" title="Productie" open={openProd} set={setOpenProd} />
+        <FoldHead id="prod" title={tr('Productie')} open={openProd} set={setOpenProd} />
         {openProd && <table class="table fixed villages-table">
           <colgroup>
             <col />
@@ -106,19 +108,19 @@ export function VillagesScreen() {
           <thead>
             <tr>
               <th>
-                <input type="checkbox" class="pick" checked={allPicked} onChange={pickAll} title="Alles selecteren" /> Dorp
+                <input type="checkbox" class="pick" checked={allPicked} onChange={pickAll} title={tr('Alles selecteren')} /> {tr('Dorp')}
               </th>
-              <th class="right">Punten</th>
-              <th class="right">Hout</th>
-              <th class="right">Leem</th>
-              <th class="right">IJzer</th>
-              <th class="right">Opslag</th>
-              <th class="right">Boerderij</th>
-              <th class="right" title="Toestemming">Toest.</th>
-              <th>Bouwt</th>
-              <th class="right" title="Units in opleiding">Rekr.</th>
-              <th>Beheer</th>
-              {s.flags && <th>Vlag</th>}
+              <th class="right">{tr('Punten')}</th>
+              <th class="right">{tr('Hout')}</th>
+              <th class="right">{tr('Leem')}</th>
+              <th class="right">{tr('IJzer')}</th>
+              <th class="right">{tr('Opslag')}</th>
+              <th class="right">{tr('Boerderij')}</th>
+              <th class="right" title={tr('Toestemming')}>{tr('Toest.')}</th>
+              <th>{tr('Bouwt')}</th>
+              <th class="right" title={tr('Units in opleiding')}>{tr('Rekr.')}</th>
+              <th>{tr('Beheer')}</th>
+              {s.flags && <th>{tr('Vlag')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -136,7 +138,7 @@ export function VillagesScreen() {
                   {num(v.pop.used)}/{num(v.pop.max)}
                 </td>
                 <td class={`right mono ${v.loyalty < 100 ? 'warn' : 'muted'}`}>{v.loyalty}</td>
-                <td class="clip" title={v.building ? `${v.building.name} ${v.building.level} · klaar ${formatGameTime(v.building.end)}` : ''}>
+                <td class="clip" title={v.building ? `${v.building.name} ${v.building.level} · ${tr('klaar {time}', { time: formatGameTime(v.building.end) })}` : ''}>
                   {v.building ? (
                     <>
                       {v.building.name} {v.building.level}{' '}
@@ -152,13 +154,13 @@ export function VillagesScreen() {
                   <button
                     class="small"
                     disabled={v.maxMint === 0}
-                    title={v.maxMint > 0 ? `Sla ${v.maxMint} munt(en) in dit dorp` : 'Geen adelshoeve of te weinig grondstoffen'}
+                    title={v.maxMint > 0 ? tr('Sla {n} munt(en) in dit dorp', { n: v.maxMint }) : tr('Geen adelshoeve of te weinig grondstoffen')}
                     onClick={() => send({ type: 'mintCoins', villageId: v.id, count: v.maxMint })}
                   >
-                    +{v.maxMint} munt
+                    {tr('+{n} munt', { n: v.maxMint })}
                   </button>{' '}
-                  <span class={v.manager ? '' : 'muted'} title={v.manager ?? 'Geen accountmanager'}>
-                    {v.manager ?? 'handmatig'}
+                  <span class={v.manager ? '' : 'muted'} title={v.manager ?? tr('Geen accountmanager')}>
+                    {v.manager ?? tr('handmatig')}
                   </span>
                 </td>
                 {s.flags && (
@@ -170,17 +172,17 @@ export function VillagesScreen() {
         </table>}
       </section>
       <section class="panel">
-        <FoldHead id="troops" title="Troepen thuis" open={openTroops} set={setOpenTroops} />
+        <FoldHead id="troops" title={tr('Troepen thuis')} open={openTroops} set={setOpenTroops} />
         {!openTroops ? null : used.length === 0 ? (
-          <p class="muted">Geen troepen.</p>
+          <p class="muted">{tr('Geen troepen.')}</p>
         ) : (
           <table class="table">
             <thead>
               <tr>
-                <th>Dorp</th>
+                <th>{tr('Dorp')}</th>
                 {used.map((u) => (
-                  <th key={u} class="right" title={UNIT_SHORT[u]}>
-                    <UnitIcon id={u} size={20} title={UNIT_SHORT[u]} />
+                  <th key={u} class="right" title={tr(UNIT_SHORT[u])}>
+                    <UnitIcon id={u} size={20} title={tr(UNIT_SHORT[u])} />
                   </th>
                 ))}
               </tr>
@@ -197,7 +199,7 @@ export function VillagesScreen() {
                 </tr>
               ))}
               <tr class="total-row">
-                <td><strong>Totaal</strong> <span class="muted">({list.length} dorpen)</span></td>
+                <td><strong>{tr('Totaal')}</strong> <span class="muted">({list.length === 1 ? tr('1 dorp') : tr('{n} dorpen', { n: list.length })})</span></td>
                 {used.map((u) => (
                   <td key={u} class="right mono">
                     <strong>{num(list.reduce((t, v) => t + (v.units[u] ?? 0), 0))}</strong>
@@ -218,7 +220,7 @@ function FoldHead({ id, title, open, set }: { id: string; title: string; open: b
     <button class="fold-head" aria-expanded={open} aria-controls={`fold-${id}`} onClick={() => set(!open)}>
       <span class={`fold-chev ${open ? 'open' : ''}`} aria-hidden="true">▸</span>
       <h3>{title}</h3>
-      {!open && <span class="muted">ingeklapt</span>}
+      {!open && <span class="muted">{tr('ingeklapt')}</span>}
     </button>
   );
 }
@@ -233,17 +235,17 @@ function GroupManager({ groups }: { groups: VillageGroup[] }) {
   const change = (g: VillageGroup, patch: Partial<VillageGroup>) => setDrafts({ ...drafts, [g.id]: { ...draft(g), ...patch } });
   const add = () => {
     const color = GROUP_COLORS.find((c) => !groups.some((g) => g.color === c)) ?? '#9a9ad6';
-    send({ type: 'saveGroup', group: { id: `group:${Date.now()}`, name: `Groep ${groups.length + 1}`, color } });
+    send({ type: 'saveGroup', group: { id: `group:${Date.now()}`, name: tr('Groep {n}', { n: groups.length + 1 }), color } });
   };
   return (
     <div class="group-manager">
       <table class="table compact">
         <thead>
           <tr>
-            <th>Naam</th>
-            <th>Kleur</th>
-            <th>Bouwsjabloon</th>
-            <th>Troepensjabloon</th>
+            <th>{tr('Naam')}</th>
+            <th>{tr('Kleur')}</th>
+            <th>{tr('Bouwsjabloon')}</th>
+            <th>{tr('Troepensjabloon')}</th>
             <th />
           </tr>
         </thead>
@@ -270,9 +272,9 @@ function GroupManager({ groups }: { groups: VillageGroup[] }) {
                 </td>
                 <td class="right nowrap">
                   <button class="small primary" disabled={!dirty} onClick={() => { send({ type: 'saveGroup', group: d }); const x = { ...drafts }; delete x[g.id]; setDrafts(x); }}>
-                    Opslaan
+                    {tr('Opslaan')}
                   </button>{' '}
-                  <Confirm label="Verwijderen" sure={n ? `Zeker? (${n} dorpen)` : 'Zeker?'} onConfirm={() => send({ type: 'deleteGroup', id: g.id })} />
+                  <Confirm label={tr('Verwijderen')} sure={n ? tr('Zeker? ({n} dorpen)', { n }) : tr('Zeker?')} onConfirm={() => send({ type: 'deleteGroup', id: g.id })} />
                 </td>
               </tr>
             );
@@ -280,11 +282,10 @@ function GroupManager({ groups }: { groups: VillageGroup[] }) {
         </tbody>
       </table>
       <div class="row">
-        <button class="small" onClick={add}>Nieuwe groep</button>
+        <button class="small" onClick={add}>{tr('Nieuwe groep')}</button>
       </div>
       <p class="hint">
-        Een dorp kan in meerdere groepen. Heeft een groep sjablonen, dan krijgt een dorp dat je eraan toevoegt die sjablonen in de accountmanager
-        (bestaande dorpen in de groep veranderen niet als je de sjablonen later wijzigt).
+        {tr('Een dorp kan in meerdere groepen. Heeft een groep sjablonen, dan krijgt een dorp dat je eraan toevoegt die sjablonen in de accountmanager (bestaande dorpen in de groep veranderen niet als je de sjablonen later wijzigt).')}
       </p>
     </div>
   );
@@ -325,10 +326,10 @@ function GroupSuggestions({ villages, groups, onDone }: { villages: OwnVillageRo
     }
     onDone();
   };
-  if (!rows.length) return <p class="muted group-suggest">Geen voorstellen: elk dorp met genoeg troepen zit al in de passende groep.</p>;
+  if (!rows.length) return <p class="muted group-suggest">{tr('Geen voorstellen: elk dorp met genoeg troepen zit al in de passende groep.')}</p>;
   return (
     <div class="group-suggest">
-      <p class="hint">Op basis van de troepen thuis: veel bijl, LC en rammen = OFF; speer, zwaard en boog = DEF; zware cavalerie = SUPP. Groepen die nog niet bestaan worden aangemaakt. Vink uit wat je niet wilt.</p>
+      <p class="hint">{tr('Op basis van de troepen thuis: veel bijl, LC en rammen = OFF; speer, zwaard en boog = DEF; zware cavalerie = SUPP. Groepen die nog niet bestaan worden aangemaakt. Vink uit wat je niet wilt.')}</p>
       <table class="table compact">
         <tbody>
           {rows.map(({ v, role }) => (
@@ -339,15 +340,15 @@ function GroupSuggestions({ villages, groups, onDone }: { villages: OwnVillageRo
               </td>
               <td>
                 → <span class="group-chip" style={{ '--gc': groupFor(role)?.color ?? ROLE_COLOR[role] }}>{groupFor(role)?.name ?? role}</span>
-                {!groupFor(role) && <span class="muted"> (nieuw)</span>}
+                {!groupFor(role) && <span class="muted"> {tr('(nieuw)')}</span>}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
       <div class="row">
-        <button class="small primary" disabled={!on.size} onClick={apply}>Toepassen ({on.size})</button>
-        <button class="small" onClick={onDone}>Annuleren</button>
+        <button class="small primary" disabled={!on.size} onClick={apply}>{tr('Toepassen')} ({on.size})</button>
+        <button class="small" onClick={onDone}>{tr('Annuleren')}</button>
       </div>
     </div>
   );

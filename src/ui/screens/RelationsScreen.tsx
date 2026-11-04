@@ -4,6 +4,8 @@ import type { MoodNoteView } from '../../shared/protocol';
 import { duration } from '../format';
 import { PlayerLink } from '../components/PlayerLink';
 import { opinions, send, snapshot } from '../store';
+import { tr } from '../../shared/i18n';
+import { num } from '../format';
 
 const face = (m: number) => (m >= 70 ? '😀' : m >= 50 ? '🙂' : m >= 35 ? '😐' : m >= 20 ? '😠' : '🤬');
 const ARCH: Record<string, string> = { opportunist: 'opportunist', rusher: 'aanvaller', farmer: 'farmer', turtle: 'verdediger', diplomat: 'diplomaat', supporter: 'helper' };
@@ -37,24 +39,24 @@ export function RelationsScreen() {
   }, []);
   const s = snapshot.value;
   const o = opinions.value;
-  if (!s || !o) return <div class="screen"><p class="muted">Laden…</p></div>;
+  if (!s || !o) return <div class="screen"><p class="muted">{tr('Laden…')}</p></div>;
   const inTribe = s.myTribe !== null && s.myTribe !== undefined;
   return (
     <div class="screen">
-      <h2>Relaties</h2>
+      <h2>{tr('Relaties')}</h2>
       {!inTribe ? (
-        <section class="panel"><p class="muted">Je zit niet in een stam. Stamgenoten en leiders hebben hier straks een mening over je.</p></section>
+        <section class="panel"><p class="muted">{tr('Je zit niet in een stam. Stamgenoten en leiders hebben hier straks een mening over je.')}</p></section>
       ) : s.myTribeLeader ? (
         <section class="panel">
-          <h3>Mening van je stamgenoten over jou</h3>
-          {!o.mates.length ? <p class="muted">Je stam heeft nog geen andere leden.</p> : (
+          <h3>{tr('Mening van je stamgenoten over jou')}</h3>
+          {!o.mates.length ? <p class="muted">{tr('Je stam heeft nog geen andere leden.')}</p> : (
             <table class="table compact">
-              <thead><tr><th>Speler</th><th>Type</th><th>Tevredenheid</th><th>Waarom</th></tr></thead>
+              <thead><tr><th>{tr('Speler')}</th><th>{tr('Type')}</th><th>{tr('Tevredenheid')}</th><th>{tr('Waarom')}</th></tr></thead>
               <tbody>
                 {o.mates.map((m) => (
                   <tr key={m.id}>
                     <td><PlayerLink id={m.id} name={m.name} /></td>
-                    <td class="muted">{ARCH[m.archetype] ?? m.archetype}</td>
+                    <td class="muted">{ARCH[m.archetype] ? tr(ARCH[m.archetype]!) : m.archetype}</td>
                     <td><Mood value={m.mood} /></td>
                     <td><Notes notes={m.notes} /></td>
                   </tr>
@@ -63,16 +65,15 @@ export function RelationsScreen() {
             </table>
           )}
           <p class="hint">
-            Helpen (support, grondstoffen, toestemming) maakt ze blij; verzoeken weigeren of negeren, te veel orders, en dorpen die ze verliezen
-            zonder jouw hulp niet. Onder 35 klagen ze, onder 25 vertrekken ze misschien, onder 12 kunnen ze je verraden. Opportunisten het snelst.
+            {tr('Helpen (support, grondstoffen, toestemming) maakt ze blij; verzoeken weigeren of negeren, te veel orders, en dorpen die ze verliezen zonder jouw hulp niet. Onder 35 klagen ze, onder 25 vertrekken ze misschien, onder 12 kunnen ze je verraden. Opportunisten het snelst.')}
           </p>
         </section>
       ) : o.standing ? (
         <section class="panel">
-          <h3>Wat {o.standing.leaderName} (je leider) van je vindt</h3>
+          <h3>{tr('Wat {leader} (je leider) van je vindt', { leader: o.standing.leaderName })}</h3>
           <p><Mood value={o.standing.value} /></p>
           <p><Notes notes={o.standing.notes} /></p>
-          <p class="hint">Help je stamgenoten en vraag toestemming voor je iemand aanvalt. Onder 20 zet je leider je eruit.</p>
+          <p class="hint">{tr('Help je stamgenoten en vraag toestemming voor je iemand aanvalt. Onder 20 zet je leider je eruit.')}</p>
         </section>
       ) : null}
 
@@ -80,27 +81,27 @@ export function RelationsScreen() {
 
       {o.permissions.length > 0 && (
         <section class="panel">
-          <h3>Toestemming om aan te vallen</h3>
+          <h3>{tr('Toestemming om aan te vallen')}</h3>
           <table class="table compact">
             <tbody>
               {o.permissions.map((p) => (
                 <tr key={p.target}>
                   <td><PlayerLink id={p.target} name={p.name} /></td>
-                  <td>{!p.answer ? <span class="muted">wacht op antwoord</span> : p.answer === 'yes' ? <span class="good">ja</span> : <span class="bad">nee</span>}</td>
-                  <td class="muted">{p.until ? `geldt nog ${duration(Math.max(0, p.until - s.time))}` : ''}</td>
+                  <td>{!p.answer ? <span class="muted">{tr('wacht op antwoord')}</span> : p.answer === 'yes' ? <span class="good">{tr('ja')}</span> : <span class="bad">{tr('nee')}</span>}</td>
+                  <td class="muted">{p.until ? tr('geldt nog {time}', { time: duration(Math.max(0, p.until - s.time)) }) : ''}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p class="hint">Vragen doe je op het profiel van een speler. Aanvallen terwijl je leider nee zei, kost je zijn vertrouwen.</p>
+          <p class="hint">{tr('Vragen doe je op het profiel van een speler. Aanvallen terwijl je leider nee zei, kost je zijn vertrouwen.')}</p>
         </section>
       )}
 
       <section class="panel">
-        <h3>Wrok tegen jou</h3>
-        {!o.grudges.length ? <p class="muted">Niemand heeft wrok tegen je. Nog niet.</p> : (
+        <h3>{tr('Wrok tegen jou')}</h3>
+        {!o.grudges.length ? <p class="muted">{tr('Niemand heeft wrok tegen je. Nog niet.')}</p> : (
           <table class="table compact">
-            <thead><tr><th>Speler</th><th>Stam</th><th>Wrok</th><th>Waarom</th><th class="right">Halveert in</th></tr></thead>
+            <thead><tr><th>{tr('Speler')}</th><th>{tr('Stam')}</th><th>{tr('Wrok')}</th><th>{tr('Waarom')}</th><th class="right">{tr('Halveert in')}</th></tr></thead>
             <tbody>
               {o.grudges.map((g) => (
                 <tr key={g.id}>
@@ -118,8 +119,8 @@ export function RelationsScreen() {
           </table>
         )}
         <p class="hint">
-          Wrok ontstaat als je iemand aanvalt, uit je stam zet of verraadt, en zakt vanzelf weg. Wie wrok heeft, slaat terug, helpt je niet en
-          neemt je niet aan.{o.betrayals > 0 && ` Je hebt ${o.betrayals}× verraad gepleegd: stammen nemen je minder snel aan.`}
+          {tr('Wrok ontstaat als je iemand aanvalt, uit je stam zet of verraadt, en zakt vanzelf weg. Wie wrok heeft, slaat terug, helpt je niet en neemt je niet aan.')}
+          {o.betrayals > 0 && ` ${tr('Je hebt {n}× verraad gepleegd: stammen nemen je minder snel aan.', { n: o.betrayals })}`}
         </p>
       </section>
     </div>
@@ -135,11 +136,14 @@ function AskResources() {
   const amounts = res.map((x) => Math.max(0, Math.floor(Number(x) || 0))) as [number, number, number];
   return (
     <section class="panel">
-      <h3>Grondstoffen vragen aan je stam</h3>
+      <h3>{tr('Grondstoffen vragen aan je stam')}</h3>
       {ask ? (
         <p>
-          Gevraagd voor {s.villages.find((v) => v.id === ask.village)?.name ?? '?'}: {ask.res.map((n) => n.toLocaleString('nl-NL')).join(' / ')}. Onderweg of
-          geleverd: {ask.sent.map((n) => n.toLocaleString('nl-NL')).join(' / ')}. Eén verzoek per speldag.
+          {tr('Gevraagd voor {village}: {asked}. Onderweg of geleverd: {sent}. Eén verzoek per speldag.', {
+            village: s.villages.find((v) => v.id === ask.village)?.name ?? '?',
+            asked: ask.res.map((n) => num(n)).join(' / '),
+            sent: ask.sent.map((n) => num(n)).join(' / '),
+          })}
         </p>
       ) : (
         <div class="row wrap">
@@ -148,16 +152,16 @@ function AskResources() {
           </select>
           {['Hout', 'Leem', 'IJzer'].map((label, i) => (
             <label key={label} class="row">
-              {label}
+              {tr(label)}
               <input type="number" min={0} step={1000} style={{ width: '90px' }} value={res[i]} onInput={(e) => { const n = [...res]; n[i] = e.currentTarget.value; setRes(n); }} />
             </label>
           ))}
           <button class="small primary" disabled={amounts[0] + amounts[1] + amounts[2] < 1000} onClick={() => send({ type: 'askTribeResources', village, res: amounts })}>
-            Vraag de stam
+            {tr('Vraag de stam')}
           </button>
         </div>
       )}
-      <p class="hint">Stamgenoten sturen wat ze kunnen missen (boven 40% van hun opslag), als ze online zijn en zin hebben. Helpers eerder dan opportunisten.</p>
+      <p class="hint">{tr('Stamgenoten sturen wat ze kunnen missen (boven 40% van hun opslag), als ze online zijn en zin hebben. Helpers eerder dan opportunisten.')}</p>
     </section>
   );
 }

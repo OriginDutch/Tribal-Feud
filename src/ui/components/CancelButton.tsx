@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n';
 import { duration } from '../format';
 import { send } from '../store';
 
@@ -7,10 +8,10 @@ export function CancelButton({ id, until, now, train }: { id: number; until?: nu
   return (
     <button
       class="small"
-      title={train ? 'Haalt de hele edeltrein terug' : 'Troepen keren om en zijn even lang terug onderweg'}
+      title={train ? tr('Haalt de hele edeltrein terug') : tr('Troepen keren om en zijn even lang terug onderweg')}
       onClick={() => send({ type: 'cancelMovement', id })}
     >
-      {train ? 'Trein annuleren' : 'Annuleren'} <span class="muted mono">{duration(until - now)}</span>
+      {train ? tr('Trein annuleren') : tr('Annuleren')} <span class="muted mono">{duration(until - now)}</span>
     </button>
   );
 }

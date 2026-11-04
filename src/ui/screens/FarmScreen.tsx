@@ -1,5 +1,7 @@
 import { BARB_TYPE_NAMES, BONUS_NAMES } from '../../shared/barbarianTypes';
 import { useSaved } from '../useSaved';
+import { tr } from '../../shared/i18n';
+import { trx } from '../i18n';
 import { Coords } from '../components/Coords';
 import { UnitIcon } from '../units/UnitIcon';
 import { useEffect, useMemo, useState } from 'preact/hooks';
@@ -18,8 +20,8 @@ const FARM_UNITS: UnitId[] = ['spear', 'sword', 'axe', 'archer', 'spy', 'light',
 function NotifyBox({ name }: { name: FarmKey }) {
   const on = snapshot.value?.farmNotify?.includes(name) ?? false;
   return (
-    <label class="inline" title="Aan: deze farmruns tellen voor jou als gewone aanvallen: ongelezen rapporten, meldingen en geluiden, en ze staan onder Aanvallen. Uit: stille farmruns.">
-      <input type="checkbox" checked={on} onChange={(e) => send({ type: 'setFarmNotify', template: name, on: e.currentTarget.checked })} /> Meldingen tonen
+    <label class="inline" title={tr('Aan: deze farmruns tellen voor jou als gewone aanvallen: ongelezen rapporten, meldingen en geluiden, en ze staan onder Aanvallen. Uit: stille farmruns.')}>
+      <input type="checkbox" checked={on} onChange={(e) => send({ type: 'setFarmNotify', template: name, on: e.currentTarget.checked })} /> {tr('Meldingen tonen')}
     </label>
   );
 }
@@ -43,12 +45,12 @@ function TemplateEditor({ name, units, onRemove }: { name: FarmLetter; units: Un
 
   return (
     <div class="template">
-      <strong>Sjabloon {name}</strong>
+      <strong>{tr('Sjabloon {name}', { name })}</strong>
       <div class="template-units">
         {FARM_UNITS.map((u) => (
-          <label key={u} title={UNIT_SHORT[u]}>
+          <label key={u} title={tr(UNIT_SHORT[u])}>
             <span class="unit-name">
-              <UnitIcon id={u} size={18} /> {UNIT_SHORT[u]}
+              <UnitIcon id={u} size={18} /> {tr(UNIT_SHORT[u])}
             </span>
             <input type="number" min={0} value={draft[u] ?? ''} placeholder="0" onInput={(e) => setDraft({ ...draft, [u]: e.currentTarget.value })} />
           </label>
@@ -56,9 +58,9 @@ function TemplateEditor({ name, units, onRemove }: { name: FarmLetter; units: Un
       </div>
       <div class="row">
         <button class="small" onClick={save}>
-          Opslaan
+          {tr('Opslaan')}
         </button>
-        <Confirm label="Verwijderen" sure={`Sjabloon ${name} weg?`} onConfirm={onRemove} />
+        <Confirm label={tr('Verwijderen')} sure={tr('Sjabloon {name} weg?', { name })} onConfirm={onRemove} />
         <NotifyBox name={name} />
       </div>
     </div>
@@ -118,13 +120,13 @@ export function FarmScreen() {
 
   return (
     <div class="screen narrow">
-      <h2>Farm-assistent</h2>
+      <h2>{tr('Farm-assistent')}</h2>
       <section class="panel">
         <div class="row">
-          <h3 style={{ margin: 0, flex: 1 }}>Sjablonen</h3>
+          <h3 style={{ margin: 0, flex: 1 }}>{tr('Sjablonen')}</h3>
           {free && (
             <button class="small" onClick={() => setAdding(free)}>
-              Nieuw sjabloon ({free})
+              {tr('Nieuw sjabloon ({l})', { l: free })}
             </button>
           )}
         </div>
@@ -134,25 +136,25 @@ export function FarmScreen() {
           ))}
         </div>
         <p class="muted">
-          {letters.map((l) => `${l}: ${unitsText(tpl(l))}`).join(' · ') || 'Nog geen sjablonen.'} Een sjabloon is pas te sturen als alle troepen ervan thuis zijn.
-          * stuurt genoeg lichte cavalerie voor de geschatte buit (na verkenning).
+          {letters.map((l) => `${l}: ${unitsText(tpl(l))}`).join(' · ') || tr('Nog geen sjablonen.')} {tr('Een sjabloon is pas te sturen als alle troepen ervan thuis zijn.')}{' '}
+          {tr('* stuurt genoeg lichte cavalerie voor de geschatte buit (na verkenning).')}
         </p>
         <div class="row">
-          <span class="muted">Sjabloon *:</span> <NotifyBox name="*" />
+          <span class="muted">{tr('Sjabloon {name}:', { name: '*' })}</span> <NotifyBox name="*" />
         </div>
       </section>
       <FarmAllPanel />
       <section class="panel">
         <div class="row">
-          <h3 style={{ margin: 0, flex: 1 }}>Barbarendorpen in de buurt</h3>
+          <h3 style={{ margin: 0, flex: 1 }}>{tr('Barbarendorpen in de buurt')}</h3>
           {own.length > 1 && (
             <label class="inline">
-              <input type="checkbox" checked={all} onChange={(e) => setAll(e.currentTarget.checked)} /> vanaf al je dorpen
+              <input type="checkbox" checked={all} onChange={(e) => setAll(e.currentTarget.checked)} /> {tr('vanaf al je dorpen')}
             </label>
           )}
         </div>
         {!data ? (
-          <p class="muted">Laden…</p>
+          <p class="muted">{tr('Laden…')}</p>
         ) : (
           <table class="table fixed">
             <colgroup>
@@ -168,14 +170,14 @@ export function FarmScreen() {
             </colgroup>
             <thead>
               <tr>
-                <th>Dorp</th>
-                <th class="right">Afstand</th>
-                <th class="right">Punten</th>
-                <th>Type</th>
-                <th class="right">Muur</th>
-                <th>Laatste aanval</th>
-                <th class="right">Looptijd {first ?? ''}</th>
-                {multi && <th>Vanaf</th>}
+                <th>{tr('Dorp')}</th>
+                <th class="right">{tr('Afstand')}</th>
+                <th class="right">{tr('Punten')}</th>
+                <th>{tr('Type')}</th>
+                <th class="right">{tr('Muur')}</th>
+                <th>{tr('Laatste aanval')}</th>
+                <th class="right">{tr('Looptijd {t}', { t: first ?? '' })}</th>
+                {multi && <th>{tr('Vanaf')}</th>}
                 <th />
               </tr>
             </thead>
@@ -192,15 +194,15 @@ export function FarmScreen() {
                   <td class="right mono">{m.dist.toFixed(1)}</td>
                   <td class="right mono">{num(m.points)}</td>
                   <td class="nowrap">
-                    {m.barbType ? BARB_TYPE_NAMES[m.barbType] : <span class="muted">?</span>}
-                    {m.bonus && <span class="bonus-tag" title={BONUS_NAMES[m.bonus]}> ★</span>}
+                    {m.barbType ? tr(BARB_TYPE_NAMES[m.barbType]) : <span class="muted">?</span>}
+                    {m.bonus && <span class="bonus-tag" title={tr(BONUS_NAMES[m.bonus])}> ★</span>}
                   </td>
                   <td class="right mono">{m.wall ?? <span class="muted">?</span>}</td>
                   <td>
                     {m.last ? (
                       <>
                         <span class={`dot ${m.last.result}`} /> <span class="mono muted">{formatGameTime(m.last.time)}</span>
-                        {m.last.loot > 0 && <span class="muted"> · {num(m.last.loot)} buit</span>}
+                        {m.last.loot > 0 && <span class="muted"> · {tr('{n} buit', { n: num(m.last.loot) })}</span>}
                       </>
                     ) : (
                       <span class="muted">—</span>
@@ -223,7 +225,7 @@ export function FarmScreen() {
                     <button
                       class="small"
                       disabled={m.estimate === undefined || lightHome === 0}
-                      title={m.estimate === undefined ? 'Eerst verkennen' : `${Math.min(lightHome, Math.max(1, Math.ceil(m.estimate / lightCarry)))} LC voor ~${num(m.estimate)} buit`}
+                      title={m.estimate === undefined ? tr('Eerst verkennen') : tr('{n} LC voor ~{loot} buit', { n: Math.min(lightHome, Math.max(1, Math.ceil(m.estimate / lightCarry))), loot: num(m.estimate) })}
                       onClick={() => send({ type: 'sendFarm', from: fromId ?? v.id, to: m.id, template: '*' })}
                     >
                       *
@@ -237,7 +239,7 @@ export function FarmScreen() {
         )}
         {rows.length >= limit && (
           <button class="small" onClick={() => setLimit(limit + 50)}>
-            Meer tonen
+            {tr('Meer tonen')}
           </button>
         )}
       </section>
@@ -276,63 +278,69 @@ function FarmAllPanel() {
   const plan = farmAllPlan.value && JSON.stringify(farmAllPlan.value.options) === key ? farmAllPlan.value : null;
   const skippedText = plan
     ? [
-        plan.skipped.busy && `${plan.skipped.busy} al onderweg`,
-        plan.skipped.lost && `${plan.skipped.lost} verloren`,
-        plan.skipped.wall && `${plan.skipped.wall} te hoge muur`,
-        plan.skipped.noScout && `${plan.skipped.noScout} niet verkend`,
+        plan.skipped.busy && tr('{n} al onderweg', { n: plan.skipped.busy }),
+        plan.skipped.lost && tr('{n} verloren', { n: plan.skipped.lost }),
+        plan.skipped.wall && tr('{n} te hoge muur', { n: plan.skipped.wall }),
+        plan.skipped.noScout && tr('{n} niet verkend', { n: plan.skipped.noScout }),
       ].filter(Boolean).join(' · ')
     : '';
   return (
     <section class="panel farm-all">
       <div class="row wrap">
-        <h3 style={{ margin: 0 }}>Farm alles</h3>
+        <h3 style={{ margin: 0 }}>{tr('Farm alles')}</h3>
         {keys.map((t) => (
-          <button key={t} class={`chip ${template === t ? 'on' : ''}`} title={t === '*' ? 'Lichte cavalerie naar de verkende buit' : undefined} onClick={() => setTemplate(t)}>Alle {t}</button>
+          <button key={t} class={`chip ${template === t ? 'on' : ''}`} title={t === '*' ? tr('Lichte cavalerie naar de verkende buit') : undefined} onClick={() => setTemplate(t)}>{tr('Alle {t}', { t })}</button>
         ))}
         <span style={{ flex: 1 }} />
-        <label class="row" title="Elke 30 speelminuten (op snelheid 1; sneller op een snelle wereld) automatisch Farm alles met deze instellingen">
-          <input type="checkbox" checked={!!auto} onChange={(e) => send({ type: 'setAutoFarm', options: e.currentTarget.checked ? options : null })} /> Automatisch
+        <label class="row" title={tr('Elke 30 speelminuten (op snelheid 1; sneller op een snelle wereld) automatisch Farm alles met deze instellingen')}>
+          <input type="checkbox" checked={!!auto} onChange={(e) => send({ type: 'setAutoFarm', options: e.currentTarget.checked ? options : null })} /> {tr('Automatisch')}
         </label>
         <Confirm
-          label={`Farm alles${plan ? ` (${plan.attacks})` : ''}`}
-          sure={`Zeker? ${plan?.attacks ?? 0} aanvallen`}
+          label={plan ? tr('Farm alles ({n})', { n: plan.attacks }) : tr('Farm alles')}
+          sure={tr('Zeker? {n} aanvallen', { n: plan?.attacks ?? 0 })}
           disabled={!plan?.attacks}
           onConfirm={() => send({ type: 'farmAll', options })}
         />
       </div>
       <div class="row wrap" style={{ marginTop: 8 }}>
-        <label class="row"><input type="checkbox" checked={skipLost} onChange={(e) => setSkipLost(e.currentTarget.checked)} /> Overslaan na verloren aanval</label>
+        <label class="row"><input type="checkbox" checked={skipLost} onChange={(e) => setSkipLost(e.currentTarget.checked)} /> {tr('Overslaan na verloren aanval')}</label>
         <label class="row">
-          <input type="checkbox" checked={wallOn} onChange={(e) => setWallOn(e.currentTarget.checked)} /> Muur hoger dan
-          <input type="number" min={0} max={20} value={maxWall} disabled={!wallOn} onInput={(e) => setMaxWall(Math.max(0, Number(e.currentTarget.value) || 0))} /> overslaan
+          <input type="checkbox" checked={wallOn} onChange={(e) => setWallOn(e.currentTarget.checked)} />{' '}
+          {trx('Muur hoger dan {n} overslaan', { n: <input type="number" min={0} max={20} value={maxWall} disabled={!wallOn} onInput={(e) => setMaxWall(Math.max(0, Number(e.currentTarget.value) || 0))} /> })}
         </label>
         <label class="row">
-          <input type="checkbox" checked={distOn} onChange={(e) => setDistOn(e.currentTarget.checked)} /> Maximaal
-          <input type="number" min={1} value={maxDistance} disabled={!distOn} onInput={(e) => setMaxDistance(Math.max(1, Number(e.currentTarget.value) || 1))} /> velden
+          <input type="checkbox" checked={distOn} onChange={(e) => setDistOn(e.currentTarget.checked)} />{' '}
+          {trx('Maximaal {n} velden', { n: <input type="number" min={1} value={maxDistance} disabled={!distOn} onInput={(e) => setMaxDistance(Math.max(1, Number(e.currentTarget.value) || 1))} /> })}
         </label>
       </div>
       {auto && (
         <p class="good">
-          Automatisch farmen staat aan met Alle {auto.options.template}.
-          {auto.last ? ` Laatste ronde ${formatGameTime(auto.last.time)}: ${auto.last.sent} aanval${auto.last.sent === 1 ? '' : 'len'}.` : ''}
-          {auto.next !== undefined ? ` Volgende ronde ${formatGameTime(auto.next)}.` : ''}
+          {tr('Automatisch farmen staat aan met Alle {t}.', { t: auto.options.template })}
+          {auto.last ? ' ' + (auto.last.sent === 1
+            ? tr('Laatste ronde {time}: 1 aanval.', { time: formatGameTime(auto.last.time) })
+            : tr('Laatste ronde {time}: {n} aanvallen.', { time: formatGameTime(auto.last.time), n: auto.last.sent })) : ''}
+          {auto.next !== undefined ? ' ' + tr('Volgende ronde {time}.', { time: formatGameTime(auto.next) }) : ''}
         </p>
       )}
       {!plan ? (
-        <p class="muted">Berekenen…</p>
+        <p class="muted">{tr('Berekenen…')}</p>
       ) : (
         <>
           {plan.able < plan.villages && (
             <p class="warn">
-              {plan.able} van je {plan.villages} dorpen {plan.able === 1 ? 'kan' : 'kunnen'} sjabloon {template} sturen
-              {template === '*' ? ' (geen lichte cavalerie thuis)' : ' (niet alle troepen thuis)'}.
+              {plan.able === 1
+                ? tr('{able} van je {n} dorpen kan sjabloon {t} sturen', { able: plan.able, n: plan.villages, t: template })
+                : tr('{able} van je {n} dorpen kunnen sjabloon {t} sturen', { able: plan.able, n: plan.villages, t: template })}{' '}
+              {template === '*' ? tr('(geen lichte cavalerie thuis)') : tr('(niet alle troepen thuis)')}.
             </p>
           )}
           <p class="muted">
-            {plan.attacks} aanvallen vanuit {plan.from.length} dorpen{plan.attacks > 0 && `, verste doel op ${plan.furthest.toFixed(1)} velden`}.
-            {skippedText && ` Overgeslagen: ${skippedText}.`}
-            {plan.left > 0 && ` ${plan.left} doelen blijven over: geen troepen meer.`}
-            {' '}Muren die je nog niet kent tellen als geen muur.
+            {plan.attacks > 0
+              ? tr('{n} aanvallen vanuit {v} dorpen, verste doel op {d} velden.', { n: plan.attacks, v: plan.from.length, d: plan.furthest.toFixed(1) })
+              : tr('{n} aanvallen vanuit {v} dorpen.', { n: plan.attacks, v: plan.from.length })}
+            {skippedText && ' ' + tr('Overgeslagen: {list}.', { list: skippedText })}
+            {plan.left > 0 && ' ' + tr('{n} doelen blijven over: geen troepen meer.', { n: plan.left })}
+            {' '}{tr('Muren die je nog niet kent tellen als geen muur.')}
           </p>
           {plan.from.length > 0 && (
             <p class="muted small-text">{plan.from.map((f) => `${f.name}: ${f.attacks}`).join(' · ')}</p>

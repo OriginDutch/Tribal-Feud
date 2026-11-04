@@ -5,6 +5,8 @@ import { newsList, ranking, send, snapshot } from '../store';
 import { PlayerLink } from '../components/PlayerLink';
 import { newsStyle, setNewsStyle } from '../newsStyle';
 import { useSaved } from '../useSaved';
+import { tr } from '../../shared/i18n';
+import { trx } from '../i18n';
 
 type Filter = 'all' | 'mine' | 'near' | 'war' | 'conquest' | 'tribe';
 const FILTERS: [Filter, string][] = [
@@ -47,26 +49,26 @@ export function NewsScreen() {
   return (
     <div class="screen news-screen">
       <header class="screen-head">
-        <h2 style={{ margin: 0, flex: 1 }}>Nieuws</h2>
-        <div class="news-style" role="group" aria-label="Stijl">
-          <button class={`chip ${style === 'dry' ? 'on' : ''}`} onClick={() => setNewsStyle('dry')}>Droog</button>
-          <button class={`chip ${style === 'head' ? 'on' : ''}`} onClick={() => setNewsStyle('head')}>Krantenkop</button>
+        <h2 style={{ margin: 0, flex: 1 }}>{tr('Nieuws')}</h2>
+        <div class="news-style" role="group" aria-label={tr('Stijl')}>
+          <button class={`chip ${style === 'dry' ? 'on' : ''}`} onClick={() => setNewsStyle('dry')}>{tr('Droog')}</button>
+          <button class={`chip ${style === 'head' ? 'on' : ''}`} onClick={() => setNewsStyle('head')}>{tr('Krantenkop')}</button>
         </div>
       </header>
       <div class="news-filters">
         {FILTERS.map(([id, label]) => (
           <button key={id} class={`chip ${filter === id ? 'on' : ''}`} onClick={() => { setFilter(id); setShown(PAGE); }} disabled={id === 'mine' && myTribe === null}>
-            {label}
+            {tr(label)}
           </button>
         ))}
         {filter === 'near' && (
           <label class="news-radius">
-            binnen <input type="number" min={5} max={500} step={5} value={radius} onInput={(e) => setRadius(Math.max(5, Number(e.currentTarget.value) || 40))} /> velden
+            {trx('binnen {input} velden', { input: <input type="number" min={5} max={500} step={5} value={radius} onInput={(e) => setRadius(Math.max(5, Number(e.currentTarget.value) || 40))} /> })}
           </label>
         )}
       </div>
       {list.length === 0 ? (
-        <p class="muted">Nog geen nieuws{filter !== 'all' ? ' met dit filter' : ''}.</p>
+        <p class="muted">{filter !== 'all' ? tr('Nog geen nieuws met dit filter.') : tr('Nog geen nieuws.')}</p>
       ) : (
         <ol class="news-list">
           {list.slice(0, shown).map((n) => (
@@ -91,7 +93,7 @@ export function NewsScreen() {
           ))}
         </ol>
       )}
-      {list.length > shown && <button onClick={() => setShown(shown + PAGE)}>Meer laden ({list.length - shown} over)</button>}
+      {list.length > shown && <button onClick={() => setShown(shown + PAGE)}>{tr('Meer laden ({n} over)', { n: list.length - shown })}</button>}
     </div>
   );
 }

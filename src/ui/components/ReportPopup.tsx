@@ -2,6 +2,7 @@ import { useEffect } from 'preact/hooks';
 import { reportPopup } from '../store';
 import { ReportDetail, listTitle } from '../screens/ReportsScreen';
 import { formatGameTime } from '../../shared/time';
+import { tr } from '../../shared/i18n';
 
 /** A report over everything, opened from the map or a profile. Esc or clicking outside closes it. */
 export function ReportPopup() {
@@ -19,7 +20,7 @@ export function ReportPopup() {
         <div class="row">
           <h3 style={{ margin: 0, flex: 1 }}>{listTitle(r)}</h3>
           <span class="muted mono">{formatGameTime(r.time)}</span>
-          <button class="small" onClick={() => (reportPopup.value = null)} aria-label="Sluiten">✕</button>
+          <button class="small" onClick={() => (reportPopup.value = null)} aria-label={tr('Sluiten')}>✕</button>
         </div>
         <ReportDetail r={r} />
       </div>

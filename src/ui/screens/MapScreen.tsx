@@ -11,6 +11,7 @@ import { duration, num } from '../format';
 import { attackVillage, inviteCandidates, mapData, mapFocus, mapStyle, openPlayer, openSupport, openTribe, refusedInvites, showOnMap, tribeAsks, selectedVillage, send, setMapStyle, snapshot, villageInfo, reportPopup } from '../store';
 import { OVERHANG, forestAt, onSpriteLoad, tierOf, villageAt } from '../map/mapSprites';
 import { distance, travelMs } from '../units';
+import { tr } from '../../shared/i18n';
 
 type ArrowKind = 'incoming' | 'attack' | 'farm' | 'support' | 'return';
 const ARROW_KINDS: [ArrowKind, string][] = [['incoming', 'Inkomend'], ['attack', 'Aanvallen op spelers'], ['farm', 'Farm (op barbaren)'], ['support', 'Support'], ['return', 'Terugkeer']];
@@ -301,7 +302,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
     const exact = owners.get(text.toLowerCase());
     const id = exact ?? [...owners].find(([n]) => n.startsWith(text.toLowerCase()))?.[1];
     if (id !== undefined) { mapFocus.value = { owner: id }; return; }
-    setSearchError('Niets gevonden');
+    setSearchError(tr('Niets gevonden'));
   };
   const suggestions = useMemo(() => {
     if (!data) return [];
@@ -793,7 +794,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
           onWheel={onWheel}
         />
         <span class="map-embed-hover muted">
-          {hovered ? `${hovered.name} (${hovered.x}|${hovered.y}) · ${hovered.kind === 'barb' ? 'barbaren' : hovered.ownerName} · ${num(hovered.points)} p` : 'Slepen = verschuiven, scrollen = zoomen, klik = grote kaart'}
+          {hovered ? `${hovered.name} (${hovered.x}|${hovered.y}) · ${hovered.kind === 'barb' ? tr('barbaren') : hovered.ownerName} · ${num(hovered.points)} p` : tr('Slepen = verschuiven, scrollen = zoomen, klik = grote kaart')}
         </span>
       </div>
     );
@@ -802,52 +803,52 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
   return (
     <div class="screen map-screen">
       <div class="map-head">
-        <h2>Kaart</h2>
+        <h2>{tr('Kaart')}</h2>
         <span class="muted map-hoverinfo">
           {hover ? `${hover.x}|${hover.y} · ${continent(hover.x, hover.y)}` : ''}
           {hovered ? ` · ${hovered.name} (${num(hovered.points)} p)` : ''}
         </span>
         <span class="legend">
-          <i style={{ background: COLORS.own }} /> jij <i class="tribe-swatch" /> stammen <i style={{ background: OWNER_COLORS.bot }} /> zonder stam{' '}
-          <i style={{ background: COLORS.barb }} /> barbaren <i style={{ background: COLORS.bonus }} /> bonus
+          <i style={{ background: COLORS.own }} /> {tr('jij')} <i class="tribe-swatch" /> {tr('stammen')} <i style={{ background: OWNER_COLORS.bot }} /> {tr('zonder stam')}{' '}
+          <i style={{ background: COLORS.barb }} /> {tr('barbaren')} <i style={{ background: COLORS.bonus }} /> {tr('bonus')}
         </span>
         {own && (
           <button class="small" onClick={() => centerOn(own.x, own.y)}>
-            Naar mijn dorp
+            {tr('Naar mijn dorp')}
           </button>
         )}
         <button
           class="small"
-          title={pretty ? 'Platte kaart met gekleurde vakjes, zoals eerst' : 'Kaart met getekende dorpjes'}
+          title={pretty ? tr('Platte kaart met gekleurde vakjes, zoals eerst') : tr('Kaart met getekende dorpjes')}
           onClick={() => setMapStyle(pretty ? 'flat' : 'sprites')}
         >
-          {pretty ? 'Klassieke weergave' : 'Dorpjes-weergave'}
+          {pretty ? tr('Klassieke weergave') : tr('Dorpjes-weergave')}
         </button>
         <span class="arrow-pick">
-          <button class={`small ${lines ? 'active' : ''}`} aria-expanded={arrowMenu} onClick={() => setArrowMenu(!arrowMenu)} title="Welke bevelen als pijl op de kaart staan">
-            Pijlen ▾
+          <button class={`small ${lines ? 'active' : ''}`} aria-expanded={arrowMenu} onClick={() => setArrowMenu(!arrowMenu)} title={tr('Welke bevelen als pijl op de kaart staan')}>
+            {tr('Pijlen')} ▾
             {s && s.incoming.length > 0 && <span class="badge">{s.incoming.length}</span>}
           </button>
           {arrowMenu && (
-            <span class="arrow-menu" role="group" aria-label="Pijlen op de kaart">
+            <span class="arrow-menu" role="group" aria-label={tr('Pijlen op de kaart')}>
               {ARROW_KINDS.map(([k, label]) => (
                 <label key={k}>
                   <input type="checkbox" checked={arrows[k]} onChange={(e) => setArrow(k, e.currentTarget.checked)} />
-                  <i style={{ background: ARROW_COLOR[k] }} /> {label}
+                  <i style={{ background: ARROW_COLOR[k] }} /> {tr(label)}
                 </label>
               ))}
             </span>
           )}
         </span>
         {data?.churches && (
-          <button class={`small ${faith ? 'active' : ''}`} title="Waar je dorpen geloof hebben (bereik van je kerken)" onClick={() => setFaith(!faith)}>
-            Geloof {faith ? 'aan' : 'uit'}
+          <button class={`small ${faith ? 'active' : ''}`} title={tr('Waar je dorpen geloof hebben (bereik van je kerken)')} onClick={() => setFaith(!faith)}>
+            {faith ? tr('Geloof aan') : tr('Geloof uit')}
           </button>
         )}
         <form class="map-search" onSubmit={(e) => { e.preventDefault(); runSearch(search); }}>
           <input
             list="map-search-list"
-            placeholder="Speler, [STAM] of 501|497"
+            placeholder={tr('Speler, [STAM] of 501|497')}
             value={search}
             onInput={(e) => { setSearch(e.currentTarget.value); setSearchError(''); }}
             onChange={(e) => runSearch(e.currentTarget.value)}
@@ -860,21 +861,21 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
         {focus && focusList.length > 0 && (
           <span class="map-focus">
             <i style={{ borderColor: COLORS.focus }} />
-            {focus.tribe !== undefined ? `Stam ${focus.name} (${focusList.length})` : focus.owner === undefined ? focus.name : `Dorpen van ${focus.name} (${focusList.length})`}
+            {focus.tribe !== undefined ? tr('Stam {name} ({n})', { name: focus.name, n: focusList.length }) : focus.owner === undefined ? focus.name : tr('Dorpen van {name} ({n})', { name: focus.name, n: focusList.length })}
             {focusList.length > 1 && (
               <>
-                <button class="small" title="Vorig dorp" onClick={() => step(-1)}>
+                <button class="small" title={tr('Vorig dorp')} onClick={() => step(-1)}>
                   ◀
                 </button>
                 <span class="mono muted">
                   {focus.index + 1}/{focusList.length}
                 </span>
-                <button class="small" title="Volgend dorp" onClick={() => step(1)}>
+                <button class="small" title={tr('Volgend dorp')} onClick={() => step(1)}>
                   ▶
                 </button>
               </>
             )}
-            <button class="small" title="Markering weg" onClick={() => setFocus(null)}>
+            <button class="small" title={tr('Markering weg')} onClick={() => setFocus(null)}>
               ✕
             </button>
           </span>
@@ -906,26 +907,26 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
             </section>
           )}
           <section class="panel">
-          {!data && <p class="muted">Kaart laden…</p>}
-          {data && !selected && <p class="muted">Klik op een dorp. Slepen = verschuiven, scrollen = zoomen.</p>}
+          {!data && <p class="muted">{tr('Kaart laden…')}</p>}
+          {data && !selected && <p class="muted">{tr('Klik op een dorp. Slepen = verschuiven, scrollen = zoomen.')}</p>}
           {selected && own && s?.village && (
             <>
               <h3>{selected.name}</h3>
               <table class="table compact">
                 <tbody>
                   <tr>
-                    <td>Coördinaten</td>
+                    <td>{tr('Coördinaten')}</td>
                     <td class="right mono">
                       {selected.x}|{selected.y} {continent(selected.x, selected.y)}
                     </td>
                   </tr>
                   <tr>
-                    <td>Eigenaar</td>
+                    <td>{tr('Eigenaar')}</td>
                     <td class="right"><PlayerLink id={selected.owner} name={selected.ownerName} /></td>
                   </tr>
                   {selectedTribe && (
                     <tr>
-                      <td>Stam</td>
+                      <td>{tr('Stam')}</td>
                       <td class="right">
                         <button class="link tribe-tag" style={{ '--tc': selectedTribe.color }} onClick={() => openTribe(selectedTribe.id)}>
                           [{selectedTribe.tag}]
@@ -934,35 +935,35 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
                     </tr>
                   )}
                   <tr>
-                    <td>Punten</td>
+                    <td>{tr('Punten')}</td>
                     <td class="right mono">{num(selected.points)}</td>
                   </tr>
                   {selected.bonus && (
                     <tr>
-                      <td>Bonus</td>
-                      <td class="right">{BONUS_NAMES[selected.bonus]}</td>
+                      <td>{tr('Bonus')}</td>
+                      <td class="right">{tr(BONUS_NAMES[selected.bonus])}</td>
                     </tr>
                   )}
                   {selected.kind === 'barb' && (
                     <tr>
-                      <td>Type</td>
-                      <td class="right">{selected.barbType ? BARB_TYPE_NAMES[selected.barbType] : <span class="muted">onbekend (verkennen)</span>}</td>
+                      <td>{tr('Type')}</td>
+                      <td class="right">{selected.barbType ? tr(BARB_TYPE_NAMES[selected.barbType]) : <span class="muted">{tr('onbekend (verkennen)')}</span>}</td>
                     </tr>
                   )}
                   {selected.kind !== 'own' && (
                     <tr>
-                      <td>Muur</td>
+                      <td>{tr('Muur')}</td>
                       <td class="right mono">{selected.wall ?? <span class="muted">?</span>}</td>
                     </tr>
                   )}
                   {selected.kind !== 'own' && (
                     <>
                       <tr>
-                        <td>Afstand</td>
-                        <td class="right mono">{distance(own, selected).toFixed(1)} velden</td>
+                        <td>{tr('Afstand')}</td>
+                        <td class="right mono">{tr('{n} velden', { n: distance(own, selected).toFixed(1) })}</td>
                       </tr>
                       <tr>
-                        <td>Looptijd LC / speer / ram</td>
+                        <td>{tr('Looptijd LC / speer / ram')}</td>
                         <td class="right mono">
                           {(['light', 'spear', 'ram'] as const)
                             .map((u) => duration(travelMs({ [u]: 1 }, s.village?.units ?? [], distance(own, selected), s.marchFactor)))
@@ -973,12 +974,12 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
                   )}
                   {selected.last && (
                     <tr>
-                      <td>Laatste aanval</td>
+                      <td>{tr('Laatste aanval')}</td>
                       <td class="right">
-                        <button class="link" title="Rapport bekijken" disabled={selected.last.report === undefined}
+                        <button class="link" title={tr('Rapport bekijken')} disabled={selected.last.report === undefined}
                           onClick={() => { const r = villageInfo.value?.reports.find((x) => x.id === selected.last!.report); if (r) reportPopup.value = r; }}>
                           <span class={`dot ${selected.last.result}`} /> {formatGameTime(selected.last.time)}
-                          {selected.last.loot > 0 && <span class="muted"> · buit {num(selected.last.loot)}</span>}
+                          {selected.last.loot > 0 && <span class="muted"> · {tr('buit {n}', { n: num(selected.last.loot) })}</span>}
                         </button>
                       </td>
                     </tr>
@@ -988,22 +989,22 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
               {selected.kind === 'own' && selected.id !== own.id && (
                 <div class="row">
                   <button class="primary" onClick={() => send({ type: 'selectVillage', id: selected.id })}>
-                    Naar dit dorp
+                    {tr('Naar dit dorp')}
                   </button>
-                  <button onClick={() => openSupport(selected.id)}>Support plannen</button>
+                  <button onClick={() => openSupport(selected.id)}>{tr('Support plannen')}</button>
                 </div>
               )}
               {selected.kind !== 'own' && (
                 <div class="row">
                   <button class="primary" onClick={() => attackVillage(selected.x, selected.y)}>
-                    {selected.kind === 'barb' ? 'Aanvallen' : 'Verzamelplaats'}
+                    {selected.kind === 'barb' ? tr('Aanvallen') : tr('Verzamelplaats')}
                   </button>
                   {definedLetters(snapshot.value?.farmTemplates).map((l) => (
-                    <button key={l} onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: l })}>Farm {l}</button>
+                    <button key={l} onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: l })}>{tr('Farm {l}', { l })}</button>
                   ))}
                   <button
                     disabled={selected.estimate === undefined}
-                    title={selected.estimate === undefined ? 'Eerst verkennen' : `~${num(selected.estimate)} buit`}
+                    title={selected.estimate === undefined ? tr('Eerst verkennen') : tr('~{n} buit', { n: num(selected.estimate) })}
                     onClick={() => send({ type: 'sendFarm', from: own.id, to: selected.id, template: '*' })}
                   >
                     Farm *
@@ -1060,7 +1061,7 @@ function PlayerPanel({ owner, name, tribeId, villages, selectedId, onPick }: {
         )}
       </h3>
       <p class="muted">
-        {villages.length} {villages.length === 1 ? 'dorp' : 'dorpen'} · {num(total)} punten
+        {villages.length === 1 ? tr('1 dorp · {p} punten', { p: num(total) }) : tr('{n} dorpen · {p} punten', { n: villages.length, p: num(total) })}
       </p>
       <ul class="player-villages">
         {villages.map((v) => (
@@ -1072,39 +1073,39 @@ function PlayerPanel({ owner, name, tribeId, villages, selectedId, onPick }: {
           </li>
         ))}
       </ul>
-      <MarkRow label="Speler markeren" current={data?.marks.players[owner]} onPick={(c) => send({ type: 'setMark', target: 'player', id: owner, color: c })} />
-      {tribe && <MarkRow label={`[${tribe.tag}] markeren`} current={data?.marks.tribes[tribe.id]} onPick={(c) => send({ type: 'setMark', target: 'tribe', id: tribe.id, color: c })} />}
+      <MarkRow label={tr('Speler markeren')} current={data?.marks.players[owner]} onPick={(c) => send({ type: 'setMark', target: 'player', id: owner, color: c })} />
+      {tribe && <MarkRow label={tr('{tag} markeren', { tag: `[${tribe.tag}]` })} current={data?.marks.tribes[tribe.id]} onPick={(c) => send({ type: 'setMark', target: 'tribe', id: tribe.id, color: c })} />}
       <div class="row wrap">
         <button class="small" onClick={() => openPlayer(owner)}>
-          Profiel
+          {tr('Profiel')}
         </button>
         {leader && !inMine && (invited ? (
-          <span class="muted">uitgenodigd</span>
+          <span class="muted">{tr('uitgenodigd')}</span>
         ) : (
           <button class="small" onClick={() => send({ type: 'tribeInvite', player: owner })}>
-            Uitnodigen voor je stam
+            {tr('Uitnodigen voor je stam')}
           </button>
         ))}
         {leader && !inMine && cand?.blocked === 'far' && (
-          <span class="refused" title="Hij zegt nee: te ver van het centrum van je stam">
-            te ver ({cand.distance} / max {cand.reach})
+          <span class="refused" title={tr('Hij zegt nee: te ver van het centrum van je stam')}>
+            {tr('te ver ({d} / max {max})', { d: cand.distance, max: cand.reach })}
           </span>
         )}
-        {inMine && <span class="muted">zit in jouw stam</span>}
+        {inMine && <span class="muted">{tr('zit in jouw stam')}</span>}
         {s?.myTribe !== null && s?.myTribe !== undefined && !inMine && (
           <>
-            <button class="small" title="Vraag je stam dit dorp aan te vallen" onClick={() => send({ type: 'giveOrder', kind: 'attack', target: selectedId })}>
-              Stam: aanvallen
+            <button class="small" title={tr('Vraag je stam dit dorp aan te vallen')} onClick={() => send({ type: 'giveOrder', kind: 'attack', target: selectedId })}>
+              {tr('Stam: aanvallen')}
             </button>
-            <button class="small" title="Vraag je stam deze speler met rust te laten" onClick={() => send({ type: 'giveOrder', kind: 'spare', target: owner })}>
-              Stam: met rust laten
+            <button class="small" title={tr('Vraag je stam deze speler met rust te laten')} onClick={() => send({ type: 'giveOrder', kind: 'spare', target: owner })}>
+              {tr('Stam: met rust laten')}
             </button>
-            <button class="small" title="Vraag je stam zich op deze speler te richten" onClick={() => send({ type: 'giveOrder', kind: 'focus', target: owner })}>
-              Stam: focus
+            <button class="small" title={tr('Vraag je stam zich op deze speler te richten')} onClick={() => send({ type: 'giveOrder', kind: 'focus', target: owner })}>
+              {tr('Stam: focus')}
             </button>
           </>
         )}
-        {declined > 0 && <span class="refused">{declined}× afgewezen</span>}
+        {declined > 0 && <span class="refused">{tr('{n}× afgewezen', { n: declined })}</span>}
       </div>
     </div>
   );
@@ -1119,7 +1120,7 @@ function MarkRow({ label, current, onPick }: { label: string; current?: string; 
         <button key={c} class={`mark-swatch ${current === c ? 'on' : ''}`} style={{ background: c }} aria-label={`${label}: ${c}`} aria-pressed={current === c}
           onClick={() => onPick(current === c ? null : c)} />
       ))}
-      {current && <button class="small link" onClick={() => onPick(null)}>weg</button>}
+      {current && <button class="small link" onClick={() => onPick(null)}>{tr('weg')}</button>}
     </div>
   );
 }
@@ -1133,12 +1134,12 @@ function HoverCard({ v, x, y, tribes }: { v: MapVillage; x: number; y: number; t
   return (
     <div class="map-hovercard" style={{ left: `${flip ? x - 266 : x + 16}px`, top: `${Math.max(8, y - 20)}px` }} role="tooltip">
       <strong>{v.name} <span class="muted">({v.x}|{v.y})</span></strong>
-      <span>{v.kind === 'barb' ? 'Barbaren' : v.ownerName}{tribe ? ` [${tribe.tag}]` : ''} · {num(v.points)} p</span>
-      {v.kind === 'barb' && v.barbType && <span class="muted">{BARB_TYPE_NAMES[v.barbType]}{v.wall !== undefined ? ` · muur ${v.wall}` : ''}</span>}
-      {v.kind !== 'barb' && v.wall !== undefined && <span class="muted">muur {v.wall}</span>}
-      {v.last && <span class="muted">laatste aanval {formatGameTime(v.last.time)} · {v.last.result === 'loss' ? 'verloren' : 'gewonnen'}{v.last.loot ? ` · buit ${num(v.last.loot)}` : ''}</span>}
-      {scout && <span class="muted"><i class="hc-dot" style={{ background: scout }} /> verkend {s ? formatGameTime(v.scoutedAt!) : ''}</span>}
-      {v.note && <span class="muted">heeft een notitie (klik voor meer)</span>}
+      <span>{v.kind === 'barb' ? tr('Barbaren') : v.ownerName}{tribe ? ` [${tribe.tag}]` : ''} · {num(v.points)} p</span>
+      {v.kind === 'barb' && v.barbType && <span class="muted">{tr(BARB_TYPE_NAMES[v.barbType])}{v.wall !== undefined ? ` · ${tr('muur {n}', { n: v.wall })}` : ''}</span>}
+      {v.kind !== 'barb' && v.wall !== undefined && <span class="muted">{tr('muur {n}', { n: v.wall })}</span>}
+      {v.last && <span class="muted">{tr('laatste aanval {time}', { time: formatGameTime(v.last.time) })} · {v.last.result === 'loss' ? tr('verloren') : tr('gewonnen')}{v.last.loot ? ` · ${tr('buit {n}', { n: num(v.last.loot) })}` : ''}</span>}
+      {scout && <span class="muted"><i class="hc-dot" style={{ background: scout }} /> {tr('verkend {time}', { time: s ? formatGameTime(v.scoutedAt!) : '' })}</span>}
+      {v.note && <span class="muted">{tr('heeft een notitie (klik voor meer)')}</span>}
     </div>
   );
 }

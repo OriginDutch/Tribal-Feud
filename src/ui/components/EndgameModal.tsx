@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n';
 import { formatGameTime } from '../../shared/time';
 import { num } from '../format';
 import { screen, send, snapshot } from '../store';
@@ -13,17 +14,19 @@ export function EndgameModal() {
     <div class="endgame-modal" role="dialog" aria-modal="true">
       <section class="panel">
         <img class="endgame-art" src={w.you ? '/art/endgame-victory.webp' : '/art/endgame-defeat.webp'} alt="" />
-        <h2>{w.you ? 'Gewonnen!' : 'Verloren'}</h2>
+        <h2>{w.you ? tr('Gewonnen!') : tr('Verloren|eindspel')}</h2>
         <p>
-          [{w.tag}] {w.name} heeft {Math.round(s.endgame.target * 100)}% van de wereld {s.endgame.holdDays} speldagen vastgehouden.
-          {w.you ? ' Jouw stam heeft de wereld veroverd.' : ' Het was niet jouw stam.'}
+          {tr('[{tag}] {name} heeft {pct}% van de wereld {days} speldagen vastgehouden.', { tag: w.tag, name: w.name, pct: Math.round(s.endgame.target * 100), days: s.endgame.holdDays })}
+          {' '}{w.you ? tr('Jouw stam heeft de wereld veroverd.') : tr('Het was niet jouw stam.')}
         </p>
         <p class="muted">
-          Einde op {formatGameTime(w.time)} · jij: {villages} dorp{villages === 1 ? '' : 'en'}, {num(points)} punten
+          {villages === 1
+            ? tr('Einde op {time} · jij: 1 dorp, {points} punten', { time: formatGameTime(w.time), points: num(points) })
+            : tr('Einde op {time} · jij: {n} dorpen, {points} punten', { time: formatGameTime(w.time), n: villages, points: num(points) })}
         </p>
         <div class="row" style={{ justifyContent: 'center', gap: '10px' }}>
-          <button class="primary" onClick={() => send({ type: 'continueWorld' })}>Doorspelen</button>
-          <button onClick={() => { send({ type: 'continueWorld' }); screen.value = 'debug'; }}>Nieuwe wereld</button>
+          <button class="primary" onClick={() => send({ type: 'continueWorld' })}>{tr('Doorspelen')}</button>
+          <button onClick={() => { send({ type: 'continueWorld' }); screen.value = 'debug'; }}>{tr('Nieuwe wereld')}</button>
         </div>
       </section>
     </div>

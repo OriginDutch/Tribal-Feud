@@ -4,6 +4,7 @@ import { Confirm } from '../components/Confirm';
 import { useEffect } from 'preact/hooks';
 import type { InboxView } from '../../shared/protocol';
 import { formatGameTime } from '../../shared/time';
+import { tr } from '../../shared/i18n';
 import { attackVillage, inbox, openSupport, openTribe, send, snapshot } from '../store';
 
 const KIND: Record<InboxView['kind'], string> = {
@@ -43,7 +44,7 @@ export function InboxScreen() {
     <li key={m.id} class={`inbox-item kind-${m.kind} ${m.read ? '' : 'unread'} ${m.status ?? ''}`}>
       <div class="inbox-head">
         <FaceIcon face={m.fromFace} size={36} />
-        <span class={`inbox-kind kind-${m.kind}`}>{KIND[m.kind]}</span>
+        <span class={`inbox-kind kind-${m.kind}`}>{tr(KIND[m.kind])}</span>
         <strong class="inbox-title">{m.title}</strong>
         {m.from >= 0 && <PlayerLink id={m.from} name={m.fromName} />}
         <span class="mono muted">{formatGameTime(m.time)}</span>
@@ -62,23 +63,23 @@ export function InboxScreen() {
                 if (m.request?.type === 'order' && (m.request.order === 'attack' || m.request.order === 'scout')) attackVillage(m.request.x, m.request.y, m.request.nobles ? m.request.arrives : undefined);
               }}
             >
-              {m.kind === 'treaty' ? 'Tekenen' : m.kind === 'lead' ? 'Ik leid de stam' : m.kind === 'rhTreaty' ? 'Opzeggen' : m.kind === 'rhAsk' ? (m.rhAsk === 'war' ? 'Oorlog verklaren' : 'Voorstellen') : ACCEPT[m.request?.type ?? 'none']}
+              {m.kind === 'treaty' ? tr('Tekenen') : m.kind === 'lead' ? tr('Ik leid de stam') : m.kind === 'rhTreaty' ? tr('Opzeggen') : m.kind === 'rhAsk' ? (m.rhAsk === 'war' ? tr('Oorlog verklaren') : tr('Voorstellen')) : tr(ACCEPT[m.request?.type ?? 'none'] ?? '')}
             </button>
             {m.request?.type === 'verdict' ? (
-              <Confirm label="Oneens: stam verlaten" cls="warn" sure="Je verlaat de stam en bent een tijd vogelvrij. Zeker?" onConfirm={() => send({ type: 'inboxAnswer', id: m.id, accept: false })} />
+              <Confirm label={tr('Oneens: stam verlaten')} cls="warn" sure={tr('Je verlaat de stam en bent een tijd vogelvrij. Zeker?')} onConfirm={() => send({ type: 'inboxAnswer', id: m.id, accept: false })} />
             ) : (
               <button class="small" onClick={() => send({ type: 'inboxAnswer', id: m.id, accept: false })}>
-                {m.kind === 'rhTreaty' ? 'Laten staan' : m.kind === 'rhAsk' ? 'Nee' : m.kind === 'treaty' || m.kind === 'lead' ? 'Weigeren' : m.request?.type === 'permission' ? 'Weigeren' : m.request?.type === 'appeal' ? 'Laat maar' : 'Afwijzen'}
+                {m.kind === 'rhTreaty' ? tr('Laten staan') : m.kind === 'rhAsk' ? tr('Nee') : m.kind === 'treaty' || m.kind === 'lead' ? tr('Weigeren') : m.request?.type === 'permission' ? tr('Weigeren') : m.request?.type === 'appeal' ? tr('Laat maar') : tr('Afwijzen')}
               </button>
             )}
-            {m.expires !== undefined && <span class="muted">verloopt {formatGameTime(m.expires)}</span>}
+            {m.expires !== undefined && <span class="muted">{tr('verloopt {at}', { at: formatGameTime(m.expires) })}</span>}
           </>
         ) : m.status ? (
-          <span class="muted">{STATUS[m.status]}</span>
+          <span class="muted">{tr(STATUS[m.status])}</span>
         ) : null}
         {m.tribe !== undefined && (
           <button class="link small" onClick={() => openTribe(m.tribe!)}>
-            Bekijk stam
+            {tr('Bekijk stam')}
           </button>
         )}
       </div>
@@ -88,30 +89,28 @@ export function InboxScreen() {
   return (
     <div class="screen narrow">
       <div class="row">
-        <h2 style={{ margin: 0, flex: 1 }}>Inbox</h2>
+        <h2 style={{ margin: 0, flex: 1 }}>{tr('Inbox')}</h2>
         <label class="inline-check">
-          <input type="checkbox" checked={pause.war} onChange={(e) => send({ type: 'setTribePause', war: e.currentTarget.checked, requests: pause.requests })} /> pauzeer bij
-          oorlog tegen jouw stam
+          <input type="checkbox" checked={pause.war} onChange={(e) => send({ type: 'setTribePause', war: e.currentTarget.checked, requests: pause.requests })} /> {tr('pauzeer bij oorlog tegen jouw stam')}
         </label>
         <label class="inline-check">
-          <input type="checkbox" checked={pause.requests} onChange={(e) => send({ type: 'setTribePause', war: pause.war, requests: e.currentTarget.checked })} /> pauzeer
-          bij verzoeken
+          <input type="checkbox" checked={pause.requests} onChange={(e) => send({ type: 'setTribePause', war: pause.war, requests: e.currentTarget.checked })} /> {tr('pauzeer bij verzoeken')}
         </label>
       </div>
       {!list.length && (
         <section class="panel">
-          <p class="muted">Nog geen berichten. Uitnodigingen, aanmeldingen, voorstellen en oorlogsverklaringen komen hier binnen.</p>
+          <p class="muted">{tr('Nog geen berichten. Uitnodigingen, aanmeldingen, voorstellen en oorlogsverklaringen komen hier binnen.')}</p>
         </section>
       )}
       {open.length > 0 && (
         <section class="panel">
-          <h2>Wacht op jouw antwoord</h2>
+          <h2>{tr('Wacht op jouw antwoord')}</h2>
           <ul class="inbox">{open.map(row)}</ul>
         </section>
       )}
       {rest.length > 0 && (
         <section class="panel">
-          <h2>Berichten</h2>
+          <h2>{tr('Berichten')}</h2>
           <ul class="inbox">{rest.slice(0, 60).map(row)}</ul>
         </section>
       )}

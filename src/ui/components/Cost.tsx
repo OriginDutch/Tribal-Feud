@@ -1,5 +1,6 @@
 import type { Res } from '../../shared/gameData';
 import { num } from '../format';
+import { tr } from '../../shared/i18n';
 
 const KEYS = ['wood', 'stone', 'iron'] as const;
 const LABELS = ['Hout', 'Leem', 'IJzer'] as const;
@@ -12,7 +13,7 @@ export function Cost({ cost, have, times = 1 }: { cost: Res; have?: Res; times?:
         const amount = c * times;
         const short = have !== undefined && (have[i] ?? 0) < amount;
         return (
-          <span key={i} class={`res res-${KEYS[i]} ${short ? 'short' : ''}`} title={LABELS[i]}>
+          <span key={i} class={`res res-${KEYS[i]} ${short ? 'short' : ''}`} title={tr(LABELS[i]!)}>
             {num(amount)}
           </span>
         );

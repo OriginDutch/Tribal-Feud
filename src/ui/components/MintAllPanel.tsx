@@ -3,6 +3,7 @@ import { Coords } from './Coords';
 import { num } from '../format';
 import { mintPlan, send, snapshot } from '../store';
 import { Confirm } from './Confirm';
+import { tr } from '../../shared/i18n';
 
 /** Mints coins in every village whose build template is done, keeping a share of its storage. */
 export function MintAllPanel() {
@@ -30,39 +31,37 @@ export function MintAllPanel() {
   const pct = Math.round(keep * 100);
   return (
     <section class="panel mint-all">
-      <h3>Munten slaan in afgebouwde dorpen</h3>
+      <h3>{tr('Munten slaan in afgebouwde dorpen')}</h3>
       <div class="row wrap">
-        <label class="row" title="Elk dorp houdt dit deel van zijn opslag over, bijvoorbeeld voor troepen.">
-          Houd {pct}% van de opslag
+        <label class="row" title={tr('Elk dorp houdt dit deel van zijn opslag over, bijvoorbeeld voor troepen.')}>
+          {tr('Houd {pct}% van de opslag', { pct })}
           <input type="range" min={0} max={0.9} step={0.05} value={keep} onInput={(e) => setKeep(Number(e.currentTarget.value))} onChange={(e) => save(Number(e.currentTarget.value), saved.auto)} />
         </label>
-        <label class="inline-check" title="Slaat zelf net genoeg munten als een troepensjabloon een edel wil en er geen slot vrij is. Troepen gaan voor.">
-          <input type="checkbox" checked={saved.auto} onChange={(e) => save(keep, e.currentTarget.checked)} /> Automatisch munten slaan wanneer nodig
+        <label class="inline-check" title={tr('Slaat zelf net genoeg munten als een troepensjabloon een edel wil en er geen slot vrij is. Troepen gaan voor.')}>
+          <input type="checkbox" checked={saved.auto} onChange={(e) => save(keep, e.currentTarget.checked)} /> {tr('Automatisch munten slaan wanneer nodig')}
         </label>
         <span style={{ flex: 1 }} />
-        <Confirm label={`Slaan (${num(total)})`} sure={`Zeker? ${num(total)} munten in ${plan?.length ?? 0} dorpen`} disabled={!total} onConfirm={() => send({ type: 'mintAll', keep })} />
+        <Confirm label={tr('Slaan ({n})', { n: num(total) })} sure={tr('Zeker? {n} munten in {v} dorpen', { n: num(total), v: plan?.length ?? 0 })} disabled={!total} onConfirm={() => send({ type: 'mintAll', keep })} />
       </div>
       <p class="hint">
-        Alleen dorpen waarvan het bouwsjabloon helemaal af is en die zelf een adelshoeve hebben. Elk dorp houdt {pct}% van zijn opslag
-        over; van de rest worden zoveel mogelijk munten geslagen.
-        {saved.auto && <> Automatisch: zodra een dorp volgens zijn troepensjabloon een edel wil en er geen slot vrij is, wordt net genoeg
-          geslagen voor het volgende slot, nadat de troepen hun deel hadden.</>}
+        {tr('Alleen dorpen waarvan het bouwsjabloon helemaal af is en die zelf een adelshoeve hebben. Elk dorp houdt {pct}% van zijn opslag over; van de rest worden zoveel mogelijk munten geslagen.', { pct })}
+        {saved.auto && <> {tr('Automatisch: zodra een dorp volgens zijn troepensjabloon een edel wil en er geen slot vrij is, wordt net genoeg geslagen voor het volgende slot, nadat de troepen hun deel hadden.')}</>}
       </p>
       {plan === null ? (
-        <p class="muted">Berekenen…</p>
+        <p class="muted">{tr('Berekenen…')}</p>
       ) : plan.length === 0 ? (
-        <p class="muted">Nu niets te slaan: geen afgebouwd dorp met adelshoeve en genoeg grondstoffen boven {pct}%.</p>
+        <p class="muted">{tr('Nu niets te slaan: geen afgebouwd dorp met adelshoeve en genoeg grondstoffen boven {pct}%.', { pct })}</p>
       ) : (
         <table class="table compact">
           <tbody>
             {plan.map((r) => (
               <tr key={r.id}>
                 <td>{r.name} <Coords x={r.x} y={r.y} /></td>
-                <td class="right mono">{num(r.coins)} munt{r.coins === 1 ? '' : 'en'}</td>
+                <td class="right mono">{r.coins === 1 ? tr('1 munt') : tr('{n} munten', { n: num(r.coins) })}</td>
               </tr>
             ))}
             <tr class="total-row">
-              <td><strong>Totaal</strong> <span class="muted">({plan.length} dorpen)</span></td>
+              <td><strong>{tr('Totaal')}</strong> <span class="muted">{tr('({n} dorpen)', { n: plan.length })}</span></td>
               <td class="right mono"><strong>{num(total)}</strong></td>
             </tr>
           </tbody>

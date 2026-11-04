@@ -5,6 +5,7 @@ import { noteSnapshot } from './perf';
  */
 import { playSounds } from './sfx';
 import { effect, signal } from '@preact/signals';
+import { tr } from '../shared/i18n';
 import type { BuildingId, RecruitBuilding, UnitCounts } from '../shared/gameData';
 import type { ReportOwners, CandidateView, Command, InboxView, PlayerView, MapData, RankingRow, Snapshot, SupportRow, SurplusRow, ScavView, FarmAllView, OpinionsView, WorldStatsView, SimResult, TribeAskView, TribeView, WarAskInfo, FrictionRow, WorkerMessage } from '../shared/protocol';
 import type { Report } from '../sim/movement';
@@ -203,7 +204,7 @@ function rememberVillage(id: number | null): void {
 /** Asks before something that changes the world in every open tab. */
 export function confirmAllTabs(what: string): boolean {
   const n = snapshot.value?.tabs ?? 1;
-  return n < 2 || window.confirm(`${what} verandert de wereld in alle ${n} open tabbladen. Doorgaan?`);
+  return n < 2 || window.confirm(tr('{what} verandert de wereld in alle {n} open tabbladen. Doorgaan?', { what: tr(what), n }));
 }
 
 let noticeTimer: number | undefined;

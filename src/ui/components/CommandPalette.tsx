@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { NavIcon } from './NavIcon';
 import { openBuilding, paletteOpen, ranking, screen, send, showOnMap, snapshot, type Screen } from '../store';
 import type { BuildingId } from '../../shared/gameData';
+import { lang, tr } from '../../shared/i18n';
 
 interface Entry {
   id: string;
@@ -65,21 +66,21 @@ export function CommandPalette() {
     if (m) {
       const x = Number(m[1]);
       const y = Number(m[2]);
-      out.push({ id: `xy-${x}-${y}`, label: `${x}|${y} op de kaart`, hint: 'coördinaat', icon: 'map', run: () => (close(), showOnMap({ x, y })) });
+      out.push({ id: `xy-${x}-${y}`, label: tr('{xy} op de kaart', { xy: `${x}|${y}` }), hint: tr('coördinaat'), icon: 'map', run: () => (close(), showOnMap({ x, y })) });
     }
-    for (const sc of SCREENS) out.push({ id: `s-${sc.id}`, label: sc.label, hint: 'scherm', icon: sc.icon, run: () => (close(), (screen.value = sc.id)) });
+    for (const sc of SCREENS) out.push({ id: `s-${sc.id}`, label: tr(sc.label), hint: tr('scherm'), icon: sc.icon, run: () => (close(), (screen.value = sc.id)) });
     for (const b of s.village.buildings) {
-      out.push({ id: `b-${b.id}`, label: b.name, hint: b.level > 0 ? `gebouw · level ${b.level}` : 'gebouw · niet gebouwd', icon: navIconFor(b.id), run: () => (close(), openBuilding(b.id)) });
+      out.push({ id: `b-${b.id}`, label: tr(b.name), hint: b.level > 0 ? tr('gebouw · level {n}', { n: b.level }) : tr('gebouw · niet gebouwd'), icon: navIconFor(b.id), run: () => (close(), openBuilding(b.id)) });
     }
     for (const v of s.villages) {
-      out.push({ id: `v-${v.id}`, label: v.name, hint: `jouw dorp · ${v.x}|${v.y}`, icon: 'villages', run: () => (close(), send({ type: 'selectVillage', id: v.id })) });
+      out.push({ id: `v-${v.id}`, label: v.name, hint: tr('jouw dorp · {xy}', { xy: `${v.x}|${v.y}` }), icon: 'villages', run: () => (close(), send({ type: 'selectVillage', id: v.id })) });
     }
     for (const p of ranking.value) {
       if (!p.isBot || p.villages === 0) continue;
-      out.push({ id: `p-${p.id}`, label: p.name, hint: `speler · ${p.villages} ${p.villages === 1 ? 'dorp' : 'dorpen'}`, icon: 'map', run: () => (close(), showOnMap({ owner: p.id })) });
+      out.push({ id: `p-${p.id}`, label: p.name, hint: p.villages === 1 ? tr('speler · 1 dorp') : tr('speler · {n} dorpen', { n: p.villages }), icon: 'map', run: () => (close(), showOnMap({ owner: p.id })) });
     }
     return out;
-  }, [s?.village?.id, s?.villages, ranking.value, q]);
+  }, [s?.village?.id, s?.villages, ranking.value, q, lang.value]);
 
   const shown = useMemo(() => {
     const t = fold(q.trim());
@@ -100,14 +101,14 @@ export function CommandPalette() {
 
   return (
     <div class="palette-backdrop" onClick={() => (paletteOpen.value = false)}>
-      <div class="palette" role="dialog" aria-label="Zoeken" onClick={(e) => e.stopPropagation()}>
+      <div class="palette" role="dialog" aria-label={tr('Zoeken')} onClick={(e) => e.stopPropagation()}>
         <div class="palette-input">
           <NavIcon name="search" size={16} />
           <input
             ref={input}
             value={q}
-            placeholder="Zoek een scherm, gebouw, dorp, speler of 500|500…"
-            aria-label="Zoeken"
+            placeholder={tr('Zoek een scherm, gebouw, dorp, speler of 500|500…')}
+            aria-label={tr('Zoeken')}
             onInput={(e) => {
               setQ(e.currentTarget.value);
               setSel(0);
@@ -128,7 +129,7 @@ export function CommandPalette() {
           <kbd>Esc</kbd>
         </div>
         <ul class="palette-list" role="listbox">
-          {shown.length === 0 && <li class="palette-empty">Niets gevonden.</li>}
+          {shown.length === 0 && <li class="palette-empty">{tr('Niets gevonden.')}</li>}
           {shown.map((e, i) => (
             <li key={e.id} role="option" aria-selected={i === sel}>
               <button class={i === sel ? 'on' : ''} onMouseEnter={() => setSel(i)} onClick={() => pick(e)}>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { FaceIcon } from './FaceIcon';
 import { mapData, openPlayer, ranking, send, tribes } from '../store';
 import { num } from '../format';
+import { tr } from '../../shared/i18n';
 
 const HOVER_DELAY_MS = 600;
 let rankingAsked = false;
@@ -33,7 +34,7 @@ export function PlayerLink({ id, name, strong = false }: { id: number; name: str
       <button
         ref={ref}
         class="link player-link"
-        aria-label={`Profiel van ${name}`}
+        aria-label={tr('Profiel van {name}', { name })}
         onMouseEnter={enter}
         onMouseLeave={leave}
         onFocus={enter}
@@ -68,14 +69,14 @@ function PlayerCard({ id, name, x, y }: { id: number; name: string; x: number; y
       </strong>
       {row ? (
         <>
-          <span>#{i + 1} · {num(row.points)} punten · {row.villages} {row.villages === 1 ? 'dorp' : 'dorpen'}</span>
+          <span>#{i + 1} · {tr('{n} punten', { n: num(row.points) })} · {row.villages === 1 ? tr('1 dorp') : tr('{n} dorpen', { n: row.villages })}</span>
           {tribe && <span class="muted">{tribe.name}</span>}
-          {!row.isBot && <span class="muted">dat ben jij</span>}
+          {!row.isBot && <span class="muted">{tr('dat ben jij')}</span>}
         </>
       ) : (
-        <span class="muted">Laden…</span>
+        <span class="muted">{tr('Laden…')}</span>
       )}
-      <span class="muted">klik voor het profiel</span>
+      <span class="muted">{tr('klik voor het profiel')}</span>
     </div>
   );
 }

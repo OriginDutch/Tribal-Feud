@@ -10,9 +10,19 @@ export function isSpeed(n: number): n is Speed {
   return (SPEEDS as readonly number[]).includes(n);
 }
 
-import { tr } from './i18n';
+import { T, tr, type Txt } from './i18n';
 
 const pad = (n: number): string => String(n).padStart(2, '0');
+
+function parts(ms: number): { day: string; time: string } {
+  const total = Math.floor(ms / SECOND);
+  const h = Math.floor((total % 86400) / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
+  return { day: String(Math.floor(total / 86400) + 1), time: `${pad(h)}:${pad(m)}:${pad(s)}` };
+}
+/** Game time as kept text (inbox, news): shown in the reader's language. */
+export function gameTimeT(ms: number): Txt {
+  return T('Dag {day} · {time}', parts(ms));
+}
 
 /** Game time 0 = day 1, 00:00:00. */
 export function formatGameTime(ms: number): string {

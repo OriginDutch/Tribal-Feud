@@ -1,4 +1,5 @@
 import { useLayoutEffect, useState } from 'preact/hooks';
+import { tr } from '../../shared/i18n';
 import { ACTIONS, actionWithKey, capturingKey, keyFromEvent, keyLabel, keyOf, resetKeys, setKey, type KeyGroup } from '../keys';
 
 const GROUPS: KeyGroup[] = ['Algemeen', 'Hoofdmenu', 'Schermen', 'Gebouwen'];
@@ -29,35 +30,35 @@ export function SettingsScreen() {
   return (
     <div class="screen">
       <div class="row">
-        <h2 style={{ margin: 0, flex: 1 }}>Sneltoetsen</h2>
-        <button onClick={() => { resetKeys(); setPending(null); }}>Standaard herstellen</button>
+        <h2 style={{ margin: 0, flex: 1 }}>{tr('Sneltoetsen')}</h2>
+        <button onClick={() => { resetKeys(); setPending(null); }}>{tr('Standaard herstellen')}</button>
       </div>
       <section class="panel">
         <p class="muted" style={{ marginTop: 0 }}>
-          Elk scherm, elke tab en elk gebouw kan een toets krijgen. Klik op een toets en druk de nieuwe (Esc = annuleren). Sneltoetsen werken niet terwijl je in een veld typt, behalve met Ctrl. Opgeslagen in deze browser.
+          {tr('Elk scherm, elke tab en elk gebouw kan een toets krijgen. Klik op een toets en druk de nieuwe (Esc = annuleren). Sneltoetsen werken niet terwijl je in een veld typt, behalve met Ctrl. Opgeslagen in deze browser.')}
         </p>
         <div class="keys-grid">
           {GROUPS.map((g) => (
             <div key={g} class="keys-col">
-              <h3>{g}</h3>
+              <h3>{tr(g)}</h3>
               {ACTIONS.filter((a) => a.group === g).map((a) => {
                 const k = keyOf(a.id);
                 const conflict = pending?.id === a.id ? actionWithKey(pending.key, a.id) : undefined;
                 return (
                   <div key={a.id} class="keys-item">
                     <div class="keys-row">
-                      <span class="keys-name">{a.label}</span>
+                      <span class="keys-name">{tr(a.label)}</span>
                       <button class={`keys-key ${listening === a.id ? 'listening' : ''} ${k ? '' : 'none'}`} onClick={() => { setPending(null); capturingKey.value = listening !== a.id; setListening(listening === a.id ? null : a.id); }}
-                        aria-label={`Toets voor ${a.label}: ${keyLabel(k)}. Klik om te wijzigen`}>
-                        {listening === a.id ? 'Druk een toets…' : keyLabel(k)}
+                        aria-label={tr('Toets voor {action}: {key}. Klik om te wijzigen', { action: tr(a.label), key: keyLabel(k) })}>
+                        {listening === a.id ? tr('Druk een toets…') : keyLabel(k)}
                       </button>
-                      <button class="small link" disabled={!k} onClick={() => setKey(a.id, null)} aria-label={`Toets voor ${a.label} wissen`}>wissen</button>
+                      <button class="small link" disabled={!k} onClick={() => setKey(a.id, null)} aria-label={tr('Toets voor {action} wissen', { action: tr(a.label) })}>{tr('wissen')}</button>
                     </div>
                     {conflict && pending ? (
                       <div class="keys-conflict">
-                        {keyLabel(pending.key)} is al: {conflict.label}.
-                        <button class="small" onClick={() => { setKey(a.id, pending.key); setPending(null); }}>Overschrijven</button>
-                        <button class="small" onClick={() => setPending(null)}>Laat maar</button>
+                        {tr('{key} is al: {action}.', { key: keyLabel(pending.key), action: tr(conflict.label) })}
+                        <button class="small" onClick={() => { setKey(a.id, pending.key); setPending(null); }}>{tr('Overschrijven')}</button>
+                        <button class="small" onClick={() => setPending(null)}>{tr('Laat maar')}</button>
                       </div>
                     ) : null}
                   </div>

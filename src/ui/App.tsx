@@ -44,6 +44,7 @@ import { NewsTicker } from './components/NewsTicker';
 import { ReportPopup } from './components/ReportPopup';
 import { QuestToasts } from './components/QuestToasts';
 import { CommandPalette } from './components/CommandPalette';
+import { tr } from '../shared/i18n';
 
 /** All keyboard shortcuts go through one handler (see keys). */
 function useShortcuts(): void {
@@ -125,12 +126,11 @@ export function App() {
     return (
       <div class="blocked-screen">
         <section class="panel">
-          <h2>Tribal Feud draait al in een ander tabblad</h2>
+          <h2>{tr('Tribal Feud draait al in een ander tabblad')}</h2>
           <p>
-            Er loopt nog een andere versie van het spel, waarschijnlijk een tabblad van vóór een update. Er mag er maar één tegelijk rekenen, anders
-            overschrijven ze elkaars saves. Sluit of herlaad de andere tabbladen van het spel en probeer het dan opnieuw.
+            {tr('Er loopt nog een andere versie van het spel, waarschijnlijk een tabblad van vóór een update. Er mag er maar één tegelijk rekenen, anders overschrijven ze elkaars saves. Sluit of herlaad de andere tabbladen van het spel en probeer het dan opnieuw.')}
           </p>
-          <button class="primary" onClick={() => location.reload()}>Opnieuw proberen</button>
+          <button class="primary" onClick={() => location.reload()}>{tr('Opnieuw proberen')}</button>
         </section>
       </div>
     );
@@ -170,7 +170,7 @@ export function App() {
             <ScreenTabs />
             <CurrentScreen />
           </main>
-          <aside class="toast-col" aria-label="Meldingen">
+          <aside class="toast-col" aria-label={tr('Meldingen')}>
             <QuestToasts />
           </aside>
           <CommandPalette />

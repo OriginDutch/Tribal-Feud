@@ -4,6 +4,7 @@ import type { WorldStatsView } from '../../shared/protocol';
 import { num } from '../format';
 import { PlayerLink } from '../components/PlayerLink';
 import { send, worldStats } from '../store';
+import { tr } from '../../shared/i18n';
 
 /** Players red, barbarians blue (validated as a pair on the dark surface). */
 const PVP = '#e5533f';
@@ -35,7 +36,7 @@ function StackedDays({ rows, label }: { rows: { day: number; pvp: number; barb: 
         const yp = y(r.pvp), yb = y(r.pvp + r.barb);
         return (
           <g key={r.day} class="bar">
-            <title>{`Dag ${r.day + 1}: ${num(r.pvp)} op spelers, ${num(r.barb)} op barbaren`}</title>
+            <title>{tr('Dag {day}: {pvp} op spelers, {barb} op barbaren', { day: r.day + 1, pvp: num(r.pvp), barb: num(r.barb) })}</title>
             <rect x={x(i) - 2} y={PAD.t} width={bw + 4} height={ih} fill="transparent" />
             {r.pvp > 0 && <rect x={x(i)} y={yp} width={bw} height={Math.max(1, y(0) - yp)} rx={2} fill={PVP} />}
             {r.barb > 0 && <rect x={x(i)} y={yb} width={bw} height={Math.max(1, yp - yb - (r.pvp > 0 ? 2 : 0))} rx={2} fill={BARB} />}
@@ -63,7 +64,7 @@ function TribeLines({ tribes, days }: { tribes: WorldStatsView['tribes']; days: 
   let prev = -Infinity;
   for (const e of ends) { const yy = Math.max(e.y, prev + 14); labelY.set(e.id, yy); prev = yy; }
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} class="stats-chart" role="img" aria-label="Dorpen per stam per dag">
+    <svg viewBox={`0 0 ${W} ${H}`} class="stats-chart" role="img" aria-label={tr('Dorpen per stam per dag')}>
       {[0, 0.5, 1].map((f) => (
         <g key={f}>
           <line x1={PAD.l} x2={PAD.l + iw} y1={y(max * f)} y2={y(max * f)} class="grid" />
@@ -80,7 +81,7 @@ function TribeLines({ tribes, days }: { tribes: WorldStatsView['tribes']; days: 
             <polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke={t.color} stroke-width={t.you ? 3 : 2} stroke-linejoin="round" />
             {pts.map((p, i) => (
               <circle key={i} cx={p[0]} cy={p[1]} r={4} fill={t.color} stroke="var(--panel, #211c17)" stroke-width={2}>
-                <title>{`[${t.tag}] ${num(t.series.filter((v) => v !== null)[i] ?? 0)} dorpen`}</title>
+                <title>{`[${t.tag}] ${tr('{n} dorpen', { n: num(t.series.filter((v) => v !== null)[i] ?? 0) })}`}</title>
               </circle>
             ))}
             <text x={last[0] + 8} y={last[1] + 4} class="axis label">[{t.tag}]</text>
@@ -94,8 +95,8 @@ function TribeLines({ tribes, days }: { tribes: WorldStatsView['tribes']; days: 
 function Legend() {
   return (
     <div class="stats-legend">
-      <span><i style={{ background: PVP }} /> op spelers</span>
-      <span><i style={{ background: BARB }} /> op barbaren</span>
+      <span><i style={{ background: PVP }} /> {tr('op spelers')}</span>
+      <span><i style={{ background: BARB }} /> {tr('op barbaren')}</span>
     </div>
   );
 }
@@ -108,35 +109,35 @@ export function StatsScreen() {
     return () => window.clearInterval(t);
   }, []);
   const st = worldStats.value;
-  if (!st) return <div class="screen"><p class="muted">Laden…</p></div>;
+  if (!st) return <div class="screen"><p class="muted">{tr('Laden…')}</p></div>;
   const tot = st.totals;
   const today = st.days.at(-1);
   const pvpShare = today && today.attacksPvp + today.attacksBarb > 0 ? Math.round((today.attacksPvp / (today.attacksPvp + today.attacksBarb)) * 100) : 0;
   return (
     <div class="screen">
-      <h2>Wereldstatistiek</h2>
+      <h2>{tr('Wereldstatistiek')}</h2>
       <section class="panel player-stats">
-        <div><span class="muted">Overnames van spelers</span><strong>{num(tot.conquestsPvp)}</strong></div>
-        <div><span class="muted">Van barbaren</span><strong>{num(tot.conquestsBarb)}</strong></div>
-        <div><span class="muted">Stammen · oorlogen</span><strong>{tot.tribes} · {tot.wars}</strong></div>
-        <div><span class="muted">Bots zonder stam</span><strong>{tot.solo} / {tot.bots}</strong></div>
-        <div><span class="muted">Vandaag op spelers</span><strong>{pvpShare}%</strong></div>
+        <div><span class="muted">{tr('Overnames van spelers')}</span><strong>{num(tot.conquestsPvp)}</strong></div>
+        <div><span class="muted">{tr('Van barbaren')}</span><strong>{num(tot.conquestsBarb)}</strong></div>
+        <div><span class="muted">{tr('Stammen · oorlogen')}</span><strong>{tot.tribes} · {tot.wars}</strong></div>
+        <div><span class="muted">{tr('Bots zonder stam')}</span><strong>{tot.solo} / {tot.bots}</strong></div>
+        <div><span class="muted">{tr('Vandaag op spelers')}</span><strong>{pvpShare}%</strong></div>
       </section>
       {!st.days.length ? (
-        <section class="panel"><p class="muted">Nog geen gegevens. De statistiek telt vanaf nu mee (oude saves hebben geen geschiedenis).</p></section>
+        <section class="panel"><p class="muted">{tr('Nog geen gegevens. De statistiek telt vanaf nu mee (oude saves hebben geen geschiedenis).')}</p></section>
       ) : (
         <>
           <section class="panel">
-            <div class="row"><h3 style={{ margin: 0, flex: 1 }}>Aanvallen per speldag</h3><Legend /></div>
-            <StackedDays label="Aanvallen per speldag" rows={st.days.map((d) => ({ day: d.day, pvp: d.attacksPvp, barb: d.attacksBarb }))} />
+            <div class="row"><h3 style={{ margin: 0, flex: 1 }}>{tr('Aanvallen per speldag')}</h3><Legend /></div>
+            <StackedDays label={tr('Aanvallen per speldag')} rows={st.days.map((d) => ({ day: d.day, pvp: d.attacksPvp, barb: d.attacksBarb }))} />
           </section>
           <section class="panel">
-            <div class="row"><h3 style={{ margin: 0, flex: 1 }}>Overnames per speldag</h3><Legend /></div>
-            <StackedDays label="Overnames per speldag" rows={st.days.map((d) => ({ day: d.day, pvp: d.conquestsPvp, barb: d.conquestsBarb }))} />
+            <div class="row"><h3 style={{ margin: 0, flex: 1 }}>{tr('Overnames per speldag')}</h3><Legend /></div>
+            <StackedDays label={tr('Overnames per speldag')} rows={st.days.map((d) => ({ day: d.day, pvp: d.conquestsPvp, barb: d.conquestsBarb }))} />
           </section>
           {st.tribes.length > 0 && (
             <section class="panel">
-              <h3>Dorpen per stam</h3>
+              <h3>{tr('Dorpen per stam')}</h3>
               <TribeLines tribes={st.tribes} days={st.days.map((d) => d.day)} />
             </section>
           )}
@@ -144,31 +145,31 @@ export function StatsScreen() {
       )}
       <div class="stats-tables">
         <section class="panel">
-          <h3>Meeste aanvallen op spelers</h3>
+          <h3>{tr('Meeste aanvallen op spelers')}</h3>
           <PlayersTable rows={st.topAttackers} />
         </section>
         <section class="panel">
-          <h3>Meeste dorpen van spelers veroverd</h3>
+          <h3>{tr('Meeste dorpen van spelers veroverd')}</h3>
           <PlayersTable rows={st.topConquerors} />
         </section>
       </div>
       <section class="panel">
-        <h3>Laatste overnames tussen spelers</h3>
-        {!st.recent.length ? <p class="muted">Nog geen.</p> : (
+        <h3>{tr('Laatste overnames tussen spelers')}</h3>
+        {!st.recent.length ? <p class="muted">{tr('Nog geen.')}</p> : (
           <table class="table compact">
             <tbody>
               {st.recent.map((c, i) => (
                 <tr key={i}>
                   <td class="mono muted">{formatGameTime(c.time)}</td>
                   <td>{c.name}</td>
-                  <td><PlayerLink id={c.to} name={c.toName} /> <span class="muted">nam het van</span> <PlayerLink id={c.from} name={c.fromName} /></td>
+                  <td><PlayerLink id={c.to} name={c.toName} /> <span class="muted">{tr('nam het van')}</span> <PlayerLink id={c.from} name={c.fromName} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
         <p class="hint">
-          Jij: {num(st.you.pvp)} aanvallen op spelers, {num(st.you.barb)} op barbaren, {st.you.took} dorpen van spelers en {st.you.tookBarb} van barbaren veroverd, {st.you.lost} verloren.
+          {tr('Jij: {pvp} aanvallen op spelers, {barb} op barbaren, {took} dorpen van spelers en {tookBarb} van barbaren veroverd, {lost} verloren.', { pvp: num(st.you.pvp), barb: num(st.you.barb), took: st.you.took, tookBarb: st.you.tookBarb, lost: st.you.lost })}
         </p>
       </section>
     </div>
@@ -176,10 +177,10 @@ export function StatsScreen() {
 }
 
 function PlayersTable({ rows }: { rows: WorldStatsView['topAttackers'] }) {
-  if (!rows.length) return <p class="muted">Nog niemand.</p>;
+  if (!rows.length) return <p class="muted">{tr('Nog niemand.')}</p>;
   return (
     <table class="table compact">
-      <thead><tr><th>Speler</th><th class="right">Op spelers</th><th class="right">Op barb</th><th class="right">Veroverd</th><th class="right">Verloren</th></tr></thead>
+      <thead><tr><th>{tr('Speler')}</th><th class="right">{tr('Op spelers')}</th><th class="right">{tr('Op barb')}</th><th class="right">{tr('Veroverd')}</th><th class="right">{tr('Verloren')}</th></tr></thead>
       <tbody>
         {rows.map((r) => (
           <tr key={r.id}>

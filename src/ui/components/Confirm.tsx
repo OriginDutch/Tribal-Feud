@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
+import { tr } from '../../shared/i18n';
 
 /** A button that asks once more before it acts (no browser dialogs); it disarms after a few seconds. */
-export function Confirm({ label, sure = 'Zeker?', onConfirm, cls = '', disabled = false }: {
+export function Confirm({ label, sure = tr('Zeker?'), onConfirm, cls = '', disabled = false }: {
   label: string;
   sure?: string;
   onConfirm: () => void;

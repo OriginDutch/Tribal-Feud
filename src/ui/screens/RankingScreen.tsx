@@ -5,6 +5,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { MapLink } from '../components/MapLink';
 import { num } from '../format';
 import { openTribe, ranking, send, tribes } from '../store';
+import { tr } from '../../shared/i18n';
 
 export function RankingScreen() {
   const [debug, setDebug] = useState(false);
@@ -23,10 +24,10 @@ export function RankingScreen() {
   return (
     <div class="screen">
       <div class="row">
-        <h2 style={{ margin: 0, flex: 1 }}>Ranglijst</h2>
-        {meIndex >= 0 && <span class="muted">Jij staat op plek {meIndex + 1} van {rows.length}</span>}
+        <h2 style={{ margin: 0, flex: 1 }}>{tr('Ranglijst')}</h2>
+        {meIndex >= 0 && <span class="muted">{tr('Jij staat op plek {n} van {total}', { n: meIndex + 1, total: rows.length })}</span>}
         <label class="inline-check">
-          <input type="checkbox" checked={debug} onChange={(e) => setDebug(e.currentTarget.checked)} /> bot-info (debug)
+          <input type="checkbox" checked={debug} onChange={(e) => setDebug(e.currentTarget.checked)} /> {tr('bot-info (debug)')}
         </label>
       </div>
       <section class="panel">
@@ -43,12 +44,12 @@ export function RankingScreen() {
           <thead>
             <tr>
               <th class="right">#</th>
-              <th>Speler</th>
-              <th>Stam</th>
-              <th class="right">Punten</th>
-              <th class="right">Dorpen</th>
-              {debug && <th>Persoonlijkheid</th>}
-              {debug && <th class="right">Activiteit</th>}
+              <th>{tr('Speler')}</th>
+              <th>{tr('Stam')}</th>
+              <th class="right">{tr('Punten')}</th>
+              <th class="right">{tr('Dorpen')}</th>
+              {debug && <th>{tr('Persoonlijkheid')}</th>}
+              {debug && <th class="right">{tr('Activiteit')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -76,7 +77,7 @@ export function RankingScreen() {
         </table>
         {rows.length > limit && (
           <button class="small" onClick={() => setLimit(limit + 50)}>
-            Meer tonen
+            {tr('Meer tonen')}
           </button>
         )}
       </section>
