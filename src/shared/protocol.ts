@@ -685,7 +685,9 @@ export interface OwnVillageRow {
   /** Flags worlds: the flag hanging here. */
   flag?: { type: string; level: number };
   /** Troop target (the manager's template or own troops): units of it at home out of the target; ready = all at home. */
-  target?: { home: number; want: number; ready: boolean };
+  target?: { home: number; want: number; ready: boolean; off: boolean };
+  /** Build template: every step built (done), or a building higher than it / one it doesn't name (off). */
+  plan?: { done: boolean; off: boolean };
 }
 
 export interface QuestsView {

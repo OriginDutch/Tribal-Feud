@@ -1239,3 +1239,4 @@ details.coup summary { cursor: pointer; color: var(--muted); }
 .th-sort:hover { color: var(--text); }
 .villages-table thead th { position: sticky; top: 64px; z-index: 2; background: var(--panel); }
 .m-layout .villages-table thead th { position: static; }
+.status-btn.not { border-color: #e5533f; color: #f08a7a; }

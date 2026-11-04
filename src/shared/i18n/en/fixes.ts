@@ -55,4 +55,13 @@ export const fixes: Record<string, string> = {
   'Troepen van het sjabloon die thuis staan': 'Troops of the template at home',
   '{home} van {want} thuis': '{home} of {want} at home',
   'Geen troepensjabloon': 'No troop template',
+  'Troepen afwijkend': 'Troops off',
+  'Gebouwen af': 'Buildings done',
+  'Gebouwen afwijkend': 'Buildings off',
+  'Thuis staan units die niet in het troepensjabloon staan, of meer dan het sjabloon': 'Units at home that aren\'t in the troop template, or more than the template',
+  'Elk gebouw staat op het niveau van het bouwsjabloon': 'Every building is at the level of the build template',
+  'Een gebouw staat hoger dan het bouwsjabloon, of staat er niet in': 'A building stands higher than the build template, or isn\'t in it',
+  'Nu: juist de dorpen waar dit niet voor geldt. Klik om uit te zetten.': 'Now: exactly the villages this doesn\'t fit. Click to turn it off.',
+  'Klik nog eens voor juist de dorpen waar dit niet voor geldt.': 'Click again for exactly the villages this doesn\'t fit.',
+  'Klik om alleen deze dorpen te zien; nog eens voor juist de andere.': 'Click to see only these villages; again for exactly the others.',
 };

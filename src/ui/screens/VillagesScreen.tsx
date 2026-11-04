@@ -17,24 +17,38 @@ import { UNIT_SHORT } from '../units';
 import { tr } from '../../shared/i18n';
 import { trx } from '../i18n';
 
-/** Quick filters: what needs a look. */
-type Status = 'full' | 'idle' | 'ready';
+/**
+ * Quick filters: what needs a look. Each one: only the villages it fits, or (second click) exactly
+ * those it doesn't; template filters leave out villages without that template either way.
+ */
+type Status = 'full' | 'idle' | 'ready' | 'troopsOff' | 'built' | 'buildOff';
+type Mode = 'only' | 'not';
 const FULL = 0.9;
-const STATUS: Record<Status, (v: OwnVillageRow) => boolean> = {
+const STATUS: Record<Status, (v: OwnVillageRow) => boolean | null> = {
   full: (v) => v.res.some((r) => r >= v.storage * FULL),
   idle: (v) => !v.building,
-  ready: (v) => !!v.target?.ready,
+  ready: (v) => (v.target ? v.target.ready : null),
+  troopsOff: (v) => (v.target ? v.target.off : null),
+  built: (v) => (v.plan ? v.plan.done : null),
+  buildOff: (v) => (v.plan ? v.plan.off : null),
 };
 const STATUS_LABEL: Record<Status, () => string> = {
   full: () => tr('Vol'),
   idle: () => tr('Bouwt niet'),
   ready: () => tr('Troepen klaar'),
+  troopsOff: () => tr('Troepen afwijkend'),
+  built: () => tr('Gebouwen af'),
+  buildOff: () => tr('Gebouwen afwijkend'),
 };
 const STATUS_TITLE: Record<Status, () => string> = {
   full: () => tr('Een grondstof op 90% van de opslag of meer'),
   idle: () => tr('Niets in de bouwwachtrij'),
   ready: () => tr('Alle troepen van het sjabloon staan thuis (onderweg of in opleiding telt niet)'),
+  troopsOff: () => tr('Thuis staan units die niet in het troepensjabloon staan, of meer dan het sjabloon'),
+  built: () => tr('Elk gebouw staat op het niveau van het bouwsjabloon'),
+  buildOff: () => tr('Een gebouw staat hoger dan het bouwsjabloon, of staat er niet in'),
 };
+const fits = (v: OwnVillageRow, k: Status, m: Mode) => STATUS[k](v) === (m === 'only');
 
 /** Sortable columns; the worker's order (by name) is the default. */
 type SortKey = 'name' | 'points' | 'storage' | 'pop' | 'build' | 'recruit' | 'target';
@@ -58,16 +72,25 @@ export function VillagesScreen() {
   const [suggest, setSuggest] = useSaved('villages-suggest', false);
   const [supports, setSupports] = useSaved('villages-supports', false);
   const [flagsOpen, setFlagsOpen] = useSaved('villages-flags', false);
-  const [status, setStatus] = useSaved<Status[]>('villages-status', []);
+  const [status, setStatus] = useSaved<Partial<Record<Status, Mode>>>('villages-filters', {});
   const [sort, setSort] = useSaved<{ key: SortKey; desc: boolean }>('villages-sort', { key: 'name', desc: false });
   if (!s) return null;
   const inGroup = groupVillages(s.villages, s.groups);
-  const filtered = inGroup.filter((v) => status.every((k) => STATUS[k](v)));
+  const active = (Object.keys(status) as Status[]).filter((k) => STATUS[k] && status[k]);
+  const filtered = inGroup.filter((v) => active.every((k) => fits(v, k, status[k]!)));
   const list = sort.key === 'name' ? (sort.desc ? [...filtered].reverse() : filtered) : [...filtered].sort((a, b) => {
     const f = SORT[sort.key as Exclude<SortKey, 'name'>];
     return (sort.desc ? f(b) - f(a) : f(a) - f(b)) || 0;
   });
-  const flip = (k: Status) => { setStatus(status.includes(k) ? status.filter((x) => x !== k) : [...status, k]); setPicked(new Set()); };
+  // off → only → not → off
+  const flip = (k: Status) => {
+    const next = { ...status };
+    if (!status[k]) next[k] = 'only';
+    else if (status[k] === 'only') next[k] = 'not';
+    else delete next[k];
+    setStatus(next);
+    setPicked(new Set());
+  };
   const sortBy = (key: SortKey) => setSort(sort.key === key ? { key, desc: !sort.desc } : { key, desc: key !== 'name' && key !== 'build' });
   const head = (key: SortKey, label: string, cls = '', title?: string) => (
     <th class={`${cls} sortable`} title={title} aria-sort={sort.key === key ? (sort.desc ? 'descending' : 'ascending') : undefined}>
@@ -111,17 +134,24 @@ export function VillagesScreen() {
               <i /> {g.name} ({s.villages.filter((v) => v.groups.includes(g.id)).length})
             </button>
           ))}
-          <span class="status-sep" />
-          {(Object.keys(STATUS) as Status[]).map((k) => (
-            <button key={k} class={`small status-btn ${status.includes(k) ? 'active' : ''}`} title={STATUS_TITLE[k]()} onClick={() => flip(k)}>
-              {STATUS_LABEL[k]()} ({inGroup.filter(STATUS[k]).length})
-            </button>
-          ))}
           <span style={{ flex: 1 }} />
           {s.flags && <button class="small" onClick={() => setFlagsOpen(!flagsOpen)}>{tr('Vlaggen')}</button>}
           <button class="small" onClick={() => { setSupports(!supports); setSuggest(false); setManage(false); }}>{tr('Ondersteuning terugsturen')}</button>
           <button class="small" onClick={() => { setSuggest(!suggest); setManage(false); setSupports(false); }}>{tr('Voorstellen|groepen')}</button>
           <button class="small" onClick={() => { setManage(!manage); setSuggest(false); setSupports(false); }}>{tr('Groepen beheren')}</button>
+        </div>
+        <div class="row wrap status-row">
+          {(Object.keys(STATUS) as Status[]).map((k) => (
+            <button
+              key={k}
+              class={`small status-btn ${status[k] === 'only' ? 'active' : status[k] === 'not' ? 'not' : ''}`}
+              title={`${STATUS_TITLE[k]()}\n${status[k] === 'not' ? tr('Nu: juist de dorpen waar dit niet voor geldt. Klik om uit te zetten.') : status[k] === 'only' ? tr('Klik nog eens voor juist de dorpen waar dit niet voor geldt.') : tr('Klik om alleen deze dorpen te zien; nog eens voor juist de andere.')}`}
+              onClick={() => flip(k)}
+            >
+              {status[k] === 'not' && <span aria-hidden="true">≠ </span>}
+              {STATUS_LABEL[k]()} ({inGroup.filter((v) => fits(v, k, status[k] ?? 'only')).length})
+            </button>
+          ))}
         </div>
         {picked.size > 0 && (
           <div class="row wrap group-actions">

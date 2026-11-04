@@ -61,7 +61,7 @@ import {
 import { villagesOf } from './state';
 import { growBarbarian, villagePoints } from './barbarians';
 import { ARCHETYPE_NAMES } from '../shared/botProfiles';
-import { UNIT_IDS, type UnitCounts, type UnitId } from '../shared/gameData';
+import { UNIT_IDS, type BuildingId, type UnitCounts, type UnitId } from '../shared/gameData';
 import {
   cancelBuild,
   cancelRecruit,
@@ -231,13 +231,33 @@ function troopTarget(s: WorldState, v: Village): Pick<OwnVillageRow, 'target'> {
   if (!want) return {};
   let need = 0;
   let home = 0;
+  let off = false;
   for (const u of UNIT_IDS) {
     const n = want[u] ?? 0;
+    if (v.units[u] > n) off = true; // more than the target, or a unit it doesn't have
     if (n <= 0) continue;
     need += n;
     home += Math.min(n, v.units[u]);
   }
-  return need > 0 ? { target: { home, want: need, ready: home >= need } } : {};
+  return need > 0 ? { target: { home, want: need, ready: home >= need, off } } : {};
+}
+
+/** The build template: all built, or something standing higher than it (or that it doesn't name). */
+function buildPlan(s: WorldState, v: Village): Pick<OwnVillageRow, 'plan'> {
+  const t = findTemplate(s, v.manager?.template);
+  if (!t) return {};
+  const want = new Map<BuildingId, number>();
+  for (const [b, l] of t.steps) want.set(b, Math.max(want.get(b) ?? 0, l));
+  const done = [...want].every(([b, l]) => v.buildings[b] >= l);
+  const start = s.config.village.startLevels as Partial<Record<BuildingId, number>>;
+  const off = (Object.keys(v.buildings) as BuildingId[]).some((b) => {
+    const has = v.buildings[b];
+    const w = want.get(b);
+    // the first church comes with the village; a church the manager builds for faith is its own choice
+    if (b === 'church_f' || (b === 'church' && v.manager?.church)) return false;
+    return w === undefined ? has > (start[b] ?? s.config.buildings[b]?.minLevel ?? 0) : has > w;
+  });
+  return { plan: { done, off } };
 }
 
 function ownVillageRows(s: WorldState): OwnVillageRow[] {
@@ -274,6 +294,7 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
         ...(s.config.churches ? { faith: hasFaith(s, v) } : {}),
         ...(v.flag ? { flag: { ...v.flag } } : {}),
         ...troopTarget(s, v),
+        ...buildPlan(s, v),
       };
     });
 }
