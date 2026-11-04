@@ -43,4 +43,16 @@ export const fixes: Record<string, string> = {
   'Alles omsmelten': 'Melt all',
   'Losse vlaggen (niet opgehangen). Drie van hetzelfde soort en level maken er één van het volgende level (▲); samenvoegen brengt eerst al je dorpen naar L5 en duwt dan de top omhoog, en houdt altijd genoeg vlaggen over om in elk dorp één te hangen. Omsmelten maakt van drie losse vlaggen van één level, welke soort ook, één van de soort die je kiest. Eén vlag per dorp: kies hem in de kolom Vlag hieronder, of laat ze vanzelf ophangen. Nieuwe vlaggen krijg je voor elk veroverd dorp en per {per} verslagen vijanden ({kills}/{per}), met een willekeurig level: {odds}. Een verovering op een speler geeft een level hoger.':
     'Loose flags (not hung). Three of the same kind and level make one of the next level (▲); merging first brings all your villages to L5, then pushes the top up, and always keeps enough flags to hang one in every village. Melting turns three loose flags of one level, any kind, into one of the kind you choose. One flag per village: pick it in the Flag column below, or let them hang by themselves. You get new flags for every conquered village and per {per} defeated enemies ({kills}/{per}), with a random level: {odds}. A conquest from a player gives one level higher.',
+  // villages overview
+  Vol: 'Full',
+  'Bouwt niet': 'Not building',
+  'Troepen klaar': 'Troops ready',
+  'Een grondstof op 90% van de opslag of meer': 'A resource at 90% of storage or more',
+  'Niets in de bouwwachtrij': 'Nothing in the build queue',
+  'Alle troepen van het sjabloon staan thuis (onderweg of in opleiding telt niet)': 'All troops of the template are at home (away or in training doesn\'t count)',
+  'Sorteert op de volste grondstof': 'Sorts by the fullest resource',
+  'Eerst wat niets bouwt, dan wat het eerst klaar is': 'Not building first, then whatever finishes soonest',
+  'Troepen van het sjabloon die thuis staan': 'Troops of the template at home',
+  '{home} van {want} thuis': '{home} of {want} at home',
+  'Geen troepensjabloon': 'No troop template',
 };

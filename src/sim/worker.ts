@@ -224,6 +224,22 @@ function notice(text: string, level: 'info' | 'error' = 'info', to: Client | nul
 
 const VILLAGE_ORDER = new Intl.Collator('nl', { numeric: true, sensitivity: 'base' });
 
+/** How much of the village's troop target stands at home (troops away or in training don't count). */
+function troopTarget(s: WorldState, v: Village): Pick<OwnVillageRow, 'target'> {
+  const m = v.manager;
+  const want = m?.troopTemplate ? s.troopTemplates?.find((t) => t.id === m.troopTemplate)?.troops : m?.troops;
+  if (!want) return {};
+  let need = 0;
+  let home = 0;
+  for (const u of UNIT_IDS) {
+    const n = want[u] ?? 0;
+    if (n <= 0) continue;
+    need += n;
+    home += Math.min(n, v.units[u]);
+  }
+  return need > 0 ? { target: { home, want: need, ready: home >= need } } : {};
+}
+
 function ownVillageRows(s: WorldState): OwnVillageRow[] {
   const { config } = s;
   return villagesOf(s, HUMAN_ID)
@@ -257,6 +273,7 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
         maxMint: mintBlocker(s, v) === null ? maxMintable(s, v) : 0,
         ...(s.config.churches ? { faith: hasFaith(s, v) } : {}),
         ...(v.flag ? { flag: { ...v.flag } } : {}),
+        ...troopTarget(s, v),
       };
     });
 }

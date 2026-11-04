@@ -17,6 +17,37 @@ import { UNIT_SHORT } from '../units';
 import { tr } from '../../shared/i18n';
 import { trx } from '../i18n';
 
+/** Quick filters: what needs a look. */
+type Status = 'full' | 'idle' | 'ready';
+const FULL = 0.9;
+const STATUS: Record<Status, (v: OwnVillageRow) => boolean> = {
+  full: (v) => v.res.some((r) => r >= v.storage * FULL),
+  idle: (v) => !v.building,
+  ready: (v) => !!v.target?.ready,
+};
+const STATUS_LABEL: Record<Status, () => string> = {
+  full: () => tr('Vol'),
+  idle: () => tr('Bouwt niet'),
+  ready: () => tr('Troepen klaar'),
+};
+const STATUS_TITLE: Record<Status, () => string> = {
+  full: () => tr('Een grondstof op 90% van de opslag of meer'),
+  idle: () => tr('Niets in de bouwwachtrij'),
+  ready: () => tr('Alle troepen van het sjabloon staan thuis (onderweg of in opleiding telt niet)'),
+};
+
+/** Sortable columns; the worker's order (by name) is the default. */
+type SortKey = 'name' | 'points' | 'storage' | 'pop' | 'build' | 'recruit' | 'target';
+const SORT: Record<Exclude<SortKey, 'name'>, (v: OwnVillageRow) => number> = {
+  points: (v) => v.points,
+  storage: (v) => Math.max(...v.res) / v.storage,
+  pop: (v) => v.pop.used / Math.max(1, v.pop.max),
+  // idle villages first, then whichever is done soonest
+  build: (v) => v.building?.end ?? -1,
+  recruit: (v) => v.recruiting,
+  target: (v) => (v.target ? v.target.home / v.target.want : -1),
+};
+
 /** All own villages in one table (TW "Overzichten"). Clicking a name selects that village. */
 export function VillagesScreen() {
   const [openProd, setOpenProd] = useSaved('villages-open-prod', true);
@@ -27,8 +58,24 @@ export function VillagesScreen() {
   const [suggest, setSuggest] = useSaved('villages-suggest', false);
   const [supports, setSupports] = useSaved('villages-supports', false);
   const [flagsOpen, setFlagsOpen] = useSaved('villages-flags', false);
+  const [status, setStatus] = useSaved<Status[]>('villages-status', []);
+  const [sort, setSort] = useSaved<{ key: SortKey; desc: boolean }>('villages-sort', { key: 'name', desc: false });
   if (!s) return null;
-  const list = groupVillages(s.villages, s.groups);
+  const inGroup = groupVillages(s.villages, s.groups);
+  const filtered = inGroup.filter((v) => status.every((k) => STATUS[k](v)));
+  const list = sort.key === 'name' ? (sort.desc ? [...filtered].reverse() : filtered) : [...filtered].sort((a, b) => {
+    const f = SORT[sort.key as Exclude<SortKey, 'name'>];
+    return (sort.desc ? f(b) - f(a) : f(a) - f(b)) || 0;
+  });
+  const flip = (k: Status) => { setStatus(status.includes(k) ? status.filter((x) => x !== k) : [...status, k]); setPicked(new Set()); };
+  const sortBy = (key: SortKey) => setSort(sort.key === key ? { key, desc: !sort.desc } : { key, desc: key !== 'name' && key !== 'build' });
+  const head = (key: SortKey, label: string, cls = '', title?: string) => (
+    <th class={`${cls} sortable`} title={title} aria-sort={sort.key === key ? (sort.desc ? 'descending' : 'ascending') : undefined}>
+      <button class="th-sort" onClick={() => sortBy(key)}>
+        {label}{sort.key === key ? (sort.desc ? ' ▼' : ' ▲') : ''}
+      </button>
+    </th>
+  );
   const used = UNIT_IDS.filter((u) => list.some((v) => (v.units[u] ?? 0) > 0));
   const groupsOf = (v: OwnVillageRow) => s.groups.filter((g) => v.groups.includes(g.id));
   const toggle = (id: number) => { const n = new Set(picked); if (n.has(id)) n.delete(id); else n.add(id); setPicked(n); };
@@ -62,6 +109,12 @@ export function VillagesScreen() {
           {s.groups.map((g) => (
             <button key={g.id} class={`small group-btn ${groupFilter.value === g.id ? 'active' : ''}`} style={{ '--gc': g.color }} onClick={() => { setGroupFilter(g.id); setPicked(new Set()); }}>
               <i /> {g.name} ({s.villages.filter((v) => v.groups.includes(g.id)).length})
+            </button>
+          ))}
+          <span class="status-sep" />
+          {(Object.keys(STATUS) as Status[]).map((k) => (
+            <button key={k} class={`small status-btn ${status.includes(k) ? 'active' : ''}`} title={STATUS_TITLE[k]()} onClick={() => flip(k)}>
+              {STATUS_LABEL[k]()} ({inGroup.filter(STATUS[k]).length})
             </button>
           ))}
           <span style={{ flex: 1 }} />
@@ -103,22 +156,25 @@ export function VillagesScreen() {
             <col style={{ width: '55px' }} />
             <col style={{ width: '130px' }} />
             <col style={{ width: '50px' }} />
+            <col style={{ width: '70px' }} />
             <col style={{ width: '185px' }} />
           </colgroup>
           <thead>
             <tr>
-              <th>
-                <input type="checkbox" class="pick" checked={allPicked} onChange={pickAll} title={tr('Alles selecteren')} /> {tr('Dorp')}
+              <th class="sortable">
+                <input type="checkbox" class="pick" checked={allPicked} onChange={pickAll} title={tr('Alles selecteren')} />{' '}
+                <button class="th-sort" onClick={() => sortBy('name')}>{tr('Dorp')}{sort.key === 'name' ? (sort.desc ? ' ▼' : ' ▲') : ''}</button>
               </th>
-              <th class="right">{tr('Punten')}</th>
+              {head('points', tr('Punten'), 'right')}
               <th class="right">{tr('Hout')}</th>
               <th class="right">{tr('Leem')}</th>
               <th class="right">{tr('IJzer')}</th>
-              <th class="right">{tr('Opslag')}</th>
-              <th class="right">{tr('Boerderij')}</th>
+              {head('storage', tr('Opslag'), 'right', tr('Sorteert op de volste grondstof'))}
+              {head('pop', tr('Boerderij'), 'right')}
               <th class="right" title={tr('Toestemming')}>{tr('Toest.')}</th>
-              <th>{tr('Bouwt')}</th>
-              <th class="right" title={tr('Units in opleiding')}>{tr('Rekr.')}</th>
+              {head('build', tr('Bouwt'), '', tr('Eerst wat niets bouwt, dan wat het eerst klaar is'))}
+              {head('recruit', tr('Rekr.'), 'right', tr('Units in opleiding'))}
+              {head('target', tr('Sjabloon'), 'right', tr('Troepen van het sjabloon die thuis staan'))}
               <th>{tr('Beheer')}</th>
               {s.flags && <th>{tr('Vlag')}</th>}
             </tr>
@@ -150,6 +206,9 @@ export function VillagesScreen() {
                   )}
                 </td>
                 <td class="right mono">{v.recruiting > 0 ? num(v.recruiting) : <span class="muted">—</span>}</td>
+                <td class="right mono" title={v.target ? tr('{home} van {want} thuis', { home: num(v.target.home), want: num(v.target.want) }) : tr('Geen troepensjabloon')}>
+                  {!v.target ? <span class="muted">—</span> : v.target.ready ? <span style={{ color: "var(--good)" }}>✓</span> : `${Math.floor((v.target.home / v.target.want) * 100)}%`}
+                </td>
                 <td class="clip">
                   <button
                     class="small"
@@ -176,7 +235,7 @@ export function VillagesScreen() {
         {!openTroops ? null : used.length === 0 ? (
           <p class="muted">{tr('Geen troepen.')}</p>
         ) : (
-          <table class="table">
+          <table class="table villages-table">
             <thead>
               <tr>
                 <th>{tr('Dorp')}</th>

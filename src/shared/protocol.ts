@@ -684,6 +684,8 @@ export interface OwnVillageRow {
   faith?: boolean;
   /** Flags worlds: the flag hanging here. */
   flag?: { type: string; level: number };
+  /** Troop target (the manager's template or own troops): units of it at home out of the target; ready = all at home. */
+  target?: { home: number; want: number; ready: boolean };
 }
 
 export interface QuestsView {
