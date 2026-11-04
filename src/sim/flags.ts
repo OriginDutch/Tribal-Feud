@@ -10,6 +10,7 @@ import { nextFloat } from './rng';
 import { HUMAN_ID, villagesOf, type Player, type WorldState } from './state';
 import { farmCapacityIn } from './formulas';
 import { popUsed, settle, type Village } from './village';
+import { T, tr, type Txt } from '../shared/i18n';
 
 import { FLAG_NAMES, FLAG_TYPES, FLAG_VALUES, dropLevel, type FlagType } from '../shared/flags';
 export { FLAG_TYPES, FLAG_VALUES, FLAG_NAMES, type FlagType } from '../shared/flags';
@@ -44,6 +45,12 @@ function draw(state: WorldState, bonus = 0): { type: FlagType; level: number } {
 /** Rare enough to tell you about it. */
 const RARE = 4;
 
+/** Kept text: a list of items ("a, b, c"). */
+function listTxt(items: Txt[]): Txt {
+  return items.slice(1).reduce<Txt>((a, b) => T('{a}, {b}', { a, b }), items[0] ?? '');
+}
+const flagList = (fs: { type: FlagType; level: number }[]): Txt => listTxt(fs.map((f) => T('{flag} L{level}', { flag: FLAG_NAMES[f.type], level: String(f.level) })));
+
 function gift(state: WorldState, p: Player, n: number, why: string, bonus = 0, fixedLevel?: number): void {
   const s = stock(p);
   const got: { type: FlagType; level: number }[] = [];
@@ -56,8 +63,8 @@ function gift(state: WorldState, p: Player, n: number, why: string, bonus = 0, f
     const rare = got.filter((f) => f.level >= RARE);
     addMessage(state, {
       kind: 'info', from: -1,
-      title: rare.length ? `Zeldzame vlag: ${rare.map((f) => `${FLAG_NAMES[f.type]} L${f.level}`).join(', ')}!` : `Vlag${n > 1 ? 'gen' : ''} gekregen`,
-      text: `${why}: ${got.map((f) => `${FLAG_NAMES[f.type]} L${f.level}`).join(', ')}. Hang ze op in het dorpenscherm.`,
+      title: rare.length ? T('Zeldzame vlag: {flags}!', { flags: flagList(rare) }) : n > 1 ? T('Vlaggen gekregen') : T('Vlag gekregen'),
+      text: T('{why}: {flags}. Hang ze op in het dorpenscherm.', { why, flags: flagList(got) }),
     });
   }
   if (p.id === HUMAN_ID && s.auto) mergeAll(state, p);
@@ -79,9 +86,9 @@ export function freeFlags(state: WorldState, p: Player, type: FlagType, level: n
 
 export function upgradeFlag(state: WorldState, owner: number, type: FlagType, level: number): string | null {
   const p = state.players[owner];
-  if (!state.config.flags || !p) return 'Vlaggen staan uit op deze wereld.';
-  if (level < 1 || level > 8) return 'Dat level kan niet hoger.';
-  if (freeFlags(state, p, type, level) < 3) return 'Je hebt drie losse vlaggen van dit soort en level nodig.';
+  if (!state.config.flags || !p) return tr('Vlaggen staan uit op deze wereld.');
+  if (level < 1 || level > 8) return tr('Dat level kan niet hoger.');
+  if (freeFlags(state, p, type, level) < 3) return tr('Je hebt drie losse vlaggen van dit soort en level nodig.');
   const s = stock(p);
   s.have[type][level - 1]! -= 3;
   s.have[type][level]!++;
@@ -91,13 +98,13 @@ export function upgradeFlag(state: WorldState, owner: number, type: FlagType, le
 export function setFlag(state: WorldState, owner: number, villageId: number, flag: { type: FlagType; level: number } | null): string | null {
   const p = state.players[owner];
   const v = state.villages[villageId];
-  if (!state.config.flags || !p) return 'Vlaggen staan uit op deze wereld.';
-  if (!v || v.owner !== owner) return 'Dat is niet jouw dorp.';
+  if (!state.config.flags || !p) return tr('Vlaggen staan uit op deze wereld.');
+  if (!v || v.owner !== owner) return tr('Dat is niet jouw dorp.');
   if (v.flag?.type === 'pop' && (!flag || flag.type !== 'pop' || flag.level < v.flag.level)) {
     const cap = farmCapacityIn(state.config, v.buildings.farm) * (1 + (flag?.type === 'pop' ? FLAG_VALUES.pop[flag.level - 1]! : 0));
-    if (popUsed(state.config, v) > Math.round(cap)) return 'Eerst bevolking terug onder de grens zonder deze vlag.';
+    if (popUsed(state.config, v) > Math.round(cap)) return tr('Eerst bevolking terug onder de grens zonder deze vlag.');
   }
-  if (flag && !(v.flag?.type === flag.type && v.flag.level === flag.level) && freeFlags(state, p, flag.type, flag.level) < 1) return 'Die vlag heb je niet (los).';
+  if (flag && !(v.flag?.type === flag.type && v.flag.level === flag.level) && freeFlags(state, p, flag.type, flag.level) < 1) return tr('Die vlag heb je niet (los).');
   settle(state.config, v, state.time);
   if (flag) v.flag = { ...flag };
   else delete v.flag;
@@ -170,7 +177,8 @@ function redrawEarned(state: WorldState, p: Player): void {
     extra[f.level - 1]!++;
   }
   if (p.id === HUMAN_ID && extra.some((n) => n > 0)) {
-    addMessage(state, { kind: 'info', from: -1, title: 'Vlaggen herzien', text: `Nieuwe vlaggen krijgen nu een level van 1 tot 8, hoe hoger hoe zeldzamer. Voor je ${fromPlayers + rest} eerder verdiende vlaggen is opnieuw getrokken; je krijgt erbij: ${extra.map((n, i) => (n ? `${n}× L${i + 1}` : '')).filter(Boolean).join(', ')}. Je bestaande vlaggen houd je.` });
+    const extras = extra.flatMap((n, i) => (n ? [T('{n}× L{level}', { n, level: String(i + 1) })] : []));
+    addMessage(state, { kind: 'info', from: -1, title: T('Vlaggen herzien'), text: T('Nieuwe vlaggen krijgen nu een level van 1 tot 8, hoe hoger hoe zeldzamer. Voor je {n} eerder verdiende vlaggen is opnieuw getrokken; je krijgt erbij: {extra}. Je bestaande vlaggen houd je.', { n: fromPlayers + rest, extra: listTxt(extras) }) });
   }
 }
 

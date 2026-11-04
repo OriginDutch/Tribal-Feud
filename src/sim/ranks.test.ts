@@ -6,6 +6,7 @@ import { MERIT_HALF_LIFE_DAYS, RECRUIT_DAYS, SEED_PER_CONQUEST, addMerit, meritO
 import { HUMAN_ID, createWorld, villagesOf, type WorldState } from './state';
 import { askForOrder } from './tribeOrders';
 import { found, join, leave } from './tribes';
+import { txt } from '../shared/i18n';
 
 function world(): WorldState {
   return createWorld(createConfig('classic', 'R', 51, { worldSpeed: 1, bots: { tiers: { pro: 1, mid: 0 }, count: 20 } } as never));
@@ -94,7 +95,7 @@ describe('rangen', () => {
     const s = world();
     tribe(s);
     expect(askForOrder(s)).toBeNull();
-    expect(s.inbox!.at(-1)!.title).toMatch(/nu niks/);
+    expect(txt(s.inbox!.at(-1)!.title)).toMatch(/nu niks/);
     expect(askForOrder(s)).toMatch(/Je vroeg net al/);
   });
 

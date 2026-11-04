@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useSaved } from '../useSaved';
 import type { MoodNoteView } from '../../shared/protocol';
+import { txt as noteTxt } from '../../shared/i18n';
 import { duration } from '../format';
 import { PlayerLink } from '../components/PlayerLink';
 import { opinions, send, snapshot } from '../store';
@@ -24,7 +25,7 @@ function Notes({ notes }: { notes: MoodNoteView[] }) {
   return (
     <span class="mood-notes">
       {notes.slice(0, 3).map((n, i) => (
-        <span key={i} class={n.delta > 0 ? 'good' : 'bad'}>{n.delta > 0 ? '+' : ''}{Math.round(n.delta)} {n.why}</span>
+        <span key={i} class={n.delta > 0 ? 'good' : 'bad'}>{n.delta > 0 ? '+' : ''}{Math.round(n.delta)} {noteTxt(n.why)}</span>
       ))}
     </span>
   );
@@ -111,7 +112,7 @@ export function RelationsScreen() {
                     <span class="mood-bar"><i style={{ width: `${Math.min(100, (g.score / 2) * 100)}%`, background: '#e5533f' }} /></span>{' '}
                     <span class="mono">{g.score.toFixed(2)}</span>
                   </td>
-                  <td class="muted">{g.why ?? '—'}</td>
+                  <td class="muted">{g.why ? noteTxt(g.why) : '—'}</td>
                   <td class="right mono">{duration(g.halfLife)}</td>
                 </tr>
               ))}

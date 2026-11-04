@@ -9,6 +9,7 @@ import { GROUPS, MENU_BUILDINGS, SETTINGS } from './menu';
 import { toggleMute } from './music/player';
 import { openBuilding, paletteOpen, send, screen, snapshot, togglePause, type Screen } from './store';
 import type { BuildingId } from '../shared/gameData';
+import { tr } from '../shared/i18n';
 import { stepVillage } from './components/VillageSwitcher';
 
 export type KeyGroup = 'Algemeen' | 'Hoofdmenu' | 'Schermen' | 'Gebouwen';
@@ -99,7 +100,7 @@ const NAMES: Record<string, string> = { Space: 'Spatie', Equal: '+', Minus: '−
 /** "Ctrl+KeyK" → "Ctrl + K". */
 export function keyLabel(key: string | null): string {
   if (!key) return '—';
-  return key.split('+').map((p) => NAMES[p] ?? p.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'Num ').replace(/^Arrow/, 'Pijl ')).join(' + ');
+  return key.split('+').map((p) => (p === 'Space' ? tr('Spatie') : NAMES[p] ?? p.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'Num ').replace(/^Arrow/, tr('Pijl ')))).join(' + ');
 }
 
 /** Short form for the rail (only plain single keys). */

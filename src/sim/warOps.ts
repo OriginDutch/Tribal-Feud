@@ -30,6 +30,7 @@ import { NOBLE_LAG, chooseNobles, nobleCandidates, offerAppeal } from './nobleRo
 import { MERIT, addMerit } from './ranks';
 import type { Village } from './village';
 import { isOperational } from './village';
+import { T, tr } from '../shared/i18n';
 
 export interface OpRole {
   member: number;
@@ -280,7 +281,7 @@ export function onOpLaunch(state: WorldState, tribeId: number, opId: number, rol
   if (nextFloat(state.rng) < FORGET[tierOf(state.players[r.member])]) {
     r.state = 'forgot';
     // the tribe noticed: whoever leaves his mates alone in an attack hears about it
-    if (r.member !== t.leader) changeMood(state, state.players[r.member], -3, 'aangesproken op een gemiste gezamenlijke aanval');
+    if (r.member !== t.leader) changeMood(state, state.players[r.member], -3, T('aangesproken op een gemiste gezamenlijke aanval'));
     return;
   }
   let error: string | null;
@@ -315,13 +316,13 @@ function report(state: WorldState, t: Tribe, op: TribeOp): void {
   const went = new Set(op.roles.filter((r) => r.state === 'sent').map((r) => r.member));
   for (const m of went) {
     if (m === t.leader || m === HUMAN_ID) continue;
-    changeMood(state, state.players[m], took ? 4 : -2, took ? `we namen ${target!.name} samen in` : 'de gezamenlijke aanval mislukte');
+    changeMood(state, state.players[m], took ? 4 : -2, took ? T('we namen {village} samen in', { village: target!.name }) : T('de gezamenlijke aanval mislukte'));
   }
-  if (took) moodAll(state, t, 1, `de stam nam ${target!.name} in`, undefined);
+  if (took) moodAll(state, t, 1, T('de stam nam {village} in', { village: target!.name }), undefined);
   if (!took || !target) return;
   const sent = op.roles.filter((r) => r.state === 'sent').length;
-  addNews(state, { kind: 'conquest', tribes: [t.id], x: target.x, y: target.y, dry: `[${t.tag}] neemt ${target.name} (${target.x}|${target.y}) in met een gezamenlijke aanval van ${sent} legers.`,
-    head: [`Gecoördineerde klap: [${t.tag}] neemt ${target.x}|${target.y} met ${sent} legers tegelijk`, `[${t.tag}] laat zien hoe samenwerken werkt: ${target.x}|${target.y} gevallen`] });
+  addNews(state, { kind: 'conquest', tribes: [t.id], x: target.x, y: target.y, dry: T('[{tag}] neemt {village} ({x}|{y}) in met een gezamenlijke aanval van {n} legers.', { tag: t.tag, village: target.name, x: String(target.x), y: String(target.y), n: sent }),
+    head: [T('Gecoördineerde klap: [{tag}] neemt {x}|{y} met {n} legers tegelijk', { tag: t.tag, x: String(target.x), y: String(target.y), n: sent }), T('[{tag}] laat zien hoe samenwerken werkt: {x}|{y} gevallen', { tag: t.tag, x: String(target.x), y: String(target.y) })] });
 }
 
 /** For views and tests: what this tribe is doing now. */
@@ -333,17 +334,17 @@ export function activeOps(state: WorldState, t: Tribe): TribeOp[] {
 export function setFront(state: WorldState, enemy: number | null, target?: number): string | null {
   const tid = state.players[HUMAN_ID]?.tribe;
   const t = tid !== undefined ? state.tribes?.[tid] : undefined;
-  if (!t) return 'Je zit niet in een stam.';
-  if (t.leader !== HUMAN_ID) return 'Alleen de leider kiest het front.';
+  if (!t) return tr('Je zit niet in een stam.');
+  if (t.leader !== HUMAN_ID) return tr('Alleen de leider kiest het front.');
   if (enemy === null) {
     delete t.front;
     return null;
   }
   const e = state.tribes?.[enemy];
-  if (!e || t.relations[enemy] !== 'war') return 'Jullie zijn niet in oorlog met die stam.';
+  if (!e || t.relations[enemy] !== 'war') return tr('Jullie zijn niet in oorlog met die stam.');
   if (target !== undefined) {
     const v = state.villages[target];
-    if (!v || !e.members.includes(v.owner)) return `Dat dorp is niet van [${e.tag}].`;
+    if (!v || !e.members.includes(v.owner)) return tr('Dat dorp is niet van [{tag}].', { tag: e.tag });
   }
   t.front = target !== undefined ? { enemy, target } : { enemy };
   // a new target: the plan for the old one stays, the next plan follows the new front
@@ -364,7 +365,7 @@ export function warFrontView(state: WorldState): WarFrontView | null {
     return {
       id: o.id,
       enemyTag: state.tribes?.[o.enemy]?.tag ?? '?',
-      target: { id: o.target, name: v?.name ?? '?', x: v?.x ?? 0, y: v?.y ?? 0, owner: v?.owner ?? -1, ownerName: v ? (state.players[v.owner]?.name ?? 'barbaren') : '?' },
+      target: { id: o.target, name: v?.name ?? '?', x: v?.x ?? 0, y: v?.y ?? 0, owner: v?.owner ?? -1, ownerName: v ? (state.players[v.owner]?.name ?? tr('barbaren')) : '?' },
       landAt: o.landAt,
       armies: o.roles.filter((r) => r.kind === 'nuke').length,
       nobles: o.roles.some((r) => r.kind === 'nobles'),

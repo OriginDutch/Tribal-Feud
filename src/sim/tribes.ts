@@ -1,4 +1,4 @@
-import type { Txt } from '../shared/i18n';
+import { T, tr, txt, type Txt } from '../shared/i18n';
 /**
  * Tribes (stammen) and diplomacy between them — the bots' strategy layer.
  *
@@ -104,11 +104,11 @@ const COLORS = [
 ];
 
 /** Diplomacy news: kept apart (the world log scrolls fast) and in the world log. */
-export function addTribeNews(state: WorldState, entry: { time: number; text: string }): void {
+export function addTribeNews(state: WorldState, entry: { time: number; text: Txt }): void {
   addLog(state, entry);
 }
-function addLog(state: WorldState, entry: { time: number; text: string }): void {
-  addWorldLog(state, entry);
+function addLog(state: WorldState, entry: { time: number; text: Txt }): void {
+  addWorldLog(state, { time: entry.time, text: txt(entry.text) });
   (state.tribeNews ??= []).push(entry);
   if (state.tribeNews.length > 60) state.tribeNews.splice(0, state.tribeNews.length - 60);
 }
@@ -234,37 +234,38 @@ export function between(state: WorldState, a: Tribe, b: Tribe): { x?: number; y?
   if (!ca || !cb) return ca ? { x: Math.round(ca.x), y: Math.round(ca.y) } : {};
   return { x: Math.round((ca.x + cb.x) / 2), y: Math.round((ca.y + cb.y) / 2) };
 }
-const T = (t: Tribe) => `[${t.tag}]`;
+const tg = (t: Tribe) => `[${t.tag}]`;
 
 /** News for a change of relation (wars have their own, with a reason: see declareWar). */
 function relationNews(state: WorldState, a: Tribe, b: Tribe, old: Relation | undefined, rel: Relation | null): void {
   const base = { tribes: [a.id, b.id], ...between(state, a, b) };
+  const p = { a: tg(a), b: tg(b) };
   if (old === 'war' && rel !== 'war') {
-    addNews(state, { ...base, kind: 'peace', dry: `${T(a)} en ${T(b)} sluiten vrede.`, head: [
-      `De wapens zwijgen: ${T(a)} en ${T(b)} sluiten vrede`,
-      `Einde van de oorlog tussen ${T(a)} en ${T(b)}`,
-      `Vrede! ${T(a)} en ${T(b)} leggen de bijlen neer`,
+    addNews(state, { ...base, kind: 'peace', dry: T('{a} en {b} sluiten vrede.', p), head: [
+      T('De wapens zwijgen: {a} en {b} sluiten vrede', p),
+      T('Einde van de oorlog tussen {a} en {b}', p),
+      T('Vrede! {a} en {b} leggen de bijlen neer', p),
     ] });
   } else if (rel === 'ally' && old !== 'ally') {
-    addNews(state, { ...base, kind: 'ally', dry: `${T(a)} en ${T(b)} worden bondgenoten.`, head: [
-      `Nieuw machtsblok: ${T(a)} en ${T(b)} smeden een alliantie`,
-      `${T(a)} en ${T(b)} gaan voortaan samen ten strijde`,
-      `Handjeklap: ${T(a)} en ${T(b)} zijn nu bondgenoten`,
+    addNews(state, { ...base, kind: 'ally', dry: T('{a} en {b} worden bondgenoten.', p), head: [
+      T('Nieuw machtsblok: {a} en {b} smeden een alliantie', p),
+      T('{a} en {b} gaan voortaan samen ten strijde', p),
+      T('Handjeklap: {a} en {b} zijn nu bondgenoten', p),
     ] });
   } else if (rel === 'nap' && !old) {
-    addNews(state, { ...base, kind: 'nap', dry: `${T(a)} en ${T(b)} sluiten een niet-aanvalsverdrag.`, head: [
-      `${T(a)} en ${T(b)} beloven elkaar met rust te laten`,
-      `Wapenstilstand aan de grens: NAP tussen ${T(a)} en ${T(b)}`,
+    addNews(state, { ...base, kind: 'nap', dry: T('{a} en {b} sluiten een niet-aanvalsverdrag.', p), head: [
+      T('{a} en {b} beloven elkaar met rust te laten', p),
+      T('Wapenstilstand aan de grens: NAP tussen {a} en {b}', p),
     ] });
   } else if (rel === 'nap' && old === 'ally') {
-    addNews(state, { ...base, kind: 'allyEnd', dry: `De alliantie van ${T(a)} en ${T(b)} wordt een NAP.`, head: [
-      `Bekoelde vriendschap: ${T(a)} en ${T(b)} terug naar een NAP`,
-      `Scheurtjes in het blok: alliantie ${T(a)}–${T(b)} afgezwakt`,
+    addNews(state, { ...base, kind: 'allyEnd', dry: T('De alliantie van {a} en {b} wordt een NAP.', p), head: [
+      T('Bekoelde vriendschap: {a} en {b} terug naar een NAP', p),
+      T('Scheurtjes in het blok: alliantie {a}–{b} afgezwakt', p),
     ] });
   } else if (!rel && (old === 'ally' || old === 'nap')) {
-    addNews(state, { ...base, kind: 'allyEnd', dry: `${T(a)} en ${T(b)} zeggen hun ${old === 'ally' ? 'alliantie' : 'NAP'} op.`, head: [
-      `Breuk: ${T(a)} en ${T(b)} gaan uit elkaar`,
-      `${T(a)} en ${T(b)} verscheuren hun verdrag`,
+    addNews(state, { ...base, kind: 'allyEnd', dry: old === 'ally' ? T('{a} en {b} zeggen hun alliantie op.', p) : T('{a} en {b} zeggen hun NAP op.', p), head: [
+      T('Breuk: {a} en {b} gaan uit elkaar', p),
+      T('{a} en {b} verscheuren hun verdrag', p),
     ] });
   }
 }
@@ -295,7 +296,7 @@ export function leave(state: WorldState, player: Player): void {
     const c = playerCentre(state, player.id);
     delete state.tribes![t.id];
     addNews(state, { kind: 'tribeEnd', tribes: [t.id], players: [player.id], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
-      dry: `Stam ${T(t)} ${t.name} is opgeheven.`, head: [`Het doek valt voor ${T(t)} ${t.name}`, `${T(t)} ${t.name} houdt op te bestaan`] });
+      dry: T('Stam {tag} {name} is opgeheven.', { tag: tg(t), name: t.name }), head: [T('Het doek valt voor {tag} {name}', { tag: tg(t), name: t.name }), T('{tag} {name} houdt op te bestaan', { tag: tg(t), name: t.name })] });
     return;
   }
   if (t.leader === player.id) succeed(state, t, player);
@@ -321,15 +322,15 @@ function succeed(state: WorldState, t: Tribe, old: Player): void {
   setLeader(state, t, next.id);
   const c = tribeCentre(state, t);
   addNews(state, { kind: 'leader', tribes: [t.id], players: [next.id, old.id], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
-    dry: `[${t.tag}]: ${old.name} is weg, ${next.name} leidt nu de stam.`,
-    head: [`Machtsvacuüm bij [${t.tag}]: ${next.name} grijpt het roer`, `${old.name} weg, ${next.name} leidt nu [${t.tag}]`] });
+    dry: T('[{tag}]: {old} is weg, {next} leidt nu de stam.', { tag: t.tag, old: old.name, next: next.name }),
+    head: [T('Machtsvacuüm bij [{tag}]: {next} grijpt het roer', { tag: t.tag, next: next.name }), T('{old} weg, {next} leidt nu [{tag}]', { tag: t.tag, old: old.name, next: next.name })] });
   if (next.id === HUMAN_ID) {
-    addWorldLog(state, { time: state.time, text: `${old.name} is weg: jij bent nu de leider van [${t.tag}].` });
+    addWorldLog(state, { time: state.time, text: tr('{old} is weg: jij bent nu de leider van [{tag}].', { old: old.name, tag: t.tag }) });
     return;
   }
   if (t.members.includes(HUMAN_ID)) {
     if (you) offerLeadership(state, t, old, next);
-    else addMessage(state, { kind: 'info', from: next.id, tribe: t.id, title: `Nieuwe leider in [${t.tag}]`, text: `${old.name} is weg. ${next.name} leidt nu [${t.tag}].` });
+    else addMessage(state, { kind: 'info', from: next.id, tribe: t.id, title: T('Nieuwe leider in [{tag}]', { tag: t.tag }), text: T('{old} is weg. {next} leidt nu [{tag}].', { old: old.name, next: next.name, tag: t.tag }) });
   }
 }
 
@@ -350,7 +351,7 @@ export function setLeader(state: WorldState, t: Tribe, next: number): void {
   }
   if (state.standing !== undefined) {
     state.standing = Math.round(BASE_STANDING + (state.standing - BASE_STANDING) / 2);
-    state.standingNotes = [{ time: state.time, delta: 0, why: 'nieuwe leider: je reputatie telt half mee' }];
+    state.standingNotes = [{ time: state.time, delta: 0, why: T('nieuwe leider: je reputatie telt half mee') }];
   }
 }
 
@@ -384,14 +385,14 @@ function makeRoom(state: WorldState, t: Tribe, newcomer: Player): void {
   }
   const c = playerCentre(state, out.id);
   addNews(state, { kind: 'leader', tribes: [t.id], players: [newcomer.id, out.id], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
-    dry: `[${t.tag}] zet ${out.name} eruit om plaats te maken voor ${newcomer.name}.`,
-    head: [`Plaats gemaakt: [${t.tag}] ruilt ${out.name} in voor ${newcomer.name}`, `${out.name} moet [${t.tag}] verlaten voor ${newcomer.name}`] });
+    dry: T('[{tag}] zet {out} eruit om plaats te maken voor {name}.', { tag: t.tag, out: out.name, name: newcomer.name }),
+    head: [T('Plaats gemaakt: [{tag}] ruilt {out} in voor {name}', { tag: t.tag, out: out.name, name: newcomer.name }), T('{out} moet [{tag}] verlaten voor {name}', { tag: t.tag, out: out.name, name: newcomer.name })] });
   if (out.id === HUMAN_ID) {
-    const text = `[${t.tag}] heeft je eruit gezet om plaats te maken voor ${newcomer.name}: jij was het minst gewaardeerde lid.`;
-    addMessage(state, { kind: 'info', from: t.leader, tribe: t.id, title: `Uit [${t.tag}] gezet`, text });
-    addWorldLog(state, { time: state.time, text });
+    const text = T('[{tag}] heeft je eruit gezet om plaats te maken voor {name}: jij was het minst gewaardeerde lid.', { tag: t.tag, name: newcomer.name });
+    addMessage(state, { kind: 'info', from: t.leader, tribe: t.id, title: T('Uit [{tag}] gezet', { tag: t.tag }), text });
+    addWorldLog(state, { time: state.time, text: txt(text) });
   } else if (t.members.includes(HUMAN_ID)) {
-    (state.tribeNews ??= []).push({ time: state.time, text: `${out.name} moet [${t.tag}] verlaten: ${newcomer.name} neemt zijn plek in.` });
+    (state.tribeNews ??= []).push({ time: state.time, text: T('{out} moet [{tag}] verlaten: {name} neemt zijn plek in.', { out: out.name, tag: t.tag, name: newcomer.name }) });
   }
 }
 
@@ -417,7 +418,7 @@ export function found(state: WorldState, player: Player, own?: { name: string; t
   join(state, t, player);
   const c = playerCentre(state, player.id);
   addNews(state, { kind: 'tribeNew', tribes: [t.id], players: [player.id], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
-    dry: `${player.name} richt de stam [${tag}] ${name} op.`, head: [`Nieuwe vlag op de kaart: ${player.name} sticht [${tag}] ${name}`, `[${tag}] ${name} ziet het levenslicht`] });
+    dry: T('{player} richt de stam [{tag}] {name} op.', { player: player.name, tag, name }), head: [T('Nieuwe vlag op de kaart: {player} sticht [{tag}] {name}', { player: player.name, tag, name }), T('[{tag}] {name} ziet het levenslicht', { tag, name })] });
   return t;
 }
 
@@ -458,9 +459,10 @@ function handOverLeadership(state: WorldState): void {
     if (!next || (!away && rank[next.bot!.tier ?? 'pro'] === 0)) continue;
     setLeader(state, t, next.id);
     const c = tribeCentre(state, t);
+    const hp = { tag: t.tag, next: next.name, old: leader.name };
     addNews(state, { kind: 'leader', tribes: [t.id], players: [next.id, leader.id], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
-      dry: `[${t.tag}]: ${next.name} neemt de leiding over van ${leader.name}${away ? ' (die is er een tijd niet)' : ''}.`,
-      head: away ? [`Machtsvacuüm bij [${t.tag}]: ${next.name} grijpt het roer`, `${leader.name} spoorloos, ${next.name} leidt nu [${t.tag}]`] : [`Paleisrevolutie bij [${t.tag}]: ${next.name} aan de macht`, `${next.name} duwt ${leader.name} opzij als leider van [${t.tag}]`] });
+      dry: away ? T('[{tag}]: {next} neemt de leiding over van {old} (die is er een tijd niet).', hp) : T('[{tag}]: {next} neemt de leiding over van {old}.', hp),
+      head: away ? [T('Machtsvacuüm bij [{tag}]: {next} grijpt het roer', hp), T('{old} spoorloos, {next} leidt nu [{tag}]', hp)] : [T('Paleisrevolutie bij [{tag}]: {next} aan de macht', hp), T('{next} duwt {old} opzij als leider van [{tag}]', hp)] });
   }
 }
 
@@ -487,7 +489,7 @@ export function onDiplomacy(state: WorldState): void {
       const c = playerCentre(state, m), p = state.players[m];
       if (tc && c && p?.isBot && dist(tc, c) > leaveAt) {
         leave(state, p);
-        addLog(state, { time: state.time, text: `${p.name} verlaat [${t.tag}]: te ver weg.` });
+        addLog(state, { time: state.time, text: T('{name} verlaat [{tag}]: te ver weg.', { name: p.name, tag: t.tag }) });
       }
     }
   }
@@ -508,7 +510,7 @@ export function onDiplomacy(state: WorldState): void {
       // your tribe: the bot applies, you decide
       if (best.leader === HUMAN_ID) { applyToHuman(state, p, best); continue; }
       join(state, best, p);
-      addLog(state, { time: state.time, text: `${p.name} sluit zich aan bij [${best.tag}] ${best.name}.` });
+      addLog(state, { time: state.time, text: T('{name} sluit zich aan bij [{tag}] {tribe}.', { name: p.name, tag: best.tag, tribe: best.name }) });
       continue;
     }
     // nothing fits: the social ones start their own
@@ -719,21 +721,25 @@ function rankingNews(state: WorldState): void {
   const old = before.tribe !== undefined ? state.tribes?.[before.tribe] : undefined;
   const c = tribeCentre(state, top);
   addNews(state, { kind: 'ranking', tribes: [top.id, ...(old ? [old.id] : [])], ...(c ? { x: Math.round(c.x), y: Math.round(c.y) } : {}),
-    dry: old ? `${T(top)} is nu de grootste stam, voor ${T(old)}.` : `${T(top)} is nu de grootste stam.`,
-    head: old ? [`Nieuwe nummer één: ${T(top)} passeert ${T(old)}`, `${T(old)} van de troon gestoten, ${T(top)} is de grootste`] : [`${T(top)} is de grootste stam van de wereld`] });
+    dry: old ? T('{top} is nu de grootste stam, voor {old}.', { top: tg(top), old: tg(old) }) : T('{top} is nu de grootste stam.', { top: tg(top) }),
+    head: old ? [T('Nieuwe nummer één: {top} passeert {old}', { top: tg(top), old: tg(old) }), T('{old} van de troon gestoten, {top} is de grootste', { top: tg(top), old: tg(old) })] : [T('{top} is de grootste stam van de wereld', { top: tg(top) })] });
 }
 
 /** War between tribes; if it is declared on your tribe you hear it (and the game pauses, if you want). */
-export function declareWar(state: WorldState, by: Tribe, on: Tribe, breaksTreaty = false, reason?: string): void {
+export function declareWar(state: WorldState, by: Tribe, on: Tribe, breaksTreaty = false, reason?: Txt): void {
   const why = reason ?? warReason(by, on);
   setRelation(state, by, on, 'war');
-  const a = T(by), b = T(on);
+  const p = { a: tg(by), b: tg(on), why };
   addNews(state, {
     kind: 'war', tribes: [by.id, on.id], ...between(state, by, on),
-    dry: breaksTreaty ? `${a} verbreekt het verdrag en verklaart ${b} de oorlog${why ? ` (${why})` : ''}.` : `${a} verklaart ${b} de oorlog${why ? ` (${why})` : ''}.`,
+    dry: breaksTreaty
+      ? (why ? T('{a} verbreekt het verdrag en verklaart {b} de oorlog ({why}).', p) : T('{a} verbreekt het verdrag en verklaart {b} de oorlog.', p))
+      : (why ? T('{a} verklaart {b} de oorlog ({why}).', p) : T('{a} verklaart {b} de oorlog.', p)),
     head: breaksTreaty && !reason
-      ? [`Verraad! ${a} scheurt het verdrag en valt ${b} aan`, `Dolk in de rug: ${a} verklaart bondgenoot ${b} de oorlog`]
-      : [`Oorlog! ${a} trekt ten strijde tegen ${b}${why ? ` ${why}` : ''}`, `${a} verklaart ${b} de oorlog${why ? ` ${why}` : ''}`, `Spanning ontploft: ${a} en ${b} in oorlog${why ? ` ${why}` : ''}`],
+      ? [T('Verraad! {a} scheurt het verdrag en valt {b} aan', p), T('Dolk in de rug: {a} verklaart bondgenoot {b} de oorlog', p)]
+      : why
+        ? [T('Oorlog! {a} trekt ten strijde tegen {b} {why}', p), T('{a} verklaart {b} de oorlog {why}', p), T('Spanning ontploft: {a} en {b} in oorlog {why}', p)]
+        : [T('Oorlog! {a} trekt ten strijde tegen {b}', p), T('{a} verklaart {b} de oorlog', p), T('Spanning ontploft: {a} en {b} in oorlog', p)],
   });
   if (state.players[HUMAN_ID]?.tribe === on.id) warOnHuman(state, by, on, breaksTreaty);
 }

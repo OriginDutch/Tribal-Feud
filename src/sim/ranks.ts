@@ -106,8 +106,9 @@ function seed(state: WorldState, t: Tribe): void {
   if (t.members.includes(HUMAN_ID) && t.leader !== HUMAN_ID) {
     for (const n of state.standingNotes ?? []) {
       if (n.delta <= 0) continue;
-      if (/verkende/.test(n.why)) add(state, t, HUMAN_ID, MERIT.scoutOrder);
-      else if (/order|edels|support die ik vroeg/.test(n.why)) add(state, t, HUMAN_ID, MERIT.order);
+      const why = typeof n.why === 'string' ? n.why : n.why.t; // the Dutch key (kept text)
+      if (/verkende/.test(why)) add(state, t, HUMAN_ID, MERIT.scoutOrder);
+      else if (/order|edels|support die ik vroeg/.test(why)) add(state, t, HUMAN_ID, MERIT.order);
     }
   }
 }

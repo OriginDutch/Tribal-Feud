@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
+import { txt } from '../shared/i18n';
 import { battleBonus } from './battleBonus';
 import { flagsTick, freeFlags, setFlag, upgradeFlag } from './flags';
 import { coinCostIn } from './nobles';
@@ -61,7 +62,7 @@ describe('flag levels from the drop table', () => {
     expect(after).toBeGreaterThan(303 * 3); // ~5.8x on average, more for the 50 player conquests
     flagsTick(s);
     expect(worth()).toBe(after);
-    expect(s.inbox?.some((m) => m.title === 'Vlaggen herzien')).toBe(true);
+    expect(s.inbox?.some((m) => txt(m.title) === 'Vlaggen herzien')).toBe(true);
   });
 
   it('merging all keeps one flag for every village', async () => {

@@ -1,3 +1,4 @@
+import { txt } from '../shared/i18n';
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { answerMessage, applyToHuman, applyToTribe, foundTribe, humanTribeTick, invitePlayer, kickMember, leaveTribe, proposeToHuman } from './humanTribe';
@@ -46,7 +47,7 @@ describe('your tribe', () => {
     const far = found(s, farLead);
     applyToTribe(s, far.id);
     humanTribeTick(s);
-    expect(s.inbox!.at(-1)!.text).toMatch(/te ver/);
+    expect(txt(s.inbox!.at(-1)!.text)).toMatch(/te ver/);
     let joined = false;
     for (let i = 0; i < 10 && !joined; i++) { applyToTribe(s, near.id); humanTribeTick(s); joined = tribeOf(s, HUMAN_ID)?.id === near.id; }
     expect(joined).toBe(true);

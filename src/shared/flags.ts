@@ -1,4 +1,6 @@
 /** Flags (world setting): kinds, TW values per level 1-9, names. Shared by the simulation and the UI. */
+import { tr } from './i18n';
+
 export type FlagType = 'res' | 'recruit' | 'attack' | 'defense' | 'luck' | 'pop' | 'coin' | 'haul';
 export const FLAG_TYPES: FlagType[] = ['res', 'recruit', 'attack', 'defense', 'luck', 'pop', 'coin', 'haul'];
 
@@ -19,9 +21,9 @@ export const FLAG_NAMES: Record<FlagType, string> = {
   luck: 'Geluk', pop: 'Bevolking', coin: 'Goedkopere munten', haul: 'Buitcapaciteit',
 };
 export const FLAG_TEXT: Record<FlagType, (p: number) => string> = {
-  res: (p) => `+${p}% productie`, recruit: (p) => `${p}% sneller rekruteren`, attack: (p) => `+${p}% aanval`,
-  defense: (p) => `+${p}% verdediging`, luck: (p) => `geluk ${p}% dichter bij 0 (aanval)`, pop: (p) => `+${p}% boerderij`,
-  coin: (p) => `munten ${p}% goedkoper`, haul: (p) => `+${p}% buit`,
+  res: (p) => tr('+{p}% productie', { p }), recruit: (p) => tr('{p}% sneller rekruteren', { p }), attack: (p) => tr('+{p}% aanval', { p }),
+  defense: (p) => tr('+{p}% verdediging', { p }), luck: (p) => tr('geluk {p}% dichter bij 0 (aanval)', { p }), pop: (p) => tr('+{p}% boerderij', { p }),
+  coin: (p) => tr('munten {p}% goedkoper', { p }), haul: (p) => tr('+{p}% buit', { p }),
 };
 
 /**

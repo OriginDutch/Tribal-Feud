@@ -15,6 +15,7 @@ import { distance, sendAttack } from './movement';
 import { addNews } from './news';
 import { HUMAN_ID, addLog, villagesOf, type WorldState } from './state';
 import { between, leave, mayAttack, type Tribe } from './tribes';
+import { T, tr } from '../shared/i18n';
 
 export const DUTY_DAYS = 3;
 export const STRIKE_DAYS = 7;
@@ -56,7 +57,7 @@ export function addDuty(state: WorldState, winner: Tribe, loser: Tribe, target: 
   (state.duties ??= []).push({ id: state.nextId++, tribe: loser.id, winner: winner.id, target, space, due: state.time + (DUTY_DAYS * DAY) / state.config.worldSpeed, sent: {} });
   if (loser.members.includes(HUMAN_ID)) {
     const t = state.tribes[target]!;
-    addLog(state, { time: state.time, text: `Vredesvoorwaarde: val [${t.tag}] aan met samen minstens ${space} boerderijplekken aan aanvalstroepen, binnen ${DUTY_DAYS} speldagen (snelheid 1).` });
+    addLog(state, { time: state.time, text: tr('Vredesvoorwaarde: val [{tag}] aan met samen minstens {space} boerderijplekken aan aanvalstroepen, binnen {days} speldagen (snelheid 1).', { tag: t.tag, space, days: DUTY_DAYS }) });
   }
 }
 
@@ -121,18 +122,18 @@ function judge(state: WorldState, d: Duty, tribe: Tribe, m: number): void {
     leave(state, p);
     const v = villagesOf(state, m)[0];
     addNews(state, { kind: 'leader', tribes: [tribe.id], players: [m], ...(v ? { x: v.x, y: v.y } : between(state, tribe, target)),
-      dry: `[${tribe.tag}] zet ${p.name} uit de stam: hij hielp weer niet bij de aanvallen op [${target.tag}].`,
-      head: [`Geduld op bij [${tribe.tag}]: ${p.name} eruit gegooid`, `${p.name} komt zijn belofte niet na en vliegt uit [${tribe.tag}]`] });
-    if (m === HUMAN_ID) addLog(state, { time: state.time, text: `Je hielp opnieuw niet bij de aanvallen op [${target.tag}]: [${tribe.tag}] zet je uit de stam.` });
+      dry: T('[{tribe}] zet {name} uit de stam: hij hielp weer niet bij de aanvallen op [{target}].', { tribe: tribe.tag, name: p.name, target: target.tag }),
+      head: [T('Geduld op bij [{tribe}]: {name} eruit gegooid', { tribe: tribe.tag, name: p.name }), T('{name} komt zijn belofte niet na en vliegt uit [{tribe}]', { tribe: tribe.tag, name: p.name })] });
+    if (m === HUMAN_ID) addLog(state, { time: state.time, text: tr('Je hielp opnieuw niet bij de aanvallen op [{target}]: [{tribe}] zet je uit de stam.', { target: target.tag, tribe: tribe.tag }) });
     return;
   }
   if (m === HUMAN_ID) {
     const now = state.standing ?? 60;
-    if (now > HUMAN_FLOOR) changeStanding(state, HUMAN_FLOOR - now, `je hielp niet bij de aanvallen op [${target.tag}]`);
-    addLog(state, { time: state.time, text: `Je hielp niet (genoeg) bij de aanvallen op [${target.tag}]. Je aanzien in [${tribe.tag}] is bijna op: nog één keer en je ligt eruit.` });
+    if (now > HUMAN_FLOOR) changeStanding(state, HUMAN_FLOOR - now, T('je hielp niet bij de aanvallen op [{tag}]', { tag: target.tag }));
+    addLog(state, { time: state.time, text: tr('Je hielp niet (genoeg) bij de aanvallen op [{target}]. Je aanzien in [{tribe}] is bijna op: nog één keer en je ligt eruit.', { target: target.tag, tribe: tribe.tag }) });
   } else if (p.bot) {
     const now = p.bot.mood ?? 60;
-    if (now > BOT_FLOOR) changeMood(state, p, BOT_FLOOR - now, `hielp niet bij de aanvallen op [${target.tag}]`);
+    if (now > BOT_FLOOR) changeMood(state, p, BOT_FLOOR - now, T('hielp niet bij de aanvallen op [{tag}]', { tag: target.tag }));
   }
 }
 

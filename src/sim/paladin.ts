@@ -12,6 +12,7 @@ import { addMessage } from './humanTribe';
 import { nextFloat } from './rng';
 import { HUMAN_ID, addLog, villagesOf, type Player, type WorldState } from './state';
 import type { Village } from './village';
+import { T, tr } from '../shared/i18n';
 
 export type ItemId = 'halberd' | 'longsword' | 'battleaxe' | 'longbow' | 'telescope' | 'lance' | 'banner' | 'compositebow' | 'morningstar' | 'bonfire' | 'scepter';
 
@@ -65,12 +66,12 @@ export function equipped(state: WorldState, owner: number): ItemDef & { id: Item
 }
 
 export function equipItem(state: WorldState, owner: number, item: ItemId | null): string | null {
-  if (!enabled(state)) return 'Paladijn-items staan uit op deze wereld.';
+  if (!enabled(state)) return tr('Paladijn-items staan uit op deze wereld.');
   const p = state.players[owner];
   const it = p?.items;
-  if (!p || !it) return 'Je hebt nog geen items.';
+  if (!p || !it) return tr('Je hebt nog geen items.');
   if (item === null) { delete it.equipped; return null; }
-  if (!it.found.includes(item)) return 'Dat item heb je niet.';
+  if (!it.found.includes(item)) return tr('Dat item heb je niet.');
   it.equipped = item;
   return null;
 }
@@ -106,8 +107,8 @@ function findItems(state: WorldState, p: Player): void {
     const item = left[Math.floor(nextFloat(state.rng) * left.length)]!;
     it.found.push(item);
     if (p.id === HUMAN_ID) {
-      addMessage(state, { kind: 'info', from: -1, title: `Item gevonden: ${ITEMS[item].name}`, text: `Je paladijn vond ${ITEMS[item].name}: ${ITEMS[item].text}. Rust hem uit in het standbeeld.` });
-      addLog(state, { time: state.time, text: `Item gevonden: ${ITEMS[item].name}.` });
+      addMessage(state, { kind: 'info', from: -1, title: T('Item gevonden: {item}', { item: ITEMS[item].name }), text: T('Je paladijn vond {item}: {effect}. Rust hem uit in het standbeeld.', { item: ITEMS[item].name, effect: ITEMS[item].text }) });
+      addLog(state, { time: state.time, text: tr('Item gevonden: {item}.', { item: tr(ITEMS[item].name) }) });
     } else if (p.bot) {
       const pref = PREFER[p.bot.archetype];
       const best = pref.find((x) => it.found.includes(x)) ?? it.found[0];

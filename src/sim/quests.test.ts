@@ -1,3 +1,4 @@
+import { txt } from '../shared/i18n';
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { HOUR, MINUTE } from '../shared/time';
@@ -33,7 +34,7 @@ describe('quests', () => {
     queueBuild(s, v.id, 'wood');
     run(s, HOUR);
     const cost = buildingCost(s.config.buildings.wood, 2);
-    const reward = s.rewards.find((r) => r.text === 'Houthakker level 2');
+    const reward = s.rewards.find((r) => txt(r.text) === 'Houthakker level 2');
     expect(reward?.res).toEqual(cost.map((c) => Math.floor(c / 2)));
 
     v.buildings.wood = 10;
@@ -41,7 +42,7 @@ describe('quests', () => {
     v.buildings.storage = 30;
     queueBuild(s, v.id, 'wood'); // to 11: no reward
     run(s, 50 * HOUR);
-    expect(s.rewards.some((r) => r.text === 'Houthakker level 11')).toBe(false);
+    expect(s.rewards.some((r) => txt(r.text) === 'Houthakker level 11')).toBe(false);
   });
 
   it('claiming fills up to the storage cap; the rest stays claimable', () => {
@@ -83,7 +84,7 @@ describe('quests', () => {
     expect(s.stats.plunders).toBe(1);
     expect(s.stats.loot).toBeGreaterThan(0);
     expect(s.questProgress.farming).toBe(1);
-    expect(s.rewards.some((r) => r.text === 'Opdracht: Eerste buit')).toBe(true);
+    expect(s.rewards.some((r) => txt(r.text) === 'Opdracht: Eerste buit')).toBe(true);
   });
 
   it('quest progress and rewards survive a save', () => {

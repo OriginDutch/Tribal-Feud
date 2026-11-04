@@ -5,6 +5,7 @@ import { sendAttack } from './movement';
 import { HUMAN_ID, createWorld, playerVillage, villagesOf, type Player, type WorldState } from './state';
 import { askTribeHelp, giveOrder, spares, tribeDuties } from './tribeOrders';
 import { join, tribeOf } from './tribes';
+import { txt } from '../shared/i18n';
 
 /** You lead a tribe; the nearest bot is a willing mate (pro, supporter, likes you). */
 function setup(seed = 41) {
@@ -39,7 +40,7 @@ describe('working together in your tribe', () => {
     const support = Object.values(s.movements).find((m) => m.kind === 'support' && m.owner === mate.id && m.to === me.id);
     expect(support).toBeDefined();
     expect(support!.arrives).toBeLessThanOrEqual(attack.arrives);
-    expect(s.inbox!.at(-1)!.text).toMatch(/voor de inslag/);
+    expect(txt(s.inbox!.at(-1)!.text)).toMatch(/voor de inslag/);
   });
 
   it('a mate that is under attack itself keeps its troops', () => {
@@ -50,7 +51,7 @@ describe('working together in your tribe', () => {
     sendAttack(s, ev.id, me.id, { axe: 2000 });
     askTribeHelp(s, Object.values(s.movements).at(-1)!.id);
     tribeDuties(s, mate);
-    expect(s.inbox!.at(-1)!.text).toMatch(/onder vuur/);
+    expect(txt(s.inbox!.at(-1)!.text)).toMatch(/onder vuur/);
   });
 
   it('an attack order: a willing mate sends its army and reports it', () => {

@@ -14,6 +14,7 @@ import {
   type UnitId,
 } from './gameData';
 import { defaultQuests, type QuestConfig } from './quests';
+import { tr } from './i18n';
 import { DEFAULT_BARB_TYPES, type BarbType, type BarbTypeDef } from './barbarianTypes';
 
 export type ResearchMode = 'simple' | 'levels3' | 'levels10';
@@ -404,22 +405,22 @@ export const UNSUPPORTED_SETTINGS: ReadonlyArray<{ check: (c: WorldConfig) => bo
 
 export function validateConfig(c: WorldConfig): string[] {
   const errors: string[] = [];
-  if (!(c.worldSpeed > 0)) errors.push('Wereldsnelheid moet groter dan 0 zijn.');
-  if (!(c.unitSpeed > 0)) errors.push('Unitsnelheid moet groter dan 0 zijn.');
-  if (!(c.productionMultiplier > 0)) errors.push('Productie-multiplier moet groter dan 0 zijn.');
-  if (!(c.farmMultiplier >= 0.5 && c.farmMultiplier <= 3)) errors.push('Bevolking × moet tussen 0,5 en 3 liggen.');
-  if (!(c.buildSpeed > 0)) errors.push('Bouwsnelheid moet groter dan 0 zijn.');
-  if (!(c.recruitSpeed > 0)) errors.push('Rekruteersnelheid moet groter dan 0 zijn.');
-  if (!(c.marchSpeed > 0)) errors.push('Loopsnelheid moet groter dan 0 zijn.');
-  if (!(c.map.density > 0 && c.map.density <= 1)) errors.push('Dichtheid moet tussen 0 en 1 liggen.');
-  if (!Number.isInteger(c.bots.count) || c.bots.count < 0) errors.push('Aantal bots moet een geheel getal >= 0 zijn.');
-  if (!Number.isInteger(c.map.barbarianCount) || c.map.barbarianCount < 0) errors.push('Aantal barbarendorpen moet een geheel getal >= 0 zijn.');
+  if (!(c.worldSpeed > 0)) errors.push(tr('Wereldsnelheid moet groter dan 0 zijn.'));
+  if (!(c.unitSpeed > 0)) errors.push(tr('Unitsnelheid moet groter dan 0 zijn.'));
+  if (!(c.productionMultiplier > 0)) errors.push(tr('Productie-multiplier moet groter dan 0 zijn.'));
+  if (!(c.farmMultiplier >= 0.5 && c.farmMultiplier <= 3)) errors.push(tr('Bevolking × moet tussen 0,5 en 3 liggen.'));
+  if (!(c.buildSpeed > 0)) errors.push(tr('Bouwsnelheid moet groter dan 0 zijn.'));
+  if (!(c.recruitSpeed > 0)) errors.push(tr('Rekruteersnelheid moet groter dan 0 zijn.'));
+  if (!(c.marchSpeed > 0)) errors.push(tr('Loopsnelheid moet groter dan 0 zijn.'));
+  if (!(c.map.density > 0 && c.map.density <= 1)) errors.push(tr('Dichtheid moet tussen 0 en 1 liggen.'));
+  if (!Number.isInteger(c.bots.count) || c.bots.count < 0) errors.push(tr('Aantal bots moet een geheel getal >= 0 zijn.'));
+  if (!Number.isInteger(c.map.barbarianCount) || c.map.barbarianCount < 0) errors.push(tr('Aantal barbarendorpen moet een geheel getal >= 0 zijn.'));
   if (!(c.winCondition.villageShare > 0 && c.winCondition.villageShare <= 1)) {
-    errors.push('Winvoorwaarde moet tussen 0 en 1 liggen.');
+    errors.push(tr('Winvoorwaarde moet tussen 0 en 1 liggen.'));
   }
-  if (!(c.barbarians.growthCap > 0)) errors.push('Groei-cap van barbaren moet groter dan 0 zijn.');
+  if (!(c.barbarians.growthCap > 0)) errors.push(tr('Groei-cap van barbaren moet groter dan 0 zijn.'));
   for (const rule of UNSUPPORTED_SETTINGS) {
-    if (rule.check(c)) errors.push(rule.message);
+    if (rule.check(c)) errors.push(tr(rule.message));
   }
   return errors;
 }

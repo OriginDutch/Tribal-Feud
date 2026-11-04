@@ -14,6 +14,7 @@ import { attackVillage, ranking, reportOwnersNow, reports, screen, send, simPref
 import { FLAG_NAMES, type FlagType } from '../../shared/flags';
 import { UnitIcon } from '../units/UnitIcon';
 import { lang, tr } from '../../shared/i18n';
+import { txt } from '../../shared/i18n';
 
 /** A decimal number written with a comma in Dutch. */
 const dec = (x: string) => (lang.value === 'nl' ? x.replace('.', ',') : x);
@@ -255,10 +256,10 @@ export function ReportDetail({ r }: { r: Report }) {
       {r.modifiers && (r.modifiers.attacker.length > 0 || r.modifiers.defender.length > 0) && (
         <div class="report-mods">
           {r.modifiers.attacker.length > 0 && (
-            <div><span class="muted">{tr('Aanvaller:')}</span> {r.modifiers.attacker.map((t, i) => <span key={i} class="pill">{t}</span>)}</div>
+            <div><span class="muted">{tr('Aanvaller:')}</span> {r.modifiers.attacker.map((t, i) => <span key={i} class="pill">{txt(t)}</span>)}</div>
           )}
           {r.modifiers.defender.length > 0 && (
-            <div><span class="muted">{tr('Verdediger:')}</span> {r.modifiers.defender.map((t, i) => <span key={i} class="pill">{t}</span>)}</div>
+            <div><span class="muted">{tr('Verdediger:')}</span> {r.modifiers.defender.map((t, i) => <span key={i} class="pill">{txt(t)}</span>)}</div>
           )}
         </div>
       )}

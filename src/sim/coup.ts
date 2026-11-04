@@ -6,6 +6,7 @@
  * outlaw for a while. Recruits can't try.
  */
 import type { CoupView } from '../shared/protocol';
+import { T, tr, txt } from '../shared/i18n';
 import { addMessage, alertHuman } from './humanTribe';
 import { BASE_MOOD, moodOf } from './loyalty';
 import { addNews } from './news';
@@ -37,10 +38,10 @@ const pointsOf = (state: WorldState, id: number) => villagesOf(state, id).reduce
 
 /** Why you can't try now, or null. */
 function blocker(state: WorldState, t: Tribe | undefined): string | null {
-  if (!t) return 'Je zit niet in een stam.';
-  if (t.leader === HUMAN_ID) return 'Jij bent al de leider.';
-  if (!state.players[t.leader]?.bot) return 'Alleen tegen een botleider.';
-  if (isRecruit(state, t, HUMAN_ID)) return 'Als rekruut heb je nog geen gezag: wacht tot je krijger bent.';
+  if (!t) return tr('Je zit niet in een stam.');
+  if (t.leader === HUMAN_ID) return tr('Jij bent al de leider.');
+  if (!state.players[t.leader]?.bot) return tr('Alleen tegen een botleider.');
+  if (isRecruit(state, t, HUMAN_ID)) return tr('Als rekruut heb je nog geen gezag: wacht tot je krijger bent.');
   return null;
 }
 
@@ -56,9 +57,11 @@ export function coupChance(state: WorldState, t: Tribe): { chance: number; why: 
   const chance = Math.max(COUP_MIN, Math.min(COUP_MAX, raw));
   const leader = state.players[t.leader]?.name ?? '?';
   const why = [
-    bots.length ? `stemming over ${leader}: gemiddeld ${Math.round(avg)} (${avg < 40 ? 'onrustig, dat helpt je' : avg < 65 ? 'gemengd' : 'tevreden, dat werkt tegen'})` : 'geen botleden om je te steunen',
-    `jouw punten tegenover de zijne: ${Math.round(share * 100)}%`,
-    `jouw rang: ${RANK_NAMES[rankOf(state, t, HUMAN_ID)].toLowerCase()} (×${rank.toFixed(1)})`,
+    bots.length
+      ? tr('stemming over {leader}: gemiddeld {avg} ({note})', { leader, avg: Math.round(avg), note: tr(avg < 40 ? 'onrustig, dat helpt je' : avg < 65 ? 'gemengd' : 'tevreden, dat werkt tegen') })
+      : tr('geen botleden om je te steunen'),
+    tr('jouw punten tegenover de zijne: {pct}%', { pct: Math.round(share * 100) }),
+    tr('jouw rang: {rank} (×{weight})', { rank: tr(RANK_NAMES[rankOf(state, t, HUMAN_ID)]).toLowerCase(), weight: rank.toFixed(1) }),
   ];
   return { chance, why };
 }
@@ -88,32 +91,37 @@ export function attemptCoup(state: WorldState, roll?: number): string | null {
     setLeader(state, t, HUMAN_ID);
     leave(state, old);
     grudge(state, old);
-    let gone = '';
+    const p0 = { tag: `[${t.tag}]`, old: old.name, me: me.name };
+    let text = T('Machtsgreep geslaagd: jij leidt nu {tag}. {old} is weg en zint op wraak.', p0);
     if (followers.length) {
       const nt = found(state, old);
       for (const f of followers) join(state, nt, state.players[f]!);
-      gone = ` ${followers.map((f) => state.players[f]?.name ?? '?').join(', ')} ${followers.length === 1 ? 'gaat' : 'gaan'} met hem mee naar [${nt.tag}].`;
+      const names = followers.map((f) => state.players[f]?.name ?? '?').join(', ');
+      const gone = followers.length === 1
+        ? T('{names} gaat met hem mee naar {tag}.', { names, tag: `[${nt.tag}]` })
+        : T('{names} gaan met hem mee naar {tag}.', { names, tag: `[${nt.tag}]` });
+      text = T('Machtsgreep geslaagd: jij leidt nu {tag}. {old} is weg en zint op wraak. {gone}', { ...p0, gone });
     }
     // a fresh start for whoever stayed
     for (const m of t.members) { const p = state.players[m]; if (p?.bot) { p.bot.mood = BASE_MOOD; delete p.bot.moodNotes; } }
-    const text = `Machtsgreep geslaagd: jij leidt nu [${t.tag}]. ${old.name} is weg en zint op wraak.${gone}`;
-    addLog(state, { time: state.time, text });
+    addLog(state, { time: state.time, text: txt(text) });
     (state.tribeNews ??= []).push({ time: state.time, text });
     addNews(state, { kind: 'leader', tribes: [t.id], players: [HUMAN_ID, old.id], ...at,
-      dry: `[${t.tag}]: ${me.name} zet ${old.name} af als leider.`, head: [`Paleisrevolutie bij [${t.tag}]: ${me.name} grijpt de macht`, `${old.name} van de troon gestoten bij [${t.tag}]`] });
+      dry: T('{tag}: {me} zet {old} af als leider.', p0), head: [T('Paleisrevolutie bij {tag}: {me} grijpt de macht', p0), T('{old} van de troon gestoten bij {tag}', p0)] });
     return null;
   }
   // it failed: out, and hunted for a while
   outlawFrom(state, me, t);
   grudge(state, old);
   delete state.standing; delete state.standingNotes; delete state.leaderOrder; delete state.scoutOrders;
-  const text = `Machtsgreep mislukt: ${old.name} houdt stand en gooit je uit [${t.tag}]. Je bent een tijd vogelvrij.`;
-  addLog(state, { time: state.time, text });
+  const p1 = { tag: `[${t.tag}]`, old: old.name, me: me.name };
+  const text = T('Machtsgreep mislukt: {old} houdt stand en gooit je uit {tag}. Je bent een tijd vogelvrij.', p1);
+  addLog(state, { time: state.time, text: txt(text) });
   (state.tribeNews ??= []).push({ time: state.time, text });
-  addMessage(state, { kind: 'war', from: old.id, tribe: t.id, title: 'Machtsgreep mislukt', text: `${old.name}: dacht je nou echt dat de stam achter jou stond? Eruit.` });
+  addMessage(state, { kind: 'war', from: old.id, tribe: t.id, title: T('Machtsgreep mislukt'), text: T('{old}: dacht je nou echt dat de stam achter jou stond? Eruit.', p1) });
   addNews(state, { kind: 'leader', tribes: [t.id], players: [HUMAN_ID, old.id], ...at,
-    dry: `[${t.tag}]: ${me.name} probeert ${old.name} af te zetten en wordt de stam uit gegooid.`, head: [`Mislukte coup bij [${t.tag}]: ${me.name} eruit`, `${old.name} slaat opstand neer in [${t.tag}]`] });
-  alertHuman(state, text);
+    dry: T('{tag}: {me} probeert {old} af te zetten en wordt de stam uit gegooid.', p1), head: [T('Mislukte coup bij {tag}: {me} eruit', p1), T('{old} slaat opstand neer in {tag}', p1)] });
+  alertHuman(state, txt(text));
   return null;
 }
 

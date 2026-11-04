@@ -1,4 +1,5 @@
 import type { Txt } from './i18n';
+import { tr } from './i18n';
 /**
  * Typed messages between the UI (main thread) and the simulation worker.
  * The UI only sends commands; the worker is the single source of truth and sends state back.
@@ -741,10 +742,10 @@ export function nextBackupSlot(existing: { slot: string; savedAt: number }[], pr
 
 /** How a slot is shown: autosaves, backups and pre-update copies get a readable name. */
 export function slotLabel(slot: string, version?: number): string {
-  if (slot === AUTOSAVE_SLOT || slot.startsWith(`${AUTOSAVE_SLOT}:`)) return 'Autosave';
-  if (slot.startsWith(MANUAL_PREFIX)) return 'Handmatig';
-  if (slot.startsWith(BACKUP_PREFIX)) return `Backup ${slot.split(':')[2] ?? ''}`.trim();
-  if (slot.startsWith(UPDATE_PREFIX)) return `Voor update (v${version ?? slot.split(':v')[1] ?? '?'})`;
+  if (slot === AUTOSAVE_SLOT || slot.startsWith(`${AUTOSAVE_SLOT}:`)) return tr('Autosave');
+  if (slot.startsWith(MANUAL_PREFIX)) return tr('Handmatig');
+  if (slot.startsWith(BACKUP_PREFIX)) return tr('Backup {n}', { n: slot.split(':')[2] ?? '' }).trim();
+  if (slot.startsWith(UPDATE_PREFIX)) return tr('Voor update (v{version})', { version: String(version ?? slot.split(':v')[1] ?? '?') });
   return slot;
 }
 
@@ -832,7 +833,7 @@ export interface EndgameView {
   continued: boolean;
 }
 
-export interface MoodNoteView { time: number; delta: number; why: string }
+export interface MoodNoteView { time: number; delta: number; why: Txt }
 /** What others think of you: your mates (you lead), your leader (you are a member), grudges. */
 export interface OpinionsView {
   /** You lead: every mate's mood about you. */
@@ -840,7 +841,7 @@ export interface OpinionsView {
   /** You are a member of a bot tribe: what its leader thinks of you. */
   standing?: { leader: number; leaderName: string; value: number; notes: MoodNoteView[] };
   /** Players with a grudge against you, worst first. */
-  grudges: { id: number; name: string; tribeTag?: string; score: number; why?: string; at: number; halfLife: number }[];
+  grudges: { id: number; name: string; tribeTag?: string; score: number; why?: Txt; at: number; halfLife: number }[];
   betrayals: number;
   /** Your asks to attack players (member of a bot tribe). */
   permissions: { target: number; name: string; answer?: 'yes' | 'no'; until?: number }[];

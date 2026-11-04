@@ -1,3 +1,4 @@
+import { T, type Txt } from '../shared/i18n';
 /**
  * Quests and rewards for the human player.
  * Quests complete by themselves once their demands are met; their reward (if any) goes to
@@ -13,10 +14,12 @@ import { tribeOf } from './tribes';
 import { hasFaith } from './church';
 import { endgameRules, tribeShares } from './endgame';
 import { settle, type Village } from './village';
+import { tr } from '../shared/i18n';
 
 export interface PendingReward {
   id: number;
-  text: string;
+  /** Kept text (shown with txt()). */
+  text: Txt;
   res: Res;
   units?: UnitCounts;
 }
@@ -50,45 +53,45 @@ export function demandStatus(state: WorldState, d: QuestDemand): DemandStatus {
       const v = playerVillage(state);
       const current = v?.buildings[d.building] ?? 0;
       const name = state.config.buildings[d.building].name;
-      const text = d.level === 1 ? `Bouw ${name.toLowerCase()}` : `${name} naar level ${d.level}`;
+      const text = d.level === 1 ? tr('Bouw {building}', { building: tr(name).toLowerCase() }) : tr('{building} naar level {level}', { building: name, level: d.level });
       return { text, current, target: d.level, done: current >= d.level };
     }
     case 'plunders':
       return {
-        text: d.count === 1 ? 'Plunder een barbarendorp' : `Plunder ${d.count} keer`,
+        text: d.count === 1 ? tr('Plunder een barbarendorp') : tr('Plunder {n} keer', { n: d.count }),
         current: state.stats.plunders,
         target: d.count,
         done: state.stats.plunders >= d.count,
       };
     case 'loot':
       return {
-        text: `Haal ${d.amount.toLocaleString('nl-NL')} grondstoffen buit binnen`,
+        text: tr('Haal {n} grondstoffen buit binnen', { n: d.amount }),
         current: state.stats.loot,
         target: d.amount,
         done: state.stats.loot >= d.amount,
       };
     case 'rewardsClaimed':
       return {
-        text: 'Haal een beloning op',
+        text: tr('Haal een beloning op'),
         current: state.stats.rewardsClaimed,
         target: d.count,
         done: state.stats.rewardsClaimed >= d.count,
       };
     case 'tribeMember': {
       const t = tribeOf(state, HUMAN_ID);
-      return { text: 'Zit in een stam', current: t ? 1 : 0, target: 1, done: !!t };
+      return { text: tr('Zit in een stam'), current: t ? 1 : 0, target: 1, done: !!t };
     }
     case 'tribeMembers': {
       const n = tribeOf(state, HUMAN_ID)?.members.length ?? 0;
-      return { text: `Stam met ${d.count} leden`, current: n, target: d.count, done: n >= d.count };
+      return { text: tr('Stam met {n} leden', { n: d.count }), current: n, target: d.count, done: n >= d.count };
     }
     case 'conquests': {
       const n = state.worldStats?.players[HUMAN_ID]?.took ?? 0;
-      return { text: d.count === 1 ? 'Neem een spelersdorp over' : `Neem ${d.count} spelersdorpen over`, current: n, target: d.count, done: n >= d.count };
+      return { text: d.count === 1 ? tr('Neem een spelersdorp over') : tr('Neem {n} spelersdorpen over', { n: d.count }), current: n, target: d.count, done: n >= d.count };
     }
     case 'villages': {
       const n = villagesOf(state, HUMAN_ID).length;
-      return { text: `Heb ${d.count} dorpen`, current: n, target: d.count, done: n >= d.count };
+      return { text: tr('Heb {n} dorpen', { n: d.count }), current: n, target: d.count, done: n >= d.count };
     }
     case 'worldShare':
     case 'winShare': {
@@ -96,36 +99,36 @@ export function demandStatus(state: WorldState, d: QuestDemand): DemandStatus {
       const t = tribeOf(state, HUMAN_ID);
       const share = t ? (tribeShares(state).find((x) => x.tribe.id === t.id)?.share ?? 0) : 0;
       const pct = (x: number) => Math.floor(x * 100);
-      return { text: `Stam bezit ${pct(target)}% van de wereld`, current: pct(share), target: pct(target), done: share >= target };
+      return { text: tr('Stam bezit {pct}% van de wereld', { pct: pct(target) }), current: pct(share), target: pct(target), done: share >= target };
     }
     case 'churchLevel': {
       const n = Math.max(0, ...villagesOf(state, HUMAN_ID).map((v) => v.buildings.church ?? 0));
-      return { text: d.level === 1 ? 'Bouw een kerk' : `Kerk naar level ${d.level}`, current: n, target: d.level, done: n >= d.level };
+      return { text: d.level === 1 ? tr('Bouw een kerk') : tr('Kerk naar level {level}', { level: d.level }), current: n, target: d.level, done: n >= d.level };
     }
     case 'faithAll': {
       const own = villagesOf(state, HUMAN_ID);
       const faithful = own.filter((v) => hasFaith(state, v)).length;
       const done = own.length >= d.villages && faithful === own.length;
-      return { text: `Al je dorpen (min. ${d.villages}) in een geloofsgebied`, current: faithful, target: Math.max(d.villages, own.length), done };
+      return { text: tr('Al je dorpen (min. {n}) in een geloofsgebied', { n: d.villages }), current: faithful, target: Math.max(d.villages, own.length), done };
     }
     case 'itemsFound': {
       const n = state.players[HUMAN_ID]?.items?.found.length ?? 0;
-      return { text: d.count === 1 ? 'Vind een wapen' : `Vind ${d.count} wapens`, current: n, target: d.count, done: n >= d.count };
+      return { text: d.count === 1 ? tr('Vind een wapen') : tr('Vind {n} wapens', { n: d.count }), current: n, target: d.count, done: n >= d.count };
     }
     case 'itemEquipped': {
       const on = !!state.players[HUMAN_ID]?.items?.equipped;
-      return { text: 'Rust je paladijn uit', current: on ? 1 : 0, target: 1, done: on };
+      return { text: tr('Rust je paladijn uit'), current: on ? 1 : 0, target: 1, done: on };
     }
     case 'flagsPlaced': {
       const n = villagesOf(state, HUMAN_ID).filter((v) => v.flag).length;
-      return { text: d.count === 1 ? 'Hang een vlag op' : `Vlaggen in ${d.count} dorpen`, current: n, target: d.count, done: n >= d.count };
+      return { text: d.count === 1 ? tr('Hang een vlag op') : tr('Vlaggen in {n} dorpen', { n: d.count }), current: n, target: d.count, done: n >= d.count };
     }
     case 'flagLevel': {
       let n = 0;
       for (const v of villagesOf(state, HUMAN_ID)) if (v.flag) n = Math.max(n, v.flag.level);
       const have = state.players[HUMAN_ID]?.flags?.have;
       if (have) for (const levels of Object.values(have)) levels.forEach((c, i) => { if (c > 0) n = Math.max(n, i + 1); });
-      return { text: `Vlag van level ${d.level}`, current: n, target: d.level, done: n >= d.level };
+      return { text: tr('Vlag van level {level}', { level: d.level }), current: n, target: d.level, done: n >= d.level };
     }
   }
 }
@@ -162,14 +165,14 @@ export function checkQuests(state: WorldState, throttled = false): void {
       const hasReward = quest.reward.res !== undefined || quest.reward.units !== undefined;
       const toast: QuestToast = { id: nextId(state), title: quest.title };
       if (hasReward) {
-        const reward: PendingReward = { id: nextId(state), text: `Opdracht: ${quest.title}`, res: quest.reward.res ? [...quest.reward.res] : [0, 0, 0] };
+        const reward: PendingReward = { id: nextId(state), text: T('Opdracht: {title}', { title: quest.title }), res: quest.reward.res ? [...quest.reward.res] : [0, 0, 0] };
         if (quest.reward.units) reward.units = { ...quest.reward.units };
         state.rewards.push(reward);
         toast.rewardId = reward.id;
       }
       state.questToasts.push(toast);
       if (state.questToasts.length > MAX_TOASTS) state.questToasts.splice(0, state.questToasts.length - MAX_TOASTS);
-      addLog(state, { time: state.time, text: `Opdracht voltooid: ${quest.title}.` });
+      addLog(state, { time: state.time, text: tr('Opdracht voltooid: {title}.', { title: quest.title }) });
     }
   }
 }
@@ -189,7 +192,7 @@ export function buildingReward(state: WorldState, v: Village, building: Building
   }
   state.rewards.push({
     id: nextId(state),
-    text: `${state.config.buildings[building].name} level ${level}`,
+    text: T('{building} level {level}', { building: state.config.buildings[building].name, level: String(level) }),
     res: cost.map((c) => Math.floor(c * share)) as Res,
   });
 }
@@ -209,7 +212,7 @@ export function claimReward(state: WorldState, rewardId: number, villageId?: num
   const chosen = villageId !== undefined ? state.villages[villageId] : undefined;
   const v = chosen && chosen.owner === HUMAN_ID ? chosen : playerVillage(state);
   const reward = state.rewards.find((r) => r.id === rewardId);
-  if (!v || !reward) return 'Beloning bestaat niet.';
+  if (!v || !reward) return tr('Beloning bestaat niet.');
   settle(state.config, v, state.time);
   const cap = storageCapacity(v.buildings.storage);
   let claimed = false;
@@ -227,7 +230,7 @@ export function claimReward(state: WorldState, rewardId: number, villageId?: num
     delete reward.units;
     claimed = true;
   }
-  if (!claimed) return 'Je opslag zit vol.';
+  if (!claimed) return tr('Je opslag zit vol.');
   if (reward.res.every((r) => r <= 0)) {
     state.rewards = state.rewards.filter((r) => r.id !== rewardId);
     pruneToasts(state);
@@ -240,7 +243,7 @@ export function claimReward(state: WorldState, rewardId: number, villageId?: num
 export function claimAllRewards(state: WorldState, villageId?: number): string | null {
   let anyClaimed = false;
   for (const r of [...state.rewards]) if (claimReward(state, r.id, villageId) === null) anyClaimed = true;
-  return anyClaimed ? null : 'Je opslag zit vol.';
+  return anyClaimed ? null : tr('Je opslag zit vol.');
 }
 
 /**

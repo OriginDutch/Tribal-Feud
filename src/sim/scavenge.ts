@@ -16,6 +16,7 @@ import { storageCapacity } from './formulas';
 import { nextFloat } from './rng';
 import { HUMAN_ID, addLog, reservedUnits, type WorldState } from './state';
 import { isOperational, settle, type Village } from './village';
+import { tr } from '../shared/i18n';
 
 export { SCAV_LEVELS, SCAV_NAMES, SCAV_FACTORS, SCAV_SAFE, SCAV_MAX_LOSS, SCAV_UNITS } from '../shared/scavenge';
 
@@ -53,30 +54,30 @@ export function previewRun(state: WorldState, level: number, units: UnitCounts):
 }
 
 export function scavBlocker(state: WorldState, v: Village, level: number, units: UnitCounts): string | null {
-  if (!scavEnabled(state)) return 'Rooftochten staan uit in deze wereld.';
-  if (!isOperational(state.config, v, 'place')) return 'Je hebt een verzamelplaats nodig.';
-  if (level < 0 || level >= SCAV_LEVELS) return 'Onbekend level.';
+  if (!scavEnabled(state)) return tr('Rooftochten staan uit in deze wereld.');
+  if (!isOperational(state.config, v, 'place')) return tr('Je hebt een verzamelplaats nodig.');
+  if (level < 0 || level >= SCAV_LEVELS) return tr('Onbekend level.');
   const sc = scavOf(v);
-  if (level > sc.unlocked) return `Rond eerst ${SCAV_NAMES[level - 1]} veilig af.`;
-  if (sc.runs.some((r) => r.level === level)) return 'Dit level is al onderweg.';
+  if (level > sc.unlocked) return tr('Rond eerst {level} veilig af.', { level: SCAV_NAMES[level - 1] });
+  if (sc.runs.some((r) => r.level === level)) return tr('Dit level is al onderweg.');
   let any = false;
   const held = v.owner === HUMAN_ID ? reservedUnits(state, v.id) : {};
   for (const [u, n] of Object.entries(units) as [UnitId, number][]) {
     if (!n) continue;
-    if (!SCAV_UNITS.includes(u)) return `${state.config.units[u].name} kan niet mee.`;
-    if (n < 0 || !Number.isInteger(n)) return 'Ongeldig aantal.';
-    if (v.units[u] - (held[u] ?? 0) < n) return held[u] && v.units[u] >= n ? `Te weinig ${state.config.units[u].name.toLowerCase()} vrij: ${held[u]} staan klaar voor een ingeplande aanval.` : `Te weinig ${state.config.units[u].name.toLowerCase()}.`;
+    if (!SCAV_UNITS.includes(u)) return tr('{unit} kan niet mee.', { unit: state.config.units[u].name });
+    if (n < 0 || !Number.isInteger(n)) return tr('Ongeldig aantal.');
+    if (v.units[u] - (held[u] ?? 0) < n) { const unit = tr(state.config.units[u].name).toLowerCase(); return held[u] && v.units[u] >= n ? tr('Te weinig {unit} vrij: {held} staan klaar voor een ingeplande aanval.', { unit, held: held[u] }) : tr('Te weinig {unit}.', { unit }); }
     any = true;
   }
-  if (!any) return 'Kies troepen.';
-  if (scavSum(scavParams(state), units, 'carry') <= 0) return 'Deze troepen dragen niets.';
+  if (!any) return tr('Kies troepen.');
+  if (scavSum(scavParams(state), units, 'carry') <= 0) return tr('Deze troepen dragen niets.');
   return null;
 }
 
 /** Sends a run (troops leave now). */
 export function sendScavenge(state: WorldState, villageId: number, level: number, units: UnitCounts, at = state.time): string | null {
   const v = state.villages[villageId];
-  if (!v) return 'Dorp bestaat niet.';
+  if (!v) return tr('Dorp bestaat niet.');
   const error = scavBlocker(state, v, level, units);
   if (error) return error;
   const clean: UnitCounts = {};
@@ -131,13 +132,13 @@ function finish(state: WorldState, v: Village, run: ScavRun): UnitCounts {
   const sc = scavOf(v);
   if (p.ratio >= 1 && sc.unlocked === run.level && run.level < SCAV_LEVELS - 1) {
     sc.unlocked = run.level + 1;
-    if (v.owner === HUMAN_ID) addLog(state, { time: state.time, text: `${v.name}: rooftocht ${SCAV_NAMES[run.level + 1]} vrijgespeeld.` });
+    if (v.owner === HUMAN_ID) addLog(state, { time: state.time, text: tr('{village}: rooftocht {level} vrijgespeeld.', { village: v.name, level: SCAV_NAMES[run.level + 1] }) });
   }
   if (v.owner === HUMAN_ID) {
     sc.last = (sc.last ?? []).filter((l) => l.level !== run.level);
     sc.last.push({ level: run.level, loot, lost, at: state.time });
-    const deaths = Object.entries(lost).map(([u, n]) => `${n} ${state.config.units[u as UnitId].name.toLowerCase()}`);
-    if (deaths.length) addLog(state, { time: state.time, text: `${v.name}: rooftocht ${SCAV_NAMES[run.level]} verloor ${deaths.join(', ')}.` });
+    const deaths = Object.entries(lost).map(([u, n]) => String(n) + ' ' + tr(state.config.units[u as UnitId].name).toLowerCase());
+    if (deaths.length) addLog(state, { time: state.time, text: tr('{village}: rooftocht {level} verloor {lost}.', { village: v.name, level: SCAV_NAMES[run.level], lost: deaths.join(', ') }) });
   }
   return survivors;
 }

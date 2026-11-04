@@ -110,8 +110,8 @@ describe('asking your leader for a war', () => {
     answer(s);
     expect(ta.relations[tb.id]).toBeUndefined();
     const reply = s.inbox!.at(-1)!;
-    expect(reply.title).toMatch(/geen oorlog/);
-    expect(reply.text).toMatch(/aanleiding/);
+    expect(txt(reply.title)).toMatch(/geen oorlog/);
+    expect(txt(reply.text)).toMatch(/aanleiding/);
     expect(askLeaderWar(s, tb.id)).toMatch(/wacht een speldag/i);
     expect(warAskInfo(s).waitUntil).toBeDefined();
     s.time += WAR_ASK_COOLDOWN;
@@ -122,14 +122,14 @@ describe('asking your leader for a war', () => {
     const { s, ta, tb, lead } = setup();
     villagesOf(s, lead.id)[0]!.units.axe = 0;
     addFriction(s, ta.members[0]!, tb.members[1]!, WAR_FRICTION * 5, 'conquest');
-    expect(warAskVerdict(s, ta, tb, lead)).toMatch(/niet sterk genoeg/);
+    expect(txt(warAskVerdict(s, ta, tb, lead))).toMatch(/niet sterk genoeg/);
   });
 
   it('a leader that thinks highly of you needs less of a reason', () => {
     const { s, ta, tb, lead } = setup();
     addFriction(s, ta.members[0]!, tb.members[1]!, 9, 'conquest');
     s.standing = 30;
-    expect(warAskVerdict(s, ta, tb, lead)).toMatch(/aanleiding/);
+    expect(txt(warAskVerdict(s, ta, tb, lead))).toMatch(/aanleiding/);
     s.standing = 96;
     expect(warAskVerdict(s, ta, tb, lead)).toBeNull();
   });

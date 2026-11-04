@@ -11,6 +11,7 @@ import { checkQuests } from './quests';
 import { initBots } from './bots';
 import { HUMAN_ID, type WorldState } from './state';
 import { createVillage } from './village';
+import { tr } from '../shared/i18n';
 
 /**
  * Save format. Bump SAVE_VERSION whenever WorldState changes shape,
@@ -229,17 +230,17 @@ export function toSaveData(state: WorldState, now: number, clone = true): SaveDa
 
 export function fromSaveData(raw: unknown): WorldState {
   if (typeof raw !== 'object' || raw === null || !('version' in raw) || !('state' in raw)) {
-    throw new Error('Ongeldige save.');
+    throw new Error(tr('Ongeldige save.'));
   }
   let data = structuredClone(raw) as SaveData;
   // sounds of the moment the save was made are long gone
   delete (data.state as Partial<WorldState>).sfx;
   if (data.version > SAVE_VERSION) {
-    throw new Error(`Save is van een nieuwere versie (${data.version}) dan dit spel (${SAVE_VERSION}).`);
+    throw new Error(tr('Save is van een nieuwere versie ({save}) dan dit spel ({game}).', { save: String(data.version), game: String(SAVE_VERSION) }));
   }
   while (data.version < SAVE_VERSION) {
     const migrate = MIGRATIONS[data.version];
-    if (!migrate) throw new Error(`Geen migratie van saveversie ${data.version}.`);
+    if (!migrate) throw new Error(tr('Geen migratie van saveversie {version}.', { version: String(data.version) }));
     data = migrate(data);
   }
   return data.state;

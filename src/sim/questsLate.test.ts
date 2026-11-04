@@ -1,3 +1,4 @@
+import { txt } from '../shared/i18n';
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { checkQuests } from './quests';
@@ -25,7 +26,7 @@ describe('late-game quests', () => {
     found(s, s.players[HUMAN_ID]!, { name: 'Test', tag: 'TST' });
     checkQuests(s);
     expect(s.questProgress.tribe).toBe(1);
-    expect(s.rewards.some((r) => r.text === 'Opdracht: Samen sterk')).toBe(true);
+    expect(s.rewards.some((r) => txt(r.text) === 'Opdracht: Samen sterk')).toBe(true);
   });
 
   it('a church and a placed flag complete their first quests', () => {

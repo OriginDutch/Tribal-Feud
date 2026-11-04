@@ -3,6 +3,7 @@ import { createConfig } from '../shared/config';
 import { allianceTick, creditAllyAttack, trustIn } from './alliances';
 import { createWorld, villagesOf } from './state';
 import { setRelation, type Tribe } from './tribes';
+import { txt, type Txt } from '../shared/i18n';
 
 function setup() {
   const s = createWorld(createConfig('classic', 'Ally', 3, { bots: { count: 30 } } as never));
@@ -17,9 +18,9 @@ function setup() {
   const hooks = (joins = false) => ({
     strength: () => 1000,
     social: () => (joins ? 100 : 0),
-    declareWar: (by: Tribe, on: Tribe, reason: string) => { setRelation(s, by, on, 'war'); news.push(reason); },
+    declareWar: (by: Tribe, on: Tribe, reason: Txt) => { setRelation(s, by, on, 'war'); news.push(txt(reason)); },
     setRelation: (x: Tribe, y: Tribe, r: 'nap' | null) => setRelation(s, x, y, r, true),
-    news: (_a: Tribe, _b: Tribe, t: string) => news.push(t),
+    news: (_a: Tribe, _b: Tribe, t: Txt) => news.push(txt(t)),
   });
   return { s, a, b, e, bots, news, hooks };
 }

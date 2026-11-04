@@ -5,6 +5,7 @@ import { addDuty, dutiesTick } from './duties';
 import { sendAttack } from './movement';
 import { HUMAN_ID, createWorld, villagesOf } from './state';
 import { onTalksRound, startTalks, termsText } from './talks';
+import { txt } from '../shared/i18n';
 import { setRelation, type Tribe } from './tribes';
 
 function setup() {
@@ -24,7 +25,7 @@ function setup() {
 describe('help in attacks (peace term)', () => {
   it('reads as a term', () => {
     const { s, te } = setup();
-    expect(termsText({ villages: 0, resources: 0, help: { target: te.id, space: 500 } }, s)).toBe('hulp: 500 boerderijplekken aanval per lid tegen [VIJ]');
+    expect(txt(termsText({ villages: 0, resources: 0, help: { target: te.id, space: 500 } }, s))).toBe('hulp: 500 boerderijplekken aanval per lid tegen [VIJ]');
   });
 
   it('attacks on the target tribe count, from all villages together; bots do their part by themselves', () => {
@@ -86,6 +87,6 @@ describe('help in attacks (peace term)', () => {
     s.time = t.until;
     onTalksRound(s, t.id);
     expect(s.duties?.[0]?.target).toBe(te.id);
-    expect(s.news!.at(-1)!.dry).toContain('hulp:');
+    expect(txt(s.news!.at(-1)!.dry)).toContain('hulp:');
   });
 });

@@ -20,10 +20,11 @@ import { nextFloat } from './rng';
 import { HUMAN_ID, addLog, type Player, type WorldState } from './state';
 import { MAX_MEMBERS } from '../shared/tribes';
 import { checkLeaderOrder } from './tribeOrders';
+import { T, tr, txt, type Txt } from '../shared/i18n';
 import { REACH, SOCIAL, declareWar, fits, found, join, leave, playerCentre, reachOf, setLeader, tribeCentre, tribeOf, type Tribe } from './tribes';
 
 export const BASE_MOOD = 60;
-export interface MoodNote { time: number; delta: number; why: string }
+export interface MoodNote { time: number; delta: number; why: Txt }
 
 /** How easily each kind turns on its leader (betrayal), and how loyal it is (leaving). */
 const BETRAY: Record<Archetype, number> = { opportunist: 0.5, rusher: 0.35, farmer: 0.15, turtle: 0.1, diplomat: 0.05, supporter: 0.02 };
@@ -38,19 +39,19 @@ export function moodOf(p: Player): number {
 }
 
 /** A bot's mood about its tribe's leadership changes, with a reason you can read. */
-export function changeMood(state: WorldState, p: Player | undefined, delta: number, why: string): void {
+export function changeMood(state: WorldState, p: Player | undefined, delta: number, why: Txt): void {
   if (!p?.bot || delta === 0) return;
   p.bot.mood = clamp(moodOf(p) + delta);
   p.bot.moodNotes = note(p.bot.moodNotes, { time: state.time, delta, why });
 }
 
 /** Every bot member of a tribe (not its leader). */
-export function moodAll(state: WorldState, t: Tribe, delta: number, why: string, except?: number): void {
+export function moodAll(state: WorldState, t: Tribe, delta: number, why: Txt, except?: number): void {
   for (const m of t.members) if (m !== t.leader && m !== except) changeMood(state, state.players[m], delta, why);
 }
 
 /** What your bot leader thinks of you (when you are a member of a bot tribe). */
-export function changeStanding(state: WorldState, delta: number, why: string): void {
+export function changeStanding(state: WorldState, delta: number, why: Txt): void {
   const t = tribeOf(state, HUMAN_ID);
   if (!t || t.leader === HUMAN_ID || delta === 0) return;
   state.standing = clamp((state.standing ?? BASE_MOOD) + delta);
@@ -58,7 +59,7 @@ export function changeStanding(state: WorldState, delta: number, why: string): v
 }
 
 /** Something happened between you and a mate: mood if you lead, standing if you are a member. */
-export function mateEvent(state: WorldState, mate: Player | undefined, leaderDelta: number, memberDelta: number, why: string): void {
+export function mateEvent(state: WorldState, mate: Player | undefined, leaderDelta: number, memberDelta: number, why: Txt): void {
   const t = tribeOf(state, HUMAN_ID);
   if (!t || !mate || mate.tribe !== t.id) return;
   if (t.leader === HUMAN_ID) changeMood(state, mate, leaderDelta, why);
@@ -72,9 +73,9 @@ export function onVillageLost(state: WorldState, owner: number, helped: boolean,
   const t = state.tribes?.[p.tribe];
   if (!t) return;
   // a leader who can't hold his own villages loses authority
-  if (t.leader === owner) return moodAll(state, t, -4, `leider ${p.name} verloor ${name}`);
-  if (t.leader === HUMAN_ID) changeMood(state, p, helped ? -3 : -12, helped ? `${name} verloren, ondanks je hulp` : `${name} verloren, jij hielp niet`);
-  else changeMood(state, p, -6, `${name} verloren`);
+  if (t.leader === owner) return moodAll(state, t, -4, T('leider {name} verloor {village}', { name: p.name, village: name }));
+  if (t.leader === HUMAN_ID) changeMood(state, p, helped ? -3 : -12, helped ? T('{village} verloren, ondanks je hulp', { village: name }) : T('{village} verloren, jij hielp niet', { village: name }));
+  else changeMood(state, p, -6, T('{village} verloren', { village: name }));
 }
 
 /** Runs with the diplomacy tick: drift, complaints, leaving, betrayal, coups, kicking you. */
@@ -93,7 +94,8 @@ export function loyaltyTick(state: WorldState): void {
       const worst = [...(b.moodNotes ?? [])].reverse().find((n) => n.delta < 0)?.why;
       if (humanLeads && mood < 35 && (b.complained === undefined || state.time - b.complained > DAY)) {
         b.complained = state.time;
-        addMessage(state, { kind: 'info', from: id, title: `${p.name} is ontevreden`, text: `${p.name}: zo heb ik het niet bedoeld met ${tag(t)}${worst ? ` (${worst})` : ''}. Doe er iets aan, of ik ben weg.` });
+        const q = { name: p.name, tag: tag(t), why: worst };
+        addMessage(state, { kind: 'info', from: id, title: T('{name} is ontevreden', { name: p.name }), text: worst ? T('{name}: zo heb ik het niet bedoeld met {tag} ({why}). Doe er iets aan, of ik ben weg.', q) : T('{name}: zo heb ik het niet bedoeld met {tag}. Doe er iets aan, of ik ben weg.', q) });
       }
       if (mood < 12 && nextFloat(state.rng) < 0.25 * BETRAY[b.archetype] * (humanLeads ? kindness(state.config).betray : 1)) {
         betray(state, p, t, worst);
@@ -103,9 +105,10 @@ export function loyaltyTick(state: WorldState): void {
         leave(state, p);
         b.mood = BASE_MOOD;
         delete b.moodNotes;
-        addLog(state, { time: state.time, text: `${p.name} verlaat ${tag(t)}: ontevreden.` });
-        (state.tribeNews ??= []).push({ time: state.time, text: `${p.name} verlaat ${tag(t)} ${t.name}.` });
-        if (humanLeads) addMessage(state, { kind: 'info', from: id, title: `${p.name} vertrekt`, text: `${p.name} heeft ${tag(t)} verlaten${worst ? `: ${worst}` : ''}.` });
+        addLog(state, { time: state.time, text: tr('{name} verlaat {tag}: ontevreden.', { name: p.name, tag: tag(t) }) });
+        (state.tribeNews ??= []).push({ time: state.time, text: T('{name} verlaat {tag} {tribe}.', { name: p.name, tag: tag(t), tribe: t.name }) });
+        const q = { name: p.name, tag: tag(t), why: worst };
+        if (humanLeads) addMessage(state, { kind: 'info', from: id, title: T('{name} vertrekt', { name: p.name }), text: worst ? T('{name} heeft {tag} verlaten: {why}.', q) : T('{name} heeft {tag} verlaten.', q) });
       }
     }
     if (!state.tribes?.[t.id]) continue;
@@ -132,10 +135,10 @@ function reshape(state: WorldState): void {
       const social = (SOCIAL[archOf(state, a)] + SOCIAL[archOf(state, b)]) / 2;
       if (nextFloat(state.rng) > 0.03 * social) continue;
       const [big, small] = ca.points >= cb.points ? [a, b] : [b, a];
-      const text = `${tag(small)} ${small.name} gaat op in ${tag(big)} ${big.name}.`;
+      const text = T('{tag} {name} gaat op in {bigTag} {bigName}.', { tag: tag(small), name: small.name, bigTag: tag(big), bigName: big.name });
       for (const m of [...small.members]) join(state, big, state.players[m]!);
       news(state, text);
-      if (big.members.includes(HUMAN_ID)) addMessage(state, { kind: 'info', from: big.leader, tribe: big.id, title: `Fusie: ${tag(small)} → ${tag(big)}`, text });
+      if (big.members.includes(HUMAN_ID)) addMessage(state, { kind: 'info', from: big.leader, tribe: big.id, title: T('Fusie: {tag} → {bigTag}', { tag: tag(small), bigTag: tag(big) }), text });
     }
   }
   // your tribe: an allied bot tribe close by proposes a merger; you decide
@@ -153,12 +156,12 @@ function reshape(state: WorldState): void {
       addMessage(state, {
         kind: 'merge', from: b.leader, tribe: b.id, status: 'open', expires: state.time + DAY,
         merge: theirsIntoYours ? 'theirsIntoYours' : 'yoursIntoTheirs',
-        title: theirsIntoYours ? `${tag(b)} wil opgaan in ${tag(yours)}` : `${tag(b)} stelt een fusie voor`,
+        title: theirsIntoYours ? T('{tag} wil opgaan in {yourTag}', { tag: tag(b), yourTag: tag(yours) }) : T('{tag} stelt een fusie voor', { tag: tag(b) }),
         text: theirsIntoYours
-          ? `${leader?.name ?? '?'}: samen zijn we sterker. Wij (${b.members.length} leden) gaan graag op in ${tag(yours)}, onder jouw leiding.`
-          : `${leader?.name ?? '?'}: samen zijn we sterker. Gaan jullie (${yours.members.length} leden) op in ${tag(b)}? Dan word jij lid en blijf ik leider.`,
+          ? T('{name}: samen zijn we sterker. Wij ({n} leden) gaan graag op in {yourTag}, onder jouw leiding.', { name: leader?.name ?? '?', n: b.members.length, yourTag: tag(yours) })
+          : T('{name}: samen zijn we sterker. Gaan jullie ({n} leden) op in {tag}? Dan word jij lid en blijf ik leider.', { name: leader?.name ?? '?', n: yours.members.length, tag: tag(b) }),
       });
-      if (pauses(state, 'requests')) alertHuman(state, `${tag(b)} stelt een fusie voor.`);
+      if (pauses(state, 'requests')) alertHuman(state, tr('{tag} stelt een fusie voor.', { tag: tag(b) }));
     }
   }
   // fall apart: an unhappy or spread-out tribe splits; the unhappiest member leads the new one
@@ -177,15 +180,18 @@ function reshape(state: WorldState): void {
     const along = bots.filter((m) => m !== rebel.id && moodOf(state.players[m]!) < 50 && (() => { const c = playerCentre(state, m); return c && Math.hypot(c.x - rc.x, c.y - rc.y) <= REACH; })());
     const nt = found(state, rebel);
     for (const m of along) join(state, nt, state.players[m]!);
-    const text = `${tag(t)} valt uiteen: ${rebel.name} begint ${tag(nt)} ${nt.name}${along.length ? ` met ${along.length} ${along.length === 1 ? 'ander' : 'anderen'}` : ''}.`;
+    const q = { tag: tag(t), name: rebel.name, newTag: tag(nt), newName: nt.name, n: along.length };
+    const text = !along.length ? T('{tag} valt uiteen: {name} begint {newTag} {newName}.', q)
+      : along.length === 1 ? T('{tag} valt uiteen: {name} begint {newTag} {newName} met 1 ander.', q)
+      : T('{tag} valt uiteen: {name} begint {newTag} {newName} met {n} anderen.', q);
     news(state, text);
-    if (t.members.includes(HUMAN_ID)) addMessage(state, { kind: 'info', from: rebel.id, tribe: t.id, title: `${tag(t)} valt uiteen`, text });
+    if (t.members.includes(HUMAN_ID)) addMessage(state, { kind: 'info', from: rebel.id, tribe: t.id, title: T('{tag} valt uiteen', { tag: tag(t) }), text });
   }
 }
 
 const archOf = (state: WorldState, t: Tribe): Archetype => state.players[t.leader]?.bot?.archetype ?? 'diplomat';
-function news(state: WorldState, text: string): void {
-  addLog(state, { time: state.time, text });
+function news(state: WorldState, text: Txt): void {
+  addLog(state, { time: state.time, text: txt(text) });
   (state.tribeNews ??= []).push({ time: state.time, text });
 }
 
@@ -198,10 +204,10 @@ function coup(state: WorldState, t: Tribe): void {
   const next = others.sort((a, b) => moodOf(state.players[b]!) - moodOf(state.players[a]!))[0]!;
   setLeader(state, t, next);
   for (const m of t.members) if (state.players[m]?.bot) { state.players[m]!.bot!.mood = BASE_MOOD; delete state.players[m]!.bot!.moodNotes; }
-  const text = `${state.players[next]?.name ?? '?'} neemt de leiding van ${tag(t)} over van ${old?.name ?? '?'}.`;
-  addLog(state, { time: state.time, text });
+  const text = T('{name} neemt de leiding van {tag} over van {old}.', { name: state.players[next]?.name ?? '?', tag: tag(t), old: old?.name ?? '?' });
+  addLog(state, { time: state.time, text: txt(text) });
   (state.tribeNews ??= []).push({ time: state.time, text });
-  if (t.members.includes(HUMAN_ID)) addMessage(state, { kind: 'info', from: next, tribe: t.id, title: `Nieuwe leider in ${tag(t)}`, text });
+  if (t.members.includes(HUMAN_ID)) addMessage(state, { kind: 'info', from: next, tribe: t.id, title: T('Nieuwe leider in {tag}', { tag: tag(t) }), text });
 }
 
 function judgeYou(state: WorldState, t: Tribe): void {
@@ -212,21 +218,23 @@ function judgeYou(state: WorldState, t: Tribe): void {
   const worst = [...(state.standingNotes ?? [])].reverse().find((n) => n.delta < 0)?.why;
   if (s < 35 && (state.standingWarned === undefined || state.time - state.standingWarned > DAY)) {
     state.standingWarned = state.time;
-    addMessage(state, { kind: 'info', from: leader.id, tribe: t.id, title: `${leader.name} is niet blij met je`, text: `${leader.name}: zo gaat het niet${worst ? ` (${worst})` : ''}. Laat zien dat je bij ${tag(t)} hoort.` });
+    const q = { name: leader.name, tag: tag(t), why: worst };
+    addMessage(state, { kind: 'info', from: leader.id, tribe: t.id, title: T('{name} is niet blij met je', q), text: worst ? T('{name}: zo gaat het niet ({why}). Laat zien dat je bij {tag} hoort.', q) : T('{name}: zo gaat het niet. Laat zien dat je bij {tag} hoort.', q) });
   }
   if (s < 20 && nextFloat(state.rng) < 0.3) {
     leave(state, state.players[HUMAN_ID]!);
     delete state.standing;
     delete state.standingNotes;
-    const text = `${leader.name} heeft je uit ${tag(t)} gezet${worst ? `: ${worst}` : ''}.`;
-    addMessage(state, { kind: 'info', from: leader.id, tribe: t.id, title: `Uit ${tag(t)} gezet`, text });
-    addLog(state, { time: state.time, text });
-    alertHuman(state, text);
+    const q = { name: leader.name, tag: tag(t), why: worst };
+    const text = worst ? T('{name} heeft je uit {tag} gezet: {why}.', q) : T('{name} heeft je uit {tag} gezet.', q);
+    addMessage(state, { kind: 'info', from: leader.id, tribe: t.id, title: T('Uit {tag} gezet', q), text });
+    addLog(state, { time: state.time, text: txt(text) });
+    alertHuman(state, txt(text));
   }
 }
 
 /** A bot turns on its tribe: leaves, holds a grudge and goes after the leader; may defect. */
-export function betray(state: WorldState, p: Player, t: Tribe, why?: string): void {
+export function betray(state: WorldState, p: Player, t: Tribe, why?: Txt): void {
   const b = p.bot!;
   const leaderId = t.leader;
   const enemy = Object.entries(t.relations)
@@ -243,13 +251,13 @@ export function betray(state: WorldState, p: Player, t: Tribe, why?: string): vo
   if (mate !== undefined) b.focus[mate] = state.time + 3 * DAY;
   if (enemy) join(state, enemy, p);
   const text = enemy
-    ? `${p.name} verraadt ${tag(t)} en loopt over naar ${tag(enemy)}.`
-    : `${p.name} verraadt ${tag(t)} en keert zich tegen ${state.players[leaderId]?.name ?? 'de leider'}.`;
-  addLog(state, { time: state.time, text });
+    ? T('{name} verraadt {tag} en loopt over naar {enemy}.', { name: p.name, tag: tag(t), enemy: tag(enemy) })
+    : T('{name} verraadt {tag} en keert zich tegen {leader}.', { name: p.name, tag: tag(t), leader: state.players[leaderId]?.name ?? T('de leider') });
+  addLog(state, { time: state.time, text: txt(text) });
   (state.tribeNews ??= []).push({ time: state.time, text });
   if (t.members.includes(HUMAN_ID) || leaderId === HUMAN_ID) {
-    addMessage(state, { kind: 'war', from: p.id, tribe: t.id, title: `Verraad: ${p.name}`, text: `${text}${why ? ` (${why})` : ''} Verwacht aanvallen.` });
-    alertHuman(state, text);
+    addMessage(state, { kind: 'war', from: p.id, tribe: t.id, title: T('Verraad: {name}', { name: p.name }), text: why ? T('{text} ({why}) Verwacht aanvallen.', { text, why }) : T('{text} Verwacht aanvallen.', { text }) });
+    alertHuman(state, txt(text));
   }
 }
 
@@ -262,43 +270,43 @@ export function betray(state: WorldState, p: Player, t: Tribe, why?: string): vo
  */
 export function humanBetray(state: WorldState, target: number): string | null {
   const p = state.players[target];
-  if (!p || target === HUMAN_ID) return 'Die speler bestaat niet.';
+  if (!p || target === HUMAN_ID) return tr('Die speler bestaat niet.');
   const mine = tribeOf(state, HUMAN_ID);
-  if (!mine) return 'Je zit niet in een stam: je kunt iedereen al aanvallen.';
+  if (!mine) return tr('Je zit niet in een stam: je kunt iedereen al aanvallen.');
   const theirs = tribeOf(state, target);
   const rel = theirs && theirs.id !== mine.id ? mine.relations[theirs.id] : undefined;
-  if (theirs?.id !== mine.id && rel !== 'nap' && rel !== 'ally') return 'Met die speler heb je geen band om te verbreken.';
+  if (theirs?.id !== mine.id && rel !== 'nap' && rel !== 'ally') return tr('Met die speler heb je geen band om te verbreken.');
   const leads = mine.leader === HUMAN_ID;
   const sting = (q: Player | undefined, by: number) => { if (q?.bot) (q.bot.grudges ??= {})[HUMAN_ID] = { score: by, at: state.time, why: 'verraad' }; };
   state.betrayals = (state.betrayals ?? 0) + 1;
-  let text: string;
+  let text: Txt;
   if (theirs?.id === mine.id) {
     if (leads) {
       leave(state, p);
       sting(p, 2);
-      moodAll(state, mine, -25, `je verraadde ${p.name}`);
-      text = `Je verraadt ${p.name} en zet hem uit ${tag(mine)}. Je stamgenoten kijken je met andere ogen aan.`;
+      moodAll(state, mine, -25, T('je verraadde {name}', { name: p.name }));
+      text = T('Je verraadt {name} en zet hem uit {tag}. Je stamgenoten kijken je met andere ogen aan.', { name: p.name, tag: tag(mine) });
     } else {
       for (const m of mine.members) if (m !== HUMAN_ID) sting(state.players[m], m === target ? 2 : 1);
       leave(state, state.players[HUMAN_ID]!);
       delete state.standing;
-      text = `Je verraadt ${p.name}. ${tag(mine)} zet je eruit en vergeet het niet.`;
+      text = T('Je verraadt {name}. {tag} zet je eruit en vergeet het niet.', { name: p.name, tag: tag(mine) });
     }
   } else {
     for (const m of theirs!.members) sting(state.players[m], m === target ? 2 : 1);
     if (leads) {
       declareWar(state, mine, theirs!, true);
-      moodAll(state, mine, -8, `je verbrak het verdrag met ${tag(theirs!)}`);
-      text = `Je verbreekt het ${rel === 'ally' ? 'bondgenootschap' : 'niet-aanvalsverdrag'} met ${tag(theirs!)}: oorlog.`;
+      moodAll(state, mine, -8, T('je verbrak het verdrag met {tag}', { tag: tag(theirs!) }));
+      text = rel === 'ally' ? T('Je verbreekt het bondgenootschap met {tag}: oorlog.', { tag: tag(theirs!) }) : T('Je verbreekt het niet-aanvalsverdrag met {tag}: oorlog.', { tag: tag(theirs!) });
     } else {
       leave(state, state.players[HUMAN_ID]!);
       delete state.standing;
-      text = `Je keert je tegen ${tag(theirs!)}, een partner van ${tag(mine)}. ${tag(mine)} zet je eruit.`;
+      text = T('Je keert je tegen {tag}, een partner van {myTag}. {myTag} zet je eruit.', { tag: tag(theirs!), myTag: tag(mine) });
     }
   }
-  addLog(state, { time: state.time, text });
-  (state.tribeNews ??= []).push({ time: state.time, text: `Verraad: ${state.players[HUMAN_ID]?.name ?? 'Jij'} keert zich tegen ${p.name}.` });
-  addMessage(state, { kind: 'war', from: -1, title: 'Verraad', text });
+  addLog(state, { time: state.time, text: txt(text) });
+  (state.tribeNews ??= []).push({ time: state.time, text: T('Verraad: {name} keert zich tegen {target}.', { name: state.players[HUMAN_ID]?.name ?? T('Jij'), target: p.name }) });
+  addMessage(state, { kind: 'war', from: -1, title: T('Verraad'), text });
   return null;
 }
 

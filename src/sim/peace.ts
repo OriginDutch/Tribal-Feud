@@ -21,6 +21,7 @@ import { AGGRESSION, between, declareWar, leave, setRelation, tribeCentre, tribe
 import { grudge } from './botReact';
 import { addFriction } from './warCause';
 import type { Village } from './village';
+import { T, tr, type Txt } from '../shared/i18n';
 
 export interface Treaty {
   id: number;
@@ -56,7 +57,7 @@ export function cedeVillages(state: WorldState, winner: Tribe, loser: Tribe, vil
     if (v) evacuate(state, v);
   }
   const mine = villages.map((id) => state.villages[id]).filter((v): v is Village => !!v && v.owner === HUMAN_ID);
-  if (mine.length) addLog(state, { time: state.time, text: `Vrede met ${tag(winner)}: je ontruimt ${mine.map(where).join(', ')}.` });
+  if (mine.length) addLog(state, { time: state.time, text: tr('Vrede met {tribe}: je ontruimt {villages}.', { tribe: tag(winner), villages: mine.map(where).join(', ') }) });
 }
 
 function drop(state: WorldState, treaty: Treaty): void {
@@ -106,7 +107,7 @@ export function treatiesTick(state: WorldState): void {
       }
       if (!reinforced && UNIT_IDS.some((u) => v.units[u] > 0)) evacuate(state, v);
     }
-    if (reinforced) breakTreaty(state, treaty, winner, loser, 'stuurde weer verdediging naar een ontruimd dorp');
+    if (reinforced) breakTreaty(state, treaty, winner, loser, T('stuurde weer verdediging naar een ontruimd dorp'));
   }
 }
 
@@ -117,13 +118,13 @@ export function onTreatyAttack(state: WorldState, attacker: number, defender: nu
   if (!ta || !td) return;
   // attacks already underway when it was signed were part of the war
   const t = state.treaties.find((x) => x.status === 'signed' && x.loser === ta.id && x.winner === td.id && sent >= (x.signedAt ?? 0));
-  if (t) breakTreaty(state, t, td, ta, 'viel aan tijdens het verdrag');
+  if (t) breakTreaty(state, t, td, ta, T('viel aan tijdens het verdrag'));
 }
 
-function breakTreaty(state: WorldState, treaty: Treaty, winner: Tribe, loser: Tribe, why: string): void {
+function breakTreaty(state: WorldState, treaty: Treaty, winner: Tribe, loser: Tribe, why: Txt): void {
   drop(state, treaty);
-  addNews(state, { kind: 'talksFailed', tribes: [loser.id, winner.id], ...between(state, loser, winner), dry: `${tag(loser)} ${why}: het vredesverdrag met ${tag(winner)} is gebroken.`, head: [`Vrede van korte duur: ${tag(loser)} breekt het verdrag met ${tag(winner)}`] });
-  declareWar(state, winner, loser, true, 'na een gebroken verdrag');
+  addNews(state, { kind: 'talksFailed', tribes: [loser.id, winner.id], ...between(state, loser, winner), dry: T('{loser} {why}: het vredesverdrag met {winner} is gebroken.', { loser: tag(loser), why, winner: tag(winner) }), head: [T('Vrede van korte duur: {loser} breekt het verdrag met {winner}', { loser: tag(loser), winner: tag(winner) })] });
+  declareWar(state, winner, loser, true, T('na een gebroken verdrag'));
   // a dent in everybody's trust: friction with all its neighbours
   for (const other of Object.values(state.tribes ?? {})) if (other.id !== loser.id && other.leader !== undefined) addFriction(state, other.leader, loser.leader, 2, 'treaty');
 }

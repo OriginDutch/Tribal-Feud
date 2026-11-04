@@ -26,6 +26,11 @@ describe('template text', () => {
     expect(textToTrain('Edel 1: Bijl 10')).toEqual({ error: 'Een edeltrein heeft minstens Edel 1 en Edel 2.' });
     expect(textToTrain('Edel 1: Bijl 10\nEdel 3: LC 5')).toEqual({ error: 'Regel 2: verwacht Edel 2.' });
   });
+  it('imports English names and keywords too (and old Dutch exports keep working)', () => {
+    expect(textToTemplate('# Start\nTimber camp 2\nHeadquarters 3\nRally point 1')).toEqual({ name: 'Start', steps: [['wood', 2], ['main', 3], ['place', 1]] });
+    expect(textToTroops('Axeman 8000\nLight cavalry 2000\nrams 250')).toEqual({ name: 'Geïmporteerd troepensjabloon', troops: { axe: 8000, light: 2000, ram: 250 } });
+    expect(textToTrain('# Clear\nCatapult target: Smithy\nFirst wave without noble\nNoble 1: Axeman 6000\nNoble 2: Axeman 100')).toEqual({ name: 'Clear', first: { axe: 6000 }, escorts: [{ axe: 100 }], catapultTarget: 'smith', clearFirst: true });
+  });
   it('noble trains with a pure clear (first wave without noble) round-trip', () => {
     const text = trainToText('Pure', { axe: 6000 }, [{ axe: 100 }, { axe: 100 }], undefined, true);
     expect(text).toContain('Eerste wave zonder edel');

@@ -4,6 +4,7 @@
  * The player chooses when (state.alertMode); a lost village pauses unless alerts are off.
  */
 import { createVillage } from './village';
+import { tr } from '../shared/i18n';
 import { restartSpot } from './map';
 import { forgetNeighbourhoods } from './bots';
 import { HUMAN_ID, addLog, invalidateOwners, nextId, villagesOf, type WorldState } from './state';
@@ -53,5 +54,5 @@ export function onHumanVillageLost(state: WorldState, text: string): void {
   state.current = v.id;
   invalidateOwners(state);
   forgetNeighbourhoods(state);
-  addLog(state, { time: state.time, text: `Je hebt geen dorpen meer. Je begint opnieuw op ${x}|${y}, met een paar barbarendorpen in de buurt.` });
+  addLog(state, { time: state.time, text: tr('Je hebt geen dorpen meer. Je begint opnieuw op {x}|{y}, met een paar barbarendorpen in de buurt.', { x: String(x), y: String(y) }) });
 }

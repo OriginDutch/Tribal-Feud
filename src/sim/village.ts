@@ -8,6 +8,7 @@ import type { VillageManager } from './manager';
  * moves the others and schedules new events: the old events then find nothing to do.
  */
 import { noblesAllowed, payPackages } from './nobles';
+import { T, tr, txt, type Txt } from '../shared/i18n';
 import { BONUS_FACTORS, type BarbType, type BonusKind } from '../shared/barbarianTypes';
 import type { WorldConfig } from '../shared/config';
 import {
@@ -251,7 +252,7 @@ export function missingRequirements(
 ): string[] {
   const missing: string[] = [];
   for (const [b, level] of Object.entries(requires) as [BuildingId, number][]) {
-    if (v.buildings[b] < level) missing.push(`${config.buildings[b].name} ${level}`);
+    if (v.buildings[b] < level) missing.push(`${tr(config.buildings[b].name)} ${level}`);
   }
   return missing;
 }
@@ -261,13 +262,25 @@ export function missingRequirements(
  * (demolished, or hit by catapults), everything that depends on it stops until it is restored.
  */
 export function isOperational(config: WorldConfig, v: Village, b: BuildingId): boolean {
-  return v.buildings[b] > 0 && missingRequirements(config, v, config.buildings[b].requires).length === 0;
+  if (v.buildings[b] <= 0) return false;
+  // hot path (bots, manager): no text
+  for (const [r, level] of Object.entries(config.buildings[b].requires) as [BuildingId, number][]) if (v.buildings[r] < level) return false;
+  return true;
 }
 
 // --- building ---------------------------------------------------------------
 
-/** Why the next level of `b` can't be ordered right now, or null if it can. */
-export function buildBlocker(state: WorldState, v: Village, b: BuildingId): string | null {
+/** A building or unit name inside a sentence: lower case in Dutch (as before), the English name as it is. */
+export function nameInText(nl: string): string {
+  const s = tr(nl);
+  return s === nl ? nl.toLowerCase() : s;
+}
+
+/**
+ * Why the next level of `b` can't be ordered right now, or null if it can. Plain Dutch keys (the bots
+ * compare some of them, e.g. 'Opslagplaats te klein'), so show it with txt().
+ */
+export function buildBlocker(state: WorldState, v: Village, b: BuildingId): Txt | null {
   const { config } = state;
   const def = config.buildings[b];
   if (!def || (CHURCH_BUILDINGS.includes(b) && !config.churches)) return 'Niet actief op deze wereld';
@@ -278,7 +291,7 @@ export function buildBlocker(state: WorldState, v: Village, b: BuildingId): stri
   if (b === 'church_f' && (v.buildings.church > 0 || v.buildQueue.some((j) => j.building === 'church'))) return 'Hier staat al een kerk';
   if (v.buildQueue.length >= config.village.buildQueueSlots) return 'Bouwqueue is vol';
   const missing = missingRequirements(config, v, def.requires);
-  if (missing.length > 0) return `Vereist: ${missing.join(', ')}`;
+  if (missing.length > 0) return T('Vereist: {list}', { list: missing.join(', ') });
   const cost = buildingCost(def, target);
   const cap = storageCapacity(v.buildings.storage);
   if (cost.some((c) => c > cap)) return 'Opslagplaats te klein';
@@ -294,21 +307,21 @@ export function demolishBlocker(state: WorldState, v: Village, b: BuildingId): s
   const { config } = state;
   const def = config.buildings[b];
   const target = plannedLevel(v, b) - 1;
-  if (v.buildings.main < DEMOLISH_HQ) return `Hoofdgebouw ${DEMOLISH_HQ} nodig`;
-  if (target < def.minLevel) return 'Kan niet lager';
-  if (v.buildQueue.length >= config.village.buildQueueSlots) return 'Bouwqueue is vol';
-  if (b === 'farm' && popUsed(config, v) > farmCapacityIn(config, target)) return 'Boerderij is te vol';
+  if (v.buildings.main < DEMOLISH_HQ) return tr('Hoofdgebouw {level} nodig', { level: DEMOLISH_HQ });
+  if (target < def.minLevel) return tr('Kan niet lager');
+  if (v.buildQueue.length >= config.village.buildQueueSlots) return tr('Bouwqueue is vol');
+  if (b === 'farm' && popUsed(config, v) > farmCapacityIn(config, target)) return tr('Boerderij is te vol');
   if (target === 0 && (RECRUIT_BUILDINGS as readonly string[]).includes(b) && v.recruitQueues[b as RecruitBuilding].length > 0) {
-    return 'Rekruteren loopt nog';
+    return tr('Rekruteren loopt nog');
   }
-  if (target === 0 && b === 'smith' && v.research) return 'Onderzoek loopt nog';
+  if (target === 0 && b === 'smith' && v.research) return tr('Onderzoek loopt nog');
   return null;
 }
 
 /** Queues tearing down one level of `b`. Costs nothing and gives nothing back; frees farm space when done. */
 export function queueDemolish(state: WorldState, villageId: number, b: BuildingId): string | null {
   const v = state.villages[villageId];
-  if (!v) return 'Dorp bestaat niet.';
+  if (!v) return tr('Dorp bestaat niet.');
   const blocker = demolishBlocker(state, v, b);
   if (blocker) return blocker;
   const { config } = state;
@@ -325,10 +338,10 @@ export const VILLAGE_NAME_MAX = 32;
 
 export function renameVillage(state: WorldState, villageId: number, name: string): string | null {
   const v = state.villages[villageId];
-  if (!v) return 'Dorp bestaat niet.';
+  if (!v) return tr('Dorp bestaat niet.');
   const clean = name.replace(/\s+/g, ' ').trim();
-  if (clean.length === 0) return 'Naam mag niet leeg zijn.';
-  if (clean.length > VILLAGE_NAME_MAX) return `Naam mag maximaal ${VILLAGE_NAME_MAX} tekens zijn.`;
+  if (clean.length === 0) return tr('Naam mag niet leeg zijn.');
+  if (clean.length > VILLAGE_NAME_MAX) return tr('Naam mag maximaal {n} tekens zijn.', { n: VILLAGE_NAME_MAX });
   v.name = clean;
   return null;
 }
@@ -340,10 +353,10 @@ function buildQueueFreeAt(state: WorldState, v: Village): number {
 
 export function queueBuild(state: WorldState, villageId: number, b: BuildingId): string | null {
   const v = state.villages[villageId];
-  if (!v) return 'Dorp bestaat niet.';
+  if (!v) return tr('Dorp bestaat niet.');
   const { config } = state;
   const blocker = buildBlocker(state, v, b);
-  if (blocker) return blocker;
+  if (blocker) return txt(blocker);
 
   settle(config, v, state.time);
   const def = config.buildings[b];
@@ -390,9 +403,9 @@ function retimeBuildQueue(state: WorldState, v: Village, from: number): void {
  */
 export function cancelBuild(state: WorldState, villageId: number, jobId: number): string | null {
   const v = state.villages[villageId];
-  if (!v) return 'Dorp bestaat niet.';
+  if (!v) return tr('Dorp bestaat niet.');
   const clicked = v.buildQueue.find((j) => j.id === jobId);
-  if (!clicked) return 'Bouwopdracht bestaat niet.';
+  if (!clicked) return tr('Bouwopdracht bestaat niet.');
   let index = -1;
   for (let i = v.buildQueue.length - 1; i >= 0; i--) {
     if (v.buildQueue[i]?.building === clicked.building) {
@@ -401,7 +414,7 @@ export function cancelBuild(state: WorldState, villageId: number, jobId: number)
     }
   }
   const cancelled = v.buildQueue[index];
-  if (!cancelled) return 'Bouwopdracht bestaat niet.';
+  if (!cancelled) return tr('Bouwopdracht bestaat niet.');
   settle(state.config, v, state.time);
   refund(v, cancelled.cost, 1, state.config.village.cancelRefund);
   v.buildQueue.splice(index, 1);
@@ -422,11 +435,11 @@ export function onBuildDone(state: WorldState, villageId: number, jobId: number)
     retimeRecruitQueue(state, v, job.building as RecruitBuilding);
   }
   if (job.demolish) {
-    addLog(state, { time: state.time, text: `${v.name}: ${state.config.buildings[job.building].name} afgebroken tot level ${job.level}.` });
+    addLog(state, { time: state.time, text: tr('{village}: {building} afgebroken tot level {level}.', { village: v.name, building: state.config.buildings[job.building].name, level: job.level }) });
     return;
   }
   buildingReward(state, v, job.building, job.level, job.cost);
-  addLog(state, { time: state.time, text: `${v.name}: ${state.config.buildings[job.building].name} level ${job.level} klaar.` });
+  addLog(state, { time: state.time, text: tr('{village}: {building} level {level} klaar.', { village: v.name, building: state.config.buildings[job.building].name, level: job.level }) });
 }
 
 // --- smithy -----------------------------------------------------------------
@@ -469,28 +482,28 @@ export function smithForTech(config: WorldConfig, level: number): number {
 export function researchBlocker(state: WorldState, v: Village, u: UnitId): string | null {
   const { config } = state;
   const research = config.units[u].research;
-  if (!isUnitEnabled(config, u)) return 'Niet actief op deze wereld';
+  if (!isUnitEnabled(config, u)) return tr('Niet actief op deze wereld');
   const level = techLevel(config, v, u);
   const next = level + 1;
-  if (level >= maxTech(config) || (level === 0 && research === null)) return level >= maxTech(config) && maxTech(config) > 1 ? 'Maximaal level' : 'Al ontwikkeld';
-  if (v.research) return 'Smederij is al bezig';
-  if (v.buildings.smith === 0) return 'Bouw eerst een smederij';
-  if (!isOperational(config, v, 'smith')) return 'Smederij werkt niet';
+  if (level >= maxTech(config) || (level === 0 && research === null)) return level >= maxTech(config) && maxTech(config) > 1 ? tr('Maximaal level') : tr('Al ontwikkeld');
+  if (v.research) return tr('Smederij is al bezig');
+  if (v.buildings.smith === 0) return tr('Bouw eerst een smederij');
+  if (!isOperational(config, v, 'smith')) return tr('Smederij werkt niet');
   if (next === 1 && research) {
     const missing = missingRequirements(config, v, research.requires);
-    if (missing.length > 0) return `Vereist: ${missing.join(', ')}`;
+    if (missing.length > 0) return tr('Vereist: {list}', { list: missing.join(', ') });
   }
-  if (v.buildings.smith < smithForTech(config, next)) return `Vereist: Smederij ${smithForTech(config, next)}`;
+  if (v.buildings.smith < smithForTech(config, next)) return tr('Vereist: {list}', { list: `${tr('Smederij')} ${smithForTech(config, next)}` });
   const cost = researchCost(config, u, next);
   const cap = storageCapacity(v.buildings.storage);
-  if (cost.some((c) => c > cap)) return 'Opslagplaats te klein';
-  if (!canAfford(currentResources(config, v, state.time), cost)) return 'Te weinig grondstoffen';
+  if (cost.some((c) => c > cap)) return tr('Opslagplaats te klein');
+  if (!canAfford(currentResources(config, v, state.time), cost)) return tr('Te weinig grondstoffen');
   return null;
 }
 
 export function startResearch(state: WorldState, villageId: number, u: UnitId): string | null {
   const v = state.villages[villageId];
-  if (!v) return 'Dorp bestaat niet.';
+  if (!v) return tr('Dorp bestaat niet.');
   const blocker = researchBlocker(state, v, u);
   if (blocker) return blocker;
   const level = techLevel(state.config, v, u) + 1;
@@ -505,7 +518,7 @@ export function startResearch(state: WorldState, villageId: number, u: UnitId): 
 
 export function cancelResearch(state: WorldState, villageId: number): string | null {
   const v = state.villages[villageId];
-  if (!v?.research) return 'Er loopt geen ontwikkeling.';
+  if (!v?.research) return tr('Er loopt geen ontwikkeling.');
   settle(state.config, v, state.time);
   refund(v, v.research.cost, 1, state.config.village.cancelRefund);
   v.research = null;
@@ -519,7 +532,9 @@ export function onResearchDone(state: WorldState, villageId: number, jobId: numb
   if ((job.level ?? 1) > 1) (v.tech ??= {})[job.unit] = job.level;
   else if (!v.researched.includes(job.unit)) v.researched.push(job.unit);
   v.research = null;
-  addLog(state, { time: state.time, text: `${v.name}: ${state.config.units[job.unit].name} ${(job.level ?? 1) > 1 ? `level ${job.level}` : 'ontwikkeld'}.` });
+  addLog(state, { time: state.time, text: (job.level ?? 1) > 1
+    ? tr('{village}: {unit} level {level}.', { village: v.name, unit: state.config.units[job.unit].name, level: job.level })
+    : tr('{village}: {unit} ontwikkeld.', { village: v.name, unit: state.config.units[job.unit].name }) });
 }
 
 // --- recruitment ------------------------------------------------------------
@@ -553,7 +568,7 @@ export function settleRecruits(state: WorldState, v: Village, before = false): v
       queue.shift();
       if (v.owner === HUMAN_ID) {
         const name = state.config.units[job.unit].name;
-        addLog(state, { time: state.time, text: `${v.name}: ${job.total}× ${name} klaar.` });
+        addLog(state, { time: state.time, text: tr('{village}: {n}× {unit} klaar.', { village: v.name, n: job.total, unit: name }) });
       }
     }
   }
@@ -607,26 +622,27 @@ export function recruitLocked(state: WorldState, v: Village, u: UnitId): boolean
 export function recruitBlocker(state: WorldState, v: Village, u: UnitId): string | null {
   const { config } = state;
   const def = config.units[u];
-  if (!isUnitEnabled(config, u)) return 'Niet actief op deze wereld';
+  if (!isUnitEnabled(config, u)) return tr('Niet actief op deze wereld');
   if (!isOperational(config, v, def.building)) {
-    return v.buildings[def.building] > 0 ? `${config.buildings[def.building].name} werkt niet` : `Bouw eerst een ${config.buildings[def.building].name.toLowerCase()}`;
+    const building = config.buildings[def.building].name;
+    return v.buildings[def.building] > 0 ? tr('{building} werkt niet', { building }) : tr('Bouw eerst een {building}', { building: nameInText(building) });
   }
-  if (!v.researched.includes(u)) return 'Nog niet ontwikkeld in de smederij';
-  if (u === 'knight' && paladinsOwned(state, v.owner) >= 1) return 'Je hebt al een paladijn';
+  if (!v.researched.includes(u)) return tr('Nog niet ontwikkeld in de smederij');
+  if (u === 'knight' && paladinsOwned(state, v.owner) >= 1) return tr('Je hebt al een paladijn');
   if (u === 'snob' && noblesAllowed(state, v) === 0) {
-    return state.config.nobleCost === 'coins' ? 'Meer munten nodig' : 'Meer pakketten nodig';
+    return state.config.nobleCost === 'coins' ? tr('Meer munten nodig') : tr('Meer pakketten nodig');
   }
   return null;
 }
 
 export function recruit(state: WorldState, villageId: number, u: UnitId, count: number): string | null {
   const v = state.villages[villageId];
-  if (!v) return 'Dorp bestaat niet.';
-  if (!Number.isInteger(count) || count < 1) return 'Ongeldig aantal.';
+  if (!v) return tr('Dorp bestaat niet.');
+  if (!Number.isInteger(count) || count < 1) return tr('Ongeldig aantal.');
   const blocker = recruitBlocker(state, v, u);
   if (blocker) return blocker;
   const max = maxRecruitable(state, v, u);
-  if (count > max) return max === 0 ? 'Te weinig grondstoffen of boerderijruimte' : `Maximaal ${max} mogelijk`;
+  if (count > max) return max === 0 ? tr('Te weinig grondstoffen of boerderijruimte') : tr('Maximaal {n} mogelijk', { n: max });
 
   const { config } = state;
   const def = config.units[u];
@@ -673,14 +689,14 @@ function retimeRecruitQueue(state: WorldState, v: Village, b: RecruitBuilding): 
 
 export function cancelRecruit(state: WorldState, villageId: number, jobId: number): string | null {
   const v = state.villages[villageId];
-  if (!v) return 'Dorp bestaat niet.';
+  if (!v) return tr('Dorp bestaat niet.');
   for (const b of RECRUIT_BUILDINGS) {
     const queue = v.recruitQueues[b];
     const index = queue.findIndex((j) => j.id === jobId);
     const job = queue[index];
     if (!job) continue;
     settleRecruits(state, v);
-    if (!queue.includes(job)) return 'Deze opdracht is al klaar.';
+    if (!queue.includes(job)) return tr('Deze opdracht is al klaar.');
     settle(state.config, v, state.time);
     refund(v, job.costPer, job.total - job.done, state.config.village.cancelRefund);
     queue.splice(index, 1);
@@ -694,29 +710,29 @@ export function cancelRecruit(state: WorldState, villageId: number, jobId: numbe
     }
     return null;
   }
-  return 'Rekruteeropdracht bestaat niet.';
+  return tr('Rekruteeropdracht bestaat niet.');
 }
 
 /** Dismisses troops at home for good: no refund. Only your own villages. */
 export function dismissUnits(state: WorldState, villageId: number, units: UnitCounts): string | null {
   const v = state.villages[villageId];
-  if (!v || v.owner !== HUMAN_ID) return 'Dat is niet jouw dorp.';
+  if (!v || v.owner !== HUMAN_ID) return tr('Dat is niet jouw dorp.');
   const held = reservedUnits(state, v.id);
   let any = false;
   for (const u of UNIT_IDS) {
     const n = Math.floor(units[u] ?? 0);
-    if (n < 0) return 'Ongeldig aantal.';
-    if (n > v.units[u]) return `Er staan niet zoveel ${state.config.units[u].name.toLowerCase()} thuis.`;
-    if (n > v.units[u] - (held[u] ?? 0)) return `${held[u]} ${state.config.units[u].name.toLowerCase()} staan klaar voor een ingeplande aanval; annuleer die eerst.`;
+    if (n < 0) return tr('Ongeldig aantal.');
+    if (n > v.units[u]) return tr('Er staan niet zoveel {unit} thuis.', { unit: nameInText(state.config.units[u].name) });
+    if (n > v.units[u] - (held[u] ?? 0)) return tr('{n} {unit} staan klaar voor een ingeplande aanval; annuleer die eerst.', { n: held[u], unit: nameInText(state.config.units[u].name) });
     if (n > 0) any = true;
   }
-  if (!any) return 'Kies minstens één eenheid.';
+  if (!any) return tr('Kies minstens één eenheid.');
   const gone: string[] = [];
   for (const u of UNIT_IDS) {
     const n = Math.floor(units[u] ?? 0);
-    if (n > 0) { v.units[u] -= n; gone.push(`${n}× ${state.config.units[u].name}`); }
+    if (n > 0) { v.units[u] -= n; gone.push(`${n}× ${tr(state.config.units[u].name)}`); }
   }
-  addLog(state, { time: state.time, text: `${v.name}: ${gone.join(', ')} weggestuurd.` });
+  addLog(state, { time: state.time, text: tr('{village}: {units} weggestuurd.', { village: v.name, units: gone.join(', ') }) });
   return null;
 }
 

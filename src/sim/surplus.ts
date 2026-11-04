@@ -6,6 +6,7 @@
  * village's troop target wants a nobleman that coins or packets don't allow yet (autoMint).
  */
 import type { Res } from '../shared/gameData';
+import { tr } from '../shared/i18n';
 import { nextBuildCost } from './bots';
 import { storageCapacity } from './formulas';
 import { findTemplate } from './manager';
@@ -122,7 +123,7 @@ export function sendSurplus(state: WorldState, settings?: SurplusSettings, owner
 }
 
 export function setSurplus(state: WorldState, s: SurplusSettings): string | null {
-  if (!(s.keep >= 0 && s.keep <= 1)) return 'Ongeldig percentage.';
+  if (!(s.keep >= 0 && s.keep <= 1)) return tr('Ongeldig percentage.');
   state.surplus = { keep: Math.round(s.keep * 100) / 100, auto: !!s.auto };
   return null;
 }
@@ -170,7 +171,7 @@ export interface MintSettings {
 export const DEFAULT_MINT: MintSettings = { keep: 0.25, auto: false };
 
 export function setMint(state: WorldState, m: MintSettings): string | null {
-  if (!(m.keep >= 0 && m.keep <= 1)) return 'Ongeldig percentage.';
+  if (!(m.keep >= 0 && m.keep <= 1)) return tr('Ongeldig percentage.');
   state.mint = { keep: Math.round(m.keep * 100) / 100, auto: !!m.auto };
   return null;
 }
@@ -188,7 +189,8 @@ export function noblesWanted(state: WorldState, owner = HUMAN_ID): Village[] {
     for (const job of v.recruitQueues.snob) owned += job.total - job.done;
     if (owned >= want || noblesAllowed(state, v) > 0) continue;
     // only coins/packets in the way (not a missing academy or the like)
-    if (!/munten|pakketten/i.test(recruitBlocker(state, v, 'snob') ?? '')) continue;
+    const blocker = recruitBlocker(state, v, 'snob');
+    if (blocker !== tr('Meer munten nodig') && blocker !== tr('Meer pakketten nodig')) continue;
     out.push(v);
   }
   return out;

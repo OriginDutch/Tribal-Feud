@@ -1,3 +1,4 @@
+import { txt } from '../../shared/i18n';
 import { Cost } from '../components/Cost';
 import { num } from '../format';
 import { send, snapshot } from '../store';
@@ -33,7 +34,7 @@ export function QuestsScreen() {
           <ul class="rewards">
             {[...q.rewards].reverse().map((r) => (
               <li key={r.id}>
-                <span>{r.text}</span>
+                <span>{txt(r.text)}</span>
                 {r.res.some((x) => x > 0) && <Cost cost={r.res} />}
                 {r.units && <span class="muted">{unitsText(r.units)}</span>}
                 <button class="small" onClick={() => send({ type: 'claimReward', id: r.id })}>

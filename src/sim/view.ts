@@ -1,4 +1,4 @@
-import { tr } from '../shared/i18n';
+import { tr, txt, type Txt } from '../shared/i18n';
 /**
  * Read-only views for the UI. Computed in the worker, sent in snapshots.
  * The UI never computes game rules itself: it only shows what is in here.
@@ -152,6 +152,9 @@ export interface SupportView {
 }
 
 /** The effect of a building per level, for its info screen; null when it has no single number. */
+/** A build blocker (a Dutch key or template) in the reader's language. */
+const blockerText = (x: Txt | null): string | null => (x === null ? null : txt(x));
+
 function buildingEffect(state: WorldState, v: Village, b: BuildingId): BuildingEffect | null {
   const { config } = state;
   const max = config.buildings[b].maxLevel;
@@ -162,24 +165,24 @@ function buildingEffect(state: WorldState, v: Village, b: BuildingId): BuildingE
     case 'stone':
     case 'iron': {
       const i = b === 'wood' ? 0 : b === 'stone' ? 1 : 2;
-      return { label: 'Productie per uur', unit: 'perHour', byLevel: levels((l) => productionPerHour(config, l) * bonus[i]) };
+      return { label: tr('Productie per uur'), unit: 'perHour', byLevel: levels((l) => productionPerHour(config, l) * bonus[i]) };
     }
     case 'storage':
-      return { label: 'Opslag per grondstof', unit: 'amount', byLevel: levels((l) => storageCapacity(l)) };
+      return { label: tr('Opslag per grondstof'), unit: 'amount', byLevel: levels((l) => storageCapacity(l)) };
     case 'farm':
-      return { label: 'Inwoners', unit: 'amount', byLevel: levels((l) => farmCapacityIn(config, l)) };
+      return { label: tr('Inwoners'), unit: 'amount', byLevel: levels((l) => farmCapacityIn(config, l)) };
     case 'hide':
-      return { label: 'Verborgen per grondstof', unit: 'amount', byLevel: levels((l) => hidingCapacity(l)) };
+      return { label: tr('Verborgen per grondstof'), unit: 'amount', byLevel: levels((l) => hidingCapacity(l)) };
     case 'wall':
-      return { label: 'Verdedigingsbonus', unit: 'percent', byLevel: levels((l) => (config.combat.wallFactor ** l - 1) * 100) };
+      return { label: tr('Verdedigingsbonus'), unit: 'percent', byLevel: levels((l) => (config.combat.wallFactor ** l - 1) * 100) };
     case 'main':
-      return { label: 'Sneller bouwen', unit: 'percent', byLevel: levels((l) => (1 - 1.05 ** -l) * 100) };
+      return { label: tr('Sneller bouwen'), unit: 'percent', byLevel: levels((l) => (1 - 1.05 ** -l) * 100) };
     case 'barracks':
     case 'stable':
     case 'garage':
-      return { label: 'Sneller rekruteren', unit: 'percent', byLevel: levels((l) => (l <= 0 ? 0 : (1 - 1.06 ** -l) * 100)) };
+      return { label: tr('Sneller rekruteren'), unit: 'percent', byLevel: levels((l) => (l <= 0 ? 0 : (1 - 1.06 ** -l) * 100)) };
     case 'market':
-      return { label: 'Handelaren', unit: 'amount', byLevel: levels((l) => MERCHANTS[l] ?? 0) };
+      return { label: tr('Handelaren'), unit: 'amount', byLevel: levels((l) => MERCHANTS[l] ?? 0) };
     default:
       return null;
   }
@@ -209,7 +212,7 @@ export function villageView(state: WorldState, v: Village): VillageView {
       maxLevel: def.maxLevel,
       operational: missingRequirements(config, v, def.requires).length === 0,
       next,
-      blocker: buildBlocker(state, v, b),
+      blocker: blockerText(buildBlocker(state, v, b)),
       effect: buildingEffect(state, v, b),
       demolish:
         planned > def.minLevel

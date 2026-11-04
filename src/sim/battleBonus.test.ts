@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../shared/config';
 import { DAY, HOUR } from '../shared/time';
+import { txt } from '../shared/i18n';
 import { battleBonus, isNight } from './battleBonus';
 import { moraleFor } from './movement';
 import { BARBARIAN, HUMAN_ID, createWorld, invalidateOwners, playerVillage } from './state';
@@ -14,7 +15,7 @@ describe('battle modifiers', () => {
     expect(isNight(s.time)).toBe(true);
     const night = battleBonus(s, bot, v, { axe: 10 });
     expect(night.defenderFactor).toBe(2);
-    expect(night.notes.defender).toContain('Nachtbonus ×2');
+    expect(night.notes.defender.map(txt)).toContain('Nachtbonus ×2');
     s.time = 12 * HOUR;
     expect(battleBonus(s, bot, v, { axe: 10 }).defenderFactor).toBeUndefined();
     const barb = Object.values(s.villages).find((x) => x.owner === BARBARIAN)!;
@@ -40,6 +41,6 @@ describe('battle modifiers', () => {
     far.owner = HUMAN_ID;
     invalidateOwners(s);
     const target = Object.values(s.villages).find((x) => x.owner === BARBARIAN)!;
-    expect(battleBonus(s, far, target, { axe: 10 }).notes.attacker[0]).toMatch(/Geen geloof/);
+    expect(txt(battleBonus(s, far, target, { axe: 10 }).notes.attacker[0])).toMatch(/Geen geloof/);
   });
 });

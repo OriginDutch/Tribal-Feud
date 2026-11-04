@@ -2,6 +2,7 @@
  * Troops on the road: attacks and returns. Each movement is one event at its arrival time.
  */
 import { addNews } from './news';
+import { T, tr, type Txt } from '../shared/i18n';
 import { cededTo, onTreatyAttack } from './peace';
 import { creditAllyAttack, creditAllySupport } from './alliances';
 import { nameConquered } from './botNames';
@@ -22,7 +23,7 @@ import { reportSound } from '../shared/reportOutcome';
 import { onHumanVillageLost, onIncomingAttack } from './alerts';
 import { DAY, formatGameTime } from '../shared/time';
 import { arriveTrade, arriveTradeReturn } from './market';
-import { currentResources, isOperational, settle, type Village } from './village';
+import { currentResources, isOperational, nameInText, settle, type Village } from './village';
 import { mateEvent, onVillageLost } from './loyalty';
 import { leaderOrderLanded, leaderOrderScouted, leaderOrderSupport } from './tribeOrders';
 import { statAttack, statConquest } from './worldStats';
@@ -67,10 +68,10 @@ export const CANCEL_WINDOW_MS = 10 * 60_000;
 
 /** Whether `m` can still be called back now. */
 export function cancelBlocker(state: WorldState, m: Movement): string | null {
-  if (m.kind !== 'attack' && m.kind !== 'support' && m.kind !== 'trade') return 'Dit kun je niet annuleren.';
-  if (m.offer) return 'Handelaren van een aangenomen aanbod kun je niet terughalen.';
-  if (state.time - m.sent > CANCEL_WINDOW_MS) return 'Annuleren kan alleen in de eerste 10 minuten.';
-  if (m.arrives <= state.time) return 'Al aangekomen.';
+  if (m.kind !== 'attack' && m.kind !== 'support' && m.kind !== 'trade') return tr('Dit kun je niet annuleren.');
+  if (m.offer) return tr('Handelaren van een aangenomen aanbod kun je niet terughalen.');
+  if (state.time - m.sent > CANCEL_WINDOW_MS) return tr('Annuleren kan alleen in de eerste 10 minuten.');
+  if (m.arrives <= state.time) return tr('Al aangekomen.');
   return null;
 }
 
@@ -80,8 +81,8 @@ export function cancelBlocker(state: WorldState, m: Movement): string | null {
  */
 export function cancelMovement(state: WorldState, movementId: number, by: number): string | null {
   const m = state.movements[movementId];
-  if (!m) return 'Dit bevel bestaat niet meer.';
-  if (m.owner !== by) return 'Dat is niet jouw bevel.';
+  if (!m) return tr('Dit bevel bestaat niet meer.');
+  if (m.owner !== by) return tr('Dat is niet jouw bevel.');
   const blocker = cancelBlocker(state, m);
   if (blocker) return blocker;
   const group = m.train !== undefined ? Object.values(state.movements).filter((x) => x.train === m.train && x.owner === by) : [m];
@@ -149,7 +150,7 @@ export interface Report {
   /** Your troops supporting the defender, and what they lost. */
   supportUnits?: { present: UnitCounts; lost: UnitCounts };
   /** What made either side stronger or weaker (faith, flags, items, research, night). */
-  modifiers?: { attacker: string[]; defender: string[] };
+  modifiers?: { attacker: Txt[]; defender: Txt[] };
 }
 
 export const MAX_REPORTS = 300;
@@ -239,15 +240,15 @@ function cleanCounts(units: UnitCounts): UnitCounts {
  * Whether a village has `units` home and free: troops held back for one of your planned attacks
  * stay out of reach of everything else. Null when it does, else why not.
  */
-export function shortOf(state: WorldState, from: Village, units: UnitCounts, what = 'in het dorp'): string | null {
+export function shortOf(state: WorldState, from: Village, units: UnitCounts): string | null {
   const held = from.owner === HUMAN_ID ? reservedUnits(state, from.id) : {};
   for (const u of UNIT_IDS) {
     const want = units[u] ?? 0;
     if (want <= 0) continue;
     const r = held[u] ?? 0;
     if (want > from.units[u] - r) {
-      const name = state.config.units[u].name.toLowerCase();
-      return r > 0 && want <= from.units[u] ? `Niet genoeg ${name} vrij: ${r} staan klaar voor een ingeplande aanval.` : `Niet genoeg ${name} ${what}.`;
+      const unit = nameInText(state.config.units[u].name);
+      return r > 0 && want <= from.units[u] ? tr('Niet genoeg {unit} vrij: {n} staan klaar voor een ingeplande aanval.', { unit, n: r }) : tr('Niet genoeg {unit} in het dorp.', { unit });
     }
   }
   return null;
@@ -264,20 +265,20 @@ export function freeUnits(state: WorldState, v: Village): Record<UnitId, number>
 /** Why this attack can't go (everything but whether the troops are home), or null. */
 export function attackBlocker(state: WorldState, from: Village, to: Village, units: UnitCounts, catapultTarget?: BuildingId, breach = false): string | null {
   const { config } = state;
-  if (from.id === to.id) return 'Je kunt je eigen dorp niet aanvallen.';
-  if (to.owner === from.owner) return 'Je kunt je eigen dorpen niet aanvallen.';
-  if (!isOperational(config, from, 'place')) return 'Je hebt een werkende verzamelplaats nodig.';
-  if (Object.keys(units).length === 0) return 'Kies minstens één eenheid.';
+  if (from.id === to.id) return tr('Je kunt je eigen dorp niet aanvallen.');
+  if (to.owner === from.owner) return tr('Je kunt je eigen dorpen niet aanvallen.');
+  if (!isOperational(config, from, 'place')) return tr('Je hebt een werkende verzamelplaats nodig.');
+  if (Object.keys(units).length === 0) return tr('Kies minstens één eenheid.');
   if ((units.snob ?? 0) > 0 && distance(from, to) > config.conquest.maxDistance) {
-    return `Een edelman loopt maximaal ${config.conquest.maxDistance} velden.`;
+    return tr('Een edelman loopt maximaal {n} velden.', { n: config.conquest.maxDistance });
   }
   const protectedMsg = protectionBlocker(state, from.owner, to.owner);
   if (protectedMsg) return protectedMsg;
   const talks = to.owner >= 0 && state.talks?.length ? talksBetween(state, from.owner, to.owner) : undefined;
-  if (talks && !breach) return 'Er lopen vredesbesprekingen met die stam: aanvallen betekent vogelvrij.';
-  if (to.owner >= 0 && !talks && !mayAttack(state, from.owner, to.owner) && !cededTo(state, from.owner, to.id)) return 'Dat is een stamgenoot, bondgenoot of NAP-partner.';
-  if (catapultTarget && !BUILDING_IDS.includes(catapultTarget)) return 'Ongeldig doelwit voor katapulten.';
-  if (catapultTarget === 'hide') return 'De schuilplaats kan niet beschoten worden.';
+  if (talks && !breach) return tr('Er lopen vredesbesprekingen met die stam: aanvallen betekent vogelvrij.');
+  if (to.owner >= 0 && !talks && !mayAttack(state, from.owner, to.owner) && !cededTo(state, from.owner, to.id)) return tr('Dat is een stamgenoot, bondgenoot of NAP-partner.');
+  if (catapultTarget && !BUILDING_IDS.includes(catapultTarget)) return tr('Ongeldig doelwit voor katapulten.');
+  if (catapultTarget === 'hide') return tr('De schuilplaats kan niet beschoten worden.');
   return null;
 }
 
@@ -298,7 +299,7 @@ export function sendAttack(
   const { config } = state;
   const from = state.villages[fromId];
   const to = state.villages[toId];
-  if (!from || !to) return 'Dorp bestaat niet.';
+  if (!from || !to) return tr('Dorp bestaat niet.');
   const units = cleanCounts(requested);
   const blocked = attackBlocker(state, from, to, units, catapultTarget, breach);
   if (blocked) return blocked;
@@ -330,7 +331,7 @@ export function sendAttack(
   addMovement(state, movement);
   push(state.queue, movement.arrives, { kind: 'arrive', movementId: movement.id });
   if (to.owner === HUMAN_ID && from.owner !== HUMAN_ID) {
-    onIncomingAttack(state, from.id, `Inkomende aanval op ${to.name} (${to.x}|${to.y}) van ${ownerName(state, from.owner)}, aankomst ${formatGameTime(movement.arrives)}.`);
+    onIncomingAttack(state, from.id, tr('Inkomende aanval op {village} ({coords}) van {player}, aankomst {time}.', { village: to.name, coords: `${to.x}|${to.y}`, player: ownerName(state, from.owner), time: formatGameTime(movement.arrives) }));
   }
   if (talks) breachTalks(state, talks, from.owner);
   if (to.owner >= 0 && state.duties?.length) creditDuty(state, from.owner, to.owner, units);
@@ -359,12 +360,12 @@ export function sendNobleTrain(
 ): string | null {
   const from = state.villages[fromId];
   const to = state.villages[toId];
-  if (!from || !to) return 'Dorp bestaat niet.';
+  if (!from || !to) return tr('Dorp bestaat niet.');
   const waves = 1 + escorts.length;
-  if (waves < 2 || waves > 5) return 'Een edeltrein heeft 2 tot 5 aanvallen.';
+  if (waves < 2 || waves > 5) return tr('Een edeltrein heeft 2 tot 5 aanvallen.');
   const firstWave = cleanCounts(first);
   delete firstWave.snob;
-  if (clearFirst && Object.keys(firstWave).length === 0) return 'De eerste aanval (de clear) heeft troepen nodig.';
+  if (clearFirst && Object.keys(firstWave).length === 0) return tr('De eerste aanval (de clear) heeft troepen nodig.');
   const attacks: UnitCounts[] = [clearFirst ? firstWave : { ...firstWave, snob: 1 }, ...escorts.map((e) => ({ ...cleanCounts(e), snob: 1 }))];
   const total: UnitCounts = {};
   for (const a of attacks) for (const u of UNIT_IDS) if ((a[u] ?? 0) > 0) total[u] = (total[u] ?? 0) + (a[u] ?? 0);
@@ -372,7 +373,10 @@ export function sendNobleTrain(
   for (const u of UNIT_IDS) {
     if ((total[u] ?? 0) > free[u]) {
       const held = from.units[u] - free[u];
-      return `Niet genoeg ${state.config.units[u].name.toLowerCase()} voor deze trein (${total[u]} nodig, ${free[u]} vrij${held ? `, ${held} klaar voor een ingeplande aanval` : ''}).`;
+      const p = { unit: nameInText(state.config.units[u].name), need: total[u], free: free[u], held };
+      return held
+        ? tr('Niet genoeg {unit} voor deze trein ({need} nodig, {free} vrij, {held} klaar voor een ingeplande aanval).', p)
+        : tr('Niet genoeg {unit} voor deze trein ({need} nodig, {free} vrij).', p);
     }
   }
   // the first attack is checked like any attack (distance, protection, place); the rest follow
@@ -447,7 +451,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
     const out = state.players[m.owner]?.bot?.outgoing;
     const i = out ? out.indexOf(target.id) : -1;
     if (out && i >= 0) out.splice(i, 1);
-    if (m.owner === HUMAN_ID) addLog(state, { time: state.time, text: `Je aanval op ${target.name} (${target.x}|${target.y}) kwam aan in je eigen dorp: de troepen blijven daar.` });
+    if (m.owner === HUMAN_ID) addLog(state, { time: state.time, text: tr('Je aanval op {village} ({coords}) kwam aan in je eigen dorp: de troepen blijven daar.', { village: target.name, coords: `${target.x}|${target.y}` }) });
     return;
   }
   attackHook?.(state, m, target);
@@ -658,8 +662,8 @@ function arriveAttack(state: WorldState, m: Movement): void {
     };
     if (battle.attackerWon && fighters && target.owner === BARBARIAN) state.stats.plunders++;
     if (loot) state.stats.loot += loot[0] + loot[1] + loot[2];
-    const verdict = result === 'loss' ? 'verloren' : 'gewonnen';
-    addLog(state, { time: state.time, text: `Aanval op ${target.name} (${target.x}|${target.y}) ${verdict}.` });
+    const where = { village: target.name, coords: `${target.x}|${target.y}` };
+    addLog(state, { time: state.time, text: result === 'loss' ? tr('Aanval op {village} ({coords}) verloren.', where) : tr('Aanval op {village} ({coords}) gewonnen.', where) });
   }
 
   // the human player sees attacks on his villages and on villages his troops support
@@ -691,8 +695,8 @@ function arriveAttack(state: WorldState, m: Movement): void {
     addReport(state, report);
     if (oldOwner === HUMAN_ID) {
       const text = conquered
-        ? `${target.name} (${target.x}|${target.y}) is veroverd door ${ownerName(state, m.owner)}!`
-        : `${target.name} (${target.x}|${target.y}) is aangevallen door ${ownerName(state, m.owner)}.`;
+        ? tr('{village} ({coords}) is veroverd door {player}!', { village: target.name, coords: `${target.x}|${target.y}`, player: ownerName(state, m.owner) })
+        : tr('{village} ({coords}) is aangevallen door {player}.', { village: target.name, coords: `${target.x}|${target.y}`, player: ownerName(state, m.owner) });
       addLog(state, { time: state.time, text });
       if (conquered) onHumanVillageLost(state, text);
     }
@@ -701,7 +705,7 @@ function arriveAttack(state: WorldState, m: Movement): void {
   if (conquered && oldOwner !== HUMAN_ID && (oldOwner !== BARBARIAN || m.owner === HUMAN_ID)) {
     addLog(state, {
       time: state.time,
-      text: `${ownerName(state, m.owner)} heeft ${target.name} (${target.x}|${target.y}) veroverd.`,
+      text: tr('{player} heeft {village} ({coords}) veroverd.', { player: ownerName(state, m.owner), village: target.name, coords: `${target.x}|${target.y}` }),
     });
   }
 }
@@ -775,11 +779,13 @@ function conquestNews(state: WorldState, v: Village, old: number, by: number): v
   const base = { tribes, players: [old, by], x: v.x, y: v.y };
   const tag = (p: typeof loser) => (p.tribe !== undefined && state.tribes?.[p.tribe] ? ` [${state.tribes[p.tribe]!.tag}]` : '');
   if (villagesOf(state, old).length === 0) {
-    addNews(state, { ...base, kind: 'wiped', dry: `${loser.name}${tag(loser)} is van de kaart geveegd: ${winner.name}${tag(winner)} nam het laatste dorp (${v.x}|${v.y}).`,
-      head: [`Uitgeroeid! ${winner.name} veegt ${loser.name} van de kaart`, `Het laatste bolwerk van ${loser.name} valt in handen van ${winner.name}`, `${loser.name} is niet meer: ${winner.name} neemt ${v.x}|${v.y}`] });
+    const p = { loser: loser.name, loserTag: tag(loser), winner: winner.name, winnerTag: tag(winner), coords: `${v.x}|${v.y}` };
+    addNews(state, { ...base, kind: 'wiped', dry: T('{loser}{loserTag} is van de kaart geveegd: {winner}{winnerTag} nam het laatste dorp ({coords}).', p),
+      head: [T('Uitgeroeid! {winner} veegt {loser} van de kaart', p), T('Het laatste bolwerk van {loser} valt in handen van {winner}', p), T('{loser} is niet meer: {winner} neemt {coords}', p)] });
   } else if (state.newsTop?.players.includes(old)) {
-    addNews(state, { ...base, kind: 'conquest', dry: `Top-10 speler ${loser.name}${tag(loser)} verliest ${v.name} (${v.x}|${v.y}) aan ${winner.name}${tag(winner)}.`,
-      head: [`Grote vis gehaakt: ${winner.name} pakt een dorp van ${loser.name}`, `Ook de top is niet veilig: ${loser.name} verliest ${v.x}|${v.y}`, `${winner.name} zet de tanden in topspeler ${loser.name}`] });
+    const p = { loser: loser.name, loserTag: tag(loser), winner: winner.name, winnerTag: tag(winner), village: v.name, coords: `${v.x}|${v.y}` };
+    addNews(state, { ...base, kind: 'conquest', dry: T('Top-10 speler {loser}{loserTag} verliest {village} ({coords}) aan {winner}{winnerTag}.', p),
+      head: [T('Grote vis gehaakt: {winner} pakt een dorp van {loser}', p), T('Ook de top is niet veilig: {loser} verliest {coords}', p), T('{winner} zet de tanden in topspeler {loser}', p)] });
   }
 }
 
@@ -879,12 +885,12 @@ export function sendSupport(state: WorldState, fromId: number, toId: number, req
   const { config } = state;
   const from = state.villages[fromId];
   const to = state.villages[toId];
-  if (!from || !to) return 'Dorp bestaat niet.';
-  if (from.id === to.id) return 'Dat is hetzelfde dorp.';
-  if (to.owner === BARBARIAN) return 'Je kunt geen barbarendorp ondersteunen.';
-  if (!isOperational(config, from, 'place')) return 'Je hebt een werkende verzamelplaats nodig.';
+  if (!from || !to) return tr('Dorp bestaat niet.');
+  if (from.id === to.id) return tr('Dat is hetzelfde dorp.');
+  if (to.owner === BARBARIAN) return tr('Je kunt geen barbarendorp ondersteunen.');
+  if (!isOperational(config, from, 'place')) return tr('Je hebt een werkende verzamelplaats nodig.');
   const units = cleanCounts(requested);
-  if (Object.keys(units).length === 0) return 'Kies minstens één eenheid.';
+  if (Object.keys(units).length === 0) return tr('Kies minstens één eenheid.');
   const short = shortOf(state, from, units);
   if (short) return short;
   for (const u of UNIT_IDS) {
@@ -916,8 +922,8 @@ export function returnSupport(state: WorldState, by: number, hostId: number, ori
   const host = state.villages[hostId];
   const origin = state.villages[originId];
   const units = host?.support?.[originId];
-  if (!host || !origin || !units || Object.keys(units).length === 0) return 'Geen ondersteuning gevonden.';
-  if (by !== origin.owner && by !== host.owner) return 'Dat zijn niet jouw troepen.';
+  if (!host || !origin || !units || Object.keys(units).length === 0) return tr('Geen ondersteuning gevonden.');
+  if (by !== origin.owner && by !== host.owner) return tr('Dat zijn niet jouw troepen.');
   delete host.support?.[originId];
   const duration = travelTimeMs(state, units, distance(host, origin));
   const back: Movement = {
@@ -945,8 +951,8 @@ function arriveSupport(state: WorldState, m: Movement): void {
   creditAllySupport(state, m.owner, host.owner);
   if (m.owner === HUMAN_ID && host.owner === HUMAN_ID) return;
   if (m.owner === HUMAN_ID) {
-    addLog(state, { time: state.time, text: `Ondersteuning aangekomen in ${host.name} (${host.x}|${host.y}).` });
-    mateEvent(state, state.players[host.owner], 5, 2, `je stuurde support naar ${host.name}`);
+    addLog(state, { time: state.time, text: tr('Ondersteuning aangekomen in {village} ({coords}).', { village: host.name, coords: `${host.x}|${host.y}` }) });
+    mateEvent(state, state.players[host.owner], 5, 2, T('je stuurde support naar {village}', { village: host.name }));
     leaderOrderSupport(state, host.id);
   }
 }
@@ -961,7 +967,7 @@ export function protectionEndsAt(state: WorldState): number {
 export function protectionBlocker(state: WorldState, attacker: number, defender: number): string | null {
   if (attacker < 0 || defender < 0 || attacker === defender) return null;
   if (state.time >= protectionEndsAt(state)) return null;
-  return 'Beginnersbescherming: spelers kunnen elkaar nog niet aanvallen.';
+  return tr('Beginnersbescherming: spelers kunnen elkaar nog niet aanvallen.');
 }
 
 function arriveReturn(state: WorldState, m: Movement): void {

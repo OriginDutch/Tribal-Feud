@@ -2,6 +2,7 @@ import { onTalksRound } from './talks';
 import { onAutoFarm } from './farmAll';
 import { onDiplomacy } from './tribes';
 import { MINUTE, type Speed } from '../shared/time';
+import { tr } from '../shared/i18n';
 import { peek, pop, push } from './eventQueue';
 import { nextInt } from './rng';
 import { HUMAN_ID, addLog, villagesOf, type GameEvent, type LogEntry, type WorldState } from './state';
@@ -108,12 +109,12 @@ function handle(state: WorldState, event: GameEvent): LogEntry | null {
       onPlanned(state, event.id);
       return null;
     case 'test': {
-      const entry: LogEntry = { time: state.time, text: `Test-event: ${event.label}` };
+      const entry: LogEntry = { time: state.time, text: tr('Test-event: {label}', { label: event.label }) };
       if (event.autoPause) entry.autoPause = true;
       return entry;
     }
     case 'random':
-      return { time: state.time, text: `Willekeurig event: ${event.label}` };
+      return { time: state.time, text: tr('Willekeurig event: {label}', { label: event.label }) };
   }
 }
 

@@ -27,6 +27,7 @@ import { restartSpot } from './map';
 import { grudge, reactToIncoming } from './botReact';
 import { focusWeight, spares, tribeDuties } from './tribeOrders';
 import { helpShare, isHelping, mayAttack, relationBetween, targetWeight, threatsFor } from './tribes';
+import { tr } from '../shared/i18n';
 import { BARBARIAN, HUMAN_ID, addLog, invalidateOwners, nextId, removeMovement, villagesOf, type BotState, type BotTier, type Player, type WorldState } from './state';
 import {
   buildBlocker,
@@ -508,7 +509,7 @@ export function abandonAndRestart(state: WorldState, player: Player): Village {
   const where = old[0] ? ` (${old.map((v) => `${v.x}|${v.y}`).join(', ')})` : '';
   addLog(state, {
     time: state.time,
-    text: `${player.name} heeft het opgegeven${where}: barbarendorp. Begint opnieuw op ${x}|${y}.`,
+    text: tr('{name} heeft het opgegeven{where}: barbarendorp. Begint opnieuw op {coord}.', { name: player.name, where, coord: `${x}|${y}` }),
   });
   return fresh;
 }

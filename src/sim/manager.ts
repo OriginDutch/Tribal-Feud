@@ -6,6 +6,7 @@
 import { BUILD_PRESETS } from '../shared/botProfiles';
 import { BUILDING_IDS, UNIT_IDS, type BuildingId, type Res, type UnitCounts, type UnitId } from '../shared/gameData';
 import { MINUTE } from '../shared/time';
+import { tr } from '../shared/i18n';
 import { autoBuild } from './bots';
 import { push } from './eventQueue';
 import { recruitTimeMs } from './formulas';
@@ -77,7 +78,8 @@ export interface VillageManager {
 const CHECK_MINUTES = 5;
 
 export function allTemplates(state: WorldState): BuildTemplate[] {
-  return [...BUILD_PRESETS, ...(state.templates ?? [])];
+  // preset names are Dutch keys: shown in the reader's language (ids stay)
+  return [...BUILD_PRESETS.map((t) => ({ ...t, name: tr(t.name) })), ...(state.templates ?? [])];
 }
 
 export function findTemplate(state: WorldState, id: string | undefined): BuildTemplate | undefined {
@@ -229,14 +231,14 @@ function keepTroops(state: WorldState, v: Village, target: UnitCounts, share: nu
 /** Sets (or clears with null) the manager of one of the player's villages. */
 export function setManager(state: WorldState, villageId: number, m: VillageManager | null): string | null {
   const v = state.villages[villageId];
-  if (!v || v.owner !== HUMAN_ID) return 'Dat is niet jouw dorp.';
+  if (!v || v.owner !== HUMAN_ID) return tr('Dat is niet jouw dorp.');
   if (!m) {
     delete v.manager;
     scheduleManager(state);
     return null;
   }
-  if (m.template && !findTemplate(state, m.template)) return 'Sjabloon bestaat niet.';
-  if (m.troopTemplate && !state.troopTemplates?.some((t) => t.id === m.troopTemplate)) return 'Troepensjabloon bestaat niet.';
+  if (m.template && !findTemplate(state, m.template)) return tr('Sjabloon bestaat niet.');
+  if (m.troopTemplate && !state.troopTemplates?.some((t) => t.id === m.troopTemplate)) return tr('Troepensjabloon bestaat niet.');
   const troops: UnitCounts = {};
   for (const u of UNIT_IDS) {
     const n = Math.floor(m.troops?.[u] ?? 0);
@@ -256,17 +258,17 @@ export function setManager(state: WorldState, villageId: number, m: VillageManag
 
 /** Adds or replaces one of the player's own templates. */
 export function saveTemplate(state: WorldState, t: BuildTemplate): string | null {
-  if (t.id.startsWith('preset:')) return 'Voorbeeldsjablonen kun je niet aanpassen; maak een kopie.';
+  if (t.id.startsWith('preset:')) return tr('Voorbeeldsjablonen kun je niet aanpassen; maak een kopie.');
   const name = t.name.trim().slice(0, 40);
-  if (!name) return 'Geef het sjabloon een naam.';
+  if (!name) return tr('Geef het sjabloon een naam.');
   const steps: [BuildingId, number][] = [];
   for (const [b, level] of t.steps) {
-    if (!BUILDING_IDS.includes(b)) return `Onbekend gebouw: ${b}`;
+    if (!BUILDING_IDS.includes(b)) return tr('Onbekend gebouw: {id}', { id: b });
     const max = state.config.buildings[b].maxLevel;
-    if (!Number.isInteger(level) || level < 1 || level > max) return `${state.config.buildings[b].name}: level 1 t/m ${max}.`;
+    if (!Number.isInteger(level) || level < 1 || level > max) return tr('{building}: level 1 t/m {max}.', { building: state.config.buildings[b].name, max });
     steps.push([b, level]);
   }
-  if (steps.length === 0) return 'Een sjabloon heeft minstens één stap.';
+  if (steps.length === 0) return tr('Een sjabloon heeft minstens één stap.');
   state.templates ??= [];
   const i = state.templates.findIndex((x) => x.id === t.id);
   const clean: BuildTemplate = { id: t.id, name, steps, ...(t.demolish ? { demolish: true as const } : {}) };
@@ -276,7 +278,7 @@ export function saveTemplate(state: WorldState, t: BuildTemplate): string | null
 }
 
 export function deleteTemplate(state: WorldState, id: string): string | null {
-  if (id.startsWith('preset:')) return 'Voorbeeldsjablonen kun je niet verwijderen.';
+  if (id.startsWith('preset:')) return tr('Voorbeeldsjablonen kun je niet verwijderen.');
   state.templates = (state.templates ?? []).filter((t) => t.id !== id);
   for (const v of villagesOf(state, HUMAN_ID)) if (v.manager?.template === id) delete v.manager.template;
   return null;
@@ -285,14 +287,14 @@ export function deleteTemplate(state: WorldState, id: string): string | null {
 /** Adds or replaces one of the player's troop templates. */
 export function saveTroopTemplate(state: WorldState, t: TroopTemplate): string | null {
   const name = t.name.trim().slice(0, 40);
-  if (!name) return 'Geef het sjabloon een naam.';
+  if (!name) return tr('Geef het sjabloon een naam.');
   const troops: UnitCounts = {};
   for (const u of UNIT_IDS) {
     const n = Math.floor(t.troops[u] ?? 0);
-    if (n < 0 || !Number.isFinite(n)) return 'Aantallen moeten 0 of meer zijn.';
+    if (n < 0 || !Number.isFinite(n)) return tr('Aantallen moeten 0 of meer zijn.');
     if (n > 0) troops[u] = n;
   }
-  if (Object.keys(troops).length === 0) return 'Een troepensjabloon heeft minstens één eenheid.';
+  if (Object.keys(troops).length === 0) return tr('Een troepensjabloon heeft minstens één eenheid.');
   state.troopTemplates ??= [];
   const i = state.troopTemplates.findIndex((x) => x.id === t.id);
   const clean = { id: t.id, name, troops };
@@ -304,7 +306,7 @@ export function saveTroopTemplate(state: WorldState, t: TroopTemplate): string |
 /** Deletes a troop template; villages that used it keep its numbers as their own. */
 export function deleteTroopTemplate(state: WorldState, id: string): string | null {
   const t = state.troopTemplates?.find((x) => x.id === id);
-  if (!t) return 'Dat sjabloon bestaat niet.';
+  if (!t) return tr('Dat sjabloon bestaat niet.');
   state.troopTemplates = state.troopTemplates!.filter((x) => x.id !== id);
   for (const v of villagesOf(state, HUMAN_ID)) {
     if (v.manager?.troopTemplate !== id) continue;
@@ -327,9 +329,9 @@ const cleanUnits = (u: UnitCounts): UnitCounts => {
 /** Adds or replaces a noble train template. */
 export function saveNobleTemplate(state: WorldState, t: NobleTemplate): string | null {
   const name = t.name.trim().slice(0, 40);
-  if (!name) return 'Geef het sjabloon een naam.';
-  if (t.escorts.length < 1 || t.escorts.length > 4) return 'Een edeltrein heeft 2 tot 5 edels.';
-  if (t.catapultTarget && !BUILDING_IDS.includes(t.catapultTarget)) return 'Ongeldig katapultdoel.';
+  if (!name) return tr('Geef het sjabloon een naam.');
+  if (t.escorts.length < 1 || t.escorts.length > 4) return tr('Een edeltrein heeft 2 tot 5 edels.');
+  if (t.catapultTarget && !BUILDING_IDS.includes(t.catapultTarget)) return tr('Ongeldig katapultdoel.');
   const clean: NobleTemplate = { id: t.id, name, first: cleanUnits(t.first), escorts: t.escorts.map(cleanUnits) };
   if (t.catapultTarget) clean.catapultTarget = t.catapultTarget;
   if (t.clearFirst) clean.clearFirst = true;
@@ -341,7 +343,7 @@ export function saveNobleTemplate(state: WorldState, t: NobleTemplate): string |
 }
 
 export function deleteNobleTemplate(state: WorldState, id: string): string | null {
-  if (!state.nobleTemplates?.some((x) => x.id === id)) return 'Dat sjabloon bestaat niet.';
+  if (!state.nobleTemplates?.some((x) => x.id === id)) return tr('Dat sjabloon bestaat niet.');
   state.nobleTemplates = state.nobleTemplates.filter((x) => x.id !== id);
   return null;
 }

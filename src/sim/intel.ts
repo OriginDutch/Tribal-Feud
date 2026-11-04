@@ -5,6 +5,7 @@
 import type { BarbType } from '../shared/barbarianTypes';
 import type { BuildingId, Res, UnitCounts } from '../shared/gameData';
 import { hidingCapacity, storageCapacity } from './formulas';
+import { tr } from '../shared/i18n';
 import type { WorldState } from './state';
 import { productionRates, type Village } from './village';
 
@@ -64,12 +65,12 @@ export function estimateLoot(state: WorldState, villageId: number): number | und
 /** Template C: enough light cavalry for the estimated loot. Returns an error text if impossible. */
 export function farmCUnits(state: WorldState, fromId: number, toId: number): UnitCounts | string {
   const from = state.villages[fromId];
-  if (!from) return 'Dorp bestaat niet.';
+  if (!from) return tr('Dorp bestaat niet.');
   const estimate = estimateLoot(state, toId);
-  if (estimate === undefined) return 'Template C heeft een verkenning van dit dorp nodig.';
+  if (estimate === undefined) return tr('Template C heeft een verkenning van dit dorp nodig.');
   const carry = state.config.units[FARM_C_UNIT].carry;
   const needed = Math.max(1, Math.ceil(estimate / carry));
   const home = from.units[FARM_C_UNIT];
-  if (home <= 0) return 'Geen lichte cavalerie thuis.';
+  if (home <= 0) return tr('Geen lichte cavalerie thuis.');
   return { [FARM_C_UNIT]: Math.min(needed, home) };
 }

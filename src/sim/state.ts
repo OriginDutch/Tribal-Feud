@@ -1,4 +1,4 @@
-import type { Txt } from '../shared/i18n';
+import { tr, type Txt } from '../shared/i18n';
 import { nameAllBotVillages, renameStartVillages } from './botNames';
 import { nameBots } from './names/apply';
 import type { BuildTemplate, NobleTemplate, TroopTemplate } from './manager';
@@ -399,7 +399,7 @@ export function createWorld(config: WorldConfig): WorldState {
     paused: true,
     rng: seedRng(config.seed),
     queue: createQueue<GameEvent>(),
-    log: [{ time: 0, text: `Wereld "${config.name}" aangemaakt (seed ${config.seed}).` }],
+    log: [{ time: 0, text: tr('Wereld "{name}" aangemaakt (seed {seed}).', { name: config.name, seed: String(config.seed) }) }],
     players: [{ id: HUMAN_ID, name: 'Jij', isBot: false }],
     villages: {},
     movements: {},

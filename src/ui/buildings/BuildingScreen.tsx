@@ -1,6 +1,7 @@
 import { num } from '../format';
 import { infoBuilding, snapshot } from '../store';
 import { BuildingHeader, effectText } from './BuildingHeader';
+import { tr } from '../../shared/i18n';
 
 /** Info screen for buildings without a screen of their own (resources, farm, storage, hiding place, wall). */
 export function BuildingScreen() {
@@ -19,42 +20,42 @@ export function BuildingScreen() {
   return (
     <div class="screen">
       <h2>
-        {b.name} <span class="muted">{b.level > 0 ? `(level ${b.level})` : '(nog niet gebouwd)'}</span>
+        {b.name} <span class="muted">{b.level > 0 ? tr('(level {level})', { level: b.level }) : tr('(nog niet gebouwd)')}</span>
       </h2>
       <BuildingHeader village={v} id={b.id} />
 
       {id === 'farm' && (
         <section class="panel">
-          <h3>Bevolking</h3>
+          <h3>{tr('Bevolking')}</h3>
           <p>
-            <strong>{num(v.pop.used)}</strong> van <strong>{num(v.pop.max)}</strong> inwoners aan het werk ·{' '}
-            <span class={v.pop.max - v.pop.used <= 0 ? 'warn' : 'muted'}>{num(Math.max(0, v.pop.max - v.pop.used))} vrij</span>
+            {tr('{used} van {max} inwoners aan het werk', { used: num(v.pop.used), max: num(v.pop.max) })} ·{' '}
+            <span class={v.pop.max - v.pop.used <= 0 ? 'warn' : 'muted'}>{tr('{n} vrij', { n: num(Math.max(0, v.pop.max - v.pop.used)) })}</span>
           </p>
         </section>
       )}
       {id === 'storage' && (
         <section class="panel">
-          <h3>Voorraad</h3>
+          <h3>{tr('Voorraad')}</h3>
           <p>
             {['Hout', 'Leem', 'IJzer'].map((name, i) => (
               <span key={name} class={(v.res[i] ?? 0) >= v.storage ? 'warn' : ''}>
-                {name} {num(Math.floor(v.res[i] ?? 0))}
+                {tr(name)} {num(Math.floor(v.res[i] ?? 0))}
                 {i < 2 ? ' · ' : ''}
               </span>
             ))}{' '}
-            <span class="muted">van {num(v.storage)} per grondstof</span>
+            <span class="muted">{tr('van {n} per grondstof', { n: num(v.storage) })}</span>
           </p>
         </section>
       )}
 
       {rows.length > 0 && b.effect && (
         <section class="panel">
-          <h3>Per level</h3>
+          <h3>{tr('Per level')}</h3>
           <table class="table">
             <thead>
               <tr>
-                <th>Level</th>
-                <th class="right">{b.effect.label}</th>
+                <th>{tr('Level')}</th>
+                <th class="right">{tr(b.effect.label)}</th>
               </tr>
             </thead>
             <tbody>
@@ -62,7 +63,7 @@ export function BuildingScreen() {
                 <tr key={l} class={l === b.level ? 'current' : ''}>
                   <td>
                     {l}
-                    {l === b.level ? <span class="muted"> · nu</span> : ''}
+                    {l === b.level ? <span class="muted"> · {tr('nu')}</span> : ''}
                   </td>
                   <td class="right mono">{effectText(b, b.effect?.byLevel[l])}</td>
                 </tr>

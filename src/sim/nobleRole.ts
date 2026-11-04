@@ -7,7 +7,8 @@
  * nobles away to another candidate.
  */
 import type { Archetype } from '../shared/botProfiles';
-import { DAY, MINUTE, formatGameTime } from '../shared/time';
+import { DAY, MINUTE, formatGameTime, gameTimeT } from '../shared/time';
+import { T, tr, txt } from '../shared/i18n';
 import { push } from './eventQueue';
 import { addMessage, alertHuman } from './humanTribe';
 import { betray, changeMood, changeStanding, moodOf } from './loyalty';
@@ -123,10 +124,10 @@ export function chooseNobles(state: WorldState, t: Tribe, cands: NobleCandidate[
     ?? lost.find((c) => c.member === t.leader && nextFloat(state.rng) < LEADER_TAKES);
   if (!bot) return winner;
   const p = state.players[bot.member]!;
-  if (bot.member !== t.leader) changeMood(state, p, -APPEAL_COST, 'ging in beroep over de edels');
+  if (bot.member !== t.leader) changeMood(state, p, -APPEAL_COST, T('ging in beroep over de edels'));
   const ruling = bot.member === t.leader ? bot : leaderPicks(state, t, winner, bot);
   if (ruling.member === HUMAN_ID) {
-    const text = `${p.name} ging in beroep tegen jou als edelaar, maar ${nameOf(state, t.leader)} houdt het bij jou.`;
+    const text = tr('{name} ging in beroep tegen jou als edelaar, maar {leader} houdt het bij jou.', { name: p.name, leader: nameOf(state, t.leader) });
     addLog(state, { time: state.time, text });
     addMerit(state, p.id, MERIT.appealLost);
     rebelMaybe(state, t, p, winner.member);
@@ -135,13 +136,13 @@ export function chooseNobles(state: WorldState, t: Tribe, cands: NobleCandidate[
   winner = ruling;
   // you lose them: agree, or leave
   addMessage(state, {
-    kind: 'request', from: t.leader, tribe: t.id, title: `De edels gaan naar ${p.name}`, status: 'open', expires: state.time + DAY / 2,
+    kind: 'request', from: t.leader, tribe: t.id, title: T('De edels gaan naar {name}', { name: p.name }), status: 'open', expires: state.time + DAY / 2,
     request: { type: 'verdict', op: -1, village: bot.village },
     text: bot.member === t.leader
-      ? `Je werd getrokken voor de edels, maar ${p.name} neemt ze als leider zelf. Akkoord, of ben je het oneens? Oneens betekent: je verlaat ${tag(t)} en bent een tijd vogelvrij.`
-      : `Je werd getrokken voor de edels, maar ${p.name} ging in beroep en ${nameOf(state, t.leader)} gaf hem gelijk. Akkoord, of ben je het oneens? Oneens betekent: je verlaat ${tag(t)} en bent een tijd vogelvrij.`,
+      ? T('Je werd getrokken voor de edels, maar {name} neemt ze als leider zelf. Akkoord, of ben je het oneens? Oneens betekent: je verlaat {tag} en bent een tijd vogelvrij.', { name: p.name, tag: tag(t) })
+      : T('Je werd getrokken voor de edels, maar {name} ging in beroep en {leader} gaf hem gelijk. Akkoord, of ben je het oneens? Oneens betekent: je verlaat {tag} en bent een tijd vogelvrij.', { name: p.name, leader: nameOf(state, t.leader), tag: tag(t) }),
   });
-  alertHuman(state, `De edels gaan naar ${p.name}`);
+  alertHuman(state, tr('De edels gaan naar {name}', { name: p.name }));
   return winner;
 }
 
@@ -153,10 +154,10 @@ function rebelMaybe(state: WorldState, t: Tribe, p: Player, winner: number): voi
   const base = REBEL[p.bot?.archetype ?? 'diplomat'] ?? 0;
   const chance = base * (rankWeight(state, t, winner) > rankWeight(state, t, p.id) ? REBEL_VS_HIGHER : REBEL_VS_LOWER);
   if (!chance || moodOf(p) >= REBEL_MOOD || nextFloat(state.rng) >= chance) return;
-  if (p.bot?.archetype === 'opportunist') return betray(state, p, t, 'de edels gingen naar een ander');
+  if (p.bot?.archetype === 'opportunist') return betray(state, p, t, T('de edels gingen naar een ander'));
   outlawFrom(state, p, t);
-  const text = `${p.name} is het niet eens met de beslissing over de edels en verlaat ${tag(t)}: vogelvrij.`;
-  addLog(state, { time: state.time, text });
+  const text = T('{name} is het niet eens met de beslissing over de edels en verlaat {tag}: vogelvrij.', { name: p.name, tag: tag(t) });
+  addLog(state, { time: state.time, text: txt(text) });
   (state.tribeNews ??= []).push({ time: state.time, text });
 }
 
@@ -164,11 +165,17 @@ function rebelMaybe(state: WorldState, t: Tribe, p: Player, winner: number): voi
 export function offerAppeal(state: WorldState, t: Tribe, op: TribeOp, winner: NobleCandidate, you: NobleCandidate): void {
   const p = state.players[winner.member];
   const role = op.roles.find((r) => r.kind === 'nobles');
+  const q = {
+    village: state.villages[op.target]?.name ?? '?', time: gameTimeT(op.landAt), name: p?.name ?? '?',
+    d: Math.round(winner.d * 10) / 10, you: Math.round(you.d * 10) / 10, cost: APPEAL_COST, leader: nameOf(state, t.leader),
+  };
   addMessage(state, {
-    kind: 'request', from: t.leader, tribe: t.id, title: `${p?.name ?? '?'} edelt ${state.villages[op.target]?.name ?? '?'}`, status: 'open',
+    kind: 'request', from: t.leader, tribe: t.id, title: T('{name} edelt {village}', { name: p?.name ?? '?', village: state.villages[op.target]?.name ?? '?' }), status: 'open',
     expires: role ? role.launchAt : op.landAt,
     request: { type: 'appeal', op: op.id, village: you.village },
-    text: `Bij de gezamenlijke aanval op ${state.villages[op.target]?.name ?? '?'} (${formatGameTime(op.landAt)}) brengt ${p?.name ?? '?'} de edels: getrokken op afstand (${winner.d.toFixed(1)} velden, jij ${you.d.toFixed(1)}). Oneens? In beroep gaan kost ${APPEAL_COST} aanzien, ook als je verliest; ${nameOf(state, t.leader)} beslist${winner.member === t.leader ? ', en hij is zelf de edelaar' : ''}.`,
+    text: winner.member === t.leader
+      ? T('Bij de gezamenlijke aanval op {village} ({time}) brengt {name} de edels: getrokken op afstand ({d} velden, jij {you}). Oneens? In beroep gaan kost {cost} aanzien, ook als je verliest; {leader} beslist, en hij is zelf de edelaar.', q)
+      : T('Bij de gezamenlijke aanval op {village} ({time}) brengt {name} de edels: getrokken op afstand ({d} velden, jij {you}). Oneens? In beroep gaan kost {cost} aanzien, ook als je verliest; {leader} beslist.', q),
   });
 }
 
@@ -210,15 +217,15 @@ export function giveOptions(state: WorldState, opId: number): NobleCandidate[] {
 /** You give your nobles to another candidate (no blame, he likes it). */
 export function giveNobles(state: WorldState, opId: number, member: number): string | null {
   const x = opOf(state, opId);
-  if (!x) return 'Die aanval loopt niet meer.';
+  if (!x) return tr('Die aanval loopt niet meer.');
   const role = x.op.roles.find((r) => r.kind === 'nobles');
-  if (!role || role.member !== HUMAN_ID || role.state) return 'Jij brengt de edels niet (meer).';
+  if (!role || role.member !== HUMAN_ID || role.state) return tr('Jij brengt de edels niet (meer).');
   const c = giveOptions(state, opId).find((o) => o.member === member);
-  if (!c || !handTo(state, x.t, x.op, c)) return 'Die haalt het niet meer op tijd.';
+  if (!c || !handTo(state, x.t, x.op, c)) return tr('Die haalt het niet meer op tijd.');
   dropNoblesOrder(state, opId);
   const p = state.players[member];
-  changeMood(state, p, GIFT_MOOD, 'je gaf hem de edels');
-  addLog(state, { time: state.time, text: `Je geeft de edels voor ${state.villages[x.op.target]?.name ?? '?'} aan ${p?.name ?? '?'}.` });
+  changeMood(state, p, GIFT_MOOD, T('je gaf hem de edels'));
+  addLog(state, { time: state.time, text: tr('Je geeft de edels voor {village} aan {name}.', { village: state.villages[x.op.target]?.name ?? '?', name: p?.name ?? '?' }) });
   return null;
 }
 
@@ -238,15 +245,15 @@ export function answerAppeal(state: WorldState, opId: number, village: number, a
   const x = opOf(state, opId);
   const role = x?.op.roles.find((r) => r.kind === 'nobles');
   const target = x ? state.villages[x.op.target] : undefined;
-  if (!x || !role || !target || role.state || role.member === HUMAN_ID) return 'Daar valt niets meer over te beslissen.';
-  if (x.op.appealed) return 'Over deze edels is al een beroep geweest.';
-  if (state.leaderOrder || (state.inbox ?? []).some((m) => m.status === 'open' && m.request?.type === 'order' && m.request.order !== 'scout')) return 'Je hebt al een opdracht lopen.';
+  if (!x || !role || !target || role.state || role.member === HUMAN_ID) return tr('Daar valt niets meer over te beslissen.');
+  if (x.op.appealed) return tr('Over deze edels is al een beroep geweest.');
+  if (state.leaderOrder || (state.inbox ?? []).some((m) => m.status === 'open' && m.request?.type === 'order' && m.request.order !== 'scout')) return tr('Je hebt al een opdracht lopen.');
   const deadline = x.op.landAt + NOBLE_LAG;
   const you = nobleCandidates(state, x.t, target, true, deadline).find((c) => c.member === HUMAN_ID && c.village === village)
     ?? nobleCandidates(state, x.t, target, true, deadline).find((c) => c.member === HUMAN_ID);
-  if (!you) return 'Je haalt het niet meer op tijd met een volle trein.';
+  if (!you) return tr('Je haalt het niet meer op tijd met een volle trein.');
   x.op.appealed = true;
-  changeStanding(state, -APPEAL_COST, 'je ging in beroep over de edels');
+  changeStanding(state, -APPEAL_COST, T('je ging in beroep over de edels'));
   const holder: NobleCandidate = { member: role.member, village: role.village, d: distance(state.villages[role.village] ?? target, target) };
   const leader = nameOf(state, x.t.leader);
   if (leaderPicks(state, x.t, you, holder).member === HUMAN_ID) {
@@ -256,15 +263,15 @@ export function answerAppeal(state: WorldState, opId: number, village: number, a
     x.op.human = true;
     state.leaderOrder = { order: 'attack', village: target.id, until: deadline + 10 * MINUTE, from: x.t.leader, landAt: deadline, nobles: true, op: x.op.id };
     state.leaderOrderAt = state.time;
-    if (p) { changeMood(state, p, -3, 'verloor het beroep over de edels'); addMerit(state, p.id, MERIT.appealLost); rebelMaybe(state, x.t, p, HUMAN_ID); }
-    addLog(state, { time: state.time, text: `${leader} geeft je gelijk: jij brengt de edels naar ${target.name}, landen om ${formatGameTime(deadline)}.` });
+    if (p) { changeMood(state, p, -3, T('verloor het beroep over de edels')); addMerit(state, p.id, MERIT.appealLost); rebelMaybe(state, x.t, p, HUMAN_ID); }
+    addLog(state, { time: state.time, text: tr('{leader} geeft je gelijk: jij brengt de edels naar {village}, landen om {time}.', { leader, village: target.name, time: formatGameTime(deadline) }) });
     return null;
   }
   addMerit(state, HUMAN_ID, MERIT.appealLost);
   addMessage(state, {
-    kind: 'request', from: x.t.leader, tribe: x.t.id, title: `${leader} houdt het bij ${nameOf(state, holder.member)}`, status: 'open', expires: state.time + DAY / 2,
+    kind: 'request', from: x.t.leader, tribe: x.t.id, title: T('{leader} houdt het bij {name}', { leader, name: nameOf(state, holder.member) }), status: 'open', expires: state.time + DAY / 2,
     request: { type: 'verdict', op: x.op.id, village },
-    text: `${leader} heeft je beroep afgewezen: ${nameOf(state, holder.member)} brengt de edels. Akkoord, of ben je het oneens? Oneens betekent: je verlaat ${tag(x.t)} en bent een tijd vogelvrij.`,
+    text: T('{leader} heeft je beroep afgewezen: {name} brengt de edels. Akkoord, of ben je het oneens? Oneens betekent: je verlaat {tag} en bent een tijd vogelvrij.', { leader, name: nameOf(state, holder.member), tag: tag(x.t) }),
   });
   return null;
 }
@@ -274,11 +281,11 @@ export function answerVerdict(state: WorldState, accept: boolean): string | null
   if (accept) return null;
   const tid = state.players[HUMAN_ID]?.tribe;
   const t = tid !== undefined ? state.tribes?.[tid] : undefined;
-  if (!t) return 'Je zit niet meer in een stam.';
+  if (!t) return tr('Je zit niet meer in een stam.');
   outlawFrom(state, state.players[HUMAN_ID]!, t);
   delete state.standing; delete state.standingNotes; delete state.leaderOrder; delete state.scoutOrders;
-  const text = `Je bent het niet eens met ${nameOf(state, t.leader)} en verlaat ${tag(t)}. Voorlopig ben je vogelvrij.`;
-  addLog(state, { time: state.time, text });
+  const text = T('Je bent het niet eens met {leader} en verlaat {tag}. Voorlopig ben je vogelvrij.', { leader: nameOf(state, t.leader), tag: tag(t) });
+  addLog(state, { time: state.time, text: txt(text) });
   (state.tribeNews ??= []).push({ time: state.time, text });
   return null;
 }

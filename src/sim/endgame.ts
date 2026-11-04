@@ -6,6 +6,7 @@
  * Only tribes can win; your tribe winning is a win, a bot tribe winning is a loss.
  */
 import { DAY } from '../shared/time';
+import { T, tr, txt } from '../shared/i18n';
 import { addMessage, alertHuman } from './humanTribe';
 import { nextFloat } from './rng';
 import { HUMAN_ID, addLog, villagesOf, type WorldState } from './state';
@@ -59,7 +60,8 @@ export function countShares(state: WorldState): { tribe: Tribe; villages: number
 }
 
 const tag = (t: Tribe) => `[${t.tag}]`;
-const pct = (x: number) => `${Math.round(x * 100)}%`;
+/** A share as a whole percentage (the key adds the % sign). */
+const pct = (x: number) => Math.round(x * 100);
 const isYours = (t: Tribe) => t.members.includes(HUMAN_ID);
 
 /** Runs with the diplomacy tick. */
@@ -74,12 +76,13 @@ export function endgameTick(state: WorldState): void {
   for (const s of shares) {
     if (s.share < rules.warnAt || eg.warned.includes(s.tribe.id)) continue;
     eg.warned.push(s.tribe.id);
+    const p = { tag: tag(s.tribe), name: s.tribe.name, pct: pct(s.share), target: pct(rules.target), days: rules.holdMs / DAY };
     const text = isYours(s.tribe)
-      ? `Jouw stam ${tag(s.tribe)} bezit ${pct(s.share)} van de wereld. De andere stammen slaan de handen ineen tegen jullie. Bij ${pct(rules.target)}, ${rules.holdMs / DAY} speldagen lang, wint ${tag(s.tribe)} de wereld.`
-      : `${tag(s.tribe)} ${s.tribe.name} bezit ${pct(s.share)} van de wereld. Bij ${pct(rules.target)}, ${rules.holdMs / DAY} speldagen lang, wint die stam de wereld en heb jij verloren.`;
-    addMessage(state, { kind: 'info', from: s.tribe.leader, tribe: s.tribe.id, title: `Eindspel: ${tag(s.tribe)} op ${pct(s.share)}`, text });
-    addLog(state, { time: state.time, text: `Eindspel: ${tag(s.tribe)} bezit ${pct(s.share)} van de wereld.` });
-    alertHuman(state, `Eindspel: ${tag(s.tribe)} bezit ${pct(s.share)} van de wereld.`);
+      ? T('Jouw stam {tag} bezit {pct}% van de wereld. De andere stammen slaan de handen ineen tegen jullie. Bij {target}%, {days} speldagen lang, wint {tag} de wereld.', p)
+      : T('{tag} {name} bezit {pct}% van de wereld. Bij {target}%, {days} speldagen lang, wint die stam de wereld en heb jij verloren.', p);
+    addMessage(state, { kind: 'info', from: s.tribe.leader, tribe: s.tribe.id, title: T('Eindspel: {tag} op {pct}%', p), text });
+    addLog(state, { time: state.time, text: tr('Eindspel: {tag} bezit {pct}% van de wereld.', p) });
+    alertHuman(state, tr('Eindspel: {tag} bezit {pct}% van de wereld.', p));
   }
 
   // the rest closes ranks against whoever is in the lead and close
@@ -93,20 +96,22 @@ export function endgameTick(state: WorldState): void {
     if (eg.leader !== top.tribe.id) {
       eg.leader = top.tribe.id;
       eg.since = state.time;
-      const text = `${tag(top.tribe)} bezit ${pct(top.share)} van de wereld. Houdt die stam dat ${rules.holdMs / DAY} speldagen vast, dan is de wereld gewonnen.`;
-      addMessage(state, { kind: 'info', from: top.tribe.leader, tribe: top.tribe.id, title: `Eindspel: ${tag(top.tribe)} boven ${pct(rules.target)}`, text });
-      alertHuman(state, text);
+      const p = { tag: tag(top.tribe), pct: pct(top.share), target: pct(rules.target), days: rules.holdMs / DAY };
+      const text = T('{tag} bezit {pct}% van de wereld. Houdt die stam dat {days} speldagen vast, dan is de wereld gewonnen.', p);
+      addMessage(state, { kind: 'info', from: top.tribe.leader, tribe: top.tribe.id, title: T('Eindspel: {tag} boven {target}%', p), text });
+      alertHuman(state, txt(text));
     } else if (state.time - (eg.since ?? state.time) >= rules.holdMs) {
       const you = isYours(top.tribe);
       eg.winner = { tribe: top.tribe.id, tag: top.tribe.tag, name: top.tribe.name, time: state.time, you };
-      const text = you ? `Gewonnen! ${tag(top.tribe)} ${top.tribe.name} heeft de wereld veroverd.` : `Verloren. ${tag(top.tribe)} ${top.tribe.name} heeft de wereld veroverd.`;
-      addMessage(state, { kind: 'info', from: top.tribe.leader, tribe: top.tribe.id, title: you ? 'De wereld is gewonnen' : 'De wereld is verloren', text });
-      addLog(state, { time: state.time, text });
-      alertHuman(state, text);
+      const p = { tag: tag(top.tribe), name: top.tribe.name };
+      const text = you ? T('Gewonnen! {tag} {name} heeft de wereld veroverd.', p) : T('Verloren. {tag} {name} heeft de wereld veroverd.', p);
+      addMessage(state, { kind: 'info', from: top.tribe.leader, tribe: top.tribe.id, title: you ? T('De wereld is gewonnen') : T('De wereld is verloren'), text });
+      addLog(state, { time: state.time, text: txt(text) });
+      alertHuman(state, txt(text));
     }
   } else if (eg.leader !== undefined) {
     const t = state.tribes?.[eg.leader];
-    if (t) addMessage(state, { kind: 'info', from: t.leader, tribe: t.id, title: `Eindspel: ${tag(t)} zakt onder ${pct(rules.target)}`, text: `${tag(t)} houdt de ${pct(rules.target)} niet vast. De teller begint opnieuw.` });
+    if (t) addMessage(state, { kind: 'info', from: t.leader, tribe: t.id, title: T('Eindspel: {tag} zakt onder {target}%', { tag: tag(t), target: pct(rules.target) }), text: T('{tag} houdt de {target}% niet vast. De teller begint opnieuw.', { tag: tag(t), target: pct(rules.target) }) });
     delete eg.leader;
     delete eg.since;
   }
@@ -124,7 +129,7 @@ function unite(state: WorldState, leader: Tribe): void {
       if (!o || o.id === leader.id || o.leader === HUMAN_ID || r !== 'war') continue;
       if (nextFloat(state.rng) < 0.15) {
         setRelation(state, t, o, 'nap');
-        addLog(state, { time: state.time, text: `${tag(t)} en ${tag(o)} sluiten vrede tegen ${tag(leader)}.` });
+        addLog(state, { time: state.time, text: tr('{a} en {b} sluiten vrede tegen {c}.', { a: tag(t), b: tag(o), c: tag(leader) }) });
       }
     }
   }

@@ -12,6 +12,7 @@ import { attackVillage, inviteCandidates, mapData, mapFocus, mapStyle, openPlaye
 import { OVERHANG, forestAt, onSpriteLoad, tierOf, villageAt } from '../map/mapSprites';
 import { distance, travelMs } from '../units';
 import { tr } from '../../shared/i18n';
+import { lang as mapLang } from '../../shared/i18n';
 
 type ArrowKind = 'incoming' | 'attack' | 'farm' | 'support' | 'return';
 const ARROW_KINDS: [ArrowKind, string][] = [['incoming', 'Inkomend'], ['attack', 'Aanvallen op spelers'], ['farm', 'Farm (op barbaren)'], ['support', 'Support'], ['return', 'Terugkeer']];
@@ -27,7 +28,12 @@ function scoutColor(snap: { time: number; multipliers: { world: number } } | nul
 
 const HOVER_DELAY_MS = 600;
 
-const TYPE_LETTER: Record<BarbType, string> = { resource: 'G', military: 'M', defensive: 'V', balanced: 'B' };
+/** Barbarian type letters on the map, in the current language (Dutch G/M/V/B, English R/M/D/B). */
+const TYPE_LETTERS: Record<'nl' | 'en', Record<BarbType, string>> = {
+  nl: { resource: 'G', military: 'M', defensive: 'V', balanced: 'B' },
+  en: { resource: 'R', military: 'M', defensive: 'D', balanced: 'B' },
+};
+const typeLetter = (t: BarbType): string => TYPE_LETTERS[mapLang.value === 'nl' ? 'nl' : 'en'][t];
 
 const COLORS = {
   bg: '#1d2318',
@@ -455,7 +461,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
         ctx.font = `bold ${Math.round(r * 1.2)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(TYPE_LETTER[v.barbType], lx, ly + 0.5);
+        ctx.fillText(typeLetter(v.barbType), lx, ly + 0.5);
       }
       if (v.scoutedAt !== undefined && zoom >= 14) {
         const c = scoutColor(snapshot.value, v.scoutedAt);
@@ -588,7 +594,7 @@ export function MapScreen({ embed }: { embed?: { owner: number } } = {}) {
         ctx.font = `bold ${Math.round(size * 0.55)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(TYPE_LETTER[v.barbType], sx, sy + 1);
+        ctx.fillText(typeLetter(v.barbType), sx, sy + 1);
       }
       if (v.last && zoom >= 8) {
         ctx.fillStyle = v.last.result === 'loss' ? COLORS.bot : COLORS.attacked;

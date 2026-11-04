@@ -6,8 +6,9 @@
  */
 import { UNIT_IDS, type BuildingId, type UnitCounts } from '../shared/gameData';
 import { formatGameTime } from '../shared/time';
+import { tr } from '../shared/i18n';
 import { push } from './eventQueue';
-import { attackBlocker, distance, freeUnits, protectionEndsAt, sendAttack, sendNobleTrain, shortOf, travelTimeMs } from './movement';
+import { attackBlocker, distance, freeUnits, protectionBlocker, protectionEndsAt, sendAttack, sendNobleTrain, shortOf, travelTimeMs } from './movement';
 import { HUMAN_ID, addLog, nextId, playSfx, type PlannedAttack, type WorldState } from './state';
 import type { PlannedView } from '../shared/protocol';
 import { OFFENSE } from './tribeOrders';
@@ -65,23 +66,23 @@ export function earliestLanding(state: WorldState, input: Omit<PlanInput, 'landA
 /** Plans an attack of yours. Null when it is planned, else why not. */
 export function planAttack(state: WorldState, input: PlanInput): string | null {
   const from = state.villages[input.from], to = state.villages[input.to];
-  if (!from || !to) return 'Dorp bestaat niet.';
-  if (from.owner !== HUMAN_ID) return 'Dat is niet jouw dorp.';
-  if ((state.planned?.length ?? 0) >= MAX_PLANNED) return `Je kunt maximaal ${MAX_PLANNED} aanvallen tegelijk inplannen.`;
+  if (!from || !to) return tr('Dorp bestaat niet.');
+  if (from.owner !== HUMAN_ID) return tr('Dat is niet jouw dorp.');
+  if ((state.planned?.length ?? 0) >= MAX_PLANNED) return tr('Je kunt maximaal {n} aanvallen tegelijk inplannen.', { n: MAX_PLANNED });
   const waves = wavesOf(input);
-  if (waves.length > 5) return 'Een edeltrein heeft 2 tot 5 aanvallen.';
-  if (input.clearFirst && waves.length > 1 && !Object.keys(waves[0]!).length) return 'De eerste aanval (de clear) heeft troepen nodig.';
+  if (waves.length > 5) return tr('Een edeltrein heeft 2 tot 5 aanvallen.');
+  if (input.clearFirst && waves.length > 1 && !Object.keys(waves[0]!).length) return tr('De eerste aanval (de clear) heeft troepen nodig.');
   const total: UnitCounts = {};
   for (const w of waves) for (const u of UNIT_IDS) if (w[u]) total[u] = (total[u] ?? 0) + w[u]!;
   // the attack as it would go: the target, distance, tribe and talks; protection is checked at the leaving time
   const blocked = attackBlocker(state, from, to, waves.length > 1 ? { ...waves[0]!, ...(total.snob ? { snob: 1 } : {}) } : waves[0]!, input.catapultTarget);
-  if (blocked && !blocked.startsWith('Beginnersbescherming')) return blocked;
+  if (blocked && blocked !== protectionBlocker(state, from.owner, to.owner)) return blocked;
   const short = shortOf(state, from, total);
   if (short) return short;
   const travel = walk(state, { from: from.id, to: to.id, waves });
   const sendAt = Math.round(input.landAt) - travel;
-  if (sendAt < state.time) return `Te laat: dit landt op z'n vroegst om ${formatGameTime(state.time + travel)}.`;
-  if (to.owner >= 0 && sendAt < protectionEndsAt(state)) return `Beginnersbescherming: dan kan hij nog niet vertrekken (de bescherming loopt tot ${formatGameTime(protectionEndsAt(state))}).`;
+  if (sendAt < state.time) return tr("Te laat: dit landt op z'n vroegst om {time}.", { time: formatGameTime(state.time + travel) });
+  if (to.owner >= 0 && sendAt < protectionEndsAt(state)) return tr('Beginnersbescherming: dan kan hij nog niet vertrekken (de bescherming loopt tot {time}).', { time: formatGameTime(protectionEndsAt(state)) });
   const plan: PlannedAttack = { id: nextId(state), from: from.id, to: to.id, waves, landAt: sendAt + travel, sendAt };
   if (input.clearFirst && waves.length > 1) plan.clearFirst = true;
   if (input.catapultTarget && (waves[0]!.catapult ?? 0) > 0) plan.catapultTarget = input.catapultTarget;
@@ -93,7 +94,7 @@ export function planAttack(state: WorldState, input: PlanInput): string | null {
 /** Takes a planned attack off; its troops are free again. */
 export function cancelPlanned(state: WorldState, id: number): string | null {
   const i = (state.planned ?? []).findIndex((p) => p.id === id);
-  if (i < 0) return 'Die aanval staat niet (meer) ingepland.';
+  if (i < 0) return tr('Die aanval staat niet (meer) ingepland.');
   state.planned!.splice(i, 1);
   return null;
 }
@@ -105,14 +106,14 @@ export function onPlanned(state: WorldState, id: number): void {
   const p = state.planned!.splice(i, 1)[0]!;
   const from = state.villages[p.from], to = state.villages[p.to];
   const where = `${from?.name ?? '?'} → ${to?.name ?? '?'}${to ? ` (${to.x}|${to.y})` : ''}`;
-  if (!from || !to || from.owner !== HUMAN_ID) return onPlanFailed(state, `Ingeplande aanval ${where} vervalt: het dorp is niet meer van jou.`);
+  if (!from || !to || from.owner !== HUMAN_ID) return onPlanFailed(state, tr('Ingeplande aanval {where} vervalt: het dorp is niet meer van jou.', { where }));
   // your nobles in a joint attack: not when an army that should have gone didn't (dead noblemen)
   const op = p.waves.some((w) => w.snob) ? nobleArmiesMissing(state, p.to) : undefined;
   if (op) {
     const role = op.roles.find((r) => r.kind === 'nobles' && r.member === HUMAN_ID);
     if (role) role.state = 'failed';
     dropNoblesOrder(state, op.id);
-    return onPlanFailed(state, `Ingeplande edeltrein ${where} is niet vertrokken: een van de legers van de stam ging niet. Dat telt niet tegen je.`);
+    return onPlanFailed(state, tr('Ingeplande edeltrein {where} is niet vertrokken: een van de legers van de stam ging niet. Dat telt niet tegen je.', { where }));
   }
 
   // hand out what is home (and not held for another plan), wave by wave; a wave without its nobleman drops
@@ -129,7 +130,7 @@ export function onPlanned(state: WorldState, id: number): void {
     }
     if (Object.keys(got).length) waves.push(got);
   }
-  if (!waves.length) return onPlanFailed(state, `Ingeplande aanval ${where} vervalt: er staan geen troepen meer voor klaar.`);
+  if (!waves.length) return onPlanFailed(state, tr('Ingeplande aanval {where} vervalt: er staan geen troepen meer voor klaar.', { where }));
 
   const stay = Math.max(0, p.landAt - state.time);
   // the clear may be gone: then the nobles go as a normal train
@@ -145,28 +146,31 @@ export function onPlanned(state: WorldState, id: number): void {
     // a train that lost all but one wave goes as one attack
     error = sendAttack(state, from.id, to.id, waves[0]!, p.catapultTarget, undefined, stay);
   }
-  if (error) return onPlanFailed(state, `Ingeplande aanval ${where} kon niet weg: ${error}`);
+  if (error) return onPlanFailed(state, tr('Ingeplande aanval {where} kon niet weg: {error}', { where, error }));
   if (to.owner >= 0) attackedWithoutPermission(state, to.owner);
   humanOpSent(state, to.id);
-  const what = train ? `Ingeplande edeltrein (${waves.length})` : 'Ingeplande aanval';
   if (to.owner >= 0 || train) playSfx(state, 'march');
-  addLog(state, { time: state.time, text: `${what} ${where} is vertrokken, landt om ${formatGameTime(p.landAt)}${short ? ' — met minder troepen dan gepland' : ''}.` });
+  const lp = { where, n: waves.length, time: formatGameTime(p.landAt) };
+  const text = train
+    ? (short ? tr('Ingeplande edeltrein ({n}) {where} is vertrokken, landt om {time} — met minder troepen dan gepland.', lp) : tr('Ingeplande edeltrein ({n}) {where} is vertrokken, landt om {time}.', lp))
+    : (short ? tr('Ingeplande aanval {where} is vertrokken, landt om {time} — met minder troepen dan gepland.', lp) : tr('Ingeplande aanval {where} is vertrokken, landt om {time}.', lp));
+  addLog(state, { time: state.time, text });
 }
 
 /** Your strongest free army of a village (or all its free spies) for an order, planned to land at landAt. */
 export function planOrder(state: WorldState, from: number, to: number, landAt: number, spies = false): string | null {
   const v = state.villages[from];
-  if (!v || v.owner !== HUMAN_ID) return 'Dat is niet jouw dorp.';
+  if (!v || v.owner !== HUMAN_ID) return tr('Dat is niet jouw dorp.');
   const free = freeUnits(state, v);
   const first: UnitCounts = {};
   if (spies) { if (free.spy > 0) first.spy = free.spy; }
   else for (const u of OFFENSE) if (free[u] > 0) first[u] = free[u];
-  if (!Object.keys(first).length) return spies ? 'Geen vrije verkenners in dat dorp.' : 'Geen vrije aanvallende troepen in dat dorp.';
+  if (!Object.keys(first).length) return spies ? tr('Geen vrije verkenners in dat dorp.') : tr('Geen vrije aanvallende troepen in dat dorp.');
   return planAttack(state, { from, to, first, landAt, ...(first.catapult ? { catapultTarget: 'wall' as BuildingId } : {}) });
 }
 
 export function plannedViews(state: WorldState): PlannedView[] {
-  const owner = (o: number) => (o < 0 ? 'barbaren' : state.players[o]?.name ?? '?');
+  const owner = (o: number) => (o < 0 ? tr('barbaren') : state.players[o]?.name ?? '?');
   return [...(state.planned ?? [])].sort((a, b) => a.sendAt - b.sendAt).flatMap((p) => {
     const f = state.villages[p.from], t = state.villages[p.to];
     if (!f || !t) return [];

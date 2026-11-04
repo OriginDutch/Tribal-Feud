@@ -14,6 +14,7 @@
 import type { NobleCurve } from '../shared/config';
 import type { Res } from '../shared/gameData';
 import { storageCapacity } from './formulas';
+import { tr } from '../shared/i18n';
 import { flagValue } from './flags';
 import { villagesOf, type WorldState } from './state';
 import { currentResources, isOperational, settle, type Village } from './village';
@@ -106,23 +107,23 @@ export function maxMintable(state: WorldState, v: Village): number {
 }
 
 export function mintBlocker(state: WorldState, v: Village): string | null {
-  if (v.buildings.snob === 0) return 'Bouw eerst een adelshoeve';
-  if (!isOperational(state.config, v, 'snob')) return 'Adelshoeve werkt niet';
+  if (v.buildings.snob === 0) return tr('Bouw eerst een adelshoeve');
+  if (!isOperational(state.config, v, 'snob')) return tr('Adelshoeve werkt niet');
   const cost = coinCostIn(state, v);
-  if (cost.some((c) => c > storageCapacity(v.buildings.storage))) return 'Opslagplaats te klein';
-  if (maxMintable(state, v) === 0) return 'Te weinig grondstoffen';
+  if (cost.some((c) => c > storageCapacity(v.buildings.storage))) return tr('Opslagplaats te klein');
+  if (maxMintable(state, v) === 0) return tr('Te weinig grondstoffen');
   return null;
 }
 
 /** Mints coins (or stores packages) in village `villageId`. */
 export function mintCoins(state: WorldState, villageId: number, count: number): string | null {
   const v = state.villages[villageId];
-  if (!v) return 'Dorp bestaat niet.';
-  if (!Number.isInteger(count) || count < 1) return 'Ongeldig aantal.';
+  if (!v) return tr('Dorp bestaat niet.');
+  if (!Number.isInteger(count) || count < 1) return tr('Ongeldig aantal.');
   const blocker = mintBlocker(state, v);
   if (blocker) return blocker;
   const max = maxMintable(state, v);
-  if (count > max) return `Maximaal ${max} mogelijk`;
+  if (count > max) return tr('Maximaal {n} mogelijk', { n: max });
   settle(state.config, v, state.time);
   const cost = coinCostIn(state, v);
   for (const i of [0, 1, 2] as const) v.res[i] -= cost[i] * count;

@@ -6,6 +6,7 @@ import { NEWS_KEPT, addNews } from './news';
 import { createWorld, villagesOf } from './state';
 import { declareWar, onDiplomacy, setRelation, type Tribe } from './tribes';
 import { addFriction, WAR_FRICTION } from './warCause';
+import { txt } from '../shared/i18n';
 
 function setup() {
   const s = createWorld(createConfig('classic', 'N', 12, { worldSpeed: 1, bots: { count: 30 } }));
@@ -27,7 +28,7 @@ describe('world news', () => {
     declareWar(s, ta, tb);
     const n = s.news!.at(-1)!;
     expect(n.kind).toBe('war');
-    expect(n.dry).toBe('[A] verklaart [B] de oorlog (na veroverde dorpen).');
+    expect(txt(n.dry)).toBe('[A] verklaart [B] de oorlog (na veroverde dorpen).');
     expect(n.tribes).toEqual([ta.id, tb.id]);
     expect(n.x).toBeTypeOf('number');
   });
@@ -74,6 +75,6 @@ describe('world news', () => {
     s.newsTop!.tribe = top === ta.id ? tb.id : ta.id;
     onDiplomacy(s);
     const n = s.news!.filter((x) => x.kind === 'ranking').at(-1)!;
-    expect(n.dry).toContain('is nu de grootste stam');
+    expect(txt(n.dry)).toContain('is nu de grootste stam');
   });
 });

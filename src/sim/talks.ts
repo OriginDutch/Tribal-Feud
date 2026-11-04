@@ -30,6 +30,7 @@ import { tribeStrength } from './warCause';
 import { addReparations } from './reparations';
 import { addDuty, offensiveSpace } from './duties';
 import type { Village } from './village';
+import { T, tr, type Txt } from '../shared/i18n';
 
 export const ROUND_HOURS = 12;
 export const MAX_BIDS = 3;
@@ -74,18 +75,22 @@ export interface Outlaw {
   until: number;
 }
 
-const T = (t: Tribe) => `[${t.tag}]`;
+const tg = (t: Tribe) => `[${t.tag}]`;
 const round = (n: number) => Math.round(n / 1000) * 1000;
 
-export function termsText(t: Terms, state?: WorldState): string {
-  const parts = [];
-  if (t.villages > 0) parts.push(`${t.villages} dorp${t.villages === 1 ? '' : 'en'}`);
-  if (t.resources > 0) parts.push(`${Math.round(t.resources).toLocaleString('nl-NL')} grondstoffen`);
+/** The terms as kept text (news, inbox). */
+export function termsText(t: Terms, state?: WorldState): Txt {
+  const parts: Txt[] = [];
+  if (t.villages > 0) parts.push(t.villages === 1 ? T('{n} dorp', { n: t.villages }) : T('{n} dorpen', { n: t.villages }));
+  if (t.resources > 0) parts.push(T('{n} grondstoffen', { n: Math.round(t.resources) }));
   if (t.help && t.help.space > 0) {
     const tag = state?.tribes?.[t.help.target]?.tag;
-    parts.push(`hulp: ${t.help.space.toLocaleString('nl-NL')} boerderijplekken aanval per lid${tag ? ` tegen [${tag}]` : ''}`);
+    parts.push(tag
+      ? T('hulp: {space} boerderijplekken aanval per lid tegen [{tag}]', { space: t.help.space, tag })
+      : T('hulp: {space} boerderijplekken aanval per lid', { space: t.help.space }));
   }
-  return parts.join(' + ') || 'niets';
+  if (!parts.length) return T('niets');
+  return parts.slice(1).reduce<Txt>((a, b) => T('{a} + {b}', { a, b }), parts[0]!);
 }
 
 // --- lookups --------------------------------------------------------------------
@@ -187,8 +192,12 @@ export function startTalks(state: WorldState, winner: Tribe, loser: Tribe): Talk
   (state.talks ??= []).push(t);
   recallAttacks(state, winner, loser);
   addNews(state, { kind: 'talks', tribes: [winner.id, loser.id], ...between(state, winner, loser),
-    dry: `${T(winner)} en ${T(loser)} gaan aan tafel voor vredesbesprekingen.`,
-    head: [`Witte vlaggen: ${T(winner)} en ${T(loser)} praten over vrede`, `Gesprekken in de oorlog tussen ${T(winner)} en ${T(loser)}`, `Wapenstilstand: ${T(winner)} en ${T(loser)} aan de onderhandelingstafel`] });
+    dry: T('{a} en {b} gaan aan tafel voor vredesbesprekingen.', { a: tg(winner), b: tg(loser) }),
+    head: [
+      T('Witte vlaggen: {a} en {b} praten over vrede', { a: tg(winner), b: tg(loser) }),
+      T('Gesprekken in de oorlog tussen {a} en {b}', { a: tg(winner), b: tg(loser) }),
+      T('Wapenstilstand: {a} en {b} aan de onderhandelingstafel', { a: tg(winner), b: tg(loser) }),
+    ] });
   openRound(state, t);
   return t;
 }
@@ -288,12 +297,14 @@ function openRound(state: WorldState, t: Talks): void {
       from: s.other.leader,
       tribe: s.other.id,
       talks: t.id,
-      title: `Vredesbesprekingen met ${T(s.other)}: jullie zijn aan zet`,
+      title: T('Vredesbesprekingen met {tribe}: jullie zijn aan zet', { tribe: tg(s.other) }),
       text: asked
-        ? `${T(s.other)} biedt: ${termsText(asked.terms, state)}. Stem in de stamtab: accepteren, een tegenbod doen${t.bids.length >= MAX_BIDS ? ' (kan niet meer: dit was het laatste bod)' : ''} of afbreken.`
-        : `De besprekingen beginnen. Stem in de stamtab over het eerste bod aan ${T(s.other)}.`,
+        ? t.bids.length >= MAX_BIDS
+          ? T('{tribe} biedt: {terms}. Stem in de stamtab: accepteren, een tegenbod doen (kan niet meer: dit was het laatste bod) of afbreken.', { tribe: tg(s.other), terms: termsText(asked.terms, state) })
+          : T('{tribe} biedt: {terms}. Stem in de stamtab: accepteren, een tegenbod doen of afbreken.', { tribe: tg(s.other), terms: termsText(asked.terms, state) })
+        : T('De besprekingen beginnen. Stem in de stamtab over het eerste bod aan {tribe}.', { tribe: tg(s.other) }),
     });
-    alertHuman(state, `Vredesbesprekingen met ${T(s.other)}: jullie zijn aan zet.`);
+    alertHuman(state, tr('Vredesbesprekingen met {tribe}: jullie zijn aan zet.', { tribe: tg(s.other) }));
   }
 }
 
@@ -358,9 +369,12 @@ function fail(state: WorldState, t: Talks, by: Tribe): void {
   const s = sideTribes(state, t)!;
   end(state, t);
   addNews(state, { kind: 'talksFailed', tribes: [s.winner.id, s.loser.id], ...between(state, s.winner, s.loser),
-    dry: `De vredesbesprekingen tussen ${T(s.winner)} en ${T(s.loser)} zijn mislukt: ${T(by)} haakt af. De oorlog gaat door.`,
-    head: [`Geen akkoord: de oorlog tussen ${T(s.winner)} en ${T(s.loser)} laait weer op`, `${T(by)} loopt weg van de tafel, de bijlen gaan weer omhoog`] });
-  if (s.winner.members.includes(HUMAN_ID) || s.loser.members.includes(HUMAN_ID)) alertHuman(state, `Geen vrede met ${T(s.winner.members.includes(HUMAN_ID) ? s.loser : s.winner)}: de oorlog gaat door.`);
+    dry: T('De vredesbesprekingen tussen {a} en {b} zijn mislukt: {by} haakt af. De oorlog gaat door.', { a: tg(s.winner), b: tg(s.loser), by: tg(by) }),
+    head: [
+      T('Geen akkoord: de oorlog tussen {a} en {b} laait weer op', { a: tg(s.winner), b: tg(s.loser) }),
+      T('{by} loopt weg van de tafel, de bijlen gaan weer omhoog', { by: tg(by) }),
+    ] });
+  if (s.winner.members.includes(HUMAN_ID) || s.loser.members.includes(HUMAN_ID)) alertHuman(state, tr('Geen vrede met {tribe}: de oorlog gaat door.', { tribe: tg(s.winner.members.includes(HUMAN_ID) ? s.loser : s.winner) }));
 }
 
 /** Agreed: villages are ceded (emptied, the window starts), the loser's members pay their share. */
@@ -372,10 +386,15 @@ function conclude(state: WorldState, t: Talks, terms: Terms): void {
   if (terms.resources > 0) addReparations(state, s.winner, s.loser, terms.resources);
   if (terms.help) addDuty(state, s.winner, s.loser, terms.help.target, terms.help.space);
   const got: Terms = { villages: villages.length, resources: terms.resources, ...(terms.help ? { help: terms.help } : {}) };
+  const p = { winner: tg(s.winner), loser: tg(s.loser), terms: termsText(got, state) };
   addNews(state, { kind: 'treaty', tribes: [s.winner.id, s.loser.id], ...between(state, s.winner, s.loser),
-    dry: `Vrede tussen ${T(s.winner)} en ${T(s.loser)}: ${T(s.loser)} geeft ${termsText(got, state)}.`,
-    head: [`Vrede getekend: ${T(s.loser)} betaalt ${termsText(got, state)} aan ${T(s.winner)}`, `${T(s.winner)} dicteert de vrede: ${termsText(got, state)} van ${T(s.loser)}`, `Het is vrede. De rekening voor ${T(s.loser)}: ${termsText(got, state)}`] });
-  if (s.winner.members.includes(HUMAN_ID) || s.loser.members.includes(HUMAN_ID)) alertHuman(state, `Vrede tussen ${T(s.winner)} en ${T(s.loser)}: ${termsText(got, state)}.`);
+    dry: T('Vrede tussen {winner} en {loser}: {loser} geeft {terms}.', p),
+    head: [
+      T('Vrede getekend: {loser} betaalt {terms} aan {winner}', p),
+      T('{winner} dicteert de vrede: {terms} van {loser}', p),
+      T('Het is vrede. De rekening voor {loser}: {terms}', p),
+    ] });
+  if (s.winner.members.includes(HUMAN_ID) || s.loser.members.includes(HUMAN_ID)) alertHuman(state, tr('Vrede tussen {winner} en {loser}: {terms}.', p));
 }
 
 // --- your part ------------------------------------------------------------------
@@ -383,9 +402,9 @@ function conclude(state: WorldState, t: Talks, terms: Terms): void {
 /** Your vote in the talks of your tribe (only when it is your side's turn). */
 export function voteTalks(state: WorldState, talksId: number, optionId: number): string | null {
   const t = state.talks?.find((x) => x.id === talksId);
-  if (!t) return 'Deze besprekingen zijn voorbij.';
-  if (state.players[HUMAN_ID]?.tribe !== t.side) return 'Jullie zijn nu niet aan zet.';
-  if (!t.options.some((o) => o.id === optionId)) return 'Die keuze bestaat niet.';
+  if (!t) return tr('Deze besprekingen zijn voorbij.');
+  if (state.players[HUMAN_ID]?.tribe !== t.side) return tr('Jullie zijn nu niet aan zet.');
+  if (!t.options.some((o) => o.id === optionId)) return tr('Die keuze bestaat niet.');
   t.votes[HUMAN_ID] = optionId;
   return null;
 }
@@ -393,12 +412,12 @@ export function voteTalks(state: WorldState, talksId: number, optionId: number):
 /** Your bid: as leader it replaces your suggestion, as member it is an alternative to vote on. */
 export function proposeTalks(state: WorldState, talksId: number, terms: Terms): string | null {
   const t = state.talks?.find((x) => x.id === talksId);
-  if (!t) return 'Deze besprekingen zijn voorbij.';
+  if (!t) return tr('Deze besprekingen zijn voorbij.');
   const me = state.players[HUMAN_ID]!;
-  if (me.tribe !== t.side) return 'Jullie zijn nu niet aan zet.';
-  if (t.bids.length >= MAX_BIDS) return 'Er zijn al drie biedingen gedaan: alleen accepteren of afbreken kan nog.';
+  if (me.tribe !== t.side) return tr('Jullie zijn nu niet aan zet.');
+  if (t.bids.length >= MAX_BIDS) return tr('Er zijn al drie biedingen gedaan: alleen accepteren of afbreken kan nog.');
   const clean = clampTerms(state, t, terms);
-  if (clean.villages <= 0 && clean.resources <= 0 && !clean.help) return 'Een bod vraagt dorpen, grondstoffen of hulp.';
+  if (clean.villages <= 0 && clean.resources <= 0 && !clean.help) return tr('Een bod vraagt dorpen, grondstoffen of hulp.');
   // as leader your bid is the leader's suggestion (made for you at the start of the round); as a
   // member it is an alternative next to it. Either way you vote for it.
   let mine = t.options.find((o) => o.kind === 'bid' && o.author === HUMAN_ID);
@@ -414,10 +433,10 @@ export function proposeTalks(state: WorldState, talksId: number, terms: Terms): 
 /** You (leading a tribe at war) open talks. The stronger side makes the first bid. */
 export function humanStartTalks(state: WorldState, otherId: number): string | null {
   const mine = state.players[HUMAN_ID]?.tribe !== undefined ? state.tribes?.[state.players[HUMAN_ID]!.tribe!] : undefined;
-  if (!mine || mine.leader !== HUMAN_ID) return 'Alleen de stamleider kan vredesbesprekingen openen.';
+  if (!mine || mine.leader !== HUMAN_ID) return tr('Alleen de stamleider kan vredesbesprekingen openen.');
   const other = state.tribes?.[otherId];
-  if (!other || mine.relations[other.id] !== 'war') return 'Jullie zijn niet in oorlog met die stam.';
-  if (talksOfTribes(state, mine.id, other.id)) return 'Er lopen al besprekingen.';
+  if (!other || mine.relations[other.id] !== 'war') return tr('Jullie zijn niet in oorlog met die stam.');
+  if (talksOfTribes(state, mine.id, other.id)) return tr('Er lopen al besprekingen.');
   const strongerMine = tribeStrength(state, mine) >= tribeStrength(state, other);
   startTalks(state, strongerMine ? mine : other, strongerMine ? other : mine);
   return null;
@@ -437,9 +456,13 @@ export function breachTalks(state: WorldState, t: Talks, who: number): void {
   delete t.votes[who];
   const home = villagesOf(state, who)[0];
   addNews(state, { kind: 'outlaw', tribes: [t.winner, t.loser], players: [who], ...(home ? { x: home.x, y: home.y } : {}),
-    dry: `${p.name} valt aan tijdens de vredesbesprekingen: ${T(own)} zet hem uit de stam. Hij is vogelvrij voor ${winner ? T(winner) : '?'} en ${loser ? T(loser) : '?'}.`,
-    head: [`Vogelvrij! ${p.name} breekt de wapenstilstand en wordt verstoten`, `${p.name} saboteert de vrede en is nu vrij wild`, `Op de kop van ${p.name} staat een prijs: vogelvrij verklaard`] });
-  if (who === HUMAN_ID) addLog(state, { time: state.time, text: `Je viel aan tijdens de vredesbesprekingen. ${T(own)} zet je uit de stam: je bent vogelvrij.` });
+    dry: T('{player} valt aan tijdens de vredesbesprekingen: {tribe} zet hem uit de stam. Hij is vogelvrij voor {a} en {b}.', { player: p.name, tribe: tg(own), a: winner ? tg(winner) : '?', b: loser ? tg(loser) : '?' }),
+    head: [
+      T('Vogelvrij! {player} breekt de wapenstilstand en wordt verstoten', { player: p.name }),
+      T('{player} saboteert de vrede en is nu vrij wild', { player: p.name }),
+      T('Op de kop van {player} staat een prijs: vogelvrij verklaard', { player: p.name }),
+    ] });
+  if (who === HUMAN_ID) addLog(state, { time: state.time, text: tr('Je viel aan tijdens de vredesbesprekingen. {tribe} zet je uit de stam: je bent vogelvrij.', { tribe: tg(own) }) });
 }
 
 /** Diplomacy tick: outlaws whose time is up are free again. */

@@ -6,6 +6,7 @@
  * end it again within a day (that costs you rank points).
  */
 import { DAY } from '../shared/time';
+import { T, tr, type Txt } from '../shared/i18n';
 import { isOnline } from './bots';
 import { grudge } from './botReact';
 import { addMessage, proposeRelation, proposeToHuman, setOwnRelation } from './humanTribe';
@@ -43,12 +44,12 @@ const openRh = (state: WorldState) => (state.tribeAsks ?? []).some((a) => (a.kin
 /** Why you can't propose to this tribe now (null = you can). */
 function blocker(state: WorldState, tribeId: number): { t: Tribe; o: Tribe } | string {
   const t = myRightHandTribe(state);
-  if (!t) return 'Alleen de rechterhand kan namens de stam voorstellen doen.';
+  if (!t) return tr('Alleen de rechterhand kan namens de stam voorstellen doen.');
   const o = state.tribes?.[tribeId];
-  if (!o || o.id === t.id) return 'Die stam bestaat niet.';
-  if (openRh(state)) return 'Je hebt al een voorstel lopen.';
+  if (!o || o.id === t.id) return tr('Die stam bestaat niet.');
+  if (openRh(state)) return tr('Je hebt al een voorstel lopen.');
   const no = state.rhNo?.[o.id];
-  if (no !== undefined && state.time - no < RH_RETRY) return `${tag(o)} zei net nee. Wacht een halve speldag.`;
+  if (no !== undefined && state.time - no < RH_RETRY) return tr('{tag} zei net nee. Wacht een halve speldag.', { tag: tag(o) });
   return { t, o };
 }
 
@@ -59,17 +60,17 @@ export function rhPropose(state: WorldState, tribeId: number, relation: 'nap' | 
   const { t, o } = b;
   const rel = t.relations[o.id];
   if (relation === 'peace') {
-    if (rel !== 'war') return 'Jullie zijn niet in oorlog met die stam.';
-    if (talksOfTribes(state, t.id, o.id)) return 'Er lopen al besprekingen.';
+    if (rel !== 'war') return tr('Jullie zijn niet in oorlog met die stam.');
+    if (talksOfTribes(state, t.id, o.id)) return tr('Er lopen al besprekingen.');
     const strongerMine = tribeStrength(state, t) >= tribeStrength(state, o);
     startTalks(state, strongerMine ? t : o, strongerMine ? o : t);
-    addLog(state, { time: state.time, text: `Als rechterhand open je vredesbesprekingen met ${tag(o)}.` });
+    addLog(state, { time: state.time, text: tr('Als rechterhand open je vredesbesprekingen met {tag}.', { tag: tag(o) }) });
     return null;
   }
-  if (rel === 'war') return 'Jullie zijn in oorlog: open vredesbesprekingen.';
-  if (rel) return 'Dat verdrag hebben jullie al.';
+  if (rel === 'war') return tr('Jullie zijn in oorlog: open vredesbesprekingen.');
+  if (rel) return tr('Dat verdrag hebben jullie al.');
   (state.tribeAsks ??= []).push({ kind: 'propose', tribe: o.id, relation: 'nap', at: state.time, by: 'rh' });
-  addLog(state, { time: state.time, text: `Als rechterhand stel je ${tag(o)} een niet-aanvalsverdrag voor.` });
+  addLog(state, { time: state.time, text: tr('Als rechterhand stel je {tag} een niet-aanvalsverdrag voor.', { tag: tag(o) }) });
   return null;
 }
 
@@ -78,9 +79,9 @@ export function rhAskAlly(state: WorldState, tribeId: number): string | null {
   const b = blocker(state, tribeId);
   if (typeof b === 'string') return b;
   const { t, o } = b;
-  if (t.relations[o.id] !== 'nap') return 'Eerst een niet-aanvalsverdrag.';
+  if (t.relations[o.id] !== 'nap') return tr('Eerst een niet-aanvalsverdrag.');
   (state.tribeAsks ??= []).push({ kind: 'allyAsk', tribe: o.id, at: state.time });
-  addLog(state, { time: state.time, text: `Je vraagt je leider om ${tag(o)} een bondgenootschap voor te stellen.` });
+  addLog(state, { time: state.time, text: tr('Je vraagt je leider om {tag} een bondgenootschap voor te stellen.', { tag: tag(o) }) });
   return null;
 }
 
@@ -106,11 +107,13 @@ export function answerRhAsk(state: WorldState, ask: Extract<TribeAsk, { kind: 'a
   if (nextFloat(state.rng) < chance) {
     // he makes the proposal; the other tribe answers it like any other
     (state.tribeAsks ??= []).push({ kind: 'propose', tribe: o.id, relation: 'ally', at: state.time, by: 'rh' });
-    addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: `${leader.name}: bondgenootschap met ${tag(o)}`, text: `${leader.name}: goed idee. Ik stel ${tag(o)} een bondgenootschap voor.` });
+    addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: T('{name}: bondgenootschap met {tag}', { name: leader.name, tag: tag(o) }), text: T('{name}: goed idee. Ik stel {tag} een bondgenootschap voor.', { name: leader.name, tag: tag(o) }) });
   } else {
     (state.rhNo ??= {})[o.id] = state.time;
-    const why = g >= GRUDGE ? `met ${tag(o)}? Na wat ze ons hebben aangedaan? Nee.` : allies >= MAX_ALLIES ? 'we hebben al genoeg bondgenoten.' : `daar zie ik nu niks in.`;
-    addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: `${leader.name}: geen bondgenootschap`, text: `${leader.name}: ${why}` });
+    const name = leader.name;
+    const text = g >= GRUDGE ? T('{name}: met {tag}? Na wat ze ons hebben aangedaan? Nee.', { name, tag: tag(o) })
+      : allies >= MAX_ALLIES ? T('{name}: we hebben al genoeg bondgenoten.', { name }) : T('{name}: daar zie ik nu niks in.', { name });
+    addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: T('{name}: geen bondgenootschap', { name }), text });
   }
   return true;
 }
@@ -122,7 +125,7 @@ export function rhTreatyAnswered(state: WorldState, t: Tribe, o: Tribe, relation
   if (relation !== 'nap') return;
   const leader = state.players[t.leader];
   if (!leader?.bot || leaderGrudge(state, leader, o) < GRUDGE) return;
-  changeStanding(state, RH_GRUDGE_STANDING, `NAP met ${tag(o)} tegen de zin van ${leader.name}`);
+  changeStanding(state, RH_GRUDGE_STANDING, T('NAP met {tag} tegen de zin van {name}', { tag: tag(o), name: leader.name }));
   (state.rhTreaties ??= []).push({ tribe: o.id, at: state.time });
 }
 
@@ -141,7 +144,7 @@ export function rhTreatyTick(state: WorldState): void {
     if (nextFloat(state.rng) < AGGRESSION[leader.bot.archetype]) {
       setRelation(state, t, o, null);
       addMerit(state, HUMAN_ID, MERIT.treatyUndone);
-      addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: `${leader.name} zegt de NAP met ${tag(o)} op`, text: `${leader.name}: met ${tag(o)} sluiten wij geen verdrag. Ik heb het opgezegd.` });
+      addMessage(state, { kind: 'answer', from: leader.id, tribe: o.id, title: T('{name} zegt de NAP met {tag} op', { name: leader.name, tag: tag(o) }), text: T('{name}: met {tag} sluiten wij geen verdrag. Ik heb het opgezegd.', { name: leader.name, tag: tag(o) }) });
     }
   }
   state.rhTreaties = keep;
@@ -170,11 +173,11 @@ const allyCount = (t: Tribe) => Object.values(t.relations).filter((r) => r === '
 /** Both fight the same enemy. */
 const sharedEnemy = (t: Tribe, o: Tribe) => Object.entries(t.relations).some(([id, r]) => r === 'war' && o.relations[Number(id)] === 'war');
 /** The leader went against the tribe's interest: his right hand and the members take it badly. */
-function unjust(state: WorldState, t: Tribe, rh: Player, why: string): void {
+function unjust(state: WorldState, t: Tribe, rh: Player, why: Txt): void {
   changeMood(state, rh, UNJUST.rightHand, why);
   moodAll(state, t, UNJUST.others, why, rh.id);
 }
-function rhNews(state: WorldState, kind: 'nap' | 'ally' | 'war' | 'talks', a: Tribe, b: Tribe, dry: string): void {
+function rhNews(state: WorldState, kind: 'nap' | 'ally' | 'war' | 'talks', a: Tribe, b: Tribe, dry: Txt): void {
   addNews(state, { kind, tribes: [a.id, b.id], dry, head: dry });
 }
 
@@ -205,8 +208,8 @@ export function rhRound(state: WorldState, x: Tribe, y: Tribe): boolean {
   } else if (rel === 'war') {
     if (since > DAY && !talksOfTribes(state, x.id, y.id) && mayTalk(state, strong, weak) && roll < RH_BOT.peace * (1.2 - AGGRESSION[arch])) {
       startTalks(state, strong, weak);
-      rhNews(state, 'talks', x, y, `${tag(x)}: rechterhand ${p.name} opent vredesbesprekingen met ${tag(y)}.`);
-      if (x.leader === HUMAN_ID) addMessage(state, { kind: 'info', from: p.id, tribe: y.id, title: `Je rechterhand opent vredesbesprekingen met ${tag(y)}`, text: `${p.name}: deze oorlog met ${tag(y)} kost ons te veel. Ik ben met ze om tafel gegaan.` });
+      rhNews(state, 'talks', x, y, T('{tag}: rechterhand {name} opent vredesbesprekingen met {other}.', { tag: tag(x), name: p.name, other: tag(y) }));
+      if (x.leader === HUMAN_ID) addMessage(state, { kind: 'info', from: p.id, tribe: y.id, title: T('Je rechterhand opent vredesbesprekingen met {tag}', { tag: tag(y) }), text: T('{name}: deze oorlog met {tag} kost ons te veel. Ik ben met ze om tafel gegaan.', { name: p.name, tag: tag(y) }) });
       return true;
     }
   }
@@ -215,14 +218,14 @@ export function rhRound(state: WorldState, x: Tribe, y: Tribe): boolean {
 
 /** His NAP: the other side decides (a human leader gets the proposal); his own leader hears of it. */
 function rhNap(state: WorldState, x: Tribe, y: Tribe, p: Player): boolean {
-  if (x.leader === HUMAN_ID) addMessage(state, { kind: 'info', from: p.id, tribe: y.id, title: `Je rechterhand stelt ${tag(y)} een NAP voor`, text: `${p.name}: ik heb ${tag(y)} namens ons een niet-aanvalsverdrag voorgesteld. Dat houdt onze grens rustig.` });
+  if (x.leader === HUMAN_ID) addMessage(state, { kind: 'info', from: p.id, tribe: y.id, title: T('Je rechterhand stelt {tag} een NAP voor', { tag: tag(y) }), text: T('{name}: ik heb {tag} namens ons een niet-aanvalsverdrag voorgesteld. Dat houdt onze grens rustig.', { name: p.name, tag: tag(y) }) });
   if (y.leader === HUMAN_ID) { proposeToHuman(state, x, 'nap'); return true; }
   const yl = state.players[y.leader];
   if (!yl?.bot) return true;
   const chance = (1 - AGGRESSION[yl.bot.archetype]) * 0.8 + (tribeStrength(state, x) > tribeStrength(state, y) ? 0.2 : 0) - grudge(state, yl, p.id) * 0.5;
   if (nextFloat(state.rng) >= chance) return true;
   setRelation(state, x, y, 'nap', true);
-  rhNews(state, 'nap', x, y, `${tag(x)}: rechterhand ${p.name} sluit een NAP met ${tag(y)}.`);
+  rhNews(state, 'nap', x, y, T('{tag}: rechterhand {name} sluit een NAP met {other}.', { tag: tag(x), name: p.name, other: tag(y) }));
   addMerit(state, p.id, MERIT.treaty);
   rhTreatyMade(state, x, y, p);
   return true;
@@ -231,12 +234,12 @@ function rhNap(state: WorldState, x: Tribe, y: Tribe, p: Player): boolean {
 /** A NAP his right hand made: a human leader may undo it for a day; a bot leader with a grudge frowns (and maybe undoes it, see rhNapCheck). */
 function rhTreatyMade(state: WorldState, x: Tribe, y: Tribe, p: Player): void {
   if (x.leader === HUMAN_ID) {
-    addMessage(state, { kind: 'rhTreaty', from: p.id, tribe: y.id, title: `Je rechterhand sloot een NAP met ${tag(y)}`, text: `${p.name}: ${tag(y)} gaat akkoord met een niet-aanvalsverdrag. Wil je het opzeggen, dan kan dat nu nog.`, status: 'open', expires: state.time + RH_UNDO_WINDOW });
+    addMessage(state, { kind: 'rhTreaty', from: p.id, tribe: y.id, title: T('Je rechterhand sloot een NAP met {tag}', { tag: tag(y) }), text: T('{name}: {tag} gaat akkoord met een niet-aanvalsverdrag. Wil je het opzeggen, dan kan dat nu nog.', { name: p.name, tag: tag(y) }), status: 'open', expires: state.time + RH_UNDO_WINDOW });
     return;
   }
   const leader = state.players[x.leader];
   if (!leader?.bot || leaderGrudge(state, leader, y) < GRUDGE) return;
-  changeMood(state, p, RH_GRUDGE_STANDING, `NAP met ${tag(y)} tegen de zin van ${leader.name}`);
+  changeMood(state, p, RH_GRUDGE_STANDING, T('NAP met {tag} tegen de zin van {name}', { tag: tag(y), name: leader.name }));
   (x.rhNaps ??= []).push({ tribe: y.id, at: state.time });
 }
 
@@ -250,13 +253,13 @@ function rhNapCheck(state: WorldState, x: Tribe, y: Tribe): boolean {
   if (nextFloat(state.rng) >= AGGRESSION[leader.bot.archetype]) return false;
   setRelation(state, x, y, null, true);
   (x.rhBlock ??= {})[y.id] = state.time + DAY;
-  rhNews(state, 'nap', x, y, `${tag(x)}: leider ${leader.name} zegt de NAP met ${tag(y)} op.`);
+  rhNews(state, 'nap', x, y, T('{tag}: leider {name} zegt de NAP met {other} op.', { tag: tag(x), name: leader.name, other: tag(y) }));
   const id = rightHand(state, x);
   const rh = id !== undefined ? state.players[id] : undefined;
   if (!rh?.bot) return true;
   addMerit(state, rh.id, MERIT.treatyUndone);
   // a stronger neighbour you just made an enemy of again: the tribe sees it as a mistake
-  if (tribeStrength(state, y) > tribeStrength(state, x)) unjust(state, x, rh, `${leader.name} zegt de NAP met het sterkere ${tag(y)} op`);
+  if (tribeStrength(state, y) > tribeStrength(state, x)) unjust(state, x, rh, T('{name} zegt de NAP met het sterkere {tag} op', { name: leader.name, tag: tag(y) }));
   return true;
 }
 
@@ -264,21 +267,21 @@ function rhNapCheck(state: WorldState, x: Tribe, y: Tribe): boolean {
 function rhAlly(state: WorldState, x: Tribe, y: Tribe, p: Player): boolean {
   if (x.leader === HUMAN_ID) {
     if ((state.inbox ?? []).some((m) => m.status === 'open' && m.kind === 'rhAsk')) return false;
-    addMessage(state, { kind: 'rhAsk', rhAsk: 'ally', from: p.id, tribe: y.id, title: `Je rechterhand wil een bondgenootschap met ${tag(y)}`, text: `${p.name}: ${tag(y)} houdt zich al een tijd aan onze NAP. Zullen we ze een bondgenootschap voorstellen?`, status: 'open', expires: state.time + DAY });
+    addMessage(state, { kind: 'rhAsk', rhAsk: 'ally', from: p.id, tribe: y.id, title: T('Je rechterhand wil een bondgenootschap met {tag}', { tag: tag(y) }), text: T('{name}: {tag} houdt zich al een tijd aan onze NAP. Zullen we ze een bondgenootschap voorstellen?', { name: p.name, tag: tag(y) }), status: 'open', expires: state.time + DAY });
     return true;
   }
   const leader = state.players[x.leader];
   if (!leader?.bot) return false;
   const chance = SOCIAL[leader.bot.archetype] * 0.7 * rw() - leaderGrudge(state, leader, y) * 0.5;
   if (nextFloat(state.rng) >= chance) {
-    if (sharedEnemy(x, y)) unjust(state, x, p, `${leader.name} wil geen bondgenootschap met ${tag(y)}, terwijl we dezelfde vijand hebben`);
+    if (sharedEnemy(x, y)) unjust(state, x, p, T('{name} wil geen bondgenootschap met {tag}, terwijl we dezelfde vijand hebben', { name: leader.name, tag: tag(y) }));
     return true;
   }
   if (y.leader === HUMAN_ID) { proposeToHuman(state, x, 'ally'); return true; }
   const yl = state.players[y.leader];
   if (!yl?.bot || nextFloat(state.rng) >= SOCIAL[yl.bot.archetype] * 0.7) return true;
   setRelation(state, x, y, 'ally', true);
-  rhNews(state, 'ally', x, y, `${tag(x)} en ${tag(y)} worden bondgenoten, op voorstel van rechterhand ${p.name}.`);
+  rhNews(state, 'ally', x, y, T('{a} en {b} worden bondgenoten, op voorstel van rechterhand {name}.', { a: tag(x), b: tag(y), name: p.name }));
   addMerit(state, p.id, MERIT.treaty);
   return true;
 }
@@ -287,10 +290,10 @@ function rhAlly(state: WorldState, x: Tribe, y: Tribe, p: Player): boolean {
 function rhWar(state: WorldState, x: Tribe, y: Tribe, p: Player): boolean {
   if (x.leader === HUMAN_ID) {
     if ((state.inbox ?? []).some((m) => m.status === 'open' && m.kind === 'rhAsk')) return false;
-    addMessage(state, { kind: 'rhAsk', rhAsk: 'war', from: p.id, tribe: y.id, title: `Je rechterhand wil oorlog met ${tag(y)}`, text: `${p.name}: ${tag(y)} zit ons al te lang dwars en we zijn sterker. Laten we ze de oorlog verklaren.`, status: 'open', expires: state.time + DAY });
+    addMessage(state, { kind: 'rhAsk', rhAsk: 'war', from: p.id, tribe: y.id, title: T('Je rechterhand wil oorlog met {tag}', { tag: tag(y) }), text: T('{name}: {tag} zit ons al te lang dwars en we zijn sterker. Laten we ze de oorlog verklaren.', { name: p.name, tag: tag(y) }), status: 'open', expires: state.time + DAY });
     return true;
   }
-  declareWar(state, x, y, false, `op aandringen van rechterhand ${p.name}`);
+  declareWar(state, x, y, false, T('op aandringen van rechterhand {name}', { name: p.name }));
   return true;
 }
 
@@ -299,14 +302,14 @@ export function answerRh(state: WorldState, m: InboxMessage, accept: boolean): s
   const t = tribeOf(state, HUMAN_ID);
   const y = m.tribe !== undefined ? state.tribes?.[m.tribe] : undefined;
   const p = state.players[m.from];
-  if (!t || t.leader !== HUMAN_ID || !y || !p) { m.status = 'expired'; return 'Dat speelt niet meer.'; }
+  if (!t || t.leader !== HUMAN_ID || !y || !p) { m.status = 'expired'; return tr('Dat speelt niet meer.'); }
   if (m.kind === 'rhTreaty') {
     if (!accept) { m.status = 'declined'; return null; }
-    if (t.relations[y.id] !== 'nap') { m.status = 'expired'; return 'Die NAP bestaat niet meer.'; }
+    if (t.relations[y.id] !== 'nap') { m.status = 'expired'; return tr('Die NAP bestaat niet meer.'); }
     setRelation(state, t, y, null, true);
-    rhNews(state, 'nap', t, y, `${tag(t)}: leider ${state.players[HUMAN_ID]?.name ?? 'jij'} zegt de NAP met ${tag(y)} op.`);
+    rhNews(state, 'nap', t, y, T('{tag}: leider {name} zegt de NAP met {other} op.', { tag: tag(t), name: state.players[HUMAN_ID]?.name ?? 'jij', other: tag(y) }));
     addMerit(state, p.id, MERIT.treatyUndone);
-    if (tribeStrength(state, y) > tribeStrength(state, t)) unjust(state, t, p, `je zegt de NAP met het sterkere ${tag(y)} op`);
+    if (tribeStrength(state, y) > tribeStrength(state, t)) unjust(state, t, p, T('je zegt de NAP met het sterkere {tag} op', { tag: tag(y) }));
     m.status = 'accepted';
     return null;
   }
@@ -317,10 +320,10 @@ export function answerRh(state: WorldState, m: InboxMessage, accept: boolean): s
     return e;
   }
   m.status = 'declined';
-  if (m.rhAsk === 'ally' && sharedEnemy(t, y)) unjust(state, t, p, `je wilt geen bondgenootschap met ${tag(y)}, terwijl we dezelfde vijand hebben`);
+  if (m.rhAsk === 'ally' && sharedEnemy(t, y)) unjust(state, t, p, T('je wilt geen bondgenootschap met {tag}, terwijl we dezelfde vijand hebben', { tag: tag(y) }));
   if (m.rhAsk === 'war') {
     const { strong, need } = warNeed(state, t, y);
-    if (strong === t && frictionBetween(t, y) >= need) unjust(state, t, p, `je weigert de oorlog met ${tag(y)}, terwijl die al lang verdiend is`);
+    if (strong === t && frictionBetween(t, y) >= need) unjust(state, t, p, T('je weigert de oorlog met {tag}, terwijl die al lang verdiend is', { tag: tag(y) }));
   }
   return null;
 }

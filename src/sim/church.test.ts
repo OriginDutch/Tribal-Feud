@@ -4,6 +4,7 @@ import { battleBonus } from './battleBonus';
 import { hasFaith } from './church';
 import { BARBARIAN, HUMAN_ID, createWorld, invalidateOwners, playerVillage } from './state';
 import { buildBlocker } from './village';
+import { txt } from '../shared/i18n';
 
 describe('churches', () => {
   it('the first village starts with a first church; far villages have no faith and fight at half strength', () => {
@@ -20,7 +21,7 @@ describe('churches', () => {
     expect(battleBonus(s, v, enemy, { axe: 100 }).attackerFactor).toBe(1);
     // only one first church; a second village can get a normal church
     expect(buildBlocker(s, far, 'church_f')).toBe('Je hebt al een eerste kerk');
-    expect(buildBlocker(s, far, 'church')).toMatch(/Vereist/);
+    expect(txt(buildBlocker(s, far, 'church'))).toMatch(/Vereist/);
   });
 
   it('without churches the buildings do not exist', () => {

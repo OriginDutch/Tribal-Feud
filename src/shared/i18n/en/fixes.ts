@@ -13,6 +13,9 @@ export const fixes: Record<string, string> = {
   Relaties: 'Relations',
   alles: 'all',
   Inloggen: 'Log in',
+  'uit de stam gezet': 'kicked from the tribe',
+  'Opdracht: {title}': 'Quest: {title}',
+  '{building} level {level}': '{building} level {level}',
   Taal: 'Language',
   'Je hebt {n} dorpen': 'You have {n} villages',
 };

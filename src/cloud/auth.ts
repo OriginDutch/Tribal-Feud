@@ -8,6 +8,7 @@ import type { Auth, User } from 'firebase/auth';
 import { send, showNotice } from '../ui/store';
 import { AUTH_EMULATOR, EMULATOR, FIREBASE, isAdmin } from './config';
 import { Firestore } from './rest';
+import { tr } from '../shared/i18n';
 
 export interface Account {
   uid: string;
@@ -86,7 +87,8 @@ const MESSAGES: Record<string, string> = {
 
 export function authError(e: unknown): string {
   const code = (e as { code?: string }).code ?? '';
-  return MESSAGES[code] ?? `Dat lukte niet (${code || String(e)}).`;
+  const m = MESSAGES[code];
+  return m ? tr(m) : tr('Dat lukte niet ({error}).', { error: code || String(e) });
 }
 
 export async function signUp(email: string, password: string): Promise<void> {
@@ -122,7 +124,7 @@ export async function reloadUser(): Promise<void> {
 export async function signOut(): Promise<void> {
   const { auth, mod } = await load();
   await mod.signOut(auth);
-  showNotice('Uitgelogd. Je saves op deze computer blijven gewoon staan.', 'info');
+  showNotice(tr('Uitgelogd. Je saves op deze computer blijven gewoon staan.'), 'info');
 }
 
 /** Admin: every account, newest first. */

@@ -11,6 +11,7 @@ import { distance, type Movement } from './movement';
 import { HUMAN_ID, addLog, addMovement, movementIndex, nextId, removeMovement, villagesOf, type WorldState } from './state';
 import { currentResources, isOperational, settle, type Village } from './village';
 import { mateEvent } from './loyalty';
+import { tr } from '../shared/i18n';
 
 export const MERCHANT_CARRY = 1000;
 export const MERCHANT_MINUTES_PER_FIELD = 6;
@@ -66,18 +67,18 @@ function cleanRes(r: Res): Res {
 export function sendResources(state: WorldState, fromId: number, toId: number, requested: Res): string | null {
   const from = state.villages[fromId];
   const to = state.villages[toId];
-  if (!from || !to) return 'Dorp bestaat niet.';
-  if (from.id === to.id) return 'Dat is hetzelfde dorp.';
-  if (to.owner < 0) return 'Je kunt geen grondstoffen naar barbaren sturen.';
-  if (!isOperational(state.config, from, 'market')) return 'Je hebt een werkende marktplaats nodig.';
+  if (!from || !to) return tr('Dorp bestaat niet.');
+  if (from.id === to.id) return tr('Dat is hetzelfde dorp.');
+  if (to.owner < 0) return tr('Je kunt geen grondstoffen naar barbaren sturen.');
+  if (!isOperational(state.config, from, 'market')) return tr('Je hebt een werkende marktplaats nodig.');
   const res = cleanRes(requested);
   const total = res[0] + res[1] + res[2];
-  if (total <= 0) return 'Kies minstens één grondstof.';
+  if (total <= 0) return tr('Kies minstens één grondstof.');
   settle(state.config, from, state.time);
-  if ([0, 1, 2].some((i) => res[i as 0 | 1 | 2] > from.res[i as 0 | 1 | 2])) return 'Niet genoeg grondstoffen.';
+  if ([0, 1, 2].some((i) => res[i as 0 | 1 | 2] > from.res[i as 0 | 1 | 2])) return tr('Niet genoeg grondstoffen.');
   const merchants = merchantsFor(total);
   const free = merchantsFree(state, from);
-  if (merchants > free) return `${merchants} handelaren nodig, ${free} beschikbaar.`;
+  if (merchants > free) return tr('{need} handelaren nodig, {free} beschikbaar.', { need: merchants, free });
   for (const i of [0, 1, 2] as const) from.res[i] -= res[i];
   launch(state, from, to, res, merchants);
   return null;
@@ -111,7 +112,7 @@ export function arriveTrade(state: WorldState, m: Movement): void {
     const cap = storageCapacity(to.buildings.storage);
     for (const i of [0, 1, 2] as const) to.res[i] = Math.max(to.res[i], Math.min(cap, to.res[i] + (m.res[i] ?? 0)));
     if (to.owner === HUMAN_ID && m.owner !== HUMAN_ID) {
-      addLog(state, { time: state.time, text: `${to.name} ontving grondstoffen van ${state.players[m.owner]?.name ?? '?'}.` });
+      addLog(state, { time: state.time, text: tr('{village} ontving grondstoffen van {player}.', { village: to.name, player: state.players[m.owner]?.name ?? '?' }) });
     }
     if (m.owner === HUMAN_ID && to.owner !== HUMAN_ID) mateEvent(state, state.players[to.owner], 3, 1, 'je stuurde grondstoffen');
   }
@@ -149,17 +150,17 @@ export function createOffer(
   want: { res: 0 | 1 | 2; amount: number },
 ): string | null {
   const v = state.villages[villageId];
-  if (!v) return 'Dorp bestaat niet.';
-  if (!isOperational(state.config, v, 'market')) return 'Je hebt een werkende marktplaats nodig.';
+  if (!v) return tr('Dorp bestaat niet.');
+  if (!isOperational(state.config, v, 'market')) return tr('Je hebt een werkende marktplaats nodig.');
   const g = Math.floor(give.amount);
   const w = Math.floor(want.amount);
-  if (g <= 0 || w <= 0) return 'Vul beide hoeveelheden in.';
-  if (give.res === want.res) return 'Ruil twee verschillende grondstoffen.';
+  if (g <= 0 || w <= 0) return tr('Vul beide hoeveelheden in.');
+  if (give.res === want.res) return tr('Ruil twee verschillende grondstoffen.');
   settle(state.config, v, state.time);
-  if (v.res[give.res] < g) return `Niet genoeg ${RES_NAMES[give.res]}.`;
+  if (v.res[give.res] < g) return tr('Niet genoeg {res}.', { res: RES_NAMES[give.res] });
   const need = merchantsFor(g);
   const free = merchantsFree(state, v);
-  if (need > free) return `${need} handelaren nodig, ${free} beschikbaar.`;
+  if (need > free) return tr('{need} handelaren nodig, {free} beschikbaar.', { need, free });
   v.res[give.res] -= g;
   state.offers ??= [];
   state.offers.push({ id: nextId(state), villageId: v.id, owner: v.owner, give: { res: give.res, amount: g }, want: { res: want.res, amount: w }, created: state.time });
@@ -168,8 +169,8 @@ export function createOffer(
 
 export function cancelOffer(state: WorldState, offerId: number, by: number): string | null {
   const offer = state.offers?.find((o) => o.id === offerId);
-  if (!offer) return 'Aanbod bestaat niet meer.';
-  if (offer.owner !== by) return 'Dat is niet jouw aanbod.';
+  if (!offer) return tr('Aanbod bestaat niet meer.');
+  if (offer.owner !== by) return tr('Dat is niet jouw aanbod.');
   removeOffer(state, offer, true);
   return null;
 }
@@ -188,20 +189,20 @@ function removeOffer(state: WorldState, offer: TradeOffer, refund: boolean): voi
 export function acceptOffer(state: WorldState, offerId: number, villageId: number): string | null {
   const offer = state.offers?.find((o) => o.id === offerId);
   const v = state.villages[villageId];
-  if (!offer) return 'Aanbod bestaat niet meer.';
-  if (!v) return 'Dorp bestaat niet.';
+  if (!offer) return tr('Aanbod bestaat niet meer.');
+  if (!v) return tr('Dorp bestaat niet.');
   const seller = state.villages[offer.villageId];
   if (!seller || seller.owner !== offer.owner) {
     removeOffer(state, offer, false);
-    return 'Aanbod bestaat niet meer.';
+    return tr('Aanbod bestaat niet meer.');
   }
-  if (seller.owner === v.owner) return 'Dat is je eigen aanbod.';
-  if (!isOperational(state.config, v, 'market')) return 'Je hebt een werkende marktplaats nodig.';
+  if (seller.owner === v.owner) return tr('Dat is je eigen aanbod.');
+  if (!isOperational(state.config, v, 'market')) return tr('Je hebt een werkende marktplaats nodig.');
   settle(state.config, v, state.time);
-  if (v.res[offer.want.res] < offer.want.amount) return `Niet genoeg ${RES_NAMES[offer.want.res]}.`;
+  if (v.res[offer.want.res] < offer.want.amount) return tr('Niet genoeg {res}.', { res: RES_NAMES[offer.want.res] });
   const need = merchantsFor(offer.want.amount);
   const free = merchantsFree(state, v);
-  if (need > free) return `${need} handelaren nodig, ${free} beschikbaar.`;
+  if (need > free) return tr('{need} handelaren nodig, {free} beschikbaar.', { need, free });
   v.res[offer.want.res] -= offer.want.amount;
   removeOffer(state, offer, false);
   const toBuyer: Res = [0, 0, 0];
@@ -213,7 +214,7 @@ export function acceptOffer(state: WorldState, offerId: number, villageId: numbe
   if (offer.owner === HUMAN_ID) {
     addLog(state, {
       time: state.time,
-      text: `Je aanbod ${offer.give.amount} ${RES_NAMES[offer.give.res]} voor ${offer.want.amount} ${RES_NAMES[offer.want.res]} is aangenomen door ${state.players[v.owner]?.name ?? '?'}.`,
+      text: tr('Je aanbod {give} {giveRes} voor {want} {wantRes} is aangenomen door {player}.', { give: offer.give.amount, giveRes: RES_NAMES[offer.give.res], want: offer.want.amount, wantRes: RES_NAMES[offer.want.res], player: state.players[v.owner]?.name ?? '?' }),
     });
   }
   return null;

@@ -9,7 +9,8 @@
  *   the tab told it (setLang).
  *
  * Same Dutch, different meaning: add a context after a bar, `tr('Opdracht|bevel')` (an order) next to
- * `tr('Opdracht')` (a quest). Dutch shows the part before the bar.
+ * `tr('Opdracht')` (a quest). Dutch shows the part before the bar. A context is one lowercase word at
+ * the very end of the key (so '({x}|{y})' is not one).
  *
  * Dictionaries live in ./en/*.ts (Dutch -> English) and are added in ./en/index.ts.
  * `npm run i18n:check` lists keys that have no English yet.
@@ -56,8 +57,8 @@ export function tr(nl: string, p?: Params): string {
   const t = (lang.value === 'nl' ? undefined : en[nl]) ?? plainKey(nl);
   return fill(t, p);
 }
-/** A key without its context ('Opdracht|bevel' -> 'Opdracht'). */
-const plainKey = (k: string) => { const i = k.indexOf('|'); return i < 0 ? k : k.slice(0, i); };
+/** A key without its context ('Opdracht|bevel' -> 'Opdracht'); only a bare lowercase word at the end is a context, so coordinates like '{x}|{y}' stay. */
+const plainKey = (k: string) => k.replace(/\|[a-z]+$/, '');
 
 /** Text to keep (inbox, news): the Dutch template and its values, translated when shown. */
 export function T(nl: string, p?: Params): Txt {

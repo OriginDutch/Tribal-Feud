@@ -2,7 +2,7 @@
  * Simulation worker: owns the world state, runs the clock, handles saves.
  * The UI never touches the state directly.
  */
-import { lang } from '../shared/i18n';
+import { lang, tr } from '../shared/i18n';
 import '../shared/i18n/en';
 import { autoFarmInterval, setAutoFarm } from './farmAll';
 import { isFarmLetter } from '../shared/farmTemplates';
@@ -144,7 +144,7 @@ async function newestLocal(key: string): Promise<{ slot: string; data: SaveData 
 async function pushWorld(key: string, when: 'push' | 'force', to: Client | null): Promise<void> {
   if (state && worldKey(state) === key) return save(autosaveSlot(state), true, to, when);
   const local = await newestLocal(key);
-  if (!local) return notice('Die wereld staat niet op dit apparaat.', 'error', to);
+  if (!local) return notice(tr('Die wereld staat niet op dit apparaat.'), 'error', to);
   const { data } = local;
   await cloud.offer({ key, name: data.state.config.name, savedAt: data.savedAt, gameTime: data.state.time, version: data.version, json: JSON.stringify(data) }, when);
 }
@@ -243,7 +243,7 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
         res: currentResources(config, v, s.time).map(Math.floor) as OwnVillageRow['res'],
         storage: storageCapacity(v.buildings.storage),
         pop: { used: popUsed(config, v), max: popMax(config, v) },
-        building: job ? { name: config.buildings[job.building].name, level: job.level, end: job.end } : null,
+        building: job ? { name: tr(config.buildings[job.building].name), level: job.level, end: job.end } : null,
         buildQueue: v.buildQueue.length,
         recruiting,
         units,
@@ -251,7 +251,7 @@ function ownVillageRows(s: WorldState): OwnVillageRow[] {
         groups: [...(v.groups ?? [])],
         loyalty: Math.floor(loyaltyNow(config, v, s.time)),
         manager: v.manager
-          ? [findTemplate(s, v.manager.template)?.name, v.manager.troops ? 'troepen' : undefined].filter(Boolean).join(' · ') || 'aan'
+          ? [findTemplate(s, v.manager.template)?.name, v.manager.troops ? tr('troepen') : undefined].filter(Boolean).join(' · ') || tr('aan')
           : null,
         maxMint: mintBlocker(s, v) === null ? maxMintable(s, v) : 0,
         ...(s.config.churches ? { faith: hasFaith(s, v) } : {}),
@@ -407,7 +407,7 @@ function sendRanking(s: WorldState): void {
     const face = faceOf(s, p.id);
     if (face) row.face = face;
     if (p.bot) {
-      row.archetype = ARCHETYPE_NAMES[p.bot.archetype];
+      row.archetype = tr(ARCHETYPE_NAMES[p.bot.archetype]);
       row.activity = p.bot.activity;
     }
     return row;
@@ -419,7 +419,7 @@ function sendRanking(s: WorldState): void {
 /** For a leader: the 20 players nearest to your villages that are not in your tribe. */
 function worldStatsView(s: WorldState): WorldStatsView {
   const ws = s.worldStats ?? { days: [], players: {}, conquests: [] };
-  const name = (id: number) => (id < 0 ? 'barbaren' : (s.players[id]?.name ?? '?'));
+  const name = (id: number) => (id < 0 ? tr('barbaren') : (s.players[id]?.name ?? '?'));
   const tagOf = (id: number) => { const t = s.players[id]?.tribe; return t !== undefined ? s.tribes?.[t]?.tag : undefined; };
   const row = (id: number) => { const p = ws.players[id]!; return { id, name: name(id), ...(tagOf(id) ? { tag: tagOf(id)! } : {}), pvp: p.pvp, barb: p.barb, took: p.took, lost: p.lost }; };
   const ids = Object.keys(ws.players).map(Number);
@@ -574,8 +574,8 @@ function scavView(s: WorldState): ScavView {
 
 function saveScavTemplate(s: WorldState, t: ScavTemplate): string | null {
   const name = t.name.trim();
-  if (!name) return 'Geef het sjabloon een naam.';
-  if (t.id === DEFAULT_SCAV_TEMPLATE.id) return 'Het standaardsjabloon kun je niet aanpassen; sla het op onder een andere naam.';
+  if (!name) return tr('Geef het sjabloon een naam.');
+  if (t.id === DEFAULT_SCAV_TEMPLATE.id) return tr('Het standaardsjabloon kun je niet aanpassen; sla het op onder een andere naam.');
   const list = (s.scavTemplates ??= []);
   const clean: ScavTemplate = { id: t.id || `t${Date.now().toString(36)}`, name: name.slice(0, 30), units: {}, levels: [0, 1, 2, 3].map((l) => !!t.levels[l]), safeOnly: !!t.safeOnly };
   for (const u of SCAV_UNITS) {
@@ -584,7 +584,7 @@ function saveScavTemplate(s: WorldState, t: ScavTemplate): string | null {
   }
   const at = list.findIndex((x) => x.id === clean.id);
   if (at >= 0) list[at] = clean;
-  else if (list.length >= 20) return 'Maximaal 20 sjablonen.';
+  else if (list.length >= 20) return tr('Maximaal {n} sjablonen.', { n: 20 });
   else list.push(clean);
   return null;
 }
@@ -596,7 +596,7 @@ function surplusRows(s: WorldState, keep: number): SurplusRow[] {
 
 /** Every support that involves you: in your villages, yours elsewhere, and between your own villages. */
 function supportRows(s: WorldState): SupportRow[] {
-  const ref = (v: Village) => ({ id: v.id, name: v.name, x: v.x, y: v.y, owner: v.owner, ownerName: v.owner < 0 ? 'barbaren' : (s.players[v.owner]?.name ?? '?') });
+  const ref = (v: Village) => ({ id: v.id, name: v.name, x: v.x, y: v.y, owner: v.owner, ownerName: v.owner < 0 ? tr('barbaren') : (s.players[v.owner]?.name ?? '?') });
   const rows: SupportRow[] = [];
   for (const host of Object.values(s.villages)) {
     if (!host.support) continue;
@@ -641,7 +641,7 @@ function orderViews(s: WorldState): OrderView[] {
   const mates = t ? t.members.filter((m) => m !== HUMAN_ID).length : 0;
   return (s.tribeOrders ?? []).filter((o) => o.expires > s.time).map((o) => {
     const v = o.kind === 'attack' ? s.villages[o.target] : undefined;
-    const targetName = v ? `${v.name} (${v.x}|${v.y}) van ${v.owner < 0 ? 'barbaren' : (s.players[v.owner]?.name ?? '?')}` : (s.players[o.target]?.name ?? '?');
+    const targetName = v ? tr('{village} ({x}|{y}) van {owner}', { village: v.name, x: String(v.x), y: String(v.y), owner: v.owner < 0 ? tr('barbaren') : (s.players[v.owner]?.name ?? '?') }) : (s.players[o.target]?.name ?? '?');
     const answers = Object.values(o.answers);
     return {
       id: o.id, kind: o.kind, target: o.target, targetName, binding: o.binding, expires: o.expires,
@@ -653,7 +653,7 @@ function orderViews(s: WorldState): OrderView[] {
 
 function inboxViews(s: WorldState): InboxView[] {
   return [...(s.inbox ?? [])].reverse().map((m) => ({
-    id: m.id, time: m.time, kind: m.kind, from: m.from, fromName: m.from >= 0 ? (s.players[m.from]?.name ?? '?') : 'Wereld',
+    id: m.id, time: m.time, kind: m.kind, from: m.from, fromName: m.from >= 0 ? (s.players[m.from]?.name ?? '?') : tr('Wereld'),
     title: m.title, text: m.text, read: m.read,
     ...((() => { const f = m.from >= 0 ? faceOf(s, m.from) : null; return f ? { fromFace: f } : {}; })()),
     ...(m.tribe !== undefined ? { tribe: m.tribe } : {}),
@@ -861,7 +861,7 @@ async function save(slot: string, quiet = false, to: Client | null = null, cloud
   const json = JSON.stringify(data);
   await putSave(slot, data, json);
   runningSinceAutosave = 0;
-  if (!quiet) notice(`Opgeslagen in "${slot}".`, 'info', to);
+  if (!quiet) notice(tr('Opgeslagen in "{slot}".', { slot }), 'info', to);
   await postSaves();
   if (cloudWhen) void cloud.offer({ key: worldKey(s), name: s.config.name, savedAt: data.savedAt, gameTime: s.time, version: data.version, json }, cloudWhen);
 }
@@ -871,7 +871,7 @@ function autosave(cloudWhen: 'auto' | 'now' = 'auto'): void {
   const due = runningSinceBackup >= BACKUP_EVERY_MS;
   save(autosaveSlot(state), true, null, cloudWhen)
     .then(() => (due ? backup().then(postSaves) : undefined))
-    .catch((e: unknown) => notice(`Autosave mislukt: ${String(e)}`, 'error'));
+    .catch((e: unknown) => notice(tr('Autosave mislukt: {error}', { error: String(e) }), 'error'));
 }
 
 /** Simulation cost for the performance meter: per real second, how busy, the slowest tick and game time lost. */
@@ -922,7 +922,7 @@ async function handle(cmd: Command): Promise<void> {
   const me = from;
   switch (cmd.type) {
     case 'newWorld': {
-      const config = createConfig(cmd.preset, cmd.name.trim() || 'Naamloze wereld', cmd.seed ?? randomSeed(), cmd.overrides);
+      const config = createConfig(cmd.preset, cmd.name.trim() || tr('Naamloze wereld'), cmd.seed ?? randomSeed(), cmd.overrides);
       const errors = validateConfig(config);
       if (errors.length > 0) {
         notice(errors.join(' '), 'error');
@@ -980,12 +980,12 @@ async function handle(cmd: Command): Promise<void> {
       break;
     case 'saveWorld':
       if (state) await save(`${MANUAL_PREFIX}${worldKey(state)}`, true, me, 'now');
-      notice(cloud.user ? 'Wereld opgeslagen (ook naar de cloud).' : 'Wereld opgeslagen.', 'info', me);
+      notice(cloud.user ? tr('Wereld opgeslagen (ook naar de cloud).') : tr('Wereld opgeslagen.'), 'info', me);
       break;
     case 'load': {
       const data = await getSave(cmd.slot);
       if (!data) {
-        notice(`Save "${cmd.slot}" niet gevonden.`, 'error', me);
+        notice(tr('Save "{slot}" niet gevonden.', { slot: cmd.slot }), 'error', me);
         return;
       }
       // a save from before an update: keep the original first, the migration can't be undone
@@ -999,7 +999,7 @@ async function handle(cmd: Command): Promise<void> {
       runningSinceBackup = 0;
       // always resume paused, so nothing happens before the player looks
       state.paused = true;
-      notice(`"${state.config.name}" geladen.`, 'info', me);
+      notice(tr('"{name}" geladen.', { name: state.config.name }), 'info', me);
       break;
     }
     case 'auth':
@@ -1022,19 +1022,19 @@ async function handle(cmd: Command): Promise<void> {
       break;
     case 'cloudReplace': {
       const local = await newestLocal(cmd.key);
-      if (!local) return notice('Die wereld staat niet op dit apparaat.', 'error', me);
+      if (!local) return notice(tr('Die wereld staat niet op dit apparaat.'), 'error', me);
       await cloud.remove(cmd.slot);
       await pushWorld(cmd.key, 'push', me);
       break;
     }
     case 'cloudDownload': {
       const world = await fetchCloudWorld(cmd.slot);
-      notice(`"${world.name}" staat nu ook op dit apparaat.`, 'info', me);
+      notice(tr('"{name}" staat nu ook op dit apparaat.', { name: world.name }), 'info', me);
       await postSaves();
       break;
     }
     case 'deleteWorld': {
-      if (state && worldKey(state) === cmd.key) return notice('Deze wereld is nu open. Ga eerst terug naar het startscherm.', 'error', me);
+      if (state && worldKey(state) === cmd.key) return notice(tr('Deze wereld is nu open. Ga eerst terug naar het startscherm.'), 'error', me);
       for (const m of await listSaves()) if (worldKeyOf(m) === cmd.key || `slot:${m.slot}` === cmd.key) await deleteSave(m.slot);
       await postSaves();
       break;
@@ -1058,7 +1058,7 @@ async function handle(cmd: Command): Promise<void> {
       break;
     case 'sendAttack':
       if (!state) return;
-      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice(tr('Dat is niet jouw dorp.'), 'error');
       {
         const error = sendAttack(state, cmd.from, cmd.to, cmd.units, cmd.catapultTarget, undefined, 0, undefined, true);
         if (error) notice(error, 'error');
@@ -1073,10 +1073,10 @@ async function handle(cmd: Command): Promise<void> {
       break;
     case 'sendFarm': {
       if (!state) return;
-      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice(tr('Dat is niet jouw dorp.'), 'error');
       const units = cmd.template === '*' ? farmCUnits(state, cmd.from, cmd.to) : state.farmTemplates[cmd.template];
       const before = state.nextId;
-      const error = !units ? `Sjabloon ${cmd.template} bestaat niet.` : typeof units === 'string' ? units : sendAttack(state, cmd.from, cmd.to, units);
+      const error = !units ? tr('Sjabloon {template} bestaat niet.', { template: cmd.template }) : typeof units === 'string' ? units : sendAttack(state, cmd.from, cmd.to, units);
       if (error) notice(error, 'error');
       else { markFarm(state, before, cmd.to, cmd.template); if (farmNotifies(state, cmd.template)) playSfx(state, 'march'); }
       break;
@@ -1115,20 +1115,20 @@ async function handle(cmd: Command): Promise<void> {
     }
     case 'sendResources': {
       if (!state) return;
-      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice(tr('Dat is niet jouw dorp.'), 'error');
       const error = sendResources(state, cmd.from, cmd.to, cmd.res);
       if (error) notice(error, 'error');
       break;
     }
     case 'createOffer': {
       if (!state) return;
-      if (state.villages[cmd.villageId]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      if (state.villages[cmd.villageId]?.owner !== HUMAN_ID) return notice(tr('Dat is niet jouw dorp.'), 'error');
       const count = Math.max(1, Math.min(50, Math.floor(cmd.count)));
       let made = 0;
       let error: string | null = null;
       while (made < count && (error = createOffer(state, cmd.villageId, cmd.give, cmd.want)) === null) made++;
       if (error && made === 0) notice(error, 'error');
-      else if (error) notice(`${made} van ${count} aanbiedingen geplaatst: ${error}`, 'error');
+      else if (error) notice(tr('{made} van {count} aanbiedingen geplaatst: {error}', { made, count, error }), 'error');
       break;
     }
     case 'cancelOffer': {
@@ -1139,7 +1139,7 @@ async function handle(cmd: Command): Promise<void> {
     }
     case 'acceptOffer': {
       if (!state) return;
-      if (state.villages[cmd.villageId]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      if (state.villages[cmd.villageId]?.owner !== HUMAN_ID) return notice(tr('Dat is niet jouw dorp.'), 'error');
       const error = acceptOffer(state, cmd.id, cmd.villageId);
       if (error) notice(error, 'error');
       break;
@@ -1153,7 +1153,7 @@ async function handle(cmd: Command): Promise<void> {
     case 'balanceVillages': {
       if (!state) return;
       const n = balanceVillages(state, HUMAN_ID);
-      notice(n > 0 ? `${n} zending${n === 1 ? '' : 'en'} onderweg.` : 'Niets te balanceren (of geen vrije handelaren).');
+      notice(n > 0 ? (n === 1 ? tr('{n} zending onderweg.', { n }) : tr('{n} zendingen onderweg.', { n })) : tr('Niets te balanceren (of geen vrije handelaren).'));
       break;
     }
     case 'dismissToast':
@@ -1173,14 +1173,14 @@ async function handle(cmd: Command): Promise<void> {
     }
     case 'mintCoins': {
       if (!state) return;
-      if (state.villages[cmd.villageId]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      if (state.villages[cmd.villageId]?.owner !== HUMAN_ID) return notice(tr('Dat is niet jouw dorp.'), 'error');
       const error = mintCoins(state, cmd.villageId, cmd.count);
       if (error) notice(error, 'error');
       break;
     }
     case 'sendNobleTrain': {
       if (!state) return;
-      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice(tr('Dat is niet jouw dorp.'), 'error');
       const error = sendNobleTrain(state, cmd.from, cmd.to, cmd.first, cmd.escorts, cmd.catapultTarget, cmd.clearFirst ?? false);
       if (error) notice(error, 'error');
       else { const owner = state.villages[cmd.to]?.owner; if (owner !== undefined && owner >= 0) attackedWithoutPermission(state, owner); humanOpSent(state, cmd.to); playSfx(state, 'march'); }
@@ -1189,13 +1189,13 @@ async function handle(cmd: Command): Promise<void> {
     case 'planAttack': {
       if (!state) return;
       const error = planAttack(state, { from: cmd.from, to: cmd.to, first: cmd.first, ...(cmd.escorts?.length ? { escorts: cmd.escorts } : {}), ...(cmd.catapultTarget ? { catapultTarget: cmd.catapultTarget } : {}), ...(cmd.clearFirst ? { clearFirst: true } : {}), landAt: cmd.landAt });
-      notice(error ?? 'Aanval ingepland: hij vertrekt vanzelf.', error ? 'error' : 'info');
+      notice(error ?? tr('Aanval ingepland: hij vertrekt vanzelf.'), error ? 'error' : 'info');
       break;
     }
     case 'planOrder': {
       if (!state) return;
       const error = planOrder(state, cmd.from, cmd.to, cmd.landAt, !!cmd.spies);
-      notice(error ?? 'Ingepland: hij vertrekt vanzelf op tijd.', error ? 'error' : 'info');
+      notice(error ?? tr('Ingepland: hij vertrekt vanzelf op tijd.'), error ? 'error' : 'info');
       break;
     }
     case 'tribeCoup': {
@@ -1207,13 +1207,13 @@ async function handle(cmd: Command): Promise<void> {
     case 'askOrder': {
       if (!state) return;
       const error = askForOrder(state);
-      notice(error ?? 'Gevraagd: kijk in je opdrachten of je inbox.', error ? 'error' : 'info');
+      notice(error ?? tr('Gevraagd: kijk in je opdrachten of je inbox.'), error ? 'error' : 'info');
       break;
     }
     case 'giveNobles': {
       if (!state) return;
       const error = giveNobles(state, cmd.op, cmd.to);
-      notice(error ?? 'Edels weggegeven.', error ? 'error' : 'info');
+      notice(error ?? tr('Edels weggegeven.'), error ? 'error' : 'info');
       break;
     }
     case 'cancelPlanned': {
@@ -1224,7 +1224,7 @@ async function handle(cmd: Command): Promise<void> {
     }
     case 'sendSupport': {
       if (!state) return;
-      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice('Dat is niet jouw dorp.', 'error');
+      if (state.villages[cmd.from]?.owner !== HUMAN_ID) return notice(tr('Dat is niet jouw dorp.'), 'error');
       const error = sendSupport(state, cmd.from, cmd.to, cmd.units);
       if (error) notice(error, 'error');
       break;
@@ -1239,7 +1239,7 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       let ok = 0;
       for (const { hostId, originId } of cmd.pairs) if (returnSupport(state, HUMAN_ID, hostId, originId) === null) ok++;
-      notice(ok ? `${ok} ondersteuning${ok === 1 ? '' : 'en'} op weg naar huis.` : 'Niets teruggestuurd.', ok ? 'info' : 'error');
+      notice(ok ? (ok === 1 ? tr('{n} ondersteuning op weg naar huis.', { n: ok }) : tr('{n} ondersteuningen op weg naar huis.', { n: ok })) : tr('Niets teruggestuurd.'), ok ? 'info' : 'error');
       post({ type: 'supportList', rows: supportRows(state) });
       break;
     }
@@ -1251,7 +1251,7 @@ async function handle(cmd: Command): Promise<void> {
       const end = state.time + cmd.hours * 3_600_000;
       while (state.time < end) { state.paused = false; advance(state, Math.min(end - state.time, 3_600_000)); }
       state.speed = speed; state.paused = paused;
-      addLog(state, { time: state.time, text: `Debug: ${cmd.hours} uur doorgespoeld.` });
+      addLog(state, { time: state.time, text: tr('Debug: {n} uur doorgespoeld.', { n: cmd.hours }) });
       break;
     }
     case 'debugConquer': {
@@ -1263,7 +1263,7 @@ async function handle(cmd: Command): Promise<void> {
         .sort((a, b) => distance(a, here) - distance(b, here))[0];
       if (!target) return;
       conquer(state, target, HUMAN_ID);
-      addLog(state, { time: state.time, text: `Debug: ${target.name} (${target.x}|${target.y}) overgenomen.` });
+      addLog(state, { time: state.time, text: tr('Debug: {village} ({x}|{y}) overgenomen.', { village: target.name, x: String(target.x), y: String(target.y) }) });
       break;
     }
     case 'setManager': {
@@ -1315,7 +1315,7 @@ async function handle(cmd: Command): Promise<void> {
         if (error) errors.push(`${state.villages[o.from]?.name ?? '?'}: ${error}`);
         else sent++;
       }
-      if (sent) notice(`Support verstuurd vanuit ${sent} ${sent === 1 ? 'dorp' : 'dorpen'}.`, 'info');
+      if (sent) notice(sent === 1 ? tr('Support verstuurd vanuit {n} dorp.', { n: sent }) : tr('Support verstuurd vanuit {n} dorpen.', { n: sent }), 'info');
       if (errors.length) notice(errors.join(' · '), 'error');
       break;
     }
@@ -1382,7 +1382,7 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       const error = cmd.type === 'askTribeHelp' ? askTribeHelp(state, cmd.movement) : cmd.type === 'giveOrder' ? giveOrder(state, cmd.kind, cmd.target) : cancelOrder(state, cmd.id);
       if (error) notice(error, 'error');
-      else if (cmd.type === 'askTribeHelp') notice('Je stam is om hulp gevraagd. Stamgenoten antwoorden als ze online zijn.', 'info');
+      else if (cmd.type === 'askTribeHelp') notice(tr('Je stam is om hulp gevraagd. Stamgenoten antwoorden als ze online zijn.'), 'info');
       break;
     }
     case 'getPlayer':
@@ -1397,14 +1397,14 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       const error = cmd.type === 'askTribeResources' ? askTribeResources(state, cmd.village, cmd.res) : cmd.type === 'askPermission' ? askPermission(state, cmd.target) : humanBetray(state, cmd.target);
       if (error) notice(error, 'error');
-      else notice(cmd.type === 'askTribeResources' ? 'Je stam is om grondstoffen gevraagd. Stamgenoten antwoorden als ze online zijn.' : cmd.type === 'askPermission' ? 'Gevraagd. Je leider antwoordt als hij online is.' : 'Het is gebeurd. Er is geen weg terug.', 'info');
+      else notice(cmd.type === 'askTribeResources' ? tr('Je stam is om grondstoffen gevraagd. Stamgenoten antwoorden als ze online zijn.') : cmd.type === 'askPermission' ? tr('Gevraagd. Je leider antwoordt als hij online is.') : tr('Het is gebeurd. Er is geen weg terug.'), 'info');
       post({ type: 'opinions', opinions: opinionsView(state) });
       break;
     }
     case 'mergeFlags': {
       if (!state) return;
       const n = mergeAll(state, state.players[HUMAN_ID]!, cmd.flag as FlagType | undefined);
-      notice(n ? `${n}× samengevoegd.` : 'Niets samen te voegen (of je houdt ze nodig voor je dorpen).', n ? 'info' : 'error');
+      notice(n ? tr('{n}× samengevoegd.', { n }) : tr('Niets samen te voegen (of je houdt ze nodig voor je dorpen).'), n ? 'info' : 'error');
       break;
     }
     case 'flagAuto': {
@@ -1443,7 +1443,7 @@ async function handle(cmd: Command): Promise<void> {
       if (!state) return;
       if (!['easy', 'normal', 'hard'].includes(cmd.difficulty)) return;
       state.config.bots.difficulty = cmd.difficulty;
-      addLog(state, { time: state.time, text: `Moeilijkheid van de bots: ${({ easy: 'Makkelijk', normal: 'Normaal', hard: 'Moeilijk' } as const)[cmd.difficulty]}.` });
+      addLog(state, { time: state.time, text: tr('Moeilijkheid van de bots: {level}.', { level: tr(({ easy: 'Makkelijk', normal: 'Normaal', hard: 'Moeilijk' } as const)[cmd.difficulty]) }) });
       break;
     }
     case 'getFarmAllPlan':
@@ -1452,14 +1452,14 @@ async function handle(cmd: Command): Promise<void> {
     case 'setAutoFarm': {
       if (!state) return;
       setAutoFarm(state, cmd.options);
-      notice(cmd.options ? `Automatisch farmen aan: elke ${Math.max(1, Math.round(autoFarmInterval(state) / 60_000))} speelminuten.` : 'Automatisch farmen uit.', 'info');
+      notice(cmd.options ? tr('Automatisch farmen aan: elke {n} speelminuten.', { n: Math.max(1, Math.round(autoFarmInterval(state) / 60_000)) }) : tr('Automatisch farmen uit.'), 'info');
       break;
     }
     case 'farmAll': {
       if (!state) return;
       const r = farmAll(state, cmd.options);
       if (r.error && !r.sent) notice(r.error, 'error');
-      else notice(`${r.sent} farmaanval${r.sent === 1 ? '' : 'len'} verstuurd.${r.error ? ` Niet alles lukte: ${r.error}` : ''}`, 'info');
+      else notice((r.sent === 1 ? tr('{n} farmaanval verstuurd.', { n: r.sent }) : tr('{n} farmaanvallen verstuurd.', { n: r.sent })) + (r.error ? ' ' + tr('Niet alles lukte: {error}', { error: r.error }) : ''), 'info');
       post({ type: 'farmAllPlan', plan: farmAllView(state, cmd.options) });
       break;
     }
@@ -1478,7 +1478,7 @@ async function handle(cmd: Command): Promise<void> {
         error ??= r.error ? `${v.name}: ${r.error}` : null;
       }
       if (error) notice(error, 'error');
-      if (runs) notice(`${runs} rooftocht${runs === 1 ? '' : 'en'} vertrokken.`, 'info');
+      if (runs) notice(runs === 1 ? tr('{n} rooftocht vertrokken.', { n: runs }) : tr('{n} rooftochten vertrokken.', { n: runs }), 'info');
       post({ type: 'scav', view: scavView(state) });
       break;
     }
@@ -1507,23 +1507,23 @@ async function handle(cmd: Command): Promise<void> {
       if (build !== state.config.buildSpeed) for (const v of Object.values(state.villages)) if (v.owner === BARBARIAN) growBarbarian(state, v, state.time);
       state.config.buildSpeed = build;
       state.config.recruitSpeed = recruit;
-      addLog(state, { time: state.time, text: `Bouwsnelheid ×${build}, rekruteersnelheid ×${recruit}. Wat al in een wachtrij staat houdt zijn tijd.` });
+      addLog(state, { time: state.time, text: tr('Bouwsnelheid ×{build}, rekruteersnelheid ×{recruit}. Wat al in een wachtrij staat houdt zijn tijd.', { build, recruit }) });
       break;
     }
     case 'setRules': {
       if (!state) return;
       const c = state.config;
       const said: string[] = [];
-      if (cmd.morale && cmd.morale !== c.morale) { c.morale = cmd.morale; said.push(`moraal ${{ off: 'uit', points: 'op punten', pointsTime: 'op punten en tijd' }[cmd.morale]}`); }
-      if (cmd.luck !== undefined && cmd.luck !== c.luck) { c.luck = cmd.luck; said.push(`geluk ${cmd.luck ? 'aan' : 'uit'}`); }
-      if (cmd.nightBonus !== undefined && cmd.nightBonus !== c.nightBonus) { c.nightBonus = cmd.nightBonus; said.push(`nachtbonus ${cmd.nightBonus ? 'aan' : 'uit'}`); }
-      if (said.length) addLog(state, { time: state.time, text: `Wereldregels: ${said.join(', ')}. Geldt voor gevechten vanaf nu, ook voor de bots.` });
+      if (cmd.morale && cmd.morale !== c.morale) { c.morale = cmd.morale; said.push(tr('moraal {value}', { value: tr({ off: 'uit', points: 'op punten', pointsTime: 'op punten en tijd' }[cmd.morale]) })); }
+      if (cmd.luck !== undefined && cmd.luck !== c.luck) { c.luck = cmd.luck; said.push(tr('geluk {value}', { value: tr(cmd.luck ? 'aan' : 'uit') })); }
+      if (cmd.nightBonus !== undefined && cmd.nightBonus !== c.nightBonus) { c.nightBonus = cmd.nightBonus; said.push(tr('nachtbonus {value}', { value: tr(cmd.nightBonus ? 'aan' : 'uit') })); }
+      if (said.length) addLog(state, { time: state.time, text: tr('Wereldregels: {rules}. Geldt voor gevechten vanaf nu, ook voor de bots.', { rules: said.join(', ') }) });
       break;
     }
     case 'setScavenging':
       if (!state) return;
       state.config.scavenging = cmd.on;
-      addLog(state, { time: state.time, text: `Rooftochten ${cmd.on ? 'aan' : 'uit'}.` });
+      addLog(state, { time: state.time, text: cmd.on ? tr('Rooftochten aan.') : tr('Rooftochten uit.') });
       break;
     case 'getMintPlan':
       if (state) post({ type: 'mintPlan', rows: mintRows(state, cmd.keep), keep: cmd.keep });
@@ -1531,7 +1531,7 @@ async function handle(cmd: Command): Promise<void> {
     case 'mintAll': {
       if (!state) return;
       const n = mintAll(state, cmd.keep);
-      notice(n ? `${n} munt${n === 1 ? '' : 'en'} geslagen.` : 'Geen munten geslagen: geen afgebouwd dorp met adelshoeve en genoeg grondstoffen.', n ? 'info' : 'error');
+      notice(n ? (n === 1 ? tr('{n} munt geslagen.', { n }) : tr('{n} munten geslagen.', { n })) : tr('Geen munten geslagen: geen afgebouwd dorp met adelshoeve en genoeg grondstoffen.'), n ? 'info' : 'error');
       post({ type: 'mintPlan', rows: mintRows(state, cmd.keep), keep: cmd.keep });
       break;
     }
@@ -1555,7 +1555,7 @@ async function handle(cmd: Command): Promise<void> {
     case 'sendSurplus': {
       if (!state) return;
       const n = sendSurplus(state, { keep: cmd.keep, auto: state.surplus?.auto ?? false });
-      notice(n ? `${n} zending${n === 1 ? '' : 'en'} onderweg naar bouwende dorpen.` : 'Niets te versturen: geen overschot, geen vrije handelaren of geen dorp dat tekortkomt.', n ? 'info' : 'error');
+      notice(n ? (n === 1 ? tr('{n} zending onderweg naar bouwende dorpen.', { n }) : tr('{n} zendingen onderweg naar bouwende dorpen.', { n })) : tr('Niets te versturen: geen overschot, geen vrije handelaren of geen dorp dat tekortkomt.'), n ? 'info' : 'error');
       post({ type: 'surplusPlan', rows: surplusRows(state, cmd.keep), keep: cmd.keep });
       break;
     }
@@ -1581,7 +1581,7 @@ async function handle(cmd: Command): Promise<void> {
         const id = b as keyof typeof v.buildings;
         if (id in v.buildings) v.buildings[id] = Math.max(v.buildings[id], Math.min(state.config.buildings[id].maxLevel, level ?? 0));
       }
-      addLog(state, { time: state.time, text: 'Debug: troepen/grondstoffen toegevoegd.' });
+      addLog(state, { time: state.time, text: tr('Debug: troepen/grondstoffen toegevoegd.') });
       break;
     }
     case 'getMap':
@@ -1664,7 +1664,7 @@ type VillageCommand = Extract<
 >;
 
 function villageAction(s: WorldState, cmd: VillageCommand): string | null {
-  if (s.villages[cmd.villageId]?.owner !== HUMAN_ID) return 'Dat is niet jouw dorp.';
+  if (s.villages[cmd.villageId]?.owner !== HUMAN_ID) return tr('Dat is niet jouw dorp.');
   switch (cmd.type) {
     case 'build':
       return queueBuild(s, cmd.villageId, cmd.building);

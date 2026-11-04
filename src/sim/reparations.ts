@@ -12,6 +12,7 @@ import { merchantsFree, sendResources } from './market';
 import { HUMAN_ID, addLog, villagesOf, type WorldState } from './state';
 import { currentResources, isOperational } from './village';
 import type { Tribe } from './tribes';
+import { tr } from '../shared/i18n';
 
 export const REPARATION_DAYS = 7;
 const PER_MERCHANT = 1000;
@@ -37,7 +38,7 @@ export function addReparations(state: WorldState, winner: Tribe, loser: Tribe, t
     if (share <= 0) continue;
     const d: Reparation = { from: m, to: winner.id, left: share, total: share, due: state.time + (REPARATION_DAYS * DAY) / state.config.worldSpeed, sent: 0 };
     (state.reparations ??= []).push(d);
-    if (m === HUMAN_ID) addLog(state, { time: state.time, text: `Jouw deel van de vrede: ${share.toLocaleString('nl-NL')} grondstoffen aan [${winner.tag}]. Je handelaren brengen het weg zodra ze kunnen.` });
+    if (m === HUMAN_ID) addLog(state, { time: state.time, text: tr('Jouw deel van de vrede: {n} grondstoffen aan [{tag}]. Je handelaren brengen het weg zodra ze kunnen.', { n: share, tag: winner.tag }) });
     pay(state, d);
   }
   state.reparations = (state.reparations ?? []).filter((x) => x.left > 0);
