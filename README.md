@@ -79,3 +79,13 @@ src/
 - **No hardcoded numbers.** Settings and balance values belong in `WorldConfig`.
 - **Changed the shape of `WorldState`?** Bump `SAVE_VERSION` in `src/sim/save.ts` and add a migration.
 - **Time only runs while you play.** Paused, auto-paused, or tab hidden means the clock stands still. Loaded saves always start paused.
+
+## Credits
+
+Tribal Feud is a non-commercial hobby project, inspired by the mechanics of Tribal Wars by InnoGames.
+It is not affiliated with or endorsed by InnoGames.
+
+- **Music** (`public/music/`): made with [Suno](https://suno.com) on the free plan, for non-commercial use only.
+- **Sound effects** (`public/sfx/`): from [Freesound](https://freesound.org). Per-sound creators and licenses still to be added.
+- **Art** (`public/art/`, `public/buildings/`, `public/units/`, `public/faces/`): made with ChatGPT for this project.
+- **Village view** (`public/village/`): rendered from code in this repo (`tools/art/`).
